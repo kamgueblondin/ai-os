@@ -1,3 +1,6 @@
+#include "idt.h"
+#include "interrupts.h"
+
 // Function to read a byte from a port
 unsigned char inb(unsigned short port);
 // Function to write a byte to a port
@@ -40,7 +43,10 @@ void outb(unsigned short port, unsigned char data) {
     asm volatile ("outb %0, %1" : : "a"(data), "dN"(port));
 }
 
-// Pointeur vers la mémoire vidéo VGA. L\'adresse 0xB8000 est standard.
+// Fonction pic_send_eoi définie dans interrupts.c
+extern void pic_send_eoi(unsigned char irq);
+
+// Pointeur vers la mémoire vidéo VGA. L'adresse 0xB8000 est standard.
 volatile unsigned short* vga_buffer = (unsigned short*)0xB8000;
 // Position actuelle du curseur
 int vga_x = 0;
@@ -77,10 +83,33 @@ void print_string_serial(const char* str) {
 
 // La fonction principale de notre noyau
 void kmain(void) {
-    serial_init(); // Initialize serial port
-    print_string_serial("Bienvenue dans AI-OS !\n"); // Print to serial port
+    char color = 0x1F; 
+    
+    // Initialisation du port série
+    serial_init();
+    
+    // Effacer l'écran VGA
+    for (int y = 0; y < 25; y++) {
+        for (int x = 0; x < 80; x++) {
+            print_char_vga(' ', x, y, color);
+        }
+    }
 
-    // The kernel should never terminate
-    while(1) {}
+    // Afficher notre message de bienvenue sur VGA et série
+    vga_x = 10;
+    vga_y = 10;
+    print_string_vga("Bienvenue dans AI-OS !\nEntrez du texte :\n", color);
+    print_string_serial("Bienvenue dans AI-OS !\nEntrez du texte :\n");
+    
+    // Initialisation des interruptions
+    idt_init();         // Initialise la table des interruptions
+    interrupts_init();  // Initialise le PIC et active les interruptions
+
+    print_string_serial("Interruptions initialisees. Clavier pret.\n");
+
+    // Le CPU attendra passivement une interruption au lieu de tourner en boucle
+    while(1) {
+        asm volatile("hlt");
+    }
 }
 
