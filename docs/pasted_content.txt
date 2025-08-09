@@ -1,0 +1,276 @@
+Voici la définition détaillée de tous les fichiers nécessaires pour l'Étape 1 : Le Socle - Démarrage et Noyau de Base. Cette structure est conçue pour être claire, modulaire et facile à gérer avec Git.
+
+Prérequis sur votre VM Ubuntu
+Avant de créer les fichiers, vous devez installer les outils de développement essentiels. Ouvrez un terminal sur votre VM et exécutez la commande suivante :
+
+Bash
+
+sudo apt-get update
+sudo apt-get install build-essential nasm qemu-system-x86 git
+build-essential : Installe le compilateur C/C++ (gcc, g++) et l'outil make.
+
+nasm : L'assembleur que nous utiliserons pour le code de démarrage.
+
+qemu-system-x86 : L'émulateur pour tester notre OS sans redémarrer une machine physique.
+
+git : Pour la gestion de version avec GitHub.
+
+Structure des Fichiers sur GitHub
+Voici l'arborescence des fichiers que nous allons créer pour cette première étape. Vous pouvez créer ce projet localement, puis le pousser sur un nouveau dépôt GitHub.
+
+projet-ai-os/
+├── kernel/
+│   └── kernel.c
+├── boot/
+│   └── boot.s
+├── linker.ld
+├── Makefile
+└── .gitignore
+Détail de Chaque Fichier
+1. Fichier boot/boot.s
+Ce fichier est le point d'entrée de notre système d'exploitation. Écrit en langage d'assemblage, il est exécuté par le bootloader (comme GRUB ou directement par QEMU) et a pour mission de préparer l'environnement pour notre code C.
+
+Langage : Assembleur (syntaxe NASM)
+
+Rôle :
+
+Définir l'en-tête Multiboot : Une norme qui permet aux chargeurs de démarrage de savoir comment charger et exécuter notre noyau.
+
+Mettre en place la pile (stack) : Le code C a besoin d'une pile pour fonctionner (stocker les variables locales, les adresses de retour de fonction, etc.).
+
+Appeler la fonction principale de notre noyau C (kmain).
+
+Mettre le processeur en veille si jamais le noyau termine son exécution.
+
+Contenu de boot/boot.s :
+
+x86 Assembly
+
+; Déclare que nous utilisons la syntaxe Intel et le mode 32-bit
+bits 32
+
+; Section pour l'en-tête Multiboot (magic numbers et flags)
+section .multiboot
+align 4
+    MULTIBOOT_HEADER_MAGIC: equ 0x1BADB002
+    MULTIBOOT_HEADER_FLAGS: equ 0x00
+    CHECKSUM: equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+    dd MULTIBOOT_HEADER_MAGIC
+    dd MULTIBOOT_HEADER_FLAGS
+    dd CHECKSUM
+
+; Section pour la pile (stack). Nous allouons 16KB.
+section .bss
+align 16
+stack_bottom:
+resb 16384 ; 16 KB
+stack_top:
+
+; Section pour le code exécutable
+section .text
+global _start: ; Point d'entrée global pour le linker
+
+_start:
+    ; Mettre en place le pointeur de pile (esp) pour qu'il pointe vers le haut de notre pile
+    mov esp, stack_top
+
+    ; Nous sommes prêts à sauter dans notre code C.
+    ; "extern" déclare que la fonction kmain est définie ailleurs (dans kernel.c)
+    extern kmain
+    call kmain
+
+    ; Si kmain retourne (ce qui ne devrait pas arriver), on arrête le CPU pour éviter un crash.
+    cli ; Désactive les interruptions
+    hlt ; Arrête le CPU
+2. Fichier kernel/kernel.c
+C'est le cœur de notre noyau pour cette étape. Pour l'instant, son seul rôle est d'afficher un message à l'écran pour confirmer qu'il s'exécute correctement. Il le fait en écrivant directement dans la mémoire vidéo VGA, une technique de base en développement d'OS.
+
+Langage : C
+
+Rôle :
+
+Contenir la fonction principale kmain().
+
+Interagir avec le matériel de base (ici, la mémoire vidéo) pour donner un retour visuel.
+
+Contenu de kernel/kernel.c :
+
+C
+
+// Pointeur vers la mémoire vidéo VGA. L'adresse 0xB8000 est standard.
+volatile unsigned short* vga_buffer = (unsigned short*)0xB8000;
+// Position actuelle du curseur
+int vga_x = 0;
+int vga_y = 0;
+
+// Fonction pour afficher un caractère à une position donnée avec une couleur donnée
+void print_char(char c, int x, int y, char color) {
+    vga_buffer[y * 80 + x] = (unsigned short)c | (unsigned short)color << 8;
+}
+
+// Fonction pour afficher une chaîne de caractères
+void print_string(const char* str, char color) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') { // Gérer le retour à la ligne
+            vga_x = 0;
+            vga_y++;
+        } else {
+            print_char(str[i], vga_x, vga_y, color);
+            vga_x++;
+            if (vga_x >= 80) {
+                vga_x = 0;
+                vga_y++;
+            }
+        }
+    }
+}
+
+// La fonction principale de notre noyau
+void kmain(void) {
+    // Couleur : texte blanc (0xF) sur fond bleu (0x1)
+    char color = 0x1F; 
+
+    // Effacer l'écran en remplissant de caractères "espace"
+    for (int y = 0; y < 25; y++) {
+        for (int x = 0; x < 80; x++) {
+            print_char(' ', x, y, color);
+        }
+    }
+
+    // Afficher notre message de bienvenue
+    vga_x = 25; // Centrer un peu le texte
+    vga_y = 12;
+    print_string("Bienvenue dans AI-OS !", color);
+
+    // Le noyau ne doit jamais se terminer
+    while(1) {}
+}
+3. Fichier linker.ld
+Le script de l'éditeur de liens (linker) est un fichier de configuration crucial. Il indique à l'outil ld (le linker) comment assembler les fichiers compilés (boot.o et kernel.o) pour former l'exécutable final de notre OS.
+
+Langage : Script de liaison (ld syntax)
+
+Rôle :
+
+Définir le point d'entrée (_start de boot.s).
+
+Organiser les différentes sections du code (code, données, etc.) en mémoire, en commençant à l'adresse 1 Mo (0x100000), un standard pour les noyaux Multiboot.
+
+Contenu de linker.ld :
+
+Extrait de code
+
+ENTRY(_start) /* Le point d'entrée de notre OS */
+
+SECTIONS
+{
+    /* Commence à placer le code à 1MB */
+    . = 1M;
+
+    /* Section pour le code exécutable (.text) */
+    .text :
+    {
+        *(.multiboot) /* Place l'en-tête multiboot au tout début */
+        *(.text)     /* Place tout le reste du code (.text) après */
+    }
+
+    /* Section pour les données initialisées (.data) */
+    .data :
+    {
+        *(.data)
+    }
+
+    /* Section pour les données non initialisées (.bss) */
+    .bss :
+    {
+        *(.bss)
+    }
+}
+4. Fichier Makefile
+Le Makefile automatise le processus de compilation et de test. Taper make dans le terminal suffira à construire l'image de notre OS, et make run la lancera dans QEMU.
+
+Langage : Makefile syntax
+
+Rôle : Automatiser la compilation, l'édition de liens et l'exécution.
+
+Contenu de Makefile :
+
+Makefile
+
+# Outils de compilation
+CC = gcc
+AS = nasm
+LD = ld
+
+# Options de compilation
+# -m32 : Compiler en 32-bit
+# -ffreestanding : Ne pas utiliser la bibliothèque standard C
+# -nostdlib : Ne pas lier avec la bibliothèque standard C
+# -fno-pie : Produire du code indépendant de la position
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I.
+ASFLAGS = -f elf32
+
+# Nom du fichier final de notre OS
+OS_IMAGE = build/ai_os.bin
+ISO_IMAGE = build/ai_os.iso
+
+# Liste des fichiers objets
+OBJECTS = build/boot.o build/kernel.o
+
+# Cible par défaut : construire l'image de l'OS
+all: $(OS_IMAGE)
+
+# Règle pour lier les fichiers objets et créer l'image finale
+$(OS_IMAGE): $(OBJECTS)
+	@mkdir -p $(dir $@)
+	$(LD) -m elf_i386 -T linker.ld -o $@ $(OBJECTS)
+
+# Règle pour compiler le code C
+build/kernel.o: kernel/kernel.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Règle pour compiler le code assembleur
+build/boot.o: boot/boot.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+# Cible pour exécuter l'OS dans QEMU
+run: $(OS_IMAGE)
+	qemu-system-i386 -kernel $(OS_IMAGE)
+
+# Cible pour nettoyer le projet
+clean:
+	rm -rf build
+
+.PHONY: all run clean
+5. Fichier .gitignore
+Ce fichier indique à Git quels fichiers et dossiers ignorer. C'est une bonne pratique pour ne pas inclure les fichiers générés par la compilation dans le contrôle de version.
+
+Contenu de .gitignore :
+
+# Ignorer le dossier de build
+build/
+
+# Ignorer les fichiers objets
+*.o
+
+# Ignorer les images de l'OS
+*.bin
+*.iso
+Prochaines Étapes
+Créez un nouveau dépôt sur GitHub.
+
+Sur votre VM Ubuntu, clonez ce dépôt vide.
+
+Créez l'arborescence et les fichiers décrits ci-dessus.
+
+Ouvrez un terminal à la racine du projet (projet-ai-os/).
+
+Exécutez make. Si tout se passe bien, vous aurez un fichier build/ai_os.bin.
+
+Exécutez make run.
+
+Résultat attendu : Une fenêtre QEMU s'ouvrira, affichant un écran bleu avec le message "Bienvenue dans AI-OS !" en blanc au milieu.
+
+Vous avez maintenant franchi l'étape la plus fondamentale : créer un noyau minimaliste qui démarre sur du matériel "nu" (émulé). La prochaine étape consistera à lui ajouter des pilotes pour interagir avec le clavier et gérer les interruptions.
