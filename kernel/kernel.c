@@ -1,5 +1,9 @@
 #include "idt.h"
 #include "interrupts.h"
+#include "multiboot.h"
+#include "mem/pmm.h"
+#include "mem/vmm.h"
+#include "../fs/initrd.h"
 
 // Function to read a byte from a port
 unsigned char inb(unsigned short port);
@@ -71,6 +75,11 @@ void print_string_vga(const char* str, char color) {
                 vga_y++;
             }
         }
+        
+        // Gestion du défilement basique
+        if (vga_y >= 25) {
+            vga_y = 24;
+        }
     }
 }
 
@@ -81,8 +90,14 @@ void print_string_serial(const char* str) {
     }
 }
 
-// La fonction principale de notre noyau
-void kmain(void) {
+// Fonction pour afficher sur les deux sorties
+void print_string(const char* str) {
+    print_string_vga(str, 0x1F);
+    print_string_serial(str);
+}
+
+// La fonction principale de notre noyau - MISE À JOUR pour Multiboot
+void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     char color = 0x1F; 
     
     // Initialisation du port série
@@ -95,19 +110,109 @@ void kmain(void) {
         }
     }
 
-    // Afficher notre message de bienvenue sur VGA et série
-    vga_x = 10;
-    vga_y = 10;
-    print_string_vga("Bienvenue dans AI-OS !\nEntrez du texte :\n", color);
-    print_string_serial("Bienvenue dans AI-OS !\nEntrez du texte :\n");
+    // Afficher notre message de bienvenue
+    vga_x = 5;
+    vga_y = 5;
+    print_string("=== Bienvenue dans AI-OS v2.0 ===\n");
+    print_string("Systeme avance avec gestion memoire et FS\n\n");
+    
+    // Vérification du magic number Multiboot
+    if (multiboot_magic != MULTIBOOT_MAGIC) {
+        print_string("ERREUR: Magic Multiboot invalide!\n");
+        print_string("Le systeme ne peut pas continuer.\n");
+        while(1) { asm volatile("hlt"); }
+    }
+    
+    print_string("Multiboot detecte correctement.\n");
+    
+    // Récupération des informations Multiboot
+    multiboot_info_t* mbi = (multiboot_info_t*)multiboot_addr;
+    multiboot_print_info(mbi);
     
     // Initialisation des interruptions
+    print_string("Initialisation des interruptions...\n");
     idt_init();         // Initialise la table des interruptions
     interrupts_init();  // Initialise le PIC et active les interruptions
+    print_string("Interruptions initialisees. Clavier pret.\n");
 
-    print_string_serial("Interruptions initialisees. Clavier pret.\n");
+    // Étape 3 : Initialiser la gestion de la mémoire
+    print_string("Initialisation de la gestion memoire...\n");
+    uint32_t memory_size = multiboot_get_memory_size(mbi);
+    pmm_init(memory_size);
+    print_string("Physical Memory Manager initialise.\n");
+    
+    vmm_init(); // Active le paging
+    print_string("Virtual Memory Manager initialise.\n");
+    print_string("Paging active - Memoire virtuelle operationnelle.\n");
 
-    // Le CPU attendra passivement une interruption au lieu de tourner en boucle
+    // Étape 4 : Initialiser l'initrd
+    print_string("Recherche de l'initrd...\n");
+    uint32_t module_count = multiboot_get_module_count(mbi);
+    
+    if (module_count > 0) {
+        multiboot_module_t* initrd_module = multiboot_get_module(mbi, 0);
+        if (initrd_module) {
+            uint32_t initrd_location = initrd_module->mod_start;
+            uint32_t initrd_size = initrd_module->mod_end - initrd_module->mod_start;
+            
+            print_string("Initrd trouve ! Initialisation...\n");
+            initrd_init(initrd_location, initrd_size);
+            print_string("Fichiers disponibles:\n");
+            initrd_list_files();
+            
+            // Test de lecture d'un fichier
+            char* test_content = initrd_read_file("test.txt");
+            if (test_content) {
+                print_string("\nContenu de test.txt:\n");
+                // Affiche les premiers caractères (limité pour éviter les débordements)
+                for (int i = 0; i < 50 && test_content[i] != '\0'; i++) {
+                    char c[2] = {test_content[i], '\0'};
+                    print_string(c);
+                }
+                print_string("\n");
+            }
+        } else {
+            print_string("Erreur: Module initrd non accessible.\n");
+        }
+    } else {
+        print_string("Aucun module initrd trouve.\n");
+        print_string("Le systeme continuera sans systeme de fichiers.\n");
+    }
+
+    print_string("\n=== Systeme AI-OS pret ===\n");
+    print_string("Fonctionnalites disponibles:\n");
+    print_string("- Gestion des interruptions et clavier\n");
+    print_string("- Gestionnaire de memoire physique et virtuelle\n");
+    print_string("- Systeme de fichiers initrd (format TAR)\n");
+    print_string("- Paging actif pour la securite memoire\n");
+    print_string("\nTapez sur le clavier pour tester...\n");
+
+    // Affichage des statistiques mémoire
+    print_string("\nStatistiques memoire:\n");
+    print_string("Pages totales: ");
+    uint32_t total = pmm_get_total_pages();
+    // Affichage simple du nombre (conversion basique)
+    char num_str[16];
+    int i = 0;
+    if (total == 0) {
+        num_str[i++] = '0';
+    } else {
+        while (total > 0) {
+            num_str[i++] = '0' + (total % 10);
+            total /= 10;
+        }
+    }
+    num_str[i] = '\0';
+    // Inverse la chaîne
+    for (int j = 0; j < i / 2; j++) {
+        char tmp = num_str[j];
+        num_str[j] = num_str[i - 1 - j];
+        num_str[i - 1 - j] = tmp;
+    }
+    print_string(num_str);
+    print_string("\n");
+
+    // Le CPU attendra passivement une interruption
     while(1) {
         asm volatile("hlt");
     }

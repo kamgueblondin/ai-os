@@ -26,10 +26,19 @@ _start:
     ; Mettre en place le pointeur de pile (esp) pour qu'il pointe vers le haut de notre pile
     mov esp, stack_top
 
+    ; Passer les paramètres Multiboot au kernel
+    ; EAX contient le magic number Multiboot
+    ; EBX contient l'adresse de la structure d'information Multiboot
+    push ebx    ; Passe l'adresse de la structure Multiboot
+    push eax    ; Passe le magic number Multiboot
+
     ; Nous sommes prêts à sauter dans notre code C.
     ; "extern" déclare que la fonction kmain est définie ailleurs (dans kernel.c)
     extern kmain
     call kmain
+
+    ; Nettoie la pile (bien que nous ne devrions jamais arriver ici)
+    add esp, 8
 
     ; Si kmain retourne (ce qui ne devrait pas arriver), on arrête le CPU pour éviter un crash.
     cli ; Désactive les interruptions
