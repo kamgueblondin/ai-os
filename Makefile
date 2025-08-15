@@ -17,9 +17,10 @@ ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
-OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o \
-          build/kernel.o build/idt.o build/interrupts.o build/keyboard.o \
-          build/multiboot.o build/pmm.o build/vmm.o build/initrd.o
+OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o \
+          build/kernel.o build/idt.o build/interrupts.o build/keyboard.o build/timer.o \
+          build/multiboot.o build/pmm.o build/vmm.o build/initrd.o \
+          build/task.o build/syscall.o build/elf.o
 
 # Cible par défaut : construire l'image de l'OS
 all: $(OS_IMAGE)
@@ -46,7 +47,15 @@ build/keyboard.o: kernel/keyboard.c kernel/keyboard.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+build/timer.o: kernel/timer.c kernel/timer.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 build/multiboot.o: kernel/multiboot.c kernel/multiboot.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/elf.o: kernel/elf.c kernel/elf.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -56,6 +65,16 @@ build/pmm.o: kernel/mem/pmm.c kernel/mem/pmm.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/vmm.o: kernel/mem/vmm.c kernel/mem/vmm.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Règles de compilation pour le système de tâches
+build/task.o: kernel/task/task.c kernel/task/task.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Règles de compilation pour les appels système
+build/syscall.o: kernel/syscall/syscall.c kernel/syscall/syscall.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -81,9 +100,13 @@ build/paging.o: boot/paging.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Règle pour créer l'initrd de test
-$(INITRD_IMAGE):
-	@echo "Création de l'initrd de test..."
+build/context_switch.o: boot/context_switch.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+# Règle pour créer l'initrd de test avec le programme utilisateur
+$(INITRD_IMAGE): userspace/test_program
+	@echo "Création de l'initrd avec programme utilisateur..."
 	@mkdir -p initrd_content
 	@echo "Ceci est un fichier de test depuis l'initrd !" > initrd_content/test.txt
 	@echo "Un autre fichier de demonstration." > initrd_content/hello.txt
@@ -91,8 +114,14 @@ $(INITRD_IMAGE):
 	@echo "#!/bin/sh" > initrd_content/startup.sh
 	@echo "echo 'Script de demarrage AI-OS'" >> initrd_content/startup.sh
 	@echo "Donnees pour l'intelligence artificielle" > initrd_content/ai_data.txt
+	@cp userspace/test_program initrd_content/user_program
 	@tar -cf $(INITRD_IMAGE) -C initrd_content .
-	@echo "Initrd créé: $(INITRD_IMAGE)"
+	@echo "Initrd créé avec programme utilisateur: $(INITRD_IMAGE)"
+
+# Compile le programme utilisateur
+userspace/test_program:
+	@echo "Compilation du programme utilisateur..."
+	@$(MAKE) -C userspace test_program
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) $(INITRD_IMAGE)
@@ -112,12 +141,21 @@ info-initrd: $(INITRD_IMAGE)
 	@echo "Contenu de l'initrd:"
 	@tar -tvf $(INITRD_IMAGE)
 
+# Cible pour compiler seulement le programme utilisateur
+user-program:
+	@$(MAKE) -C userspace all
+
+# Cible pour afficher les informations sur le programme utilisateur
+info-user:
+	@$(MAKE) -C userspace info
+
 # Cible pour nettoyer le projet
 clean:
 	rm -rf build
 	rm -f $(INITRD_IMAGE)
 	rm -rf initrd_content
 	rm -f output.log
+	@$(MAKE) -C userspace clean
 
 # Cible pour nettoyer complètement (y compris les fichiers de sauvegarde)
 distclean: clean
@@ -131,10 +169,12 @@ help:
 	@echo "  run        - Compile et exécute avec QEMU (mode texte)"
 	@echo "  run-gui    - Compile et exécute avec QEMU (mode graphique)"
 	@echo "  test-build - Compile sans exécuter"
+	@echo "  user-program - Compile seulement le programme utilisateur"
 	@echo "  info-initrd- Affiche le contenu de l'initrd"
+	@echo "  info-user  - Affiche les infos du programme utilisateur"
 	@echo "  clean      - Nettoie les fichiers générés"
 	@echo "  distclean  - Nettoie tout (y compris sauvegardes)"
 	@echo "  help       - Affiche cette aide"
 
-.PHONY: all run run-gui test-build info-initrd clean distclean help
+.PHONY: all run run-gui test-build info-initrd info-user user-program clean distclean help
 

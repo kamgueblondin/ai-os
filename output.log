@@ -5,2584 +5,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
-c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
-
-Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
-Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2590,46 +38,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2637,46 +71,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2684,46 +104,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2731,46 +137,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2778,46 +170,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2825,46 +203,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2872,46 +236,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2919,46 +269,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -2966,46 +302,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -3013,46 +335,32 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
-
-=== Systeme AI-OS pret ===
-Fonctionnalites disponibles:
-- Gestion des interruptions et clavier
-- Gestionnaire de memoire physique et virtuelle
-- Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
-
-Statistiques memoire:
-Pages totales: 32895
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
 c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
@@ -3060,43 +368,47 @@ iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
-Booting from ROM..=== Bienvenue dans AI-OS v2.0 ===
-Systeme avance avec gestion memoire et FS
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
-=== Multiboot Information ===
-Memory info available:
-  Lower memory: 639 KB
-  Upper memory: 129920 KB
-Modules loaded: 1
-  Module 0: 0x???????? - 0x????????
-=============================
 Initialisation des interruptions...
-Interruptions initialisees. Clavier pret.
+Initialisation du systeme d'interruptions...
+Systeme d'interruptions initialise.
+Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
 Virtual Memory Manager initialise.
-Paging active - Memoire virtuelle operationnelle.
-Recherche de l'initrd...
 Initrd trouve ! Initialisation...
 Parsing initrd TAR archive...
-Initrd initialized: 5 files found
-Fichiers disponibles:
-Files in initrd:
-  ./test.txt (46 bytes)
-  ./hello.txt (35 bytes)
-  ./config.cfg (31 bytes)
-  ./startup.sh (43 bytes)
-  ./ai_data.txt (41 bytes)
+Initrd initialized: 6 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+Initialisation du timer systeme...
+Initialisation du timer systeme...
+Timer configure pour 100 Hz
+Recherche du programme utilisateur...
+Aucun programme utilisateur trouve dans l'initrd
 
-=== Systeme AI-OS pret ===
+=== Systeme AI-OS v4.0 pret ===
 Fonctionnalites disponibles:
 - Gestion des interruptions et clavier
 - Gestionnaire de memoire physique et virtuelle
 - Systeme de fichiers initrd (format TAR)
-- Paging actif pour la securite memoire
-
-Tapez sur le clavier pour tester...
+- Multitache preemptif avec ordonnancement
+- Timer systeme pour le scheduling
+- Appels systeme (syscalls)
+- Chargeur ELF pour programmes utilisateur
+- Separation kernel/user space (Ring 0/3)
 
-Statistiques memoire:
-Pages totales: 32895
+Observez le coin inferieur droit pour voir
+les taches s'executer en parallele!
+Le programme utilisateur s'execute aussi!
