@@ -35,7 +35,7 @@ int strlen(const char* str) {
 }
 
 // Point d'entrée du programme utilisateur
-void _start() {
+void main() {
     // Message de bienvenue
     puts("=== Programme Utilisateur AI-OS ===\n");
     puts("Execution en Ring 3 (espace utilisateur)\n");

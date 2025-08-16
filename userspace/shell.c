@@ -12,13 +12,13 @@ void exit_program() {
 
 // SYS_GETS - Nouveau syscall pour lire une ligne depuis le clavier
 void gets(char* buffer, int size) { 
-    asm volatile("int $0x80" : : "a"(4), "b"(buffer), "c"(size)); 
+    asm volatile("int $0x80" : : "a"(5), "b"(buffer), "c"(size)); 
 }
 
 // SYS_EXEC - Nouveau syscall pour exécuter un programme
 int exec(const char* path, char* argv[]) {
     int result;
-    asm volatile("int $0x80" : "=a"(result) : "a"(5), "b"(path), "c"(argv));
+    asm volatile("int $0x80" : "=a"(result) : "a"(6), "b"(path), "c"(argv));
     return result;
 }
 

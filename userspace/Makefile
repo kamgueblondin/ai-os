@@ -1,11 +1,13 @@
 # Makefile pour les programmes utilisateur AI-OS v5.0
 
 CC = gcc
+AS = as
 LD = ld
 OBJCOPY = objcopy
 
 # Options de compilation pour l'espace utilisateur
 CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -fno-stack-protector -I.
+ASFLAGS = --32
 LDFLAGS = -m elf_i386 -nostdlib
 
 # Adresse de base pour les programmes utilisateur (espace virtuel élevé)
@@ -17,25 +19,29 @@ PROGRAMS = shell fake_ai test_program
 # Cible par défaut : compiler tous les programmes
 all: $(PROGRAMS)
 
+# Compiler le point d'entrée assembleur
+start.o: start.s
+	$(AS) $(ASFLAGS) $< -o $@
+
 # Shell interactif - Programme principal
-shell: shell.c
+shell: shell.c start.o
 	@echo "Compilation du shell interactif..."
-	$(CC) $(CFLAGS) -c $< -o shell.o
-	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ shell.o
+	$(CC) $(CFLAGS) -c shell.c -o shell.o
+	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ start.o shell.o
 	@echo "Shell compilé: $@"
 
 # Simulateur d'IA
-fake_ai: fake_ai.c
+fake_ai: fake_ai.c start.o
 	@echo "Compilation du simulateur d'IA..."
-	$(CC) $(CFLAGS) -c $< -o fake_ai.o
-	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ fake_ai.o
+	$(CC) $(CFLAGS) -c fake_ai.c -o fake_ai.o
+	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ start.o fake_ai.o
 	@echo "Simulateur IA compilé: $@"
 
 # Programme de test original (pour compatibilité)
-test_program: test_program.c
+test_program: test_program.c start.o
 	@echo "Compilation du programme de test..."
-	$(CC) $(CFLAGS) -c $< -o test_program.o
-	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ test_program.o
+	$(CC) $(CFLAGS) -c test_program.c -o test_program.o
+	$(LD) $(LDFLAGS) -Ttext=$(USER_BASE) -o $@ start.o test_program.o
 	@echo "Programme de test compilé: $@"
 
 # Cibles pour créer des fichiers binaires bruts (optionnel)

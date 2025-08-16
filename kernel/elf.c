@@ -154,41 +154,157 @@ uint32_t elf_load(uint8_t* elf_data, uint32_t size) {
         // Calcule le nombre de pages nécessaires
         uint32_t pages_needed = (ph->p_memsz + 4095) / 4096;
         
+        print_string_serial("Pages necessaires: ");
+        char pages_str[16];
+        int p = 0;
+        uint32_t temp_pages = pages_needed;
+        if (temp_pages == 0) {
+            pages_str[p++] = '0';
+        } else {
+            while (temp_pages > 0) {
+                pages_str[p++] = '0' + (temp_pages % 10);
+                temp_pages /= 10;
+            }
+        }
+        pages_str[p] = '\0';
+        for (int k = 0; k < p / 2; k++) {
+            char tmp = pages_str[k];
+            pages_str[k] = pages_str[p - 1 - k];
+            pages_str[p - 1 - k] = tmp;
+        }
+        print_string_serial(pages_str);
+        print_string_serial("\n");
+        
         // Alloue la mémoire physique
         for (uint32_t page = 0; page < pages_needed; page++) {
+            print_string_serial("Allocation page ");
+            char page_str[16];
+            int q = 0;
+            uint32_t temp_page = page;
+            if (temp_page == 0) {
+                page_str[q++] = '0';
+            } else {
+                while (temp_page > 0) {
+                    page_str[q++] = '0' + (temp_page % 10);
+                    temp_page /= 10;
+                }
+            }
+            page_str[q] = '\0';
+            for (int k = 0; k < q / 2; k++) {
+                char tmp = page_str[k];
+                page_str[k] = page_str[q - 1 - k];
+                page_str[q - 1 - k] = tmp;
+            }
+            print_string_serial(page_str);
+            print_string_serial("...\n");
+            
             void* phys_page = pmm_alloc_page();
             if (!phys_page) {
                 print_string_serial("ERREUR: Impossible d'allouer la memoire\n");
                 return 0;
             }
             
+            print_string_serial("Page physique allouee, mapping...\n");
+            
             // Mappe la page à l'adresse virtuelle demandée
             uint32_t virt_addr = ph->p_vaddr + (page * 4096);
-            uint32_t flags = PAGE_PRESENT | PAGE_WRITE;
+            uint32_t flags = PAGE_PRESENT | PAGE_WRITE | PAGE_USER; // Ajout de PAGE_USER
             if (ph->p_flags & PF_W) flags |= PAGE_WRITE;
             
             vmm_map_page(phys_page, (void*)virt_addr, flags);
+            
+            print_string_serial("Page mappee avec succes.\n");
         }
         
         // Copie les données du segment
+        print_string_serial("Copie des donnees du segment...\n");
         if (ph->p_filesz > 0) {
-            uint8_t* src = elf_data + ph->p_offset;
-            uint8_t* dst = (uint8_t*)ph->p_vaddr;
-            
-            for (uint32_t b = 0; b < ph->p_filesz; b++) {
-                dst[b] = src[b];
+            print_string_serial("Taille fichier: ");
+            char size_str[16];
+            int s = 0;
+            uint32_t temp_size = ph->p_filesz;
+            if (temp_size == 0) {
+                size_str[s++] = '0';
+            } else {
+                while (temp_size > 0) {
+                    size_str[s++] = '0' + (temp_size % 10);
+                    temp_size /= 10;
+                }
             }
+            size_str[s] = '\0';
+            for (int k = 0; k < s / 2; k++) {
+                char tmp = size_str[k];
+                size_str[k] = size_str[s - 1 - k];
+                size_str[s - 1 - k] = tmp;
+            }
+            print_string_serial(size_str);
+            print_string_serial(" octets\n");
+            
+            uint8_t* src = elf_data + ph->p_offset;
+            
+            // Utiliser l'adresse physique directement pour éviter les problèmes de mapping
+            print_string_serial("Debut copie memoire (methode securisee)...\n");
+            
+            // Copier page par page
+            for (uint32_t page = 0; page < pages_needed; page++) {
+                uint32_t page_offset = page * 4096;
+                uint32_t copy_start = page_offset;
+                uint32_t copy_end = (page_offset + 4096 < ph->p_filesz) ? page_offset + 4096 : ph->p_filesz;
+                
+                if (copy_start < ph->p_filesz) {
+                    // Obtenir l'adresse physique de la page
+                    uint32_t virt_addr = ph->p_vaddr + page_offset;
+                    void* phys_addr = vmm_get_physical_address((void*)virt_addr);
+                    
+                    if (phys_addr) {
+                        // Copier directement vers l'adresse physique
+                        uint8_t* dst = (uint8_t*)phys_addr;
+                        for (uint32_t b = copy_start; b < copy_end; b++) {
+                            dst[b - page_offset] = src[b];
+                        }
+                    } else {
+                        print_string_serial("ERREUR: Impossible d'obtenir l'adresse physique\n");
+                        return 0;
+                    }
+                }
+            }
+            
+            print_string_serial("Copie memoire terminee.\n");
         }
         
         // Initialise à zéro la partie BSS (si p_memsz > p_filesz)
+        print_string_serial("Initialisation BSS...\n");
         if (ph->p_memsz > ph->p_filesz) {
             uint8_t* bss_start = (uint8_t*)(ph->p_vaddr + ph->p_filesz);
             uint32_t bss_size = ph->p_memsz - ph->p_filesz;
             
+            print_string_serial("Taille BSS: ");
+            char bss_str[16];
+            int b = 0;
+            uint32_t temp_bss = bss_size;
+            if (temp_bss == 0) {
+                bss_str[b++] = '0';
+            } else {
+                while (temp_bss > 0) {
+                    bss_str[b++] = '0' + (temp_bss % 10);
+                    temp_bss /= 10;
+                }
+            }
+            bss_str[b] = '\0';
+            for (int k = 0; k < b / 2; k++) {
+                char tmp = bss_str[k];
+                bss_str[k] = bss_str[b - 1 - k];
+                bss_str[b - 1 - k] = tmp;
+            }
+            print_string_serial(bss_str);
+            print_string_serial(" octets\n");
+            
             for (uint32_t b = 0; b < bss_size; b++) {
                 bss_start[b] = 0;
             }
+            print_string_serial("BSS initialise.\n");
         }
+        print_string_serial("Segment charge avec succes.\n");
     }
     
     print_string_serial("Executable charge avec succes.\n");
