@@ -285,32 +285,35 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                 print_string("\nShell kernel actif. Tapez vos commandes:\n\n");
                 
                 // Shell simple dans le kernel
-                char input_buffer[256];
+                char command_buffer[256];
+                
+                // Fonction externe pour lire le buffer clavier
+                extern char keyboard_getc();
+                
                 while (1) {
                     print_string("AI-OS> ");
                     
-                    // Lire l'entrée utilisateur (version simplifiée)
+                    // Lire l'entrée utilisateur
                     int pos = 0;
                     char c;
                     while (pos < 255) {
                         // Attendre une entrée clavier
                         while (1) {
                             asm volatile("hlt");
-                            // Vérifier s'il y a un caractère disponible
-                            extern char sys_getc();
-                            c = sys_getc();
+                            // Lire depuis le buffer clavier
+                            c = keyboard_getc();
                             if (c != 0) break;
                         }
                         
                         if (c == '\n' || c == '\r') {
-                            input_buffer[pos] = '\0';
+                            command_buffer[pos] = '\0';
                             print_string("\n");
                             break;
                         } else if (c == '\b' && pos > 0) {
                             pos--;
                             print_string("\b \b"); // Effacer le caractère
                         } else if (c >= 32 && c <= 126) {
-                            input_buffer[pos++] = c;
+                            command_buffer[pos++] = c;
                             print_char(c, -1, -1, 0x0F); // Afficher le caractère
                         }
                     }
@@ -318,20 +321,20 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                     // Traiter la commande
                     if (pos == 0) continue;
                     
-                    if (strcmp_simple(input_buffer, "help") == 0) {
+                    if (strcmp_simple(command_buffer, "help") == 0) {
                         print_string("Commandes disponibles:\n");
                         print_string("  help - Afficher cette aide\n");
                         print_string("  about - A propos d'AI-OS\n");
                         print_string("  exit - Quitter le shell\n");
-                    } else if (strcmp_simple(input_buffer, "about") == 0) {
+                    } else if (strcmp_simple(command_buffer, "about") == 0) {
                         print_string("AI-OS v5.0 - Systeme d'exploitation pour IA\n");
                         print_string("Shell kernel integre - Version stable\n");
-                    } else if (strcmp_simple(input_buffer, "exit") == 0) {
+                    } else if (strcmp_simple(command_buffer, "exit") == 0) {
                         print_string("Au revoir !\n");
                         break;
                     } else {
                         print_string("Commande inconnue: ");
-                        print_string(input_buffer);
+                        print_string(command_buffer);
                         print_string("\nTapez 'help' pour l'aide.\n");
                     }
                 }

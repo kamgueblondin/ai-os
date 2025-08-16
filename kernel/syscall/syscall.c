@@ -220,6 +220,11 @@ char sys_getc() {
     return 0;
 }
 
+// Fonction publique pour accéder au buffer clavier depuis le kernel
+char keyboard_getc() {
+    return sys_getc();
+}
+
 void sys_puts(const char* str) {
     if (str) {
         for (int i = 0; str[i] != '\0'; i++) {
