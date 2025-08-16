@@ -167,20 +167,22 @@ void syscall_add_input_char(char c) {
         line_buffer[line_position] = '\0';
         line_ready = 1;
         line_position = 0;
+        // Afficher le caractère de nouvelle ligne
+        print_char(c, -1, -1, 0x0F);
     } else if (c == '\b' || c == 127) {
         // Backspace
         if (line_position > 0) {
             line_position--;
-            // Effacer le caractère à l'écran
-            print_char('\b', -1, -1, 0x0F);
-            print_char(' ', -1, -1, 0x0F);
+            // La fonction print_char gère déjà le backspace correctement
             print_char('\b', -1, -1, 0x0F);
         }
-    } else if (c >= 32 && c <= 126 && line_position < 255) {
+    } else if (c >= 32 && c <= 126) {
         // Caractère imprimable
-        line_buffer[line_position++] = c;
-        // Echo du caractère réactivé pour mode graphique
-        print_char(c, -1, -1, 0x0F);
+        if (line_position < 255) {
+            line_buffer[line_position++] = c;
+            // Afficher le caractère
+            print_char(c, -1, -1, 0x0F);
+        }
     }
 }
 

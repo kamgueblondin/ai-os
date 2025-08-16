@@ -104,6 +104,21 @@ volatile unsigned short* vga_buffer = (unsigned short*)0xB8000;
 int vga_x = 0;
 int vga_y = 0;
 
+// Fonction pour faire défiler l'écran vers le haut
+void scroll_screen() {
+    // Déplacer toutes les lignes vers le haut
+    for (int y = 0; y < 24; y++) {
+        for (int x = 0; x < 80; x++) {
+            vga_buffer[y * 80 + x] = vga_buffer[(y + 1) * 80 + x];
+        }
+    }
+    
+    // Effacer la dernière ligne
+    for (int x = 0; x < 80; x++) {
+        vga_buffer[24 * 80 + x] = (unsigned short)' ' | (unsigned short)0x07 << 8;
+    }
+}
+
 // Fonction pour afficher un caractère à une position donnée avec une couleur donnée
 void print_char_vga(char c, int x, int y, char color) {
     if (x >= 0 && y >= 0 && x < 80 && y < 25) {
@@ -115,14 +130,35 @@ void print_char_vga(char c, int x, int y, char color) {
 void print_char(char c, int x, int y, char color) {
     if (x == -1 && y == -1) {
         // Utilise la position actuelle du curseur
-        print_char_vga(c, vga_x, vga_y, color);
-        vga_x++;
+        if (c == '\n') {
+            vga_x = 0;
+            vga_y++;
+        } else if (c == '\b') {
+            // Gestion du backspace
+            if (vga_x > 0) {
+                vga_x--;
+                print_char_vga(' ', vga_x, vga_y, color);
+            } else if (vga_y > 0) {
+                vga_y--;
+                vga_x = 79;
+                print_char_vga(' ', vga_x, vga_y, color);
+            }
+        } else {
+            print_char_vga(c, vga_x, vga_y, color);
+            vga_x++;
+        }
+        
+        // Gestion du passage à la ligne suivante
         if (vga_x >= 80) {
             vga_x = 0;
             vga_y++;
-            if (vga_y >= 25) {
-                vga_y = 24;
-            }
+        }
+        
+        // Gestion du défilement
+        if (vga_y >= 25) {
+            scroll_screen();
+            vga_y = 24;
+            vga_x = 0;
         }
     } else {
         print_char_vga(c, x, y, color);
@@ -132,22 +168,7 @@ void print_char(char c, int x, int y, char color) {
 // Fonction pour afficher une chaîne de caractères sur VGA
 void print_string_vga(const char* str, char color) {
     for (int i = 0; str[i] != '\0'; i++) {
-        if (str[i] == '\n') { // Gérer le retour à la ligne
-            vga_x = 0;
-            vga_y++;
-        } else {
-            print_char_vga(str[i], vga_x, vga_y, color);
-            vga_x++;
-            if (vga_x >= 80) {
-                vga_x = 0;
-                vga_y++;
-            }
-        }
-        
-        // Gestion du défilement basique
-        if (vga_y >= 25) {
-            vga_y = 24;
-        }
+        print_char(str[i], -1, -1, color);
     }
 }
 
