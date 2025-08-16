@@ -356,12 +356,8 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                     print_string("- Interface conversationnelle\n");
                     print_string("\nShell utilisateur lance ! Utilisez le clavier pour interagir.\n\n");
                     
-                    // Attendre que le shell utilisateur fonctionne
-                    while (shell_task->state != TASK_TERMINATED) {
-                        schedule();
-                    }
-                    
-                    print_string("Shell utilisateur termine.\n");
+                    // Ne pas attendre - laisser le shell s'exécuter en parallèle
+                    goto end_kernel;
                 } else {
                     print_string("ERREUR: Impossible de creer la tache shell\n");
                     goto fallback_shell;
@@ -441,12 +437,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     }
     
     end_kernel:
-    
-    print_string("\n=== Mode de secours ===\n");
-    print_string("Le shell n'a pas pu demarrer. Noyau en attente.\n");
-    print_string("Systeme en mode minimal.\n");
-
-    // Mode de secours : boucle infinie
+    // Mode attente stable - le shell utilisateur s'exécute en parallèle
     while(1) {
         asm volatile("hlt"); // Attend la prochaine interruption
     }
