@@ -347,8 +347,8 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                             // Mettre à jour le timer logiciel si nécessaire
                             timer_update();
                             
-                            // Simuler l'attente clavier
-                            simulate_keyboard_input();
+                            // En mode graphique, ne pas utiliser la simulation clavier
+                            // pour éviter la duplication d'écho
                             c = keyboard_getc();
                             if (c != 0) break;
                             
