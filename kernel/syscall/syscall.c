@@ -161,28 +161,23 @@ void syscall_add_input_char(char c) {
         input_buffer_head = next_head;
     }
     
-    // Gestion spéciale pour SYS_GETS
+    // Gestion spéciale pour SYS_GETS (sans affichage - géré par le shell)
     if (c == '\n' || c == '\r') {
         // Fin de ligne
         line_buffer[line_position] = '\0';
         line_ready = 1;
         line_position = 0;
-        // Afficher le caractère de nouvelle ligne
-        print_char(c, -1, -1, 0x0F);
+        // PAS d'affichage ici - géré par le shell
     } else if (c == '\b' || c == 127) {
         // Backspace
         if (line_position > 0) {
             line_position--;
-            // La fonction print_char gère déjà le backspace correctement
-            print_char('\b', -1, -1, 0x0F);
+            // PAS d'affichage ici - géré par le shell
         }
-    } else if (c >= 32 && c <= 126) {
-        // Caractère imprimable
-        if (line_position < 255) {
-            line_buffer[line_position++] = c;
-            // Afficher le caractère
-            print_char(c, -1, -1, 0x0F);
-        }
+    } else if (c >= 32 && c <= 126 && line_position < 255) {
+        // Caractère normal
+        line_buffer[line_position++] = c;
+        // PAS d'affichage ici - géré par le shell
     }
 }
 
