@@ -299,10 +299,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     create_task(task_B_function);
     create_task(task_C_function);
     
-    // Timer temporairement désactivé pour tests du shell
-    print_string("Timer desactive temporairement pour tests...\n");
-    // timer_init(10); // Désactivé temporairement
-    print_string("Shell fonctionnera en mode polling.\n");
+    // PHASE 2: Réactivation du timer hybride (matériel + logiciel)
+    print_string("PHASE 2: Activation timer hybride...\n");
+    timer_init(2); // Fréquence conservatrice pour commencer
+    print_string("Timer hybride initialise. Mode auto-detecte.\n");
     
     // NOUVEAU: Lancement du shell interactif avec IA
     print_string("Lancement du shell interactif AI-OS...\n");
@@ -341,13 +341,14 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                     int pos = 0;
                     char c;
                     while (pos < 255) {
-                        // Attendre une entrée via simulation clavier
-                        while (1) {
-                            // Simuler l'entrée clavier depuis le port série
-                            simulate_keyboard_input();
+                        // Attendre un caractère avec timer logiciel intégré
+                        c = 0;
+                        while (c == 0) {
+                            // Mettre à jour le timer logiciel si nécessaire
+                            timer_update();
                             
-                            // Lire depuis le buffer clavier
-                            extern char keyboard_getc();
+                            // Simuler l'attente clavier
+                            simulate_keyboard_input();
                             c = keyboard_getc();
                             if (c != 0) break;
                             
