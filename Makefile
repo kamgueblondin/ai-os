@@ -22,13 +22,22 @@ OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build
           build/multiboot.o build/pmm.o build/vmm.o build/initrd.o \
           build/task.o build/syscall.o build/elf.o
 
-# Cible par défaut : construire l'image de l'OS
-all: $(OS_IMAGE)
+# Cible par défaut : construire le système complet (noyau + initrd)
+all: $(OS_IMAGE) $(INITRD_IMAGE)
+	@echo "=== AI-OS v5.0 - Système Complet Construit ==="
+	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
+	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
+	@echo "Système prêt pour exécution avec: make run"
 
 # Règle pour lier les fichiers objets et créer l'image finale
 $(OS_IMAGE): $(OBJECTS)
 	@mkdir -p $(dir $@)
 	$(LD) -m elf_i386 -T linker.ld -o $@ $(OBJECTS)
+
+# Cible pour compiler seulement le noyau (sans initrd)
+kernel-only: $(OS_IMAGE)
+	@echo "=== Noyau AI-OS Compilé ==="
+	@echo "Fichier: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 
 # Règles de compilation pour les fichiers .c du kernel principal
 build/kernel.o: kernel/kernel.c
@@ -167,17 +176,28 @@ distclean: clean
 
 # Cible pour afficher l'aide
 help:
-	@echo "Cibles disponibles:"
-	@echo "  all        - Compile le système (défaut)"
-	@echo "  run        - Compile et exécute avec QEMU (mode texte)"
-	@echo "  run-gui    - Compile et exécute avec QEMU (mode graphique)"
-	@echo "  test-build - Compile sans exécuter"
-	@echo "  user-program - Compile seulement le programme utilisateur"
-	@echo "  info-initrd- Affiche le contenu de l'initrd"
-	@echo "  info-user  - Affiche les infos du programme utilisateur"
-	@echo "  clean      - Nettoie les fichiers générés"
-	@echo "  distclean  - Nettoie tout (y compris sauvegardes)"
-	@echo "  help       - Affiche cette aide"
+	@echo "=== AI-OS v5.0 - Cibles de Compilation Disponibles ==="
+	@echo ""
+	@echo "Cibles principales:"
+	@echo "  all          - Compile le système complet (noyau + initrd + programmes)"
+	@echo "  kernel-only  - Compile seulement le noyau"
+	@echo "  run          - Compile et exécute avec QEMU (mode texte)"
+	@echo "  run-gui      - Compile et exécute avec QEMU (mode graphique)"
+	@echo ""
+	@echo "Cibles de développement:"
+	@echo "  test-build   - Compile sans exécuter"
+	@echo "  user-program - Compile seulement les programmes utilisateur"
+	@echo "  info-initrd  - Affiche le contenu de l'initrd"
+	@echo "  info-user    - Affiche les infos des programmes utilisateur"
+	@echo ""
+	@echo "Cibles de maintenance:"
+	@echo "  clean        - Nettoie les fichiers générés"
+	@echo "  distclean    - Nettoie tout (y compris sauvegardes)"
+	@echo "  help         - Affiche cette aide"
+	@echo ""
+	@echo "Usage recommandé:"
+	@echo "  make clean && make all    # Compilation complète"
+	@echo "  make run                  # Test rapide"
 
-.PHONY: all run run-gui test-build info-initrd info-user user-program clean distclean help
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help
 
