@@ -232,16 +232,18 @@ void sys_yield() {
     schedule();
 }
 
-// Nouveau: SYS_GETS - Lire une ligne complète
+// Nouveau: SYS_GETS - Lire une ligne complète (version sans timer)
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) {
         return;
     }
     
-    // Attendre qu'une ligne soit prête
+    print_string_serial("SYS_GETS: Attente d'entree utilisateur...\n");
+    
+    // Attendre qu'une ligne soit prête (version sans timer)
     while (!line_ready) {
-        // Céder le CPU en attendant
-        schedule();
+        // Attendre une interruption (clavier principalement)
+        asm volatile("hlt");
     }
     
     // Copier la ligne dans le buffer utilisateur

@@ -243,9 +243,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     create_task(task_B_function);
     create_task(task_C_function);
     
-    // Initialise et démarre le timer (DÉSACTIVÉ pour la stabilité)
-    print_string("Timer desactive pour la stabilite...\n");
-    // timer_init(TIMER_FREQUENCY); // 100 Hz - DÉSACTIVÉ
+    // Timer temporairement désactivé pour tests du shell
+    print_string("Timer desactive temporairement pour tests...\n");
+    // timer_init(10); // Désactivé temporairement
+    print_string("Shell fonctionnera en mode polling.\n");
     
     // NOUVEAU: Lancement du shell interactif avec IA
     print_string("Lancement du shell interactif AI-OS...\n");
