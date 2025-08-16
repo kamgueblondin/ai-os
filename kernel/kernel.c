@@ -337,9 +337,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Creation des taches kernel de demonstration... DESACTIVE\n");
     print_string("Mode mono-tache pour stabilite maximale.\n");
     
-    // PHASE 2: Timer désactivé temporairement pour stabilité
-    print_string("PHASE 2: Timer desactive pour stabilite...\n");
-    print_string("Mode multitache limite (sans timer).\n");
+    // PHASE 2: Réactiver le timer pour les interruptions clavier
+    print_string("PHASE 2: Timer reactive pour interruptions clavier...\n");
+    timer_init(100); // Réactiver le timer à 100Hz pour les interruptions
+    print_string("Timer reactive - Interruptions clavier fonctionnelles.\n");
     
     // NOUVEAU: Lancement du shell interactif avec IA
     print_string("Lancement du shell interactif AI-OS...\n");
@@ -395,12 +396,16 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                         char c;
                         while (pos < 255) {
                             c = 0;
-                            while (c == 0) {
-                                timer_update();
+                            // Boucle d'attente active pour le clavier (sans timer)
+                            for (volatile int wait = 0; wait < 100000 && c == 0; wait++) {
                                 c = keyboard_getc();
                                 if (c != 0) break;
-                                for (volatile int i = 0; i < 10000; i++);
+                                // Petite pause pour éviter la surcharge CPU
+                                for (volatile int i = 0; i < 1000; i++);
                             }
+                            
+                            // Si aucun caractère reçu, continuer à attendre
+                            if (c == 0) continue;
                             
                             if (c == '\n' || c == '\r') {
                                 command_buffer[pos] = '\0';
