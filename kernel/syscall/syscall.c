@@ -171,18 +171,16 @@ void syscall_add_input_char(char c) {
         // Backspace
         if (line_position > 0) {
             line_position--;
-            // Effacer le caractère à l'écran seulement si pas en mode shell kernel
-            // (évite la duplication d'écho)
-            // print_char('\b', -1, -1, 0x0F);
-            // print_char(' ', -1, -1, 0x0F);
-            // print_char('\b', -1, -1, 0x0F);
+            // Effacer le caractère à l'écran
+            print_char('\b', -1, -1, 0x0F);
+            print_char(' ', -1, -1, 0x0F);
+            print_char('\b', -1, -1, 0x0F);
         }
     } else if (c >= 32 && c <= 126 && line_position < 255) {
         // Caractère imprimable
         line_buffer[line_position++] = c;
-        // Echo du caractère désactivé pour éviter la duplication
-        // L'écho sera géré par le shell kernel directement
-        // print_char(c, -1, -1, 0x0F);
+        // Echo du caractère réactivé pour mode graphique
+        print_char(c, -1, -1, 0x0F);
     }
 }
 

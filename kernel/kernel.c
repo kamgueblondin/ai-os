@@ -362,10 +362,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                             break;
                         } else if (c == '\b' && pos > 0) {
                             pos--;
-                            print_string("\b \b"); // Effacer le caractère
+                            // Le backspace est déjà géré par syscall_add_input_char
                         } else if (c >= 32 && c <= 126) {
                             command_buffer[pos++] = c;
-                            print_char(c, -1, -1, 0x0F); // Afficher le caractère
+                            // L'affichage est déjà géré par syscall_add_input_char
                         }
                     }
                     
