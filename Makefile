@@ -68,8 +68,8 @@ build/vmm.o: kernel/mem/vmm.c kernel/mem/vmm.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Règles de compilation pour le système de tâches
-build/task.o: kernel/task/task.c kernel/task/task.h
+# Règles de compilation pour le système de tâches (version stable)
+build/task.o: kernel/task/task_stable.c kernel/task/task.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

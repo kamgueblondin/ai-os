@@ -243,11 +243,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     create_task(task_B_function);
     create_task(task_C_function);
     
-    // Initialise et démarre le timer (ce qui lancera le scheduling)
-    print_string("Initialisation du timer systeme...\n");
-    timer_init(TIMER_FREQUENCY); // 100 Hz
+    // Initialise et démarre le timer (DÉSACTIVÉ pour la stabilité)
+    print_string("Timer desactive pour la stabilite...\n");
+    // timer_init(TIMER_FREQUENCY); // 100 Hz - DÉSACTIVÉ
     
-    // NOUVEAU: Charge et exécute le programme utilisateur depuis l'initrd
+    // NOUVEAU: Charge et exécute le programme utilisateur depuis l'initrd (DÉSACTIVÉ)
+    print_string("Chargement programme utilisateur desactive pour la stabilite\n");
+    /*
     if (module_count > 0) {
         print_string("Recherche du programme utilisateur...\n");
         char* user_program = initrd_read_file("user_program");
@@ -265,20 +267,19 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
             print_string("Aucun programme utilisateur trouve dans l'initrd\n");
         }
     }
+    */
     
-    print_string("\n=== Systeme AI-OS v4.0 pret ===\n");
+    print_string("\n=== Systeme AI-OS v4.0 (Mode Stable) ===\n");
     print_string("Fonctionnalites disponibles:\n");
     print_string("- Gestion des interruptions et clavier\n");
     print_string("- Gestionnaire de memoire physique et virtuelle\n");
     print_string("- Systeme de fichiers initrd (format TAR)\n");
-    print_string("- Multitache preemptif avec ordonnancement\n");
-    print_string("- Timer systeme pour le scheduling\n");
-    print_string("- Appels systeme (syscalls)\n");
-    print_string("- Chargeur ELF pour programmes utilisateur\n");
-    print_string("- Separation kernel/user space (Ring 0/3)\n");
-    print_string("\nObservez le coin inferieur droit pour voir\n");
-    print_string("les taches s'executer en parallele!\n");
-    print_string("Le programme utilisateur s'execute aussi!\n");
+    print_string("- Systeme de taches basique (sans changement contexte)\n");
+    print_string("- Appels systeme (syscalls) configures\n");
+    print_string("- Architecture stable pour developpement\n");
+    print_string("\nMode stable active - Multitache complet desactive\n");
+    print_string("pour eviter les redemarrages en boucle.\n");
+    print_string("\nObservez les messages serie pour le debug.\n");
 
     // Le noyau peut maintenant se mettre en veille
     // Les tâches s'exécuteront grâce au timer et à l'ordonnanceur
