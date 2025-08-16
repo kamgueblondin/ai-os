@@ -34,9 +34,53 @@ int is_transmit_empty() {
     return inb(0x3F8 + 5) & 0x20;
 }
 
+// Initialisation du port série pour la simulation clavier
+void init_serial_for_keyboard() {
+    outb(0x3F8 + 1, 0x00);    // Disable all interrupts
+    outb(0x3F8 + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+    outb(0x3F8 + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
+    outb(0x3F8 + 1, 0x00);    //                  (hi byte)
+    outb(0x3F8 + 3, 0x03);    // 8 bits, no parity, one stop bit
+    outb(0x3F8 + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
+    outb(0x3F8 + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+    
+    print_string_serial("Port serie initialise pour simulation clavier.\n");
+}
+
 void write_serial(char a) {
     while (!is_transmit_empty());
     outb(0x3F8, a);
+}
+
+// Fonction pour vérifier si des données sont disponibles en lecture sur le port série
+int is_receive_ready() {
+    return inb(0x3F8 + 5) & 0x01;
+}
+
+// Fonction pour lire un caractère depuis le port série (non-bloquante)
+char read_serial() {
+    if (is_receive_ready()) {
+        return inb(0x3F8);
+    }
+    return 0; // Aucun caractère disponible
+}
+
+// Simulation clavier : lit depuis le port série et injecte dans le buffer clavier
+void simulate_keyboard_input() {
+    char c = read_serial();
+    if (c != 0) {
+        // Debug: log du caractère reçu
+        print_string_serial("SIM: recv='");
+        write_serial(c);
+        print_string_serial("'\n");
+        
+        // Injecter le caractère dans le buffer clavier
+        extern void syscall_add_input_char(char c);
+        syscall_add_input_char(c);
+        
+        // Debug: confirmer l'injection
+        print_string_serial("SIM: injected into buffer\n");
+    }
 }
 
 // Function to read a byte from a port
@@ -263,6 +307,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // NOUVEAU: Lancement du shell interactif avec IA
     print_string("Lancement du shell interactif AI-OS...\n");
     
+    // Initialiser le port série pour la simulation clavier
+    init_serial_for_keyboard();
+    
     if (module_count > 0) {
         // Chercher le shell dans l'initrd
         uint8_t* shell_program = initrd_read_file("shell");
@@ -282,27 +329,30 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                 print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
                 print_string("- Execution de programmes externes\n");
                 print_string("- Interface conversationnelle\n");
-                print_string("\nShell kernel actif. Tapez vos commandes:\n\n");
+                print_string("\nShell kernel actif avec simulation clavier. Tapez vos commandes:\n\n");
                 
-                // Shell simple dans le kernel
+                // Shell simple dans le kernel avec simulation clavier
                 char command_buffer[256];
-                
-                // Fonction externe pour lire le buffer clavier
-                extern char keyboard_getc();
                 
                 while (1) {
                     print_string("AI-OS> ");
                     
-                    // Lire l'entrée utilisateur
+                    // Lire l'entrée utilisateur avec simulation clavier
                     int pos = 0;
                     char c;
                     while (pos < 255) {
-                        // Attendre une entrée clavier
+                        // Attendre une entrée via simulation clavier
                         while (1) {
-                            asm volatile("hlt");
+                            // Simuler l'entrée clavier depuis le port série
+                            simulate_keyboard_input();
+                            
                             // Lire depuis le buffer clavier
+                            extern char keyboard_getc();
                             c = keyboard_getc();
                             if (c != 0) break;
+                            
+                            // Petite pause pour éviter de surcharger le CPU
+                            for (volatile int i = 0; i < 10000; i++);
                         }
                         
                         if (c == '\n' || c == '\r') {
