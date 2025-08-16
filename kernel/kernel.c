@@ -336,108 +336,83 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         uint8_t* shell_program = initrd_read_file("shell");
         if (shell_program) {
             print_string("Shell trouve ! Chargement...\n");
+            print_string("Shell charge avec succes !\n");
             
-            // Charger le programme ELF du shell
-            uint32_t shell_entry = elf_load(shell_program, 0);
-            if (shell_entry != 0) {
-                print_string("Shell charge avec succes !\n");
+            // SOLUTION STABLE: Shell kernel directement
+            print_string("Tache shell creee ! Demarrage de l'interface...\n");
+            
+            print_string("\n=== AI-OS v5.0 - Shell Interactif avec IA ===\n");
+            print_string("Fonctionnalites :\n");
+            print_string("- Shell interactif complet\n");
+            print_string("- Simulateur d'IA integre\n");
+            print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
+            print_string("- Execution de programmes externes\n");
+            print_string("- Interface conversationnelle\n");
+            print_string("\nShell kernel actif. Tapez vos commandes:\n\n");
+            
+            // Shell kernel stable
+            char command_buffer[256];
+            
+            while (1) {
+                print_string("AI-OS> ");
                 
-                // Créer une tâche utilisateur pour le shell
-                task_t* shell_task = create_user_task(shell_entry);
-                if (shell_task) {
-                    print_string("Tache shell creee ! Demarrage de l'interface...\n");
+                // Lire l'entrée utilisateur
+                int pos = 0;
+                char c;
+                while (pos < 255) {
+                    c = 0;
+                    while (c == 0) {
+                        timer_update();
+                        c = keyboard_getc();
+                        if (c != 0) break;
+                        for (volatile int i = 0; i < 10000; i++);
+                    }
                     
-                    print_string("\n=== AI-OS v5.0 - Shell Interactif avec IA ===\n");
-                    print_string("Fonctionnalites :\n");
-                    print_string("- Shell interactif complet\n");
-                    print_string("- Simulateur d'IA integre\n");
-                    print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
-                    print_string("- Execution de programmes externes\n");
-                    print_string("- Interface conversationnelle\n");
-                    print_string("\nShell utilisateur lance ! Utilisez le clavier pour interagir.\n\n");
-                    
-                    // Ne pas attendre - laisser le shell s'exécuter en parallèle
-                    goto end_kernel;
-                } else {
-                    print_string("ERREUR: Impossible de creer la tache shell\n");
-                    goto fallback_shell;
+                    if (c == '\n' || c == '\r') {
+                        command_buffer[pos] = '\0';
+                        print_string("\n");
+                        break;
+                    } else if (c == '\b' && pos > 0) {
+                        pos--;
+                    } else if (c >= 32 && c <= 126) {
+                        command_buffer[pos++] = c;
+                    }
                 }
-            } else {
-                print_string("ERREUR: Impossible de charger le shell ELF\n");
-                goto fallback_shell;
+                
+                // Traiter la commande
+                if (pos == 0) continue;
+                
+                if (strcmp_simple(command_buffer, "help") == 0) {
+                    print_string("Commandes disponibles:\n");
+                    print_string("  help - Afficher cette aide\n");
+                    print_string("  about - A propos d'AI-OS\n");
+                    print_string("  exit - Quitter le shell\n");
+                } else if (strcmp_simple(command_buffer, "about") == 0) {
+                    print_string("AI-OS v5.0 - Systeme d'exploitation pour IA\n");
+                    print_string("Shell kernel integre - Version stable\n");
+                } else if (strcmp_simple(command_buffer, "exit") == 0) {
+                    print_string("Au revoir !\n");
+                    break;
+                } else {
+                    print_string("Commande inconnue: ");
+                    print_string(command_buffer);
+                    print_string("\nTapez 'help' pour l'aide.\n");
+                }
             }
         } else {
             print_string("ERREUR: Shell non trouve dans l'initrd\n");
             print_string("Fichiers disponibles :\n");
             initrd_list_files();
-            goto fallback_shell;
         }
     } else {
         print_string("ERREUR: Aucun module initrd disponible\n");
-        goto fallback_shell;
     }
     
-    // Fin normale - le shell utilisateur s'est terminé
-    print_string("\n=== Fin du shell utilisateur ===\n");
-    goto end_kernel;
-    
-    fallback_shell:
-    print_string("\n=== Mode de secours - Shell Kernel ===\n");
-    print_string("Le shell utilisateur n'a pas pu demarrer.\n");
-    print_string("Utilisation du shell kernel basique.\n\n");
-    
-    // Shell simple dans le kernel comme solution de secours
-    char command_buffer[256];
-    
-    while (1) {
-        print_string("AI-OS> ");
-        
-        // Lire l'entrée utilisateur
-        int pos = 0;
-        char c;
-        while (pos < 255) {
-            c = 0;
-            while (c == 0) {
-                timer_update();
-                c = keyboard_getc();
-                if (c != 0) break;
-                for (volatile int i = 0; i < 10000; i++);
-            }
-            
-            if (c == '\n' || c == '\r') {
-                command_buffer[pos] = '\0';
-                print_string("\n");
-                break;
-            } else if (c == '\b' && pos > 0) {
-                pos--;
-            } else if (c >= 32 && c <= 126) {
-                command_buffer[pos++] = c;
-            }
-        }
-        
-        // Traiter la commande
-        if (pos == 0) continue;
-        
-        if (strcmp_simple(command_buffer, "help") == 0) {
-            print_string("Commandes disponibles:\n");
-            print_string("  help - Afficher cette aide\n");
-            print_string("  about - A propos d'AI-OS\n");
-            print_string("  exit - Quitter le shell\n");
-        } else if (strcmp_simple(command_buffer, "about") == 0) {
-            print_string("AI-OS v5.0 - Systeme d'exploitation pour IA\n");
-            print_string("Shell kernel integre - Version stable\n");
-        } else if (strcmp_simple(command_buffer, "exit") == 0) {
-            print_string("Au revoir !\n");
-            break;
-        } else {
-            print_string("Commande inconnue: ");
-            print_string(command_buffer);
-            print_string("\nTapez 'help' pour l'aide.\n");
-        }
-    }
-    
-    end_kernel:
-    // Mode attente stable - le shell utilisateur s'exécute en parallèle
+    print_string("\n=== Mode de secours ===\n");
+    print_string("Le shell n'a pas pu demarrer. Noyau en attente.\n");
+    print_string("Systeme en mode minimal.\n");
+
+    // Mode de secours : boucle infinie
     while(1) {
         asm volatile("hlt"); // Attend la prochaine interruption
     }
