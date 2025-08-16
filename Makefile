@@ -139,9 +139,11 @@ userspace/shell userspace/fake_ai userspace/test_program:
 run: $(OS_IMAGE) $(INITRD_IMAGE)
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial file:output.log
 
-# Cible pour exécuter l'OS dans QEMU avec interface graphique
+# Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) $(INITRD_IMAGE)
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE)
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-vga std -display gtk,zoom-to-fit=on \
+		-monitor stdio -m 256M
 
 # Cible pour tester la compilation sans exécution
 test-build: $(OS_IMAGE)

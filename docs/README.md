@@ -12,11 +12,17 @@ AI-OS est un système d'exploitation spécialement conçu pour héberger et exé
 
 ## 🚀 Fonctionnalités Actuelles (v5.0)
 
-### 🤖 Interface Conversationnelle avec IA
-- **Shell Interactif Complet** : Interface utilisateur conversationnelle
+### 🤖 Interface Conversationnelle avec IA Avancée
+- **Shell Interactif Complet** : Interface utilisateur conversationnelle enrichie
 - **Simulateur d'IA Intégré** : Réponses intelligentes et contextuelles
 - **Commandes Naturelles** : Interaction en langage naturel
 - **Base de Connaissances** : 8 domaines de réponses préprogrammées
+- **Commandes Système Étendues** : 12+ commandes fonctionnelles
+
+### 🖥️ Affichage Graphique Amélioré
+- **Interface QEMU Optimisée** : Fenêtre plus grande avec zoom adaptatif
+- **Résolution Améliorée** : Support VGA standard avec 256MB RAM
+- **Affichage Dual** : VGA + série pour debug avancé
 
 ### 🧠 Gestion Avancée de la Mémoire
 - **Physical Memory Manager (PMM)** : Gestion dynamique avec bitmap
