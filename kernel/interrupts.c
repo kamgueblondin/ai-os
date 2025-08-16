@@ -100,6 +100,12 @@ void interrupts_init() {
     // Activer les interruptions sur le CPU
     asm volatile ("sti");
     
+    // NOUVEAU: Démasquer explicitement l'IRQ1 (clavier) pour s'assurer qu'il fonctionne
+    unsigned char mask = inb(0x21);
+    mask &= ~(1 << 1); // Démasquer IRQ1 (clavier)
+    outb(0x21, mask);
+    
+    print_string_serial("IRQ clavier demmasque et active.\n");
     print_string_serial("Systeme d'interruptions initialise.\n");
 }
 
