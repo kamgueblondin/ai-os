@@ -247,42 +247,61 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Timer desactive pour la stabilite...\n");
     // timer_init(TIMER_FREQUENCY); // 100 Hz - DÉSACTIVÉ
     
-    // NOUVEAU: Charge et exécute le programme utilisateur depuis l'initrd (DÉSACTIVÉ)
-    print_string("Chargement programme utilisateur desactive pour la stabilite\n");
-    /*
+    // NOUVEAU: Lancement du shell interactif avec IA
+    print_string("Lancement du shell interactif AI-OS...\n");
+    
     if (module_count > 0) {
-        print_string("Recherche du programme utilisateur...\n");
-        char* user_program = initrd_read_file("user_program");
-        if (user_program) {
-            uint32_t program_size = initrd_get_file_size("user_program");
-            print_string("Programme utilisateur trouve ! Chargement...\n");
+        // Chercher le shell dans l'initrd
+        uint8_t* shell_program = initrd_read_file("shell");
+        if (shell_program) {
+            print_string("Shell trouve ! Chargement...\n");
             
-            task_t* user_task = load_elf_task((uint8_t*)user_program, program_size);
-            if (user_task) {
-                print_string("Programme utilisateur charge et pret!\n");
+            // Charger le programme ELF du shell
+            uint32_t shell_entry = elf_load(shell_program, 0);
+            if (shell_entry != 0) {
+                print_string("Shell charge avec succes !\n");
+                
+                // Créer une tâche utilisateur pour le shell
+                task_t* shell_task = create_user_task(shell_entry);
+                if (shell_task) {
+                    print_string("Tache shell creee ! Demarrage de l'interface...\n");
+                    
+                    print_string("\n=== AI-OS v5.0 - Shell Interactif avec IA ===\n");
+                    print_string("Fonctionnalites :\n");
+                    print_string("- Shell interactif complet\n");
+                    print_string("- Simulateur d'IA integre\n");
+                    print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
+                    print_string("- Execution de programmes externes\n");
+                    print_string("- Interface conversationnelle\n");
+                    print_string("\nTransfert vers l'espace utilisateur...\n\n");
+                    
+                    // Attendre que le shell se termine (ne devrait jamais arriver)
+                    while (shell_task->state != TASK_TERMINATED) {
+                        asm volatile("hlt"); // Attendre les interruptions
+                    }
+                    
+                    print_string("Shell termine. Retour au noyau.\n");
+                } else {
+                    print_string("ERREUR: Impossible de creer la tache shell\n");
+                }
             } else {
-                print_string("ERREUR: Impossible de charger le programme utilisateur\n");
+                print_string("ERREUR: Impossible de charger le shell ELF\n");
             }
         } else {
-            print_string("Aucun programme utilisateur trouve dans l'initrd\n");
+            print_string("ERREUR: Shell non trouve dans l'initrd\n");
+            print_string("Fichiers disponibles :\n");
+            // Lister les fichiers disponibles pour debug
+            initrd_list_files();
         }
+    } else {
+        print_string("ERREUR: Aucun module initrd disponible\n");
     }
-    */
     
-    print_string("\n=== Systeme AI-OS v4.0 (Mode Stable) ===\n");
-    print_string("Fonctionnalites disponibles:\n");
-    print_string("- Gestion des interruptions et clavier\n");
-    print_string("- Gestionnaire de memoire physique et virtuelle\n");
-    print_string("- Systeme de fichiers initrd (format TAR)\n");
-    print_string("- Systeme de taches basique (sans changement contexte)\n");
-    print_string("- Appels systeme (syscalls) configures\n");
-    print_string("- Architecture stable pour developpement\n");
-    print_string("\nMode stable active - Multitache complet desactive\n");
-    print_string("pour eviter les redemarrages en boucle.\n");
-    print_string("\nObservez les messages serie pour le debug.\n");
+    print_string("\n=== Mode de secours ===\n");
+    print_string("Le shell n'a pas pu demarrer. Noyau en attente.\n");
+    print_string("Systeme en mode minimal.\n");
 
-    // Le noyau peut maintenant se mettre en veille
-    // Les tâches s'exécuteront grâce au timer et à l'ordonnanceur
+    // Mode de secours : boucle infinie
     while(1) {
         asm volatile("hlt"); // Attend la prochaine interruption
     }

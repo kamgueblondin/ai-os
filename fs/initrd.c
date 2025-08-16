@@ -201,7 +201,14 @@ char* initrd_read_file(const char* filename) {
     }
     
     for (uint32_t i = 0; i < current_initrd->file_count; i++) {
-        if (strcmp(current_initrd->files[i].name, filename) == 0) {
+        const char* stored_name = current_initrd->files[i].name;
+        
+        // Ignore le préfixe "./" si présent
+        if (stored_name[0] == '.' && stored_name[1] == '/') {
+            stored_name += 2;
+        }
+        
+        if (strcmp(stored_name, filename) == 0) {
             return current_initrd->files[i].data;
         }
     }
@@ -216,7 +223,14 @@ uint32_t initrd_get_file_size(const char* filename) {
     }
     
     for (uint32_t i = 0; i < current_initrd->file_count; i++) {
-        if (strcmp(current_initrd->files[i].name, filename) == 0) {
+        const char* stored_name = current_initrd->files[i].name;
+        
+        // Ignore le préfixe "./" si présent
+        if (stored_name[0] == '.' && stored_name[1] == '/') {
+            stored_name += 2;
+        }
+        
+        if (strcmp(stored_name, filename) == 0) {
             return current_initrd->files[i].size;
         }
     }

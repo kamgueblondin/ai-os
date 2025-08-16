@@ -10,6 +10,11 @@
 #define SYS_GETC    2
 #define SYS_PUTS    3
 #define SYS_YIELD   4
+#define SYS_GETS    5  // Nouveau: Lire une ligne depuis le clavier
+#define SYS_EXEC    6  // Nouveau: Exécuter un programme
+
+// Nombre total d'appels système
+#define MAX_SYSCALLS 7
 
 // Structure pour passer les paramètres des syscalls
 typedef struct {
@@ -20,12 +25,16 @@ typedef struct {
 void syscall_init();
 void syscall_handler(cpu_state_t* cpu);
 
-// Fonctions utilitaires pour les syscalls
+// Fonctions utilitaires pour les syscalls existants
 void sys_exit(uint32_t exit_code);
 void sys_putc(char c);
 char sys_getc();
 void sys_puts(const char* str);
 void sys_yield();
+
+// Nouveaux appels système
+void sys_gets(char* buffer, uint32_t size);
+int sys_exec(const char* path, char* argv[]);
 
 #endif
 

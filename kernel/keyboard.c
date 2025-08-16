@@ -7,6 +7,7 @@ extern void write_serial(char c); // Depuis kernel.c
 extern int vga_x, vga_y;
 extern unsigned char inb(unsigned short port);
 extern void pic_send_eoi(unsigned char irq);
+extern void syscall_add_input_char(char c); // Depuis syscall.c
 
 // Table de correspondance simple Scancode -> ASCII (pour un clavier US QWERTY)
 const char scancode_map[] = {
@@ -26,33 +27,14 @@ void keyboard_handler() {
     if (scancode < sizeof(scancode_map) && scancode_map[scancode] != 0) {
         char c = scancode_map[scancode];
         
-        // Affiche le caractère à la position actuelle du curseur sur VGA
-        print_char_vga(c, vga_x, vga_y, 0x1F);
+        // NOUVEAU: Ajouter le caractère au buffer des syscalls pour SYS_GETS
+        syscall_add_input_char(c);
+        
+        // Note: L'affichage est maintenant géré par syscall_add_input_char
+        // pour une meilleure cohérence avec le shell interactif
         
         // Affiche aussi sur le port série pour le debug
         write_serial(c);
-        
-        // Gestion du curseur
-        if (c == '\n') {
-            vga_x = 0;
-            vga_y++;
-        } else if (c == '\b') {
-            if (vga_x > 0) {
-                vga_x--;
-                print_char_vga(' ', vga_x, vga_y, 0x1F); // Efface le caractère
-            }
-        } else {
-            vga_x++;
-            if (vga_x >= 80) {
-                vga_x = 0;
-                vga_y++;
-            }
-        }
-        
-        // Gestion du défilement si on dépasse l'écran
-        if (vga_y >= 25) {
-            vga_y = 24;
-        }
     }
     
     // Envoie EOI au PIC

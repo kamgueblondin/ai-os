@@ -104,24 +104,27 @@ build/context_switch.o: boot/context_switch.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Règle pour créer l'initrd de test avec le programme utilisateur
-$(INITRD_IMAGE): userspace/test_program
-	@echo "Création de l'initrd avec programme utilisateur..."
+# Règle pour créer l'initrd avec shell et IA
+$(INITRD_IMAGE): userspace/shell userspace/fake_ai userspace/test_program
+	@echo "Création de l'initrd AI-OS v5.0 avec shell et IA..."
 	@mkdir -p initrd_content
 	@echo "Ceci est un fichier de test depuis l'initrd !" > initrd_content/test.txt
 	@echo "Un autre fichier de demonstration." > initrd_content/hello.txt
-	@echo "Configuration du systeme AI-OS" > initrd_content/config.cfg
+	@echo "Configuration du systeme AI-OS v5.0" > initrd_content/config.cfg
 	@echo "#!/bin/sh" > initrd_content/startup.sh
-	@echo "echo 'Script de demarrage AI-OS'" >> initrd_content/startup.sh
-	@echo "Donnees pour l'intelligence artificielle" > initrd_content/ai_data.txt
+	@echo "echo 'Script de demarrage AI-OS v5.0'" >> initrd_content/startup.sh
+	@echo "Donnees pour l'intelligence artificielle simulee" > initrd_content/ai_data.txt
+	@echo "Base de connaissances IA - Version simulation" > initrd_content/ai_knowledge.txt
+	@cp userspace/shell initrd_content/shell
+	@cp userspace/fake_ai initrd_content/fake_ai
 	@cp userspace/test_program initrd_content/user_program
 	@tar -cf $(INITRD_IMAGE) -C initrd_content .
-	@echo "Initrd créé avec programme utilisateur: $(INITRD_IMAGE)"
+	@echo "Initrd AI-OS v5.0 créé avec shell interactif et IA: $(INITRD_IMAGE)"
 
-# Compile le programme utilisateur
-userspace/test_program:
-	@echo "Compilation du programme utilisateur..."
-	@$(MAKE) -C userspace test_program
+# Compile tous les programmes utilisateur
+userspace/shell userspace/fake_ai userspace/test_program:
+	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
+	@$(MAKE) -C userspace all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) $(INITRD_IMAGE)

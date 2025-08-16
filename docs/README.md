@@ -4,7 +4,19 @@
 
 AI-OS est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle de manière sécurisée et efficace. Le projet vise à créer une plateforme optimisée pour les charges de travail IA avec une architecture modulaire et extensible.
 
-## 🚀 Fonctionnalités Actuelles (v4.0)
+# AI-OS - Système d'Exploitation pour Intelligence Artificielle
+
+## 🎯 Vision du Projet
+
+AI-OS est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle de manière sécurisée et efficace. Le projet vise à créer une plateforme optimisée pour les charges de travail IA avec une architecture modulaire et extensible.
+
+## 🚀 Fonctionnalités Actuelles (v5.0)
+
+### 🤖 Interface Conversationnelle avec IA
+- **Shell Interactif Complet** : Interface utilisateur conversationnelle
+- **Simulateur d'IA Intégré** : Réponses intelligentes et contextuelles
+- **Commandes Naturelles** : Interaction en langage naturel
+- **Base de Connaissances** : 8 domaines de réponses préprogrammées
 
 ### 🧠 Gestion Avancée de la Mémoire
 - **Physical Memory Manager (PMM)** : Gestion dynamique avec bitmap
@@ -20,13 +32,13 @@ AI-OS est un système d'exploitation spécialement conçu pour héberger et exé
 
 ### ⚡ Multitâche Préemptif
 - **Ordonnanceur Round-Robin** : Équitable et performant
-- **Changement de contexte** : Optimisé en assembleur
-- **Timer système (PIT)** : 100Hz pour réactivité
+- **Changement de contexte** : Optimisé en assembleur (mode stable)
+- **Timer système (PIT)** : 100Hz pour réactivité (désactivé pour stabilité)
 - **États de tâches** : RUNNING, READY, WAITING, TERMINATED
 
 ### 🛡️ Espace Utilisateur Sécurisé
 - **Séparation Ring 0/3** : Isolation kernel/user complète
-- **Appels système** : Interface sécurisée (5 syscalls)
+- **Appels système étendus** : Interface sécurisée (7 syscalls)
 - **Chargeur ELF** : Exécution de programmes externes
 - **Protection mémoire** : Prévention des accès non autorisés
 
@@ -43,7 +55,7 @@ ai-os/
 ├── kernel/                   # Noyau principal
 │   ├── mem/                 # Gestion mémoire (PMM/VMM)
 │   ├── task/                # Système de tâches
-│   ├── syscall/             # Appels système
+│   ├── syscall/             # Appels système (7 syscalls)
 │   ├── *.c/h                # Modules noyau (interruptions, timer, etc.)
 ├── boot/                    # Code assembleur de démarrage
 │   ├── boot.s              # Point d'entrée Multiboot
@@ -53,11 +65,14 @@ ai-os/
 ├── fs/                      # Système de fichiers
 │   ├── initrd.h/c          # Parser TAR pour initrd
 ├── userspace/               # Programmes utilisateur
+│   ├── shell.c             # Shell interactif principal
+│   ├── fake_ai.c           # Simulateur d'IA
 │   ├── test_program.c      # Programme de démonstration
 │   └── Makefile            # Build system utilisateur
 ├── docs/                    # Documentation complète
 │   ├── README.md           # Ce fichier
-│   ├── etapes_*_*.md       # Documentation détaillée par étape
+│   ├── etape_*_*.md        # Documentation détaillée par étape
+│   └── etape_7_shell_ia.md # Documentation v5.0
 └── build/                   # Fichiers compilés
 ```
 
@@ -112,20 +127,7 @@ make info-initrd
 - **Démarrage** : Initialisation complète du système
 - **Multitâche** : Tâches kernel s'exécutent en parallèle
 - **Mémoire** : Allocation/libération de pages
-- **Syscalls** : Appels système fonctionnels
-
-### Démonstrations Visuelles
-- **Coin inférieur droit** : Tâches A, B, C clignotent
-- **Messages série** : Log détaillé des opérations
-- **Programme utilisateur** : Exécution en Ring 3
-
-### Métriques de Performance
-- **Démarrage** : <2 secondes
-- **Mémoire gérée** : 32,895 pages (128MB)
-- **Fréquence timer** : 100Hz (10ms quantum)
-- **Taille noyau** : ~20KB optimisé
-
-## 📊 Évolution du Projet
+- **Syscalls** : Appels système fonctionne## 📊 Évolution du Projet
 
 ### Version 1.0 - Noyau Basique
 - Démarrage Multiboot
@@ -143,33 +145,33 @@ make info-initrd
 - Support clavier
 - PIC et IDT configurés
 
-### Version 4.0 - Multitâche et Espace Utilisateur ⭐
+### Version 4.0 - Multitâche et Espace Utilisateur
 - Système de tâches complet
 - Ordonnanceur préemptif
-- Appels système sécurisés
+- Appels système sécurisés (5 syscalls)
 - Chargeur ELF
 - Programmes utilisateur
 
+### Version 5.0 - Shell Interactif et IA Simulée ⭐
+- Shell interactif complet
+- Simulateur d'intelligence artificielle
+- Appels système étendus (SYS_GETS, SYS_EXEC)
+- Interface conversationnelle
+- Chargement de programmes externes
+
 ## 🎯 Prochaines Étapes
 
-### Version 5.0 - Shell et Interface
-- Shell interactif complet
-- Commandes système avancées
-- Gestion des processus utilisateur
-- Interface de configuration
-
-### Version 6.0 - Réseau et Communication
-- Stack TCP/IP basique
-- Pilotes réseau
-- Communication inter-processus
-- Services réseau
-
-### Version 7.0 - Intelligence Artificielle
+### Version 6.0 - IA Véritable
 - Moteur d'inférence intégré
 - Support des modèles légers
-- API IA pour applications
+- Traitement du langage naturel
 - Optimisations performance
 
+### Version 7.0 - Fonctionnalités Avancées
+- Système de fichiers persistant
+- Stack TCP/IP basique
+- Interface graphique
+- Services réseau
 ## 🔧 Développement
 
 ### Structure de Développement
