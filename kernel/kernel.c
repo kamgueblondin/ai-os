@@ -13,6 +13,8 @@
 unsigned char inb(unsigned short port);
 // Function to write a byte to a port
 void outb(unsigned short port, unsigned char data);
+// Function to print string to serial port (forward declaration)
+void print_string_serial(const char* str);
 
 void serial_init() {
     // Disable all interrupts

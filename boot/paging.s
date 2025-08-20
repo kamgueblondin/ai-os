@@ -1,5 +1,8 @@
 bits 32
 
+; Section GNU stack (pour éviter les warnings du linker)
+section .note.GNU-stack noalloc noexec nowrite progbits
+
 global load_page_directory
 global enable_paging
 global read_cr0

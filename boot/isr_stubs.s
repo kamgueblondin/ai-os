@@ -1,5 +1,8 @@
 bits 32
 
+; Section GNU stack (pour éviter les warnings du linker)
+section .note.GNU-stack noalloc noexec nowrite progbits
+
 extern keyboard_handler
 extern timer_handler
 extern syscall_handler

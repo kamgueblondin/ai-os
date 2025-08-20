@@ -1,6 +1,9 @@
 ; Déclare que nous utilisons la syntaxe Intel et le mode 32-bit
 bits 32
 
+; Section GNU stack (pour éviter les warnings du linker)
+section .note.GNU-stack noalloc noexec nowrite progbits
+
 ; Section pour l'en-tête Multiboot (magic numbers et flags)
 section .multiboot
 align 4
