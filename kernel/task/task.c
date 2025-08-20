@@ -124,9 +124,170 @@ void schedule() {
         task_t* old_task = current_task;
         current_task = next_task;
         
-        // Changement de contexte (désactivé temporairement)
-        // switch_task(&old_task->cpu_state, &current_task->cpu_state);
-    }
+        // Effectuer le vrai changement de contexte
+        print_string_serial("Changement de contexte vers tache ID ");
+        // Simple conversion int vers string pour debug
+        char id_str[16];
+        int id = current_task->id;
+        int pos = 0;
+        if (id == 0) {
+            id_str[pos++] = '0';
+        } else {
+            while (id > 0) {
+                id_str[pos++] = '0' + (id % 10);
+                id /= 10;
+            }
+        }
+        // Inverser la chaîne
+        for (int i = 0; i < pos / 2; i++) {
+            char temp = id_str[i];
+            id_str[i] = id_str[pos - 1 - i];
+            id_str[pos - 1 - i] = temp;
+        }
+        id_str[pos] = '\0';
+        print_string_serial(id_str);
+        print_string_serial("\n");
+        
+        switch_task(&old_task->cpu_state, &current_task->cpu_state);
+    }</to_replace>
+</Editor.edit_file_by_replace>
+
+<Editor.write>
+<path>boot/context_switch_user.s</path>
+<content>global switch_task
+
+; Structure cpu_state_t offsets
+%define CPU_EAX    0
+%define CPU_EBX    4
+%define CPU_ECX    8
+%define CPU_EDX    12
+%define CPU_ESI    16
+%define CPU_EDI    20
+%define CPU_EBP    24
+%define CPU_EIP    28
+%define CPU_ESP    32
+%define CPU_EFLAGS 36
+%define CPU_CS     40
+%define CPU_DS     44
+%define CPU_ES     48
+%define CPU_FS     52
+%define CPU_GS     56
+%define CPU_SS     60
+
+; void switch_task(cpu_state_t* old_state, cpu_state_t* new_state);
+; Changement de contexte avec support Ring 0 -> Ring 3
+switch_task:
+    cli                     ; Désactive les interruptions
+    
+    push ebp
+    mov ebp, esp
+    pushad                  ; Sauvegarde tous les registres
+    
+    mov eax, [ebp + 8]      ; old_state
+    mov ebx, [ebp + 12]     ; new_state
+    
+    ; Vérifier si on a un ancien état à sauvegarder
+    test eax, eax
+    jz .load_new_task
+    
+    ; Sauvegarder l'état actuel (sera fait par l'appelant)
+    ; Ici on se contente de passer à la nouvelle tâche
+    
+.load_new_task:
+    test ebx, ebx
+    jz .done
+    
+    ; Vérifier le type de tâche (kernel vs user)
+    ; Si CS = 0x1B, c'est une tâche utilisateur (Ring 3)
+    mov cx, [ebx + CPU_CS]
+    cmp cx, 0x1B
+    je .switch_to_user
+    
+    ; Changement vers tâche kernel (Ring 0)
+    mov ax, [ebx + CPU_DS]
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    
+    mov esp, [ebx + CPU_ESP]
+    mov ebp, [ebx + CPU_EBP]
+    
+    push dword [ebx + CPU_EFLAGS]
+    popfd
+    
+    ; Charger les registres généraux
+    mov eax, [ebx + CPU_EAX]
+    mov ecx, [ebx + CPU_ECX]
+    mov edx, [ebx + CPU_EDX]
+    mov esi, [ebx + CPU_ESI]
+    mov edi, [ebx + CPU_EDI]
+    
+    push dword [ebx + CPU_EIP]
+    mov ebx, [ebx + CPU_EBX]
+    
+    sti
+    ret
+    
+.switch_to_user:
+    ; Préparation pour Ring 3
+    ; Stack layout pour iret vers Ring 3:
+    ; [SS] [ESP] [EFLAGS] [CS] [EIP]
+    
+    ; Configurer la pile kernel temporaire
+    mov esp, 0x10000        ; Pile kernel temporaire
+    
+    ; Empiler les registres de segment utilisateur pour iret
+    push dword [ebx + CPU_SS]     ; SS utilisateur (0x23)
+    push dword [ebx + CPU_ESP]    ; ESP utilisateur
+    
+    ; Préparer EFLAGS avec IF=1 pour Ring 3
+    mov eax, [ebx + CPU_EFLAGS]
+    or eax, 0x200               ; Activer les interruptions
+    push eax                    ; EFLAGS
+    
+    push dword [ebx + CPU_CS]     ; CS utilisateur (0x1B)
+    push dword [ebx + CPU_EIP]    ; EIP utilisateur
+    
+    ; Charger les segments de données utilisateur
+    mov ax, 0x23                ; Segment de données utilisateur
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    
+    ; Charger les registres généraux
+    mov eax, [ebx + CPU_EAX]
+    mov ecx, [ebx + CPU_ECX]
+    mov edx, [ebx + CPU_EDX]
+    mov esi, [ebx + CPU_ESI]
+    mov edi, [ebx + CPU_EDI]
+    mov ebp, [ebx + CPU_EBP]
+    mov ebx, [ebx + CPU_EBX]
+    
+    ; Passage au Ring 3 avec iret
+    iret
+    
+.done:
+    popad
+    mov esp, ebp
+    pop ebp
+    sti
+    ret
+
+; Section GNU stack (sécurité)
+section .note.GNU-stack
+</content>
+</Editor.write>
+
+<Editor.edit_file_by_replace>
+<file_name>Makefile</file_name>
+<to_replace>build/context_switch.o: boot/context_switch.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@</to_replace>
+<new_content>build/context_switch.o: boot/context_switch_user.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
 }
 
 // Crée une tâche utilisateur

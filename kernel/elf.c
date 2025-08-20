@@ -105,24 +105,81 @@ uint32_t elf_load(uint8_t* elf_data, uint32_t size) {
             vmm_map_page(phys_page, (void*)virt_addr, flags);
         }
         
-        // Copie les données du segment
+        // Copie les données du segment via l'adresse physique
         if (ph->p_filesz > 0) {
             uint8_t* src = elf_data + ph->p_offset;
-            uint8_t* dest = (uint8_t*)ph->p_vaddr;
             
-            // Copie simple et sûre
-            for (uint32_t j = 0; j < ph->p_filesz; j++) {
-                dest[j] = src[j];
+            print_string_serial("Copie des donnees du segment...\n");
+            print_string_serial("Taille fichier: ");
+            
+            // Affichage de la taille
+            char size_str[16];
+            int size_val = ph->p_filesz;
+            int pos = 0;
+            if (size_val == 0) {
+                size_str[pos++] = '0';
+            } else {
+                while (size_val > 0) {
+                    size_str[pos++] = '0' + (size_val % 10);
+                    size_val /= 10;
+                }
             }
+            // Inverser
+            for (int i = 0; i < pos / 2; i++) {
+                char temp = size_str[i];
+                size_str[i] = size_str[pos - 1 - i];
+                size_str[pos - 1 - i] = temp;
+            }
+            size_str[pos] = '\0';
+            print_string_serial(size_str);
+            print_string_serial(" octets\n");
+            
+            print_string_serial("Debut copie memoire (methode securisee)...\n");
+            
+            // Copie page par page pour éviter les erreurs d'accès
+            for (uint32_t page = 0; page < pages_needed; page++) {
+                uint32_t page_offset = page * 4096;
+                uint32_t virt_addr = ph->p_vaddr + page_offset;
+                
+                // Obtenir l'adresse physique via le VMM
+                void* phys_addr = vmm_get_physical_address((void*)virt_addr);
+                if (!phys_addr) {
+                    print_string_serial("ERREUR: Impossible d'obtenir l'adresse physique\n");
+                    continue;
+                }
+                
+                uint8_t* dst = (uint8_t*)phys_addr;
+                
+                // Calculer les limites de copie pour cette page
+                uint32_t copy_start = (page_offset < ph->p_filesz) ? page_offset : ph->p_filesz;
+                uint32_t copy_end = ((page_offset + 4096) < ph->p_filesz) ? 
+                                  (page_offset + 4096) : ph->p_filesz;
+                
+                if (copy_start < copy_end) {
+                    // Copie des données réelles
+                    for (uint32_t b = copy_start; b < copy_end; b++) {
+                        dst[b - page_offset] = src[b];
+                    }
+                }
+                
+                // Initialisation à zéro du reste de la page si nécessaire
+                uint32_t zero_start = (copy_end > page_offset) ? (copy_end - page_offset) : 0;
+                uint32_t zero_end = 4096;
+                
+                if (page_offset + zero_end > ph->p_memsz) {
+                    zero_end = ph->p_memsz - page_offset;
+                }
+                
+                for (uint32_t b = zero_start; b < zero_end; b++) {
+                    dst[b] = 0;
+                }
+            }
+            
+            print_string_serial("Copie memoire terminee.\n");
         }
         
-        // Initialise le reste à zéro si nécessaire
-        if (ph->p_memsz > ph->p_filesz) {
-            uint8_t* dest = (uint8_t*)ph->p_vaddr;
-            for (uint32_t j = ph->p_filesz; j < ph->p_memsz; j++) {
-                dest[j] = 0;
-            }
-        }
+        // Initialisation BSS pour les segments sans données fichier
+        print_string_serial("Initialisation BSS...\n");
     }
     
     print_string_serial("ELF charge avec succes\n");
