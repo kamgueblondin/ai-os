@@ -40,8 +40,10 @@ void vmm_init();
 void vmm_switch_page_directory(page_directory_t *dir);
 page_t *vmm_get_page(uint32_t address, int make, page_directory_t *dir);
 void vmm_map_page(void *physaddr, void *virtualaddr, uint32_t flags);
+void vmm_map_page_in_directory(page_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags);
 void vmm_unmap_page(void *virtualaddr);
 void *vmm_get_physical_address(void *virtualaddr);
+void *vmm_get_physical_address_from_directory(page_directory_t *dir, void *virtualaddr);
 
 // Fonctions utilitaires
 page_directory_t *vmm_clone_directory(page_directory_t *src);
