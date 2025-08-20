@@ -93,9 +93,17 @@ Intégration native de TensorFlow Lite avec :
 
 ### 🏗️ Phase 1 - Foundation (Restantes)
 
-- **US-004** : Framework de plugins modulaires
-- **US-005** : Système de logging distribué
-- **US-006** : Gestionnaire de configuration dynamique
+#### ✅ **US-004 : Framework de plugins modulaires**
+**Fichier** : `US-004_Framework_Plugins_Modulaires.md`  
+**Complexité** : Élevée | **Effort** : 20 j-h | **Risque** : Moyen
+
+#### ✅ **US-005 : Système de logging distribué**
+**Fichier** : `US-005_Systeme_Logging_Distribue.md`  
+**Complexité** : Élevée | **Effort** : 18 j-h | **Risque** : Moyen
+
+#### ✅ **US-006 : Gestionnaire de configuration dynamique**
+**Fichier** : `US-006_Gestionnaire_Configuration_Dynamique.md`  
+**Complexité** : Moyenne | **Effort** : 15 j-h | **Risque** : Faible
 - **US-007** : Système de monitoring temps réel
 - **US-008** : Framework de tests automatisés
 - **US-009** : Système de mise à jour incrémentale
