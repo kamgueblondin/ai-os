@@ -1,143 +1,101 @@
-bits 32
+; Enhanced context switching with Ring 0->3 transitions for AI-OS
+[BITS 32]
 
-global context_switch
+section .text
 
-; void context_switch(cpu_state_t* old_state, cpu_state_t* new_state);
-; Enhanced version with Ring 0->3 transition support
-context_switch:
-    ; Disable interrupts during context change
+global context_switch_with_ring_transition
+global switch_to_user_mode
+
+; Segment selectors
+KERNEL_CODE_SELECTOR equ 0x08
+KERNEL_DATA_SELECTOR equ 0x10
+USER_CODE_SELECTOR   equ 0x1B  ; Ring 3 code
+USER_DATA_SELECTOR   equ 0x23  ; Ring 3 data
+
+; Context switch with Ring transition support
+context_switch_with_ring_transition:
     cli
     
-    ; Save caller's registers
-    push ebp
-    mov ebp, esp
-    
     ; Get parameters
-    mov eax, [ebp + 8]  ; old_state
-    mov ebx, [ebp + 12] ; new_state
+    mov eax, [esp + 4]  ; prev_task
+    mov edx, [esp + 8]  ; next_task
     
-    ; Check if old_state is NULL (first task)
+    ; Save current task context if exists
     test eax, eax
-    jz load_new_task
+    jz .load_next
     
-    ; Save old task state
-    mov [eax + 0], eax    ; eax (will be corrected after)
-    mov [eax + 4], ebx    ; ebx (will be corrected after)
-    mov [eax + 8], ecx    ; ecx
-    mov [eax + 12], edx   ; edx
-    mov [eax + 16], esi   ; esi
-    mov [eax + 20], edi   ; edi
+    ; Save registers
+    mov [eax + 20], esp
+    mov [eax + 24], ebp
+    mov [eax + 28], ebx
+    mov [eax + 32], esi
+    mov [eax + 36], edi
     
-    ; Save original EBP (before function call)
-    mov ecx, [ebp]        ; Caller's EBP
-    mov [eax + 24], ecx   ; ebp
+.load_next:
+    test edx, edx
+    jz .done
     
-    ; Save return address as EIP
-    mov ecx, [ebp + 4]    ; Return address
-    mov [eax + 28], ecx   ; eip
+    ; Check privilege level
+    mov bl, [edx + 52]  ; task->privilege_level
+    cmp bl, 3
+    je .switch_to_user
     
-    ; Save ESP (stack pointer before call)
-    lea ecx, [ebp + 8]    ; ESP before function call
-    mov [eax + 32], ecx   ; esp
+    ; Kernel task - standard switch
+    jmp .kernel_switch
     
-    ; Save EFLAGS
-    pushfd
+.switch_to_user:
+    ; Switch page directory
+    mov ebx, [edx + 16]  ; task->page_directory
+    push edx
+    push ebx
+    call switch_page_directory
+    add esp, 4
+    pop edx
+    
+    ; Set up user mode transition
+    mov esp, [edx + 20]  ; User stack
+    mov ebx, [edx + 56]  ; Entry point
+    
+    ; Push user mode context for iret
+    push USER_DATA_SELECTOR  ; SS
+    push esp                 ; ESP
+    pushfd                   ; EFLAGS
     pop ecx
-    mov [eax + 36], ecx   ; eflags
+    or ecx, 0x200           ; Enable interrupts
+    push ecx                ; EFLAGS
+    push USER_CODE_SELECTOR ; CS
+    push ebx                ; EIP
     
-    ; Save segment registers (simplified version)
-    mov word [eax + 40], 0x08   ; cs (kernel code segment)
-    mov word [eax + 44], 0x10   ; ds (kernel data segment)
-    mov word [eax + 48], 0x10   ; es
-    mov word [eax + 52], 0x10   ; fs
-    mov word [eax + 56], 0x10   ; gs
-    mov word [eax + 60], 0x10   ; ss
-    
-    ; Correct saved EAX and EBX values
-    mov ecx, [ebp + 8]     ; old_state (original EAX value)
-    mov [eax + 0], ecx
-    mov ecx, [ebp + 12]    ; new_state (original EBX value)
-    mov [eax + 4], ecx
-
-load_new_task:
-    ; Check if new_state is NULL
-    test ebx, ebx
-    jz context_switch_done
-    
-    ; Check if this is a user mode task (privilege level 3)
-    cmp byte [ebx + 64], 3  ; Check privilege_level field
-    je load_user_task
-    
-    ; Load kernel task state
-    ; For stability, keep kernel segments for now
-    ; (user tasks will be handled differently)
-    
-    ; Load general registers
-    mov eax, [ebx + 0]    ; eax
-    mov ecx, [ebx + 8]    ; ecx
-    mov edx, [ebx + 12]   ; edx
-    mov esi, [ebx + 16]   ; esi
-    mov edi, [ebx + 20]   ; edi
-    
-    ; Load ESP
-    mov esp, [ebx + 32]   ; esp
-    
-    ; Load EBP
-    mov ebp, [ebx + 24]   ; ebp
-    
-    ; Load EFLAGS (but keep interrupts disabled for now)
-    mov ecx, [ebx + 36]   ; eflags
-    and ecx, 0xFFFFFDFF   ; Disable IF flag (interrupts)
-    push ecx
-    popfd
-    
-    ; Prepare jump to new task
-    push dword [ebx + 28] ; EIP on stack
-    
-    ; Load EBX last
-    mov ebx, [ebx + 4]    ; ebx
-    
-    ; Reactivate interrupts just before jump
-    sti
-    
-    ; Jump to new task
-    ret  ; Use EIP on stack
-    
-load_user_task:
-    ; Enhanced Ring 0->3 transition for user tasks
-    
-    ; Set up user mode stack
-    mov esp, [ebx + 32]   ; User stack
-    
-    ; Push user mode context for IRET
-    push 0x23             ; SS (user data selector)
-    push dword [ebx + 32] ; ESP (user stack)
-    push dword [ebx + 36] ; EFLAGS (with interrupts enabled)
-    push 0x1B             ; CS (user code selector)  
-    push dword [ebx + 28] ; EIP (user entry point)
-    
-    ; Load user data segments
-    mov ax, 0x23          ; User data selector
+    ; Load user segments
+    mov ax, USER_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     
-    ; Load general purpose registers
-    mov eax, [ebx + 0]    ; eax
-    mov ecx, [ebx + 8]    ; ecx
-    mov edx, [ebx + 12]   ; edx
-    mov esi, [ebx + 16]   ; esi
-    mov edi, [ebx + 20]   ; edi
-    mov ebp, [ebx + 24]   ; ebp
-    mov ebx, [ebx + 4]    ; ebx (load last)
-    
-    ; Transition to Ring 3
+    ; Jump to Ring 3
     iret
-
-context_switch_done:
-    ; Restore stack and return
-    mov esp, ebp
-    pop ebp
-    sti   ; Reactivate interrupts
+    
+.kernel_switch:
+    ; Standard kernel task switching
+    mov ebx, [edx + 16]     ; page_directory
+    mov ecx, cr3
+    cmp ebx, ecx
+    je .same_dir
+    
+    push edx
+    push ebx
+    call switch_page_directory
+    add esp, 4
+    pop edx
+    
+.same_dir:
+    mov esp, [edx + 20]
+    mov ebp, [edx + 24]
+    mov ebx, [edx + 28]
+    mov esi, [edx + 32]
+    mov edi, [edx + 36]
+    
+.done:
+    sti
     ret
