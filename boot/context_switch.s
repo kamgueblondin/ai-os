@@ -1,26 +1,11 @@
-; Enhanced context switching with Ring 0->3 transitions for AI-OS
-[BITS 32]
-
-section .text
-
-global context_switch_with_ring_transition
-global switch_to_user_mode
-
-; Segment selectors
-KERNEL_CODE_SELECTOR equ 0x08
-KERNEL_DATA_SELECTOR equ 0x10
-USER_CODE_SELECTOR   equ 0x1B  ; Ring 3 code
-USER_DATA_SELECTOR   equ 0x23  ; Ring 3 data
-
-; Context switch with Ring transition support
-context_switch_with_ring_transition:
-    cli
+; switch_task function - Enhanced for Ring 0->3 transitions
+.global switch_task
+switch_task:
+    push ebp
+    mov ebp, esp
     
-    ; Get parameters
-    mov eax, [esp + 4]  ; prev_task
-    mov edx, [esp + 8]  ; next_task
-    
-    ; Save current task context if exists
+    ; Save current task context
+    mov eax, [ebp + 8]  ; current_task
     test eax, eax
     jz .load_next
     
@@ -32,6 +17,7 @@ context_switch_with_ring_transition:
     mov [eax + 36], edi
     
 .load_next:
+    mov edx, [ebp + 12] ; next_task
     test edx, edx
     jz .done
     
@@ -57,17 +43,17 @@ context_switch_with_ring_transition:
     mov ebx, [edx + 56]  ; Entry point
     
     ; Push user mode context for iret
-    push USER_DATA_SELECTOR  ; SS
-    push esp                 ; ESP
-    pushfd                   ; EFLAGS
+    push 0x23           ; USER_DATA_SELECTOR (SS)
+    push esp            ; ESP
+    pushfd              ; EFLAGS
     pop ecx
-    or ecx, 0x200           ; Enable interrupts
-    push ecx                ; EFLAGS
-    push USER_CODE_SELECTOR ; CS
-    push ebx                ; EIP
+    or ecx, 0x200       ; Enable interrupts
+    push ecx            ; EFLAGS
+    push 0x1B           ; USER_CODE_SELECTOR (CS)
+    push ebx            ; EIP
     
     ; Load user segments
-    mov ax, USER_DATA_SELECTOR
+    mov ax, 0x23        ; USER_DATA_SELECTOR
     mov ds, ax
     mov es, ax
     mov fs, ax
