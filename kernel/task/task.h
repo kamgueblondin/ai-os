@@ -46,6 +46,7 @@ extern int next_task_id;
 // Fonctions publiques
 void tasking_init();
 task_t* create_task(void (*entry_point)());
+task_t* create_user_task(uint32_t entry_point);
 task_t* create_task_from_initrd_file(const char* filename);
 task_t* load_elf_task(uint8_t* elf_data, uint32_t size);
 void schedule();

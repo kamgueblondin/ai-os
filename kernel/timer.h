@@ -28,6 +28,7 @@ uint32_t timer_get_ticks();
 void timer_wait(uint32_t ticks);
 void timer_update();
 void software_timer_tick();
+void init_scheduler_timer(uint32_t frequency);
 
 #endif
 

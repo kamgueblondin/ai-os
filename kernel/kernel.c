@@ -8,9 +8,11 @@
 #include "syscall/syscall.h"
 #include "elf.h"
 #include "../fs/initrd.h"
+#include "keyboard.h"
 
 // Function to read a byte from a port
 unsigned char inb(unsigned short port);
+void transition_to_user_mode();
 // Function to write a byte to a port
 void outb(unsigned short port, unsigned char data);
 // Function to print string to serial port (forward declaration)
@@ -341,7 +343,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     // PHASE 2: Réactiver le timer pour les interruptions clavier
     print_string("PHASE 2: Timer reactive pour interruptions clavier...\n");
-    timer_init(100); // Réactiver le timer à 100Hz pour les interruptions
+    // timer_init(100); // Réactiver le timer à 100Hz pour les interruptions
     print_string("Timer reactive - Interruptions clavier fonctionnelles.\n");
 
     // NOUVEAU: Lancement du shell interactif avec IA
@@ -352,7 +354,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     if (module_count > 0) {
         // Chercher le shell dans l'initrd
-        uint8_t* shell_program = initrd_read_file("shell");
+        uint8_t* shell_program = (uint8_t*)initrd_read_file("shell");
         if (shell_program) {
             print_string("Shell trouve ! Chargement...\n");
 
@@ -543,8 +545,7 @@ void transition_to_user_mode() {
     print_string("Shell task created successfully\n");
     
     // Start scheduler for task switching
-    extern void init_scheduler_timer();
-    init_scheduler_timer();
+    init_scheduler_timer(100);
     
     // Begin task scheduling - this will switch to user mode
     schedule();

@@ -198,6 +198,7 @@ void syscall_init() {
 
 // Fonctions utilitaires (pour usage interne du kernel)
 void sys_exit(uint32_t exit_code) {
+    (void)exit_code;
     if (current_task) {
         current_task->state = TASK_TERMINATED;
         schedule();
@@ -250,7 +251,7 @@ void sys_gets(char* buffer, uint32_t size) {
     
     // Copier la ligne dans le buffer utilisateur
     int copy_len = strlen_kernel(line_buffer);
-    if (copy_len >= size) {
+    if ((uint32_t)copy_len >= size) {
         copy_len = size - 1;
     }
     
@@ -270,6 +271,7 @@ void sys_gets(char* buffer, uint32_t size) {
 
 // Nouveau: SYS_EXEC - Exécuter un programme
 int sys_exec(const char* path, char* argv[]) {
+    (void)argv;
     if (!path) {
         print_string_serial("SYS_EXEC: chemin invalide\n");
         return -1;
@@ -280,7 +282,7 @@ int sys_exec(const char* path, char* argv[]) {
     print_string_serial("\n");
     
     // Chercher le fichier dans l'initrd
-    uint8_t* program_data = initrd_read_file(path);
+    uint8_t* program_data = (uint8_t*)initrd_read_file(path);
     if (!program_data) {
         print_string_serial("SYS_EXEC: fichier non trouve: ");
         print_string_serial(path);

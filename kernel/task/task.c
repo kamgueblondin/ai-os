@@ -126,7 +126,6 @@ void schedule() {
         current_task->state = TASK_READY;
         next_task->state = TASK_RUNNING;
 
-        task_t* old_task = current_task;
         current_task = next_task;
 
         // Changement de contexte (désactivé temporairement)

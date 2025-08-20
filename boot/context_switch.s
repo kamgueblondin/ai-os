@@ -6,7 +6,7 @@ section .text
 global context_switch_with_ring_transition
 global switch_to_user_mode
 
-extern switch_page_directory
+extern vmm_switch_page_directory
 
 ; Segment selectors
 KERNEL_CODE_SELECTOR equ 0x08
@@ -50,7 +50,7 @@ context_switch_with_ring_transition:
     mov ebx, [edx + 16]  ; task->page_directory
     push edx
     push ebx
-    call switch_page_directory
+    call vmm_switch_page_directory
     add esp, 4
     pop edx
     
@@ -87,7 +87,7 @@ context_switch_with_ring_transition:
     
     push edx
     push ebx
-    call switch_page_directory
+    call vmm_switch_page_directory
     add esp, 4
     pop edx
     
