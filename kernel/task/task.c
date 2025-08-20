@@ -30,76 +30,36 @@ task_t* create_user_task(uint32_t entry_point) {
         return NULL;
     }
     
-    new_task->stack = user_stack;
+    new_task->esp = user_stack;
     
-    // Setup initial context for user mode
-    setup_user_context(new_task);
+    // Set up user mode context
+    setup_user_context(new_task, entry_point);
     
-    // Add to scheduler
-    add_task_to_scheduler(new_task);
+    add_to_ready_queue(new_task);
+    total_tasks++;
     
+    print_string("User task created with isolated memory\n");
     return new_task;
 }
 
 uint32_t* create_user_page_directory() {
-    // Allocate new page directory
-    uint32_t* page_dir = alloc_page_aligned();
-    if (!page_dir) {
+    uint32_t* user_page_dir = (uint32_t*)kmalloc_aligned(4096);
+    if (!user_page_dir) {
         return NULL;
     }
     
-    // Clear page directory
-    memset(page_dir, 0, 0x1000);
+    memset(user_page_dir, 0, 4096);
     
-    // Map kernel space (first 1GB) for system calls
-    for (uint32_t i = 0; i < 256; i++) {
-        page_dir[i] = get_kernel_page_table(i);
+    // Copy kernel mappings (first 256 entries for kernel space)
+    extern uint32_t kernel_directory;
+    uint32_t* kernel_page_dir = (uint32_t*)kernel_directory;
+    
+    for (int i = 0; i < 256; i++) {
+        user_page_dir[i] = kernel_page_dir[i];
     }
     
-    // User space (last 3GB) will be mapped as needed
-    for (uint32_t i = 256; i < 1024; i++) {
-        page_dir[i] = 0; // No access initially
-    }
+    // User space starts at 0x40000000 (entries 256-1023)
+    // These remain zero initially and are allocated on demand
     
-    return page_dir;
-}
-
-void setup_user_context(task_t* task) {
-    // Setup initial register state for user mode
-    task->registers.eax  = 0;
-    task->registers.ebx  = 0;
-    task->registers.ecx  = 0;
-    task->registers.edx  = 0;
-    task->registers.esi  = 0;
-    task->registers.edi  = 0;
-    task->registers.esp  = task->stack; // User stack
-    task->registers.ebp  = task->stack;
-    task->registers.eip  = task->entry_point;
-    
-    // Set user mode segments
-    task->registers.cs   = USER_CODE_SELECTOR;
-    task->registers.ds   = USER_DATA_SELECTOR;
-    task->registers.es   = USEREDAtA_SELECTOR;
-    task->registers.fs   = USER_DATA_SELECTOR;
-    task->registers.gs   = USER_DATA_SELECTOR;
-    task->registers.ss   = USEREDAtA_SELECTOR;
-    
-    // Enable interrupts in user mode
-    task->registers.eflags = 0x202; // IF + IOPL 3
-}
-
-uint32_t allocate_user_stack(uint32_t* page_dir) {
-    // Allocate a 4KB stack in user space
-    uint32_t stack_base = 0xC0000000; // Top of user space
-    uint32_t stack_page = alloc_page();
-    
-    if (!stack_page) {
-        return 0;
-    }
-    
-    // Map stack page into user space
-    map_page(page_dir, stack_base - 0x1000, stack_page, PAGE_USER | PAGE_RW);
-    
-    // Return top of stack
-    return stack_base;
+    return user_page_dir;
 }
