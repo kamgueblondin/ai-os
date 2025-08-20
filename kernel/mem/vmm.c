@@ -9,15 +9,6 @@ page_directory_t *current_directory = 0;
 static uint32_t page_directory[1024] __attribute__((aligned(4096)));
 static uint32_t first_page_table[1024] __attribute__((aligned(4096)));
 
-// Fonction utilitaire pour obtenir l'index du répertoire depuis une adresse virtuelle
-static uint32_t get_page_directory_index(uint32_t virtual_addr) {
-    return virtual_addr >> 22;
-}
-
-// Fonction utilitaire pour obtenir l'index de la table depuis une adresse virtuelle
-static uint32_t get_page_table_index(uint32_t virtual_addr) {
-    return (virtual_addr >> 12) & 0x3FF;
-}
 
 // Fonction utilitaire pour obtenir l'offset dans la page
 static uint32_t get_page_offset(uint32_t virtual_addr) {

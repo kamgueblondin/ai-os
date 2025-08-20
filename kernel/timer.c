@@ -110,3 +110,31 @@ void timer_wait(uint32_t ticks) {
     }
 }
 
+void init_scheduler_timer(uint32_t frequency) {
+    // Le PIT (Programmable Interval Timer) utilise une fréquence de base de 1.193182 MHz
+    uint32_t divisor = 1193182 / frequency;
+
+    // Envoie l'octet de commande pour le canal 0
+    // 0x36 = 00110110b
+    // Bits 6-7: 00 = Canal 0
+    // Bits 4-5: 11 = Accès LSB puis MSB
+    // Bits 1-3: 010 = Mode 2 (rate generator)
+    // Bit 0:    0 = Compteur binaire 16 bits
+    outb(0x43, 0x36);
+
+    // Envoie le diviseur (partie basse puis haute)
+    uint8_t l = (uint8_t)(divisor & 0xFF);
+    uint8_t h = (uint8_t)((divisor >> 8) & 0xFF);
+    outb(0x40, l);
+    outb(0x40, h);
+
+    // Active l'IRQ0 (timer)
+    asm volatile("cli");
+    unsigned char mask = inb(0x21);
+    mask &= ~(1 << 0); // Démasquer IRQ0
+    outb(0x21, mask);
+    asm volatile("sti");
+
+    timer_mode = 1; // Mode matériel
+    print_string_serial("Timer materiel active pour le scheduler.\n");
+}

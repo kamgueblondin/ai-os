@@ -56,7 +56,7 @@ int tar_checksum_valid(tar_header_t* header) {
     
     // Compare avec le checksum stocké
     int stored_checksum = oct2bin(header->checksum, 8);
-    return (sum == stored_checksum);
+    return (sum == (unsigned int)stored_checksum);
 }
 
 // Initialise le système initrd
@@ -128,7 +128,6 @@ void initrd_init(uint32_t location, uint32_t size) {
     
     current_initrd->file_count = file_index;
     
-    char msg[64];
     print_string_serial("Initrd initialized: ");
     // Conversion simple d'entier en chaîne
     char count_str[16];
