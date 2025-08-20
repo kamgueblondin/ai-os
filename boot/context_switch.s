@@ -1,8 +1,3 @@
-bits 32
-
-; Section GNU stack (pour éviter les warnings du linker)
-section .note.GNU-stack noalloc noexec nowrite progbits
-
 global context_switch
 
 ; void context_switch(cpu_state_t* old_state, cpu_state_t* new_state);
@@ -109,3 +104,5 @@ context_switch_done:
     sti  ; Réactive les interruptions
     ret
 
+; Section GNU stack (sécurité - pile non exécutable)
+section .note.GNU-stack
