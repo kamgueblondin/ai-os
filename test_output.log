@@ -1,7 +1,7 @@
-c[?7l[2J[0mSeaBIOS (version 1.16.2-debian-1.16.2-1)
+c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
 
 
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCF000+06F0F000 CA00
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
 Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
 
 
