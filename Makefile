@@ -20,7 +20,7 @@ INITRD_IMAGE = my_initrd.tar
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o \
           build/kernel.o build/idt.o build/interrupts.o build/keyboard.o build/timer.o \
           build/multiboot.o build/pmm.o build/vmm.o build/initrd.o \
-          build/task.o build/syscall.o build/elf.o
+          build/task.o build/syscall.o build/elf.o build/heap.o build/string.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) $(INITRD_IMAGE)
@@ -74,6 +74,14 @@ build/pmm.o: kernel/mem/pmm.c kernel/mem/pmm.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/vmm.o: kernel/mem/vmm.c kernel/mem/vmm.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/heap.o: kernel/mem/heap.c kernel/mem/heap.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/string.o: kernel/mem/string.c kernel/mem/string.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
