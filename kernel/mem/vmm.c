@@ -138,3 +138,27 @@ void *vmm_get_physical_address(void *virtualaddr) {
     return (void*)((page->frame * 0x1000) + get_page_offset(virt));
 }
 
+// Mappe une page physique à une adresse virtuelle dans un répertoire spécifique
+void vmm_map_page_in_directory(page_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags) {
+    page_t *page = vmm_get_page((uint32_t)virtualaddr, 1, dir);
+    if (!page) {
+        return; // Échec
+    }
+
+    page->present = (flags & PAGE_PRESENT) ? 1 : 0;
+    page->rw = (flags & PAGE_WRITE) ? 1 : 0;
+    page->user = (flags & PAGE_USER) ? 1 : 0;
+    page->frame = (uint32_t)physaddr / 0x1000;
+}
+
+// Obtient l'adresse physique correspondant à une adresse virtuelle dans un répertoire spécifique
+void *vmm_get_physical_address_from_directory(page_directory_t *dir, void *virtualaddr) {
+    uint32_t virt = (uint32_t)virtualaddr;
+    page_t *page = vmm_get_page(virt, 0, dir);
+
+    if (!page || !page->present) {
+        return 0; // Page non mappée
+    }
+
+    return (void*)((page->frame * 0x1000) + get_page_offset(virt));
+}

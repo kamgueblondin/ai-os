@@ -6,6 +6,8 @@ section .text
 global context_switch_with_ring_transition
 global switch_to_user_mode
 
+extern switch_page_directory
+
 ; Segment selectors
 KERNEL_CODE_SELECTOR equ 0x08
 KERNEL_DATA_SELECTOR equ 0x10

@@ -59,7 +59,7 @@ typedef struct {
 #define PF_R 0x4  // Readable
 
 // Fonctions publiques
-uint32_t elf_load(uint8_t* elf_data, uint32_t size);
+uint32_t elf_load(uint8_t* elf_data, uint32_t* page_directory);
 int elf_validate(uint8_t* elf_data);
 void elf_print_info(uint8_t* elf_data);
 

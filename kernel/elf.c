@@ -66,7 +66,7 @@ void elf_print_info(uint8_t* elf_data) {
 }
 
 // Charge un exécutable ELF en mémoire (version simplifiée et stable)
-uint32_t elf_load(uint8_t* elf_data, uint32_t size) {
+uint32_t elf_load(uint8_t* elf_data, uint32_t* page_directory) {
     if (!elf_validate(elf_data)) {
         print_string_serial("ERREUR: ELF invalide\n");
         return 0;
@@ -102,7 +102,7 @@ uint32_t elf_load(uint8_t* elf_data, uint32_t size) {
             uint32_t flags = PAGE_PRESENT | PAGE_USER;
             if (ph->p_flags & PF_W) flags |= PAGE_WRITE;
             
-            vmm_map_page(phys_page, (void*)virt_addr, flags);
+            vmm_map_page_in_directory(page_directory, phys_page, (void*)virt_addr, flags);
         }
         
         // Copie les données du segment via l'adresse physique
@@ -142,7 +142,7 @@ uint32_t elf_load(uint8_t* elf_data, uint32_t size) {
                 uint32_t virt_addr = ph->p_vaddr + page_offset;
                 
                 // Obtenir l'adresse physique via le VMM
-                void* phys_addr = vmm_get_physical_address((void*)virt_addr);
+                void* phys_addr = vmm_get_physical_address_from_directory(page_directory, (void*)virt_addr);
                 if (!phys_addr) {
                     print_string_serial("ERREUR: Impossible d'obtenir l'adresse physique\n");
                     continue;
