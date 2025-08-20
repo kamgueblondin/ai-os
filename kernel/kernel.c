@@ -523,6 +523,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                             }
                         }
                     }
+                }
                 } else {
                     print_string("ERREUR: Impossible de creer la tache shell\n");
                     print_string("Utilisation du shell kernel de secours\n");
