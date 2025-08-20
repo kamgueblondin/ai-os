@@ -1,108 +1,101 @@
-global context_switch
+; Enhanced context switching with Ring 0->3 transitions for AI-OS
+[BITS 32]
 
-; void context_switch(cpu_state_t* old_state, cpu_state_t* new_state);
-; Version simplifiée et stable du changement de contexte
-context_switch:
-    ; Désactive les interruptions pendant le changement de contexte
+section .text
+
+global context_switch_with_ring_transition
+global switch_to_user_mode
+
+; Segment selectors
+KERNEL_CODE_SELECTOR equ 0x08
+KERNEL_DATA_SELECTOR equ 0x10
+USER_CODE_SELECTOR   equ 0x1B  ; Ring 3 code
+USER_DATA_SELECTOR   equ 0x23  ; Ring 3 data
+
+; Context switch with Ring transition support
+context_switch_with_ring_transition:
     cli
     
-    ; Sauvegarde les registres de la fonction appelante
-    push ebp
-    mov ebp, esp
+    ; Get parameters
+    mov eax, [esp + 4]  ; prev_task
+    mov edx, [esp + 8]  ; next_task
     
-    ; Récupère les paramètres
-    mov eax, [ebp + 8]  ; old_state
-    mov ebx, [ebp + 12] ; new_state
-    
-    ; Vérifie si old_state est NULL (première tâche)
+    ; Save current task context if exists
     test eax, eax
-    jz load_new_task
+    jz .load_next
     
-    ; Sauvegarde l'état de l'ancienne tâche
-    mov [eax + 0], eax   ; eax (sera corrigé après)
-    mov [eax + 4], ebx   ; ebx (sera corrigé après)
-    mov [eax + 8], ecx   ; ecx
-    mov [eax + 12], edx  ; edx
-    mov [eax + 16], esi  ; esi
-    mov [eax + 20], edi  ; edi
+    ; Save registers
+    mov [eax + 20], esp
+    mov [eax + 24], ebp
+    mov [eax + 28], ebx
+    mov [eax + 32], esi
+    mov [eax + 36], edi
     
-    ; Sauvegarde EBP original (avant l'appel de fonction)
-    mov ecx, [ebp]       ; EBP de l'appelant
-    mov [eax + 24], ecx  ; ebp
+.load_next:
+    test edx, edx
+    jz .done
     
-    ; Sauvegarde l'adresse de retour comme EIP
-    mov ecx, [ebp + 4]   ; Adresse de retour
-    mov [eax + 28], ecx  ; eip
+    ; Check privilege level
+    mov bl, [edx + 52]  ; task->privilege_level
+    cmp bl, 3
+    je .switch_to_user
     
-    ; Sauvegarde ESP (pointeur de pile avant l'appel)
-    lea ecx, [ebp + 8]   ; ESP avant l'appel de fonction
-    mov [eax + 32], ecx  ; esp
+    ; Kernel task - standard switch
+    jmp .kernel_switch
     
-    ; Sauvegarde EFLAGS
-    pushfd
+.switch_to_user:
+    ; Switch page directory
+    mov ebx, [edx + 16]  ; task->page_directory
+    push edx
+    push ebx
+    call switch_page_directory
+    add esp, 4
+    pop edx
+    
+    ; Set up user mode transition
+    mov esp, [edx + 20]  ; User stack
+    mov ebx, [edx + 56]  ; Entry point
+    
+    ; Push user mode context for iret
+    push USER_DATA_SELECTOR  ; SS
+    push esp                 ; ESP
+    pushfd                   ; EFLAGS
     pop ecx
-    mov [eax + 36], ecx  ; eflags
+    or ecx, 0x200           ; Enable interrupts
+    push ecx                ; EFLAGS
+    push USER_CODE_SELECTOR ; CS
+    push ebx                ; EIP
     
-    ; Sauvegarde les registres de segment (version simplifiée)
-    mov word [eax + 40], 0x08  ; cs (segment de code kernel)
-    mov word [eax + 44], 0x10  ; ds (segment de données kernel)
-    mov word [eax + 48], 0x10  ; es
-    mov word [eax + 52], 0x10  ; fs
-    mov word [eax + 56], 0x10  ; gs
-    mov word [eax + 60], 0x10  ; ss
+    ; Load user segments
+    mov ax, USER_DATA_SELECTOR
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
     
-    ; Corrige les valeurs EAX et EBX sauvegardées
-    mov ecx, [ebp + 8]   ; old_state (valeur originale d'EAX)
-    mov [eax + 0], ecx
-    mov ecx, [ebp + 12]  ; new_state (valeur originale d'EBX)
-    mov [eax + 4], ecx
-
-load_new_task:
-    ; Vérifie si new_state est NULL
-    test ebx, ebx
-    jz context_switch_done
+    ; Jump to Ring 3
+    iret
     
-    ; Charge l'état de la nouvelle tâche
-    ; Pour la stabilité, on garde les segments kernel pour l'instant
-    ; (les tâches utilisateur seront gérées différemment)
+.kernel_switch:
+    ; Standard kernel task switching
+    mov ebx, [edx + 16]     ; page_directory
+    mov ecx, cr3
+    cmp ebx, ecx
+    je .same_dir
     
-    ; Charge les registres généraux
-    mov eax, [ebx + 0]   ; eax
-    mov ecx, [ebx + 8]   ; ecx
-    mov edx, [ebx + 12]  ; edx
-    mov esi, [ebx + 16]  ; esi
-    mov edi, [ebx + 20]  ; edi
+    push edx
+    push ebx
+    call switch_page_directory
+    add esp, 4
+    pop edx
     
-    ; Charge ESP
-    mov esp, [ebx + 32]  ; esp
+.same_dir:
+    mov esp, [edx + 20]
+    mov ebp, [edx + 24]
+    mov ebx, [edx + 28]
+    mov esi, [edx + 32]
+    mov edi, [edx + 36]
     
-    ; Charge EBP
-    mov ebp, [ebx + 24]  ; ebp
-    
-    ; Charge EFLAGS (mais garde les interruptions désactivées pour l'instant)
-    mov ecx, [ebx + 36]  ; eflags
-    and ecx, 0xFFFFFDFF  ; Désactive le flag IF (interruptions)
-    push ecx
-    popfd
-    
-    ; Prépare le saut vers la nouvelle tâche
-    push dword [ebx + 28] ; EIP sur la pile
-    
-    ; Charge EBX en dernier
-    mov ebx, [ebx + 4]   ; ebx
-    
-    ; Réactive les interruptions juste avant le saut
+.done:
     sti
-    
-    ; Effectue le saut vers la nouvelle tâche
-    ret  ; Utilise l'EIP sur la pile
-
-context_switch_done:
-    ; Restaure la pile et retourne
-    mov esp, ebp
-    pop ebp
-    sti  ; Réactive les interruptions
     ret
-
-; Section GNU stack (sécurité - pile non exécutable)
-section .note.GNU-stack
