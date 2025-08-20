@@ -1,7 +1,13 @@
-#include "kernel.h"
-#include "task/task.h"
+#include "idt.h"
+#include "interrupts.h"
+#include "multiboot.h"
+#include "mem/pmm.h"
 #include "mem/vmm.h"
+#include "task/task.h"
+#include "timer.h"
+#include "syscall/syscall.h"
 #include "elf.h"
+#include "../fs/initrd.h"
 
 // Enhanced AI-OS kernel with real user mode transitions
 
