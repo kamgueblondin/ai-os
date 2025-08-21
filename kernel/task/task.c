@@ -122,7 +122,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
 void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top) {
     memset(&task->cpu_state, 0, sizeof(cpu_state_t));
     task->cpu_state.eip = entry_point;
-    task->cpu_state.esp = stack_top;
+    task->cpu_state.useresp = stack_top;
     task->cpu_state.eflags = 0x202;
     task->cpu_state.cs = 0x1B;
     task->cpu_state.ds = 0x23;

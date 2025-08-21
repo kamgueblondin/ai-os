@@ -1,11 +1,15 @@
 #include "pmm.h"
+#include "../multiboot.h"
 
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
 
+// Symbol from linker script
+extern uint32_t end;
+
 // Variables globales pour le gestionnaire de mémoire physique
-static uint32_t* memory_map = (uint32_t*)BITMAP_LOCATION;
+static uint32_t* memory_map = 0;
 static uint32_t total_pages = 0;
 static uint32_t used_pages = 0;
 
@@ -30,43 +34,60 @@ int pmm_test_page(uint32_t page_num) {
 }
 
 uint32_t pmm_find_free_page() {
-    for (uint32_t i = 0; i < total_pages; i++) {
-        if (!pmm_test_page(i)) {
-            return i;
+    for (uint32_t i = 0; i < total_pages / 32; i++) {
+        if (memory_map[i] != 0xFFFFFFFF) {
+            for (int j = 0; j < 32; j++) {
+                if (!(memory_map[i] & (1 << j))) {
+                    uint32_t page_num = i * 32 + j;
+                    if (page_num < total_pages) {
+                        return page_num;
+                    }
+                }
+            }
         }
     }
     return 0xFFFFFFFF; // Aucune page libre trouvée
 }
 
 // Initialise le gestionnaire de mémoire physique
-void pmm_init(uint32_t memory_size) {
+void pmm_init(uint32_t memory_size, uint32_t multiboot_addr) {
     total_pages = memory_size / PAGE_SIZE;
     used_pages = 0;
     
-    // Initialise le bitmap - marque toutes les pages comme libres
-    uint32_t bitmap_size = (total_pages + 31) / 32; // Nombre de uint32_t nécessaires
-    for (uint32_t i = 0; i < bitmap_size; i++) {
+    multiboot_info_t* mbi = (multiboot_info_t*)multiboot_addr;
+
+    // Calcule l'adresse la plus haute utilisée par le noyau et les modules
+    uint32_t highest_addr = (uint32_t)&end;
+    if ((mbi->flags & (1 << 3))) { // Si les modules sont présents
+        multiboot_module_t* modules = (multiboot_module_t*)mbi->mods_addr;
+        for (uint32_t i = 0; i < mbi->mods_count; i++) {
+            if (modules[i].mod_end > highest_addr) {
+                highest_addr = modules[i].mod_end;
+            }
+        }
+    }
+
+    // Place le bitmap juste après
+    memory_map = (uint32_t*)((highest_addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1));
+
+    // Initialise le bitmap à zéro
+    uint32_t bitmap_size_bytes = ((total_pages + 7) / 8);
+    for (uint32_t i = 0; i < (bitmap_size_bytes + 3) / 4; i++) {
         memory_map[i] = 0;
     }
     
-    // Marque les premières pages comme utilisées (noyau, bitmap, etc.)
-    // Les premiers 1 Mo sont réservés pour le noyau et les structures système
-    uint32_t reserved_pages = 0x100000 / PAGE_SIZE; // 1 MB / 4KB = 256 pages
-    for (uint32_t i = 0; i < reserved_pages && i < total_pages; i++) {
-        pmm_set_page(i);
-        used_pages++;
-    }
+    // Marque les pages utilisées par le noyau, les modules et le bitmap
+    uint32_t reserved_until = ((uint32_t)memory_map + bitmap_size_bytes);
+    uint32_t reserved_pages = (reserved_until + PAGE_SIZE - 1) / PAGE_SIZE;
     
-    // Marque aussi les pages utilisées par le bitmap lui-même
-    uint32_t bitmap_pages = (bitmap_size * sizeof(uint32_t) + PAGE_SIZE - 1) / PAGE_SIZE;
-    uint32_t bitmap_start_page = BITMAP_LOCATION / PAGE_SIZE;
-    for (uint32_t i = 0; i < bitmap_pages; i++) {
-        if (bitmap_start_page + i < total_pages) {
-            pmm_set_page(bitmap_start_page + i);
-            used_pages++;
+    for (uint32_t i = 0; i < reserved_pages; i++) {
+        if (i < total_pages) {
+            pmm_set_page(i);
         }
     }
+    used_pages = reserved_pages;
 }
+
 
 // Alloue une page de mémoire physique
 void* pmm_alloc_page() {
@@ -110,4 +131,3 @@ uint32_t pmm_get_used_pages() {
 uint32_t pmm_get_free_pages() {
     return total_pages - used_pages;
 }
-
