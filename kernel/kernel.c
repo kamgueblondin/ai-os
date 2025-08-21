@@ -304,6 +304,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Initialisation des interruptions...\n");
     idt_init();         // Initialise la table des interruptions
     interrupts_init();  // Initialise le PIC et active les interruptions
+    keyboard_init();    // Initialise le clavier
     print_string("Interruptions initialisees.\n");
 
     // Initialiser la gestion de la mémoire
@@ -378,20 +379,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Tache shell prete. Demarrage du scheduler...\n");
     timer_init(100);
 
-    // --- DEBUT DU TEST DE SIMULATION ---
-    print_string_serial("KERNEL_TEST: Simulation de la saisie 'help'...\n");
-    syscall_add_input_char('h');
-    syscall_add_input_char('e');
-    syscall_add_input_char('l');
-    syscall_add_input_char('p');
-    syscall_add_input_char('\n');
-    print_string_serial("KERNEL_TEST: Simulation terminee.\n");
-    // --- FIN DU TEST DE SIMULATION ---
-
-    print_string("Le premier appel a schedule() va demarrer le shell.\n");
-    schedule(NULL);
-
-    print_string("\nLe noyau entre en mode passif.\n");
+    print_string("\nLe noyau entre en mode passif. Le scheduler va demarrer la premiere tache.\n");
     while(1) {
         asm volatile("hlt");
     }
