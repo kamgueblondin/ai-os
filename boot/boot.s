@@ -1,45 +1,68 @@
-; Section pour l'en-tête Multiboot (magic numbers et flags)
+bits 32
+
+section .note.GNU-stack noalloc noexec nowrite progbits
+
 section .multiboot
 align 4
     MULTIBOOT_HEADER_MAGIC: equ 0x1BADB002
-    MULTIBOOT_HEADER_FLAGS: equ 0x00
+    MULTIBOOT_HEADER_FLAGS: equ 0x0001 ; Aligner les modules
     CHECKSUM: equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
     dd MULTIBOOT_HEADER_MAGIC
     dd MULTIBOOT_HEADER_FLAGS
     dd CHECKSUM
 
-; Section pour la pile (stack). Nous allouons 16KB.
-section .bss
-align 16
-stack_bottom:
-resb 16384 ; 16 KB
-stack_top:
-
-; Section pour le code exécutable
 section .text
-global _start: ; Point d'entrée global pour le linker
 
+gdt_start:
+    ; Descripteur nul
+    dd 0x0, 0x0
+    ; Descripteur de code noyau
+gdt_code: dw 0xFFFF, 0x0000, 0x9A00, 0x00CF
+    ; Descripteur de données noyau
+gdt_data: dw 0xFFFF, 0x0000, 0x9200, 0x00CF
+    ; Descripteur de code utilisateur
+gdt_user_code: dw 0xFFFF, 0x0000, 0xFA00, 0x00CF
+    ; Descripteur de données utilisateur
+gdt_user_data: dw 0xFFFF, 0x0000, 0xF200, 0x00CF
+gdt_end:
+
+gdt_descriptor:
+    dw gdt_end - gdt_start - 1
+    dd gdt_start
+
+CODE_SEG equ gdt_code - gdt_start
+DATA_SEG equ gdt_data - gdt_start
+
+global _start
 _start:
-    ; Mettre en place le pointeur de pile (esp) pour qu'il pointe vers le haut de notre pile
+    ; 1. Mettre en place la pile
     mov esp, stack_top
 
-    ; Passer les paramètres Multiboot au kernel
-    ; EAX contient le magic number Multiboot
-    ; EBX contient l'adresse de la structure d'information Multiboot
-    push ebx    ; Passe l'adresse de la structure Multiboot
-    push eax    ; Passe le magic number Multiboot
+    ; 2. Charger la GDT
+    lgdt [gdt_descriptor]
+    jmp CODE_SEG:.flush_cs
 
-    ; Nous sommes prêts à sauter dans notre code C.
-    ; "extern" déclare que la fonction kmain est définie ailleurs (dans kernel.c)
+.flush_cs:
+    ; 3. Recharger les segments de données en utilisant CX pour ne pas corrompre EAX
+    mov cx, DATA_SEG
+    mov ds, cx
+    mov es, cx
+    mov fs, cx
+    mov gs, cx
+    mov ss, cx
+
+    ; 4. Passer les infos Multiboot au noyau (EAX et EBX sont maintenant préservés)
+    push ebx
+    push eax
+
     extern kmain
     call kmain
 
-    ; Nettoie la pile (bien que nous ne devrions jamais arriver ici)
-    add esp, 8
+    cli
+    hlt
 
-    ; Si kmain retourne (ce qui ne devrait pas arriver), on arrête le CPU pour éviter un crash.
-    cli ; Désactive les interruptions
-    hlt ; Arrête le CPU
-
-; Section GNU stack (sécurité - pile non exécutable)
-section .note.GNU-stack
+section .bss
+align 16
+stack_bottom:
+    resb 16384
+stack_top:

@@ -58,10 +58,10 @@ typedef struct {
 #define PF_W 0x2  // Writable
 #define PF_R 0x4  // Readable
 
-#include "mem/vmm.h" // Pour page_directory_t
+#include "mem/vmm.h" // Pour vmm_directory_t
 
 // Fonctions publiques
-uint32_t elf_load(uint8_t* elf_data, page_directory_t* page_directory);
+uint32_t elf_load(uint8_t* elf_data, vmm_directory_t* vmm_dir);
 int elf_validate(uint8_t* elf_data);
 void elf_print_info(uint8_t* elf_data);
 

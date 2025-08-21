@@ -1,0 +1,11 @@
+nasm -f elf32 boot/boot.s -o build/boot.o
+nasm -f elf32 boot/context_switch_new.s -o build/context_switch.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -c kernel/mem/vmm.c -o build/vmm.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -c kernel/task/task.c -o build/task.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -c kernel/elf.c -o build/elf.o
+ld -m elf_i386 -T linker.ld -o build/ai_os.bin --start-group build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/string.o build/pmm.o build/heap.o build/idt.o build/vmm.o build/task.o build/syscall.o build/elf.o build/initrd.o build/interrupts.o build/keyboard.o build/timer.o build/multiboot.o build/kernel.o --end-group
+ld: warning: build/context_switch.o: missing .note.GNU-stack section implies executable stack
+ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
+qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -nographic -serial file:output.log
+QEMU 8.2.2 monitor - type 'help' for more information
+(qemu)
