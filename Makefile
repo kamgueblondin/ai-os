@@ -18,9 +18,9 @@ INITRD_IMAGE = my_initrd.tar
 
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o \
-          build/kernel.o build/idt.o build/interrupts.o build/keyboard.o build/timer.o \
-          build/multiboot.o build/pmm.o build/vmm.o build/initrd.o \
-          build/task.o build/syscall.o build/elf.o build/heap.o build/string.o
+          build/string.o build/pmm.o build/heap.o build/idt.o build/vmm.o build/task.o \
+          build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
+          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) $(INITRD_IMAGE)
@@ -32,7 +32,7 @@ all: $(OS_IMAGE) $(INITRD_IMAGE)
 # Règle pour lier les fichiers objets et créer l'image finale
 $(OS_IMAGE): $(OBJECTS)
 	@mkdir -p $(dir $@)
-	$(LD) -m elf_i386 -T linker.ld -o $@ $(OBJECTS)
+	$(LD) -m elf_i386 -T linker.ld -o $@ --start-group $(OBJECTS) --end-group
 
 # Cible pour compiler seulement le noyau (sans initrd)
 kernel-only: $(OS_IMAGE)
@@ -145,7 +145,7 @@ userspace/shell userspace/fake_ai userspace/test_program:
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) $(INITRD_IMAGE)
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial file:output.log
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial stdio -monitor none
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) $(INITRD_IMAGE)

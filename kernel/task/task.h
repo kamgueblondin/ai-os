@@ -2,6 +2,7 @@
 #define TASK_H
 
 #include <stdint.h>
+#include "kernel/mem/vmm.h" // Inclure pour vmm_directory_t
 
 // États possibles d'une tâche
 typedef enum {
@@ -31,7 +32,7 @@ typedef struct task {
     cpu_state_t cpu_state;
     task_state_t state;
     task_type_t type;          // Type de tâche (kernel/user)
-    uint32_t* page_directory;  // Répertoire de pages de la tâche
+    vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
     uint32_t stack_base;       // Base de la pile de la tâche
     uint32_t stack_size;       // Taille de la pile
     struct task* next;         // Pour la liste chaînée de tâches
