@@ -290,20 +290,26 @@ static void setup_initial_user_context(task_t* task, uint32_t entry_point, uint3
 }
 
 static page_directory_t* create_user_page_directory() {
+    // Alloue un nouveau répertoire de pages aligné sur une page
     page_directory_t* user_page_dir = (page_directory_t*)kmalloc_aligned(sizeof(page_directory_t));
     if (!user_page_dir) {
         return NULL;
     }
-    
+    // Met à zéro le nouveau répertoire de pages
     memset(user_page_dir, 0, sizeof(page_directory_t));
-    
+
+    // Récupère le répertoire de pages du noyau
     extern page_directory_t* kernel_directory;
-    
-    for (int i = 0; i < 256; i++) {
-        user_page_dir->tablesPhysical[i] = kernel_directory->tablesPhysical[i];
-        user_page_dir->tables[i] = kernel_directory->tables[i];
+
+    // Copie les tables de pages du noyau dans le nouveau répertoire de pages
+    // Cela garantit que l'espace du noyau est mappé dans le processus utilisateur
+    for (int i = 0; i < 1024; i++) {
+        if (kernel_directory->tables[i]) {
+            user_page_dir->tables[i] = kernel_directory->tables[i];
+            user_page_dir->tablesPhysical[i] = kernel_directory->tablesPhysical[i];
+        }
     }
-    
+
     return user_page_dir;
 }
 
@@ -313,7 +319,8 @@ static uint32_t allocate_user_stack(page_directory_t* page_dir) {
         return 0;
     }
 
-    uint32_t stack_top = 0xBFFFFFF0;
+    // L'espace utilisateur s'attend à une pile à 0x50000000 (défini dans userspace/start.s)
+    uint32_t stack_top = 0x50000000;
 
     vmm_map_page_in_directory(page_dir, stack_phys, (void*)(stack_top - PAGE_SIZE), PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
 
