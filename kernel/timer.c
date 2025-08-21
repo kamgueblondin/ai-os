@@ -33,16 +33,11 @@ void software_timer_tick() {
 }
 
 // Handler appelé par l'ISR du timer matériel
-void timer_handler() {
+void timer_handler(cpu_state_t* cpu) {
     timer_ticks++;
     
-    // Log périodique pour monitoring
-    if (timer_ticks % 10 == 0) {
-        print_string_serial("H"); // H pour Hardware timer
-    }
-    
-    // Appel conditionnel à l'ordonnanceur si activé
-    // schedule(); // À activer en Phase 4
+    // Appel à l'ordonnanceur pour le multitâche préemptif
+    schedule(cpu);
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)
@@ -58,48 +53,23 @@ void timer_update() {
     // En mode matériel, les ticks sont gérés par l'ISR
 }
 
-// Initialise le timer (mode logiciel forcé pour stabilité)
+// Initialise le timer matériel (PIT) pour le scheduling préemptif
 void timer_init(uint32_t frequency) {
-    print_string_serial("Initialisation du timer hybride...\n");
+    timer_mode = 1; // Mode matériel
+    print_string_serial("Initialisation du timer materiel...\n");
+
+    // Le PIT (Programmable Interval Timer) utilise une fréquence de base de 1.193182 MHz
+    uint32_t divisor = 1193182 / frequency;
+
+    // Envoie l'octet de commande pour le canal 0
+    // 0x36 = 00110110b -> Canal 0, LSB/MSB, Mode 2 (rate generator)
+    outb(0x43, 0x36);
+
+    // Envoie le diviseur
+    outb(0x40, (uint8_t)(divisor & 0xFF));
+    outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
     
-    // SOLUTION DEFINITIVE: Forcer le mode logiciel pour éviter les redémarrages
-    print_string_serial("Mode timer logiciel force pour stabilite...\n");
-    
-    timer_mode = 0; // Forcer le mode logiciel
-    
-    // Masquer explicitement l'IRQ0 pour éviter les interruptions timer matériel
-    asm volatile("cli");
-    unsigned char mask = inb(0x21);
-    mask |= (1 << 0); // Masquer IRQ0
-    outb(0x21, mask);
-    asm volatile("sti");
-    
-    print_string_serial("Timer logiciel actif et stable!\n");
-    print_string_serial("Frequence simulee: ");
-    
-    // Affichage de la fréquence
-    char freq_str[16];
-    int i = 0;
-    uint32_t temp = frequency;
-    if (temp == 0) {
-        freq_str[i++] = '0';
-    } else {
-        while (temp > 0) {
-            freq_str[i++] = '0' + (temp % 10);
-            temp /= 10;
-        }
-    }
-    freq_str[i] = '\0';
-    
-    // Inverse la chaîne
-    for (int j = 0; j < i / 2; j++) {
-        char tmp = freq_str[j];
-        freq_str[j] = freq_str[i - 1 - j];
-        freq_str[i - 1 - j] = tmp;
-    }
-    
-    print_string_serial(freq_str);
-    print_string_serial(" Hz (logiciel)\n");
+    print_string_serial("Timer materiel active pour le scheduler.\n");
 }
 
 // Attend un certain nombre de ticks
@@ -108,33 +78,4 @@ void timer_wait(uint32_t ticks) {
     while (timer_ticks < start_ticks + ticks) {
         asm volatile("hlt"); // Attend la prochaine interruption
     }
-}
-
-void init_scheduler_timer(uint32_t frequency) {
-    // Le PIT (Programmable Interval Timer) utilise une fréquence de base de 1.193182 MHz
-    uint32_t divisor = 1193182 / frequency;
-
-    // Envoie l'octet de commande pour le canal 0
-    // 0x36 = 00110110b
-    // Bits 6-7: 00 = Canal 0
-    // Bits 4-5: 11 = Accès LSB puis MSB
-    // Bits 1-3: 010 = Mode 2 (rate generator)
-    // Bit 0:    0 = Compteur binaire 16 bits
-    outb(0x43, 0x36);
-
-    // Envoie le diviseur (partie basse puis haute)
-    uint8_t l = (uint8_t)(divisor & 0xFF);
-    uint8_t h = (uint8_t)((divisor >> 8) & 0xFF);
-    outb(0x40, l);
-    outb(0x40, h);
-
-    // Active l'IRQ0 (timer)
-    asm volatile("cli");
-    unsigned char mask = inb(0x21);
-    mask &= ~(1 << 0); // Démasquer IRQ0
-    outb(0x21, mask);
-    asm volatile("sti");
-
-    timer_mode = 1; // Mode matériel
-    print_string_serial("Timer materiel active pour le scheduler.\n");
 }

@@ -21,14 +21,15 @@
 extern uint32_t timer_ticks;
 extern int timer_mode;
 
+#include "task/task.h" // Pour cpu_state_t
+
 // Fonctions publiques
 void timer_init(uint32_t frequency);
-void timer_handler();
+void timer_handler(cpu_state_t* cpu);
 uint32_t timer_get_ticks();
 void timer_wait(uint32_t ticks);
 void timer_update();
 void software_timer_tick();
-void init_scheduler_timer(uint32_t frequency);
 
 #endif
 

@@ -35,6 +35,7 @@ void sys_yield();
 // Nouveaux appels système
 void sys_gets(char* buffer, uint32_t size);
 int sys_exec(const char* path, char* argv[]);
+void syscall_add_input_char(char c);
 
 #endif
 

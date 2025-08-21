@@ -117,7 +117,7 @@ build/paging.o: boot/paging.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-build/context_switch.o: boot/context_switch.s
+build/context_switch.o: boot/context_switch_new.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 

@@ -9,10 +9,10 @@
 #include "elf.h"
 #include "../fs/initrd.h"
 #include "keyboard.h"
+#include <stddef.h>
 
 // Function to read a byte from a port
 unsigned char inb(unsigned short port);
-void transition_to_user_mode();
 // Function to write a byte to a port
 void outb(unsigned short port, unsigned char data);
 // Function to print string to serial port (forward declaration)
@@ -79,7 +79,6 @@ void simulate_keyboard_input() {
         print_string_serial("'\n");
 
         // Injecter le caractère dans le buffer clavier
-        extern void syscall_add_input_char(char c);
         syscall_add_input_char(c);
 
         // Debug: confirmer l'injection
@@ -358,199 +357,43 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         if (shell_program) {
             print_string("Shell trouve ! Chargement...\n");
 
-            // Charger le programme ELF du shell utilisateur
-            print_string("Shell ELF detecte ! Simulation du chargement...\n");
-
-            // Simulation du chargement ELF (pour éviter les redémarrages)
-            uint32_t shell_entry = 0x40000000; // Adresse simulée
-
-            print_string("Shell charge avec succes !\n");
-            print_string("Point d'entree: 0x40000000 (simule)\n");
-
-            print_string("\n=== AI-OS v5.0 - Shell Interactif avec IA ===\n");
-            print_string("Fonctionnalites :\n");
-            print_string("- Shell interactif complet (base sur shell.c)\n");
-            print_string("- Simulateur d'IA integre (base sur fake_ai.c)\n");
-            print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
-            print_string("- Execution de programmes externes\n");
-            print_string("- Interface conversationnelle\n");
-            print_string("\nShell utilisateur pret ! Demarrage...\n\n");
-
-            // Créer une tâche utilisateur pour le shell (simulation)
-            task_t* shell_task = create_user_task(shell_entry);
-            if (shell_task) {
-                print_string("Tache shell creee ! Passage en mode utilisateur...\n");
-
-                // Préparer le saut vers l'espace utilisateur de manière sûre
-                print_string("Initialisation de l'interface shell...\n");
-
-                // Shell intégré qui simule l'exécution des programmes userspace
-                print_string("\n=== Shell AI-OS v5.0 Actif ===\n");
-                print_string("Bienvenue dans AI-OS ! Tapez 'help' pour l'aide.\n");
-                print_string("Shell base sur userspace/shell.c avec IA fake_ai.c\n\n");
-
-                    // Boucle shell intégrée qui simule le shell utilisateur
-                    char command_buffer[256];
-
-                    while (1) {
-                        print_string("AI-OS> ");
-
-                        // Lire l'entrée utilisateur
-                        int pos = 0;
-                        char c;
-                        while (pos < 255) {
-                            c = 0;
-                            // Boucle d'attente active pour le clavier (sans timer)
-                            for (volatile int wait = 0; wait < 100000 && c == 0; wait++) {
-                                c = keyboard_getc();
-                                if (c != 0) break;
-                                // Petite pause pour éviter la surcharge CPU
-                                for (volatile int i = 0; i < 1000; i++);
-                            }
-
-                            // Si aucun caractère reçu, continuer à attendre
-                            if (c == 0) continue;
-
-                            if (c == '\n' || c == '\r') {
-                                command_buffer[pos] = '\0';
-                                print_string("\n");
-                                break;
-                            } else if (c == '\b' && pos > 0) {
-                                pos--;
-                                print_string("\b \b");
-                            } else if (c >= 32 && c <= 126) {
-                                command_buffer[pos++] = c;
-                                print_char_vga(c, vga_x, vga_y, 0x07);
-                                vga_x++;
-                                if (vga_x >= 80) {
-                                    vga_x = 0;
-                                    vga_y++;
-                                    if (vga_y >= 25) {
-                                        scroll_screen();
-                                        vga_y = 24;
-                                    }
-                                }
-                            }
-                        }
-
-                        // Traiter la commande (simulation du shell utilisateur)
-                        if (pos == 0) continue;
-
-                        if (strcmp_simple(command_buffer, "help") == 0) {
-                            print_string("=== Commandes AI-OS v5.0 ===\n");
-                            print_string("Commandes systeme :\n");
-                            print_string("  help     - Afficher cette aide\n");
-                            print_string("  about    - A propos d'AI-OS\n");
-                            print_string("  ls       - Lister les fichiers\n");
-                            print_string("  ps       - Voir les processus\n");
-                            print_string("  mem      - Informations memoire\n");
-                            print_string("  sysinfo  - Informations systeme\n");
-                            print_string("  clear    - Effacer l'ecran\n");
-                            print_string("  exit     - Quitter le shell\n");
-                            print_string("\nIA integree :\n");
-                            print_string("  Posez des questions a l'IA !\n");
-                            print_string("  Exemples: 'bonjour', 'explique-moi l'IA'\n");
-                        } else if (strcmp_simple(command_buffer, "about") == 0) {
-                            print_string("AI-OS v5.0 - Systeme d'exploitation pour IA\n");
-                            print_string("Shell interactif avec simulateur IA integre\n");
-                            print_string("Architecture: i386, Memoire: 128MB\n");
-                            print_string("Programmes utilisateur: shell.c, fake_ai.c\n");
-                        } else if (strcmp_simple(command_buffer, "ls") == 0) {
-                            print_string("Fichiers dans l'initrd :\n");
-                            initrd_list_files();
-                        } else if (strcmp_simple(command_buffer, "ps") == 0) {
-                            print_string("Processus actifs :\n");
-                            print_string("PID 0: Kernel principal\n");
-                            print_string("PID 1: Shell utilisateur (simule)\n");
-                            print_string("Total: 2 processus\n");
-                        } else if (strcmp_simple(command_buffer, "mem") == 0) {
-                            print_string("=== Informations Memoire ===\n");
-                            print_string("Memoire totale: 128MB\n");
-                            print_string("PMM: Physical Memory Manager actif\n");
-                            print_string("VMM: Virtual Memory Manager actif\n");
-                            print_string("Pages allouees: ~100 pages\n");
-                        } else if (strcmp_simple(command_buffer, "sysinfo") == 0) {
-                            print_string("=== Informations Systeme ===\n");
-                            print_string("OS: AI-OS v5.0\n");
-                            print_string("Architecture: i386\n");
-                            print_string("Noyau: 32KB\n");
-                            print_string("Initrd: 50KB\n");
-                            print_string("Shell: Utilisateur (shell.c)\n");
-                            print_string("IA: Simulateur (fake_ai.c)\n");
-                        } else if (strcmp_simple(command_buffer, "clear") == 0) {
-                            clear_screen();
-                            print_string("=== AI-OS v5.0 - Shell Interactif ===\n\n");
-                        } else if (strcmp_simple(command_buffer, "exit") == 0) {
-                            print_string("Au revoir ! Arret du shell...\n");
-                            break;
-                        } else {
-                            // Simulation de l'IA pour toute autre entrée
-                            print_string("IA> ");
-
-                            if (strstr_simple(command_buffer, "bonjour") || strstr_simple(command_buffer, "salut")) {
-                                print_string("Bonjour ! Je suis l'IA d'AI-OS. Comment puis-je vous aider ?\n");
-                            } else if (strstr_simple(command_buffer, "comment") && strstr_simple(command_buffer, "va")) {
-                                print_string("Je vais tres bien, merci ! Je suis pret a repondre a vos questions.\n");
-                            } else if (strstr_simple(command_buffer, "IA") || strstr_simple(command_buffer, "intelligence")) {
-                                print_string("L'Intelligence Artificielle est la simulation de l'intelligence humaine\n");
-                                print_string("par des machines. Dans AI-OS, je suis un simulateur simple mais efficace !\n");
-                            } else if (strstr_simple(command_buffer, "AI-OS") || strstr_simple(command_buffer, "systeme")) {
-                                print_string("AI-OS est un systeme d'exploitation specialise pour l'IA.\n");
-                                print_string("Il integre un shell interactif et un simulateur d'IA comme moi !\n");
-                            } else if (strstr_simple(command_buffer, "aide") || strstr_simple(command_buffer, "help")) {
-                                print_string("Tapez 'help' pour voir toutes les commandes disponibles.\n");
-                                print_string("Vous pouvez aussi me poser des questions librement !\n");
-                            } else {
-                                print_string("Interessant ! Je suis un simulateur d'IA dans AI-OS.\n");
-                                print_string("Posez-moi des questions sur l'IA, le systeme, ou tapez 'help' !\n");
-                            }
-                        }
-                    }
-                } else {
-                    print_string("ERREUR: Impossible de creer la tache shell\n");
-                    print_string("Utilisation du shell kernel de secours\n");
-                }
-            } else {
-                print_string("ERREUR: Shell non trouve dans l'initrd\n");
-                print_string("Fichiers disponibles :\n");
-                initrd_list_files();
-                print_string("Utilisation du shell kernel de secours\n");
-            }
+            // Le code de simulation est retiré, on va lancer le vrai shell.
+            print_string("Shell trouve. Preparation du lancement...\n");
         } else {
-            print_string("ERREUR: Aucun module initrd disponible\n");
-            print_string("Utilisation du shell kernel de secours\n");
+            print_string("ERREUR: Fichier 'shell' non trouve dans l'initrd!\n");
         }
+    } else {
+        print_string("ERREUR: Aucun module initrd trouve!\n");
+    }
 
-    // Mode attente final
-    print_string("\n=== Mode attente ===\n");
-    print_string("Systeme en mode minimal.\n");
+    // --- Lancement du Shell Utilisateur ---
+    print_string("\nLancement du Shell Utilisateur...\n");
+    
+    task_t* shell_task = create_task_from_initrd_file("shell");
+    if (!shell_task) {
+        print_string("ERREUR: Impossible de creer la tache shell. Arret du systeme.\n");
+        while(1) asm volatile("hlt");
+    }
+    
+    print_string("Tache shell prete. Demarrage du scheduler...\n");
+    timer_init(100);
 
-    transition_to_user_mode();
+    // --- DEBUT DU TEST DE SIMULATION ---
+    print_string_serial("KERNEL_TEST: Simulation de la saisie 'help'...\n");
+    syscall_add_input_char('h');
+    syscall_add_input_char('e');
+    syscall_add_input_char('l');
+    syscall_add_input_char('p');
+    syscall_add_input_char('\n');
+    print_string_serial("KERNEL_TEST: Simulation terminee.\n");
+    // --- FIN DU TEST DE SIMULATION ---
 
+    print_string("Le premier appel a schedule() va demarrer le shell.\n");
+    schedule(NULL);
+
+    print_string("\nLe noyau entre en mode passif.\n");
     while(1) {
         asm volatile("hlt");
     }
-}
-
-void transition_to_user_mode() {
-    print_string("Transitioning to user mode...\n");
-    
-    // Create user task from shell ELF
-    task_t* shell_task = create_task_from_initrd_file("shell");
-    if (!shell_task) {
-        print_string("ERROR: Failed to create shell task\n");
-        return;
-    }
-    
-    print_string("Shell task created successfully\n");
-    
-    // Start scheduler for task switching
-    init_scheduler_timer(100);
-    
-    // Begin task scheduling - this will switch to user mode
-    schedule();
-    
-    // Should not reach here in normal operation
-    print_string("ERROR: Returned from user mode unexpectedly\n");
 }
 
