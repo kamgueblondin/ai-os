@@ -19,11 +19,14 @@ typedef enum {
 } task_type_t;
 
 // Structure pour sauvegarder l'état du CPU
+// L'ordre doit correspondre à ce qui est poussé sur la pile par les ISR stubs
 typedef struct cpu_state {
-    uint32_t eax, ebx, ecx, edx;
-    uint32_t esi, edi, ebp;
-    uint32_t eip, esp, eflags; // Pointeur d'instruction, pointeur de pile, flags
-    uint32_t cs, ds, es, fs, gs, ss; // Registres de segment
+    // Pushed by pushad
+    uint32_t edi, esi, ebp, esp_dummy, ebx, edx, ecx, eax;
+    // Pushed by our ISR stub
+    uint32_t ds, es, fs, gs;
+    // Pushed by the CPU on interrupt
+    uint32_t eip, cs, eflags, useresp, ss;
 } cpu_state_t;
 
 // Structure pour une tâche

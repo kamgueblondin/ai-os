@@ -309,7 +309,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // Initialiser la gestion de la mémoire
     print_string("Initialisation de la gestion memoire...\n");
     uint32_t memory_size = multiboot_get_memory_size(mbi);
-    pmm_init(memory_size);
+    pmm_init(memory_size, multiboot_addr);
     print_string("Physical Memory Manager initialise.\n");
 
     vmm_init(); // Active le paging

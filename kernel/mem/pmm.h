@@ -4,10 +4,9 @@
 #include <stdint.h>
 
 #define PAGE_SIZE 4096
-#define BITMAP_LOCATION 0x10000  // Place le bitmap à 64KB
 
 // Fonctions publiques du Physical Memory Manager
-void pmm_init(uint32_t memory_size);
+void pmm_init(uint32_t memory_size, uint32_t multiboot_addr);
 void* pmm_alloc_page();
 void pmm_free_page(void* page);
 uint32_t pmm_get_total_pages();

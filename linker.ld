@@ -27,6 +27,8 @@ SECTIONS
         *(COMMON)
     }
 
+    end = .; /* Symbole marquant la fin du noyau */
+
     /* Section GNU stack (non-exécutable) */
     .note.GNU-stack (NOLOAD) : {
         *(.note.GNU-stack)

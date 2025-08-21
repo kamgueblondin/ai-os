@@ -1,3 +1,4 @@
+qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -nographic -serial stdio -monitor none
 c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
 
 
@@ -16,219 +17,33 @@ Systeme d'interruptions initialise.
 Interruptions initialisees.
 Initialisation de la gestion memoire...
 Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
+Virtual Memory Manager initialise.
+Initrd trouve ! Initialisation...
+Parsing initrd TAR archive...
+Initrd initialized: 9 files found
+Initialisation du systeme de taches...
+Tache kernel creee.
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration... DESACTIVE
+Mode mono-tache pour stabilite maximale.
+PHASE 2: Timer reactive pour interruptions clavier...
+Timer reactive - Interruptions clavier fonctionnelles.
+Lancement du shell interactif AI-OS...
+Port serie initialise pour simulation clavier.
+Shell trouve ! Chargement...
+Shell trouve. Preparation du lancement...
 
+Lancement du Shell Utilisateur...
+create_user_vmm_directory: start
+Tache utilisateur creee avec succes
+Tache shell prete. Demarrage du scheduler...
+Initialisation du timer materiel...
+Timer materiel active pour le scheduler.
+KERNEL_TEST: Simulation de la saisie 'help'...
+KERNEL_TEST: Simulation terminee.
+Le premier appel a schedule() va demarrer le shell.
 
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
+Le noyau entre en mode passif.
+qemu-system-i386: terminating on signal 1
