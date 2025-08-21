@@ -11,6 +11,7 @@ extern void print_string_serial(const char* str);
 extern void irq0(); // ISR pour le timer
 extern void irq1(); // ISR pour le clavier
 extern void isr_syscall(); // ISR pour les appels système
+extern void isr_schedule(); // ISR pour le scheduling volontaire
 
 // Type pour les handlers d'interruption
 typedef void (*interrupt_handler_t)();
@@ -95,6 +96,7 @@ void interrupts_init() {
     // Associe les entrées de l'IDT aux routines assembleur
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);        // Clavier
+    idt_set_gate(0x30, (uint32_t)isr_schedule, 0x08, 0xEE); // Scheduler (Ring 3)
     idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0xEE); // Syscalls (Ring 3 accessible)
 
     // Activer les interruptions sur le CPU

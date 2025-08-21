@@ -66,7 +66,7 @@ void elf_print_info(uint8_t* elf_data) {
 }
 
 // Charge un exécutable ELF en mémoire (version simplifiée et stable)
-uint32_t elf_load(uint8_t* elf_data, uint32_t* page_directory) {
+uint32_t elf_load(uint8_t* elf_data, page_directory_t* page_directory) {
     if (!elf_validate(elf_data)) {
         print_string_serial("ERREUR: ELF invalide\n");
         return 0;

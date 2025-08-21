@@ -8,7 +8,6 @@
 extern void print_string_serial(const char* str);
 extern void print_char(char c, int x, int y, char color);
 extern unsigned char inb(unsigned short port);
-extern task_t* create_user_task(uint32_t entry_point);
 
 // Buffer pour l'entrée clavier (simple)
 static char input_buffer[256];
@@ -78,7 +77,7 @@ void syscall_handler(cpu_state_t* cpu) {
             print_string_serial("\n");
             
             current_task->state = TASK_TERMINATED;
-            schedule(); // On ne reviendra jamais à cette tâche
+            asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
             break;
         
         case SYS_PUTC: // SYS_PUTC
@@ -111,7 +110,7 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_YIELD: // SYS_YIELD
             // Cède volontairement le CPU
-            schedule();
+            asm volatile("int $0x30");
             break;
             
         case SYS_GETS: // SYS_GETS - Nouveau
@@ -201,7 +200,7 @@ void sys_exit(uint32_t exit_code) {
     (void)exit_code;
     if (current_task) {
         current_task->state = TASK_TERMINATED;
-        schedule();
+        asm volatile("int $0x30");
     }
 }
 
@@ -232,7 +231,7 @@ void sys_puts(const char* str) {
 }
 
 void sys_yield() {
-    schedule();
+    asm volatile("int $0x30");
 }
 
 // Nouveau: SYS_GETS - Lire une ligne complète (version sans timer)
@@ -271,85 +270,26 @@ void sys_gets(char* buffer, uint32_t size) {
 
 // Nouveau: SYS_EXEC - Exécuter un programme
 int sys_exec(const char* path, char* argv[]) {
-    (void)argv;
-    if (!path) {
-        print_string_serial("SYS_EXEC: chemin invalide\n");
-        return -1;
-    }
-    
-    print_string_serial("SYS_EXEC: tentative d'execution de ");
+    (void)argv; // argv non utilisé pour le moment
+
+    print_string_serial("SYS_EXEC: Execution de '");
     print_string_serial(path);
-    print_string_serial("\n");
-    
-    // Chercher le fichier dans l'initrd
-    uint8_t* program_data = (uint8_t*)initrd_read_file(path);
-    if (!program_data) {
-        print_string_serial("SYS_EXEC: fichier non trouve: ");
-        print_string_serial(path);
-        print_string_serial("\n");
-        return -1;
-    }
-    
-    // Charger le programme ELF
-    uint32_t entry_point = elf_load(program_data, 0); // Taille non utilisée pour l'instant
-    if (entry_point == 0) {
-        print_string_serial("SYS_EXEC: echec du chargement ELF\n");
-        return -1;
-    }
-    
-    print_string_serial("SYS_EXEC: point d'entree: 0x");
-    // Affichage hexadécimal simple
-    char hex_str[16];
-    uint32_t addr = entry_point;
-    int hex_pos = 0;
-    for (int i = 7; i >= 0; i--) {
-        int digit = (addr >> (i * 4)) & 0xF;
-        hex_str[hex_pos++] = (digit < 10) ? ('0' + digit) : ('A' + digit - 10);
-    }
-    hex_str[hex_pos] = '\0';
-    print_string_serial(hex_str);
-    print_string_serial("\n");
-    
-    // Créer une nouvelle tâche utilisateur
-    task_t* new_task = create_user_task(entry_point);
+    print_string_serial("'\n");
+
+    task_t* new_task = create_task_from_initrd_file(path);
+
     if (!new_task) {
-        print_string_serial("SYS_EXEC: echec de creation de tache\n");
-        return -1;
+        print_string_serial("SYS_EXEC: Echec de la creation de la tache.\n");
+        return -1; // Echec
     }
-    
-    // TODO: Passer les arguments argv à la nouvelle tâche
-    // Pour l'instant, on ignore argv
-    
-    print_string_serial("SYS_EXEC: nouvelle tache creee avec ID ");
-    char id_str[16];
-    int task_id = new_task->id;
-    int id_pos = 0;
-    if (task_id == 0) {
-        id_str[id_pos++] = '0';
-    } else {
-        while (task_id > 0) {
-            id_str[id_pos++] = '0' + (task_id % 10);
-            task_id /= 10;
-        }
-    }
-    id_str[id_pos] = '\0';
-    
-    // Inverser la chaîne
-    for (int j = 0; j < id_pos / 2; j++) {
-        char tmp = id_str[j];
-        id_str[j] = id_str[id_pos - 1 - j];
-        id_str[id_pos - 1 - j] = tmp;
-    }
-    
-    print_string_serial(id_str);
-    print_string_serial("\n");
-    
-    // Attendre que la tâche se termine (exec bloquant simple)
+
+    // L'exec actuel est bloquant. On attend la fin de la tâche.
+    // Un vrai exec remplacerait le processus courant, mais c'est plus simple.
     while (new_task->state != TASK_TERMINATED) {
-        schedule();
+        asm volatile("int $0x30");
     }
-    
-    print_string_serial("SYS_EXEC: tache terminee\n");
-    return 0;
+
+    print_string_serial("SYS_EXEC: Tache terminee.\n");
+    return 0; // Succès
 }
 

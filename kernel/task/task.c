@@ -109,80 +109,48 @@ task_t* create_task(void (*entry_point)()) {
 }
 
 // Ordonnanceur Round-Robin
-void schedule() {
+void schedule(cpu_state_t* cpu) {
     if (!current_task || !task_queue) {
         return;
     }
 
+    // Si appelé depuis une interruption, sauvegarder l'état actuel
+    if (cpu) {
+        memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
+    }
+
     // Trouve la prochaine tâche prête
     task_t* next_task = current_task->next;
-    task_t* start_task = current_task;
-
-    while (next_task != start_task && next_task->state != TASK_READY) {
+    while (next_task->state != TASK_READY && next_task != current_task) {
         next_task = next_task->next;
     }
 
-    if (next_task->state == TASK_READY) {
+    if (next_task == current_task || next_task->state != TASK_READY) {
+        // Aucune autre tâche prête, on ne change rien
+        return;
+    }
+
+    // Mise à jour de l'état
+    if (current_task->state == TASK_RUNNING) {
         current_task->state = TASK_READY;
-        next_task->state = TASK_RUNNING;
-
-        current_task = next_task;
-
-        // Changement de contexte (désactivé temporairement)
-        // switch_task(&old_task->cpu_state, &current_task->cpu_state);
     }
-}
+    next_task->state = TASK_RUNNING;
 
-// Crée une tâche utilisateur
-task_t* create_user_task(uint32_t entry_point) {
-    task_t* new_task = (task_t*)pmm_alloc_page();
-    if (!new_task) {
-        print_string_serial("ERREUR: Impossible d'allouer la tache utilisateur\n");
-        return NULL;
+    task_t* old_task = current_task;
+    current_task = next_task;
+
+    // Changer le répertoire de pages si nécessaire
+    if (old_task->page_directory != current_task->page_directory) {
+        vmm_switch_page_directory((page_directory_t*)current_task->page_directory);
     }
 
-    // Alloue la pile utilisateur
-    void* user_stack = pmm_alloc_page();
-    if (!user_stack) {
-        print_string_serial("ERREUR: Impossible d'allouer la pile utilisateur\n");
-        pmm_free_page(new_task);
-        return NULL;
+    // Si appelé depuis une interruption, met à jour la pile pour le retour
+    if (cpu) {
+        memcpy(cpu, &current_task->cpu_state, sizeof(cpu_state_t));
+    } else {
+        // Premier lancement, on ne revient jamais
+        jump_to_task(&current_task->cpu_state);
     }
-
-    // Mappe la pile en espace utilisateur
-    uint32_t user_stack_virt = 0xBFFFF000; // Haut de l'espace utilisateur
-    vmm_map_page(user_stack, (void*)user_stack_virt, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
-
-    // Initialise la tâche utilisateur
-    new_task->id = next_task_id++;
-    new_task->state = TASK_READY;
-    new_task->type = TASK_TYPE_USER;
-    new_task->page_directory = (uint32_t*)kernel_directory;
-    new_task->stack_base = user_stack_virt;
-    new_task->stack_size = 4096;
-
-    // État CPU pour mode utilisateur
-    new_task->cpu_state.eax = 0;
-    new_task->cpu_state.ebx = 0;
-    new_task->cpu_state.ecx = 0;
-    new_task->cpu_state.edx = 0;
-    new_task->cpu_state.esi = 0;
-    new_task->cpu_state.edi = 0;
-    new_task->cpu_state.ebp = 0;
-    new_task->cpu_state.eip = entry_point;
-    new_task->cpu_state.esp = user_stack_virt + 4096 - 4;
-    new_task->cpu_state.eflags = 0x202;
-    new_task->cpu_state.cs = 0x1B; // Segment de code utilisateur (GDT index 3, RPL 3)
-    new_task->cpu_state.ds = 0x23; // Segment de données utilisateur (GDT index 4, RPL 3)
-    new_task->cpu_state.es = 0x23;
-    new_task->cpu_state.fs = 0x23;
-    new_task->cpu_state.gs = 0x23;
-    new_task->cpu_state.ss = 0x23; // Segment de pile utilisateur
-
-    add_task_to_queue(new_task);
-
-    print_string_serial("Tache utilisateur creee\n");
-    return new_task;
 }
 
 // Termine la tâche courante
@@ -217,7 +185,7 @@ void task_exit() {
     }
 
     // Force un changement de contexte
-    schedule();
+    asm volatile("int $0x30");
 }
 
 // Obtient la tâche courante
@@ -225,35 +193,47 @@ task_t* get_current_task() {
     return current_task;
 }
 
-// Forward declarations for functions used in create_task_from_initrd_file
-static page_directory_t* create_user_page_directory();
-static uint32_t allocate_user_stack(page_directory_t* page_dir);
-static void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top);
+// Déclarations des fonctions "privées"
+page_directory_t* create_user_page_directory();
+uint32_t allocate_user_stack(page_directory_t* page_dir);
+void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top);
 
+// Crée une tâche complète à partir d'un fichier dans l'initrd
 task_t* create_task_from_initrd_file(const char* filename) {
-    char* file_data = initrd_read_file(filename);
+    print_string_serial("Creation de la tache a partir de: ");
+    print_string_serial(filename);
+    print_string_serial("\n");
+
+    uint8_t* file_data = (uint8_t*)initrd_read_file(filename);
     if (!file_data) {
+        print_string_serial("ERREUR: Fichier non trouve dans l'initrd\n");
         return NULL;
     }
 
     page_directory_t* page_directory = create_user_page_directory();
     if (!page_directory) {
+        print_string_serial("ERREUR: Impossible de creer le repertoire de pages\n");
         return NULL;
     }
 
-    page_directory_t* old_directory = current_directory;
+    // On doit switcher temporairement pour que elf_load fonctionne sur le bon VMM
+    page_directory_t* old_directory = (page_directory_t*)current_task->page_directory;
     vmm_switch_page_directory(page_directory);
 
-    uint32_t entry_point = elf_load((uint8_t*)file_data, (uint32_t*)page_directory);
+    uint32_t entry_point = elf_load(file_data, page_directory);
 
+    // Revenir à l'ancien répertoire
     vmm_switch_page_directory(old_directory);
 
     if (entry_point == 0) {
+        print_string_serial("ERREUR: Chargement ELF a echoue\n");
+        // TODO: Libérer page_directory
         return NULL;
     }
 
     task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
     if (!new_task) {
+        print_string_serial("ERREUR: kmalloc pour la tache a echoue\n");
         return NULL;
     }
 
@@ -261,68 +241,63 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
     new_task->page_directory = (uint32_t*)page_directory;
-    new_task->cpu_state.eip = entry_point;
 
     uint32_t user_stack_top = allocate_user_stack(page_directory);
     if (!user_stack_top) {
+        print_string_serial("ERREUR: allocation pile utilisateur a echoue\n");
         kfree(new_task);
         return NULL;
     }
-    new_task->cpu_state.esp = user_stack_top;
 
     setup_initial_user_context(new_task, entry_point, user_stack_top);
 
     add_task_to_queue(new_task);
 
+    print_string_serial("Tache utilisateur creee avec succes\n");
     return new_task;
 }
 
-static void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top) {
+void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top) {
+    memset(&task->cpu_state, 0, sizeof(cpu_state_t));
     task->cpu_state.eip = entry_point;
-    task->cpu_state.cs = 0x1B;
-    task->cpu_state.eflags = 0x202;
     task->cpu_state.esp = stack_top;
-    task->cpu_state.ss = 0x23;
-    task->cpu_state.ds = 0x23;
+    task->cpu_state.eflags = 0x202; // Activer les interruptions
+    task->cpu_state.cs = 0x1B;     // Sélecteur de code utilisateur (0x18 | 3)
+    task->cpu_state.ds = 0x23;     // Sélecteur de données utilisateur (0x20 | 3)
     task->cpu_state.es = 0x23;
     task->cpu_state.fs = 0x23;
     task->cpu_state.gs = 0x23;
+    task->cpu_state.ss = 0x23;     // Sélecteur de pile utilisateur
 }
 
-static page_directory_t* create_user_page_directory() {
-    // Alloue un nouveau répertoire de pages aligné sur une page
-    page_directory_t* user_page_dir = (page_directory_t*)kmalloc_aligned(sizeof(page_directory_t));
-    if (!user_page_dir) {
-        return NULL;
-    }
-    // Met à zéro le nouveau répertoire de pages
-    memset(user_page_dir, 0, sizeof(page_directory_t));
+page_directory_t* create_user_page_directory() {
+    page_directory_t* dir = (page_directory_t*)kmalloc_aligned(sizeof(page_directory_t));
+    if (!dir) return NULL;
+    memset(dir, 0, sizeof(page_directory_t));
 
-    // Récupère le répertoire de pages du noyau
-    extern page_directory_t* kernel_directory;
-
-    // Copie les tables de pages du noyau dans le nouveau répertoire de pages
-    // Cela garantit que l'espace du noyau est mappé dans le processus utilisateur
-    for (int i = 0; i < 1024; i++) {
+    // Clone les mappages du noyau
+    for (int i = 768; i < 1024; i++) { // Espace noyau est le dernier Go
         if (kernel_directory->tables[i]) {
-            user_page_dir->tables[i] = kernel_directory->tables[i];
-            user_page_dir->tablesPhysical[i] = kernel_directory->tablesPhysical[i];
+            dir->tables[i] = kernel_directory->tables[i];
+            dir->tablesPhysical[i] = kernel_directory->tablesPhysical[i];
         }
     }
+    dir->physicalAddr = (uint32_t)dir->tablesPhysical;
 
-    return user_page_dir;
+    return dir;
 }
 
-static uint32_t allocate_user_stack(page_directory_t* page_dir) {
+uint32_t allocate_user_stack(page_directory_t* page_dir) {
+    // La pile utilisateur est définie dans userspace/start.s à 0x50000000
+    uint32_t stack_top = 0x50000000;
+    uint32_t stack_bottom = stack_top - PAGE_SIZE;
+
     void* stack_phys = pmm_alloc_page();
     if (!stack_phys) {
         return 0;
     }
 
-    // L'espace utilisateur s'attend à une pile à 0x50000000 (défini dans userspace/start.s)
-    uint32_t stack_top = 0x50000000;
-
-    vmm_map_page_in_directory(page_dir, stack_phys, (void*)(stack_top - PAGE_SIZE), PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
+    vmm_map_page_in_directory(page_dir, stack_phys, (void*)stack_bottom, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
 
     return stack_top;
 }

@@ -9,32 +9,34 @@ global isr_syscall
 ; ISR pour le timer (IRQ 0) - Version robuste
 irq0:
     ; Sauvegarde complète de l'état du processeur
-    pushad                ; Sauvegarde EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI
-    push ds               ; Sauvegarde des segments
+    pushad
+    push ds
     push es
     push fs
     push gs
     
-    ; Charge les segments du noyau pour s'assurer qu'on est dans le bon contexte
-    mov ax, 0x10          ; Segment de données du noyau
+    ; Charge les segments du noyau
+    mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     
-    ; Appelle le handler C du timer
+    ; Passe un pointeur vers la structure de registres au handler C
+    push esp
     call timer_handler
+    add esp, 4
     
     ; Envoie EOI au PIC pour IRQ 0
-    mov al, 0x20          ; Commande EOI
-    out 0x20, al          ; Envoie à PIC1
+    mov al, 0x20
+    out 0x20, al
     
     ; Restaure l'état complet du processeur
     pop gs
     pop fs
     pop es
     pop ds
-    popad                 ; Restaure tous les registres généraux
+    popad
     
     ; Retour d'interruption
     iret
@@ -72,14 +74,41 @@ irq1:
     ; Retour d'interruption
     iret
 
-; ISR pour les appels système (INT 0x80)
-isr_syscall:
-    ; Sauvegarde l'état complet du CPU
+; ISR pour le scheduler volontaire (INT 0x30)
+global isr_schedule
+isr_schedule:
+    pushad
     push ds
     push es
     push fs
     push gs
-    pusha
+
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    push esp
+    call timer_handler ; Le timer handler appelle schedule, c'est ce qu'on veut
+    add esp, 4
+
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popad
+
+    iret
+
+; ISR pour les appels système (INT 0x80)
+isr_syscall:
+    ; Sauvegarde l'état complet du CPU
+    pushad
+    push ds
+    push es
+    push fs
+    push gs
     
     ; Charge les segments du noyau
     mov ax, 0x10  ; Segment de données du noyau
@@ -99,11 +128,11 @@ isr_syscall:
     add esp, 4
     
     ; Restaure l'état du CPU
-    popa
     pop gs
     pop fs
     pop es
     pop ds
+    popad
     
     ; Retour d'interruption
     iret

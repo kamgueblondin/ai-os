@@ -5,11 +5,6 @@
 page_directory_t *kernel_directory = 0;
 page_directory_t *current_directory = 0;
 
-// Répertoire de pages et première table de pages (alignés sur 4KB)
-static uint32_t page_directory[1024] __attribute__((aligned(4096)));
-static uint32_t first_page_table[1024] __attribute__((aligned(4096)));
-
-
 // Fonction utilitaire pour obtenir l'offset dans la page
 static uint32_t get_page_offset(uint32_t virtual_addr) {
     return virtual_addr & 0xFFF;
@@ -17,37 +12,52 @@ static uint32_t get_page_offset(uint32_t virtual_addr) {
 
 // Initialise le gestionnaire de mémoire virtuelle
 void vmm_init() {
-    // Initialise le répertoire de pages
+    // Alloue de la mémoire pour le répertoire de pages du noyau
+    // Note: on utilise pmm_alloc_page car kmalloc n'est pas encore prêt.
+    kernel_directory = (page_directory_t*)pmm_alloc_page();
+    if (!kernel_directory) {
+        // Gérer l'erreur critique: impossible d'allouer le répertoire du noyau
+        return;
+    }
+    // Met à zéro le répertoire
     for (int i = 0; i < 1024; i++) {
-        page_directory[i] = 0x00000002; // Non présent, lecture/écriture, superviseur
+        kernel_directory->tables[i] = 0;
+        kernel_directory->tablesPhysical[i] = 0x00000002; // Non présent, R/W, Sup
     }
 
-    // Initialise la première table de pages pour mapper les premiers 4 Mo
-    // Mapping identité 1:1 (adresse virtuelle = adresse physique)
-    for (int i = 0; i < 1024; i++) {
-        // Chaque page fait 4KB, donc page i commence à l'adresse i * 0x1000
-        // Flags: présent + lecture/écriture
-        first_page_table[i] = (i * 0x1000) | 3;
+    // Alloue une table de pages pour les premiers 4 Mo du noyau
+    page_table_t* kernel_page_table = (page_table_t*)pmm_alloc_page();
+    if (!kernel_page_table) {
+        // Gérer l'erreur critique
+        return;
     }
 
-    // Lie la première entrée du répertoire à notre table de pages
-    page_directory[0] = ((uint32_t)first_page_table) | 3;
+    // Mappe les premiers 4 Mo en identité (virtuel = physique)
+    for (int i = 0; i < 1024; i++) {
+        kernel_page_table->pages[i].present = 1;
+        kernel_page_table->pages[i].rw = 1;
+        kernel_page_table->pages[i].user = 0; // Kernel-mode
+        kernel_page_table->pages[i].frame = i;
+    }
 
-    // Charge le répertoire de pages dans le registre CR3
-    load_page_directory(page_directory);
+    // Enregistre la table de pages dans le répertoire du noyau
+    kernel_directory->tables[0] = kernel_page_table;
+    kernel_directory->tablesPhysical[0] = (uint32_t)kernel_page_table | 3; // Présent, R/W, Sup
+
+    // Charge le nouveau répertoire de pages
+    load_page_directory(kernel_directory->tablesPhysical);
     
-    // Active le paging en mettant le bit 31 du registre CR0
+    // Active le paging
     enable_paging();
     
-    // Initialise les pointeurs globaux
-    kernel_directory = (page_directory_t*)page_directory;
+    // Initialise le pointeur global
     current_directory = kernel_directory;
 }
 
 // Change le répertoire de pages actuel
 void vmm_switch_page_directory(page_directory_t *dir) {
     current_directory = dir;
-    load_page_directory((uint32_t*)&dir->tablesPhysical);
+    load_page_directory(dir->tablesPhysical);
 }
 
 // Obtient une page depuis une adresse virtuelle

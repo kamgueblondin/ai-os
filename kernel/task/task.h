@@ -46,10 +46,10 @@ extern int next_task_id;
 // Fonctions publiques
 void tasking_init();
 task_t* create_task(void (*entry_point)());
-task_t* create_user_task(uint32_t entry_point);
 task_t* create_task_from_initrd_file(const char* filename);
 task_t* load_elf_task(uint8_t* elf_data, uint32_t size);
-void schedule();
+void schedule(cpu_state_t* cpu);
+void jump_to_task(cpu_state_t* state);
 void task_exit();
 void task_yield();
 
@@ -58,9 +58,6 @@ task_t* get_task_by_id(int id);
 void remove_task(task_t* task);
 void add_task_to_queue(task_t* task);
 int get_task_count();
-
-// Fonction assembleur pour le changement de contexte
-extern void context_switch(cpu_state_t* old_state, cpu_state_t* new_state);
 
 #endif
 
