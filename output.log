@@ -1,0 +1,58 @@
+c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...
+
+
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
+
+Multiboot detecte correctement.
+Initialisation des interruptions...
+Initialisation du systeme d'interruptions...
+IRQ timer et clavier demmasques et actifs.
+Systeme d'interruptions initialise.
+Interruptions initialisees.
+Initialisation de la gestion memoire...
+Physical Memory Manager initialise.
+Virtual Memory Manager initialise.
+Initrd trouve ! Initialisation...
+Parsing initrd TAR archive...
+Initrd initialized: 9 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration... DESACTIVE
+Mode mono-tache pour stabilite maximale.
+PHASE 2: Timer reactive pour interruptions clavier...
+Timer reactive - Interruptions clavier fonctionnelles.
+Lancement du shell interactif AI-OS...
+Port serie initialise pour simulation clavier.
+Shell trouve ! Chargement...
+Shell ELF detecte ! Simulation du chargement...
+Shell charge avec succes !
+Point d'entree: 0x40000000 (simule)
+
+=== AI-OS v5.0 - Shell Interactif avec IA ===
+Fonctionnalites :
+- Shell interactif complet (base sur shell.c)
+- Simulateur d'IA integre (base sur fake_ai.c)
+- Appels systeme etendus (SYS_GETS, SYS_EXEC)
+- Execution de programmes externes
+- Interface conversationnelle
+
+Shell utilisateur pret ! Demarrage...
+
+Tache utilisateur creee
+Tache shell creee ! Passage en mode utilisateur...
+Initialisation de l'interface shell...
+
+=== Shell AI-OS v5.0 Actif ===
+Bienvenue dans AI-OS ! Tapez 'help' pour l'aide.
+Shell base sur userspace/shell.c avec IA fake_ai.c
+
+AI-OS>
