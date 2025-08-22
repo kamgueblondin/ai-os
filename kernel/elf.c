@@ -26,6 +26,12 @@ uint32_t elf_load(uint8_t* elf_data, vmm_directory_t* vmm_dir) {
         elf32_phdr_t* ph = &pheaders[i];
         if (ph->p_type != PT_LOAD) continue;
 
+        // SECURITY CHECK: Prevent loading into low memory (kernel space)
+        if (ph->p_vaddr < 0x100000) {
+            print_string_serial("SECURITY: ELF segment tried to load into kernel space. Aborting.\n");
+            return 0;
+        }
+
         uint32_t pages_needed = (ph->p_memsz + 4095) / 4096;
         for (uint32_t page = 0; page < pages_needed; page++) {
             void* phys_page = pmm_alloc_page();
