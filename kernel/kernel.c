@@ -1,3 +1,4 @@
+#include "gdt.h"
 #include "idt.h"
 #include "interrupts.h"
 #include "multiboot.h"
@@ -274,6 +275,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     // Initialisation du port série
     serial_init();
+
+    // Initialisation de la GDT et du TSS
+    gdt_init();
 
     // Effacer l'écran VGA
     for (int y = 0; y < 25; y++) {

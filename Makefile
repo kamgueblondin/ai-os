@@ -18,7 +18,7 @@ INITRD_IMAGE = my_initrd.tar
 
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
-          build/string.o build/pmm.o build/heap.o build/idt.o build/vmm.o build/task.o \
+          build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
 
@@ -41,6 +41,10 @@ kernel-only: $(OS_IMAGE)
 
 # Règles de compilation pour les fichiers .c du kernel principal
 build/kernel.o: kernel/kernel.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/gdt.o: kernel/gdt.c kernel/gdt.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -102,6 +106,10 @@ build/initrd.o: fs/initrd.c fs/initrd.h
 
 # Règles pour compiler le code assembleur
 build/boot.o: boot/boot.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+build/gdt_asm.o: boot/gdt.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
