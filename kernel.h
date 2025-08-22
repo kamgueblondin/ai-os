@@ -21,6 +21,7 @@ void init_scheduler_timer();
 // Utility functions
 void print_string(const char* str);
 void print_string_serial(const char* str); // Used in many places
+void print_hex_serial(uint32_t n);
 unsigned char inb(unsigned short port);
 void outb(unsigned short port, unsigned char data);
 

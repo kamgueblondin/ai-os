@@ -1,4 +1,5 @@
 #include "syscall.h"
+#include "kernel.h"
 #include "../interrupts.h"
 #include "../task/task.h"
 #include "../elf.h"
@@ -130,27 +131,7 @@ void syscall_handler(cpu_state_t* cpu) {
         default:
             // Syscall inconnu
             print_string_serial("Syscall inconnu: ");
-            char syscall_str[16];
-            uint32_t syscall_num = cpu->eax;
-            int k = 0;
-            if (syscall_num == 0) {
-                syscall_str[k++] = '0';
-            } else {
-                while (syscall_num > 0) {
-                    syscall_str[k++] = '0' + (syscall_num % 10);
-                    syscall_num /= 10;
-                }
-            }
-            syscall_str[k] = '\0';
-            
-            // Inverse la chaîne
-            for (int j = 0; j < k / 2; j++) {
-                char tmp = syscall_str[j];
-                syscall_str[j] = syscall_str[k - 1 - j];
-                syscall_str[k - 1 - j] = tmp;
-            }
-            
-            print_string_serial(syscall_str);
+            print_hex_serial(cpu->eax);
             print_string_serial("\n");
             break;
     }
