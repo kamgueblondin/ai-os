@@ -1,6 +1,0 @@
-qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar \
-	-vga std -display gtk,zoom-to-fit=on \
-	-monitor stdio -m 256M
-QEMU 8.2.2 monitor - type 'help' for more information
-gtk initialization failed
-make: *** [Makefile:152: run-gui] Error 1

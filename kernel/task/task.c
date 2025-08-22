@@ -121,15 +121,30 @@ task_t* create_task_from_initrd_file(const char* filename) {
 
 void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t stack_top) {
     memset(&task->cpu_state, 0, sizeof(cpu_state_t));
+    
+    // Configuration des registres généraux
+    task->cpu_state.eax = 0;
+    task->cpu_state.ebx = 0;
+    task->cpu_state.ecx = 0;
+    task->cpu_state.edx = 0;
+    task->cpu_state.esi = 0;
+    task->cpu_state.edi = 0;
+    task->cpu_state.ebp = 0;
+    
+    // Configuration de l'exécution
     task->cpu_state.eip = entry_point;
     task->cpu_state.useresp = stack_top;
-    task->cpu_state.eflags = 0x202;
-    task->cpu_state.cs = 0x1B;
-    task->cpu_state.ds = 0x23;
+    task->cpu_state.eflags = 0x202; // Interruptions activées
+    
+    // Configuration des segments utilisateur (Ring 3)
+    task->cpu_state.cs = 0x1B;  // Code segment utilisateur (Ring 3)
+    task->cpu_state.ds = 0x23;  // Data segment utilisateur (Ring 3)
     task->cpu_state.es = 0x23;
     task->cpu_state.fs = 0x23;
     task->cpu_state.gs = 0x23;
-    task->cpu_state.ss = 0x23;
+    task->cpu_state.ss = 0x23;  // Stack segment utilisateur (Ring 3)
+    
+    print_string_serial("Configuration CPU utilisateur terminee\n");
 }
 
 vmm_directory_t* create_user_vmm_directory() {

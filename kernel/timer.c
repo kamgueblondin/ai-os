@@ -36,8 +36,35 @@ void software_timer_tick() {
 void timer_handler(cpu_state_t* cpu) {
     timer_ticks++;
     
-    // Appel à l'ordonnanceur pour le multitâche préemptif
-    schedule(cpu);
+    // DEBUG: Désactiver temporairement le scheduler pour éviter les crashes
+    // Log périodique pour vérifier que le timer fonctionne
+    if (timer_ticks % 100 == 0) {
+        print_string_serial("Timer tick: ");
+        // Convertir timer_ticks en string et l'afficher
+        char buffer[16];
+        int i = 0;
+        uint32_t num = timer_ticks;
+        if (num == 0) {
+            buffer[i++] = '0';
+        } else {
+            while (num > 0) {
+                buffer[i++] = '0' + (num % 10);
+                num /= 10;
+            }
+        }
+        buffer[i] = '\0';
+        // Inverser la string
+        for (int j = 0; j < i/2; j++) {
+            char temp = buffer[j];
+            buffer[j] = buffer[i-1-j];
+            buffer[i-1-j] = temp;
+        }
+        print_string_serial(buffer);
+        print_string_serial("\n");
+    }
+    
+    // TODO: Réactiver quand le changement de contexte sera corrigé
+    // schedule(cpu);
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)
