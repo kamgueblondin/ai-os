@@ -50,23 +50,26 @@ void add_task_to_queue(task_t* task) {
     }
 }
 
-// Déclaration de la fonction assembleur pour le changement de contexte
-extern void jump_to_task(cpu_state_t* next_state);
-
 void schedule(cpu_state_t* cpu) {
     if (!current_task) return;
-
-    // Sauvegarder l'état de la tâche actuelle
     memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
-    if (current_task->state == TASK_RUNNING) {
-        current_task->state = TASK_READY;
+
+    current_task = current_task->next;
+
+    // BUG FIX: The initial kernel task (id 0) has no valid CPU state to switch to.
+    // It's just a placeholder for the boot process. Never schedule it.
+    // If we land on it, skip to the next one. This prevents a triple fault.
+    if (current_task->id == 0) {
+        current_task = current_task->next;
     }
 
-    // Sélectionner la prochaine tâche
-    do {
+    while(current_task->state != TASK_READY) {
         current_task = current_task->next;
-    } while (current_task->state != TASK_READY || current_task->id == 0);
-
+        // Also check here in case we loop all the way around
+        if (current_task->id == 0) {
+            current_task = current_task->next;
+        }
+    }
     current_task->state = TASK_RUNNING;
 
     // Mettre à jour le TSS avec la pile noyau de la nouvelle tâche
@@ -74,14 +77,12 @@ void schedule(cpu_state_t* cpu) {
         tss_set_stack(0x10, current_task->kernel_stack_p);
     }
 
-    // Changer de répertoire de pages si nécessaire
     if (current_directory != current_task->vmm_dir) {
         vmm_switch_page_directory(current_task->vmm_dir->physical_dir);
         current_directory = current_task->vmm_dir;
     }
 
-    // Sauter à la nouvelle tâche. Ne retourne jamais.
-    jump_to_task(&current_task->cpu_state);
+    memcpy(cpu, &current_task->cpu_state, sizeof(cpu_state_t));
 }
 
 void task_exit() {
@@ -107,29 +108,18 @@ task_t* create_task_from_initrd_file(const char* filename) {
         return NULL;
     }
 
-    uint32_t entry_point = 0;
-    uint32_t user_stack_top = 0;
-
-    // --- Critical section for new task's address space ---
     vmm_directory_t* old_dir = current_directory;
     vmm_switch_page_directory(vmm_dir->physical_dir);
     current_directory = vmm_dir;
 
-    // Load the executable into the new address space
-    entry_point = elf_load(file_data, vmm_dir);
-    if (entry_point != 0) {
-        // Allocate the user stack in the new address space
-        user_stack_top = allocate_user_stack(vmm_dir);
-    }
+    uint32_t entry_point = elf_load(file_data, vmm_dir);
 
-    // Restore the kernel's address space
     vmm_switch_page_directory(old_dir->physical_dir);
     current_directory = old_dir;
-    // --- End of critical section ---
 
-    if (entry_point == 0 || user_stack_top == 0) {
-        print_string_serial("ERREUR: Chargement ELF ou allocation de pile a echoue\n");
-        // TODO: Liberer vmm_dir et toutes les pages allouées
+    if (entry_point == 0) {
+        print_string_serial("ERREUR: Chargement ELF a echoue\n");
+        // TODO: Liberer vmm_dir
         return NULL;
     }
 
@@ -142,6 +132,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     // Allouer une pile noyau pour cette tâche
     new_task->kernel_stack_p = (uint32_t)kmalloc(4096) + 4096;
 
+    uint32_t user_stack_top = allocate_user_stack(vmm_dir);
     setup_initial_user_context(new_task, entry_point, user_stack_top);
     add_task_to_queue(new_task);
 
