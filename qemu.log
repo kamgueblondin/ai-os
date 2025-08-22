@@ -46,12 +46,8 @@ Configuration CPU utilisateur terminee
 Tache utilisateur creee avec succes
 Tache shell prete. Demarrage du timer...
 Initialisation du timer materiel...
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
-Syscall inconnu: 0x0013afec
+Timer materiel active pour le scheduler.
+
+=== AI-OS v6.0 - Attente du premier changement de contexte ===
+Le planificateur va maintenant prendre le relais.
+SUCCESS!
