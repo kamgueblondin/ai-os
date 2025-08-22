@@ -7,7 +7,6 @@ global jump_to_task, switch_task
 ; void jump_to_task(cpu_state_t* next_state)
 ; Ne sauvegarde rien, charge juste le nouvel état.
 jump_to_task:
-    cli                 ; IMPORTANT: Désactiver les interruptions pour un switch atomique
     mov ebx, [esp + 4]  ; Pointeur vers next_state
 
     ; Structure cpu_state_t:

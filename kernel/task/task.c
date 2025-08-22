@@ -54,6 +54,7 @@ void add_task_to_queue(task_t* task) {
 extern void jump_to_task(cpu_state_t* next_state);
 
 void schedule(cpu_state_t* cpu) {
+    asm volatile("cli");
     if (!current_task) return;
 
     // Sauvegarder l'état de la tâche actuelle
