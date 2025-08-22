@@ -34,11 +34,13 @@ int pmm_test_page(uint32_t page_num) {
 }
 
 uint32_t pmm_find_free_page() {
-    for (uint32_t i = 0; i < total_pages / 32; i++) {
+    uint32_t bitmap_size_dwords = (total_pages + 31) / 32;
+    for (uint32_t i = 0; i < bitmap_size_dwords; i++) {
         if (memory_map[i] != 0xFFFFFFFF) {
             for (int j = 0; j < 32; j++) {
                 if (!(memory_map[i] & (1 << j))) {
                     uint32_t page_num = i * 32 + j;
+                    // Ensure we don't return a page that is out of bounds
                     if (page_num < total_pages) {
                         return page_num;
                     }
@@ -46,7 +48,7 @@ uint32_t pmm_find_free_page() {
             }
         }
     }
-    return 0xFFFFFFFF; // Aucune page libre trouvée
+    return 0xFFFFFFFF; // No free page found
 }
 
 // Initialise le gestionnaire de mémoire physique
