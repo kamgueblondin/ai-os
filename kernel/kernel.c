@@ -183,6 +183,16 @@ void print_string_serial(const char* str) {
     }
 }
 
+// Fonction pour afficher un uint32_t en hexadecimal sur le port série
+void print_hex_serial(uint32_t n) {
+    char* hex = "0123456789abcdef";
+    write_serial('0');
+    write_serial('x');
+    for (int i = 28; i >= 0; i -= 4) {
+        write_serial(hex[(n >> i) & 0xF]);
+    }
+}
+
 // Fonction pour afficher sur les deux sorties
 void print_string(const char* str) {
     print_string_vga(str, 0x1F);

@@ -4,8 +4,8 @@
 .global _start
 
 _start:
-    # Initialiser la pile
-    movl $0x50000000, %esp  # Pile utilisateur à 0x50000000
+    # La pile est déjà initialisée par le noyau.
+    # On peut l'utiliser directement.
     
     # Appeler main()
     call main
