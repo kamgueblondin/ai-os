@@ -32,34 +32,33 @@ uint32_t elf_load(uint8_t* elf_data, vmm_directory_t* vmm_dir) {
             return 0;
         }
 
-        uint32_t pages_needed = (ph->p_memsz + 4095) / 4096;
-        for (uint32_t page = 0; page < pages_needed; page++) {
+        // The new address space is active, so we can write directly to virtual addresses.
+        uint32_t virt_addr = ph->p_vaddr;
+        uint32_t mem_size = ph->p_memsz;
+        uint32_t file_size = ph->p_filesz;
+        uint32_t file_offset = ph->p_offset;
+
+        // Map all necessary pages for the segment.
+        // The user space linker script aligns segments to be page-aligned, so this is safe.
+        for (uint32_t j = 0; j < mem_size; j += PAGE_SIZE) {
             void* phys_page = pmm_alloc_page();
             if (!phys_page) {
-                print_string_serial("ERREUR: Allocation memoire pour segment ELF\n");
-                return 0; // TODO: Libérer les pages déjà allouées
+                print_string_serial("ELF Loader: Out of memory mapping segment\n");
+                return 0; // TODO: Cleanup
             }
-            memset(phys_page, 0, PAGE_SIZE);
-
-            uint32_t virt_addr = ph->p_vaddr + (page * PAGE_SIZE);
             uint32_t flags = PAGE_PRESENT | PAGE_USER;
             if (ph->p_flags & PF_W) flags |= PAGE_WRITE;
-            
-            vmm_map_page_in_directory(vmm_dir, phys_page, (void*)virt_addr, flags);
-            
-            // Copier les données
-            if (ph->p_filesz > 0) {
-                uint32_t file_offset = ph->p_offset + (page * PAGE_SIZE);
-                uint32_t bytes_to_copy_from_file = 0;
-                if (ph->p_filesz > page * PAGE_SIZE) {
-                    bytes_to_copy_from_file = ph->p_filesz - (page * PAGE_SIZE);
-                }
-                if (bytes_to_copy_from_file > PAGE_SIZE) {
-                    bytes_to_copy_from_file = PAGE_SIZE;
-                }
-                
-                memcpy(phys_page, elf_data + file_offset, bytes_to_copy_from_file);
-            }
+            vmm_map_page_in_directory(vmm_dir, phys_page, (void*)(virt_addr + j), flags);
+        }
+
+        // Now that pages are mapped, copy the data.
+        // First, zero out the entire memory region for the segment. This handles the .bss section.
+        if (mem_size > 0) {
+            memset((void*)virt_addr, 0, mem_size);
+        }
+        // Then, copy the initialized data from the ELF file.
+        if (file_size > 0) {
+            memcpy((void*)virt_addr, elf_data + file_offset, file_size);
         }
     }
 

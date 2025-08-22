@@ -157,7 +157,7 @@ userspace/shell userspace/fake_ai userspace/test_program:
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) $(INITRD_IMAGE)
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial stdio -monitor none
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial file:qemu.log -monitor none
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) $(INITRD_IMAGE)
