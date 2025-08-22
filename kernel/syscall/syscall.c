@@ -82,7 +82,11 @@ void syscall_handler(cpu_state_t* cpu) {
         
         case SYS_PUTC: // SYS_PUTC
             // L'argument (le caractère) est dans EBX
-            print_char((char)cpu->ebx, -1, -1, 0x0F);
+            {
+                extern void write_serial(char a);
+                print_char((char)cpu->ebx, -1, -1, 0x0F); // VGA
+                write_serial((char)cpu->ebx);             // Serial
+            }
             break;
             
         case SYS_GETC: // SYS_GETC
