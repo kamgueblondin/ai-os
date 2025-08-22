@@ -36,8 +36,7 @@ typedef struct task {
     task_state_t state;
     task_type_t type;          // Type de tâche (kernel/user)
     vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
-    uint32_t stack_base;       // Base de la pile de la tâche
-    uint32_t stack_size;       // Taille de la pile
+    uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
 } task_t;

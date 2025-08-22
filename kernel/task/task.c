@@ -7,6 +7,7 @@
 #include "kernel.h"
 #include "kernel/mem/heap.h"
 #include "fs/initrd.h"
+#include "kernel/gdt.h"
 
 // Variables globales
 task_t* current_task = NULL;
@@ -71,6 +72,11 @@ void schedule(cpu_state_t* cpu) {
     }
     current_task->state = TASK_RUNNING;
 
+    // Mettre à jour le TSS avec la pile noyau de la nouvelle tâche
+    if (current_task->type == TASK_TYPE_USER) {
+        tss_set_stack(0x10, current_task->kernel_stack_p);
+    }
+
     if (current_directory != current_task->vmm_dir) {
         vmm_switch_page_directory(current_task->vmm_dir->physical_dir);
         current_directory = current_task->vmm_dir;
@@ -122,6 +128,9 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
     new_task->vmm_dir = vmm_dir;
+
+    // Allouer une pile noyau pour cette tâche
+    new_task->kernel_stack_p = (uint32_t)kmalloc(4096) + 4096;
 
     uint32_t user_stack_top = allocate_user_stack(vmm_dir);
     setup_initial_user_context(new_task, entry_point, user_stack_top);
