@@ -54,8 +54,20 @@ void schedule(cpu_state_t* cpu) {
     memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
 
     current_task = current_task->next;
+
+    // BUG FIX: The initial kernel task (id 0) has no valid CPU state to switch to.
+    // It's just a placeholder for the boot process. Never schedule it.
+    // If we land on it, skip to the next one. This prevents a triple fault.
+    if (current_task->id == 0) {
+        current_task = current_task->next;
+    }
+
     while(current_task->state != TASK_READY) {
         current_task = current_task->next;
+        // Also check here in case we loop all the way around
+        if (current_task->id == 0) {
+            current_task = current_task->next;
+        }
     }
     current_task->state = TASK_RUNNING;
 
