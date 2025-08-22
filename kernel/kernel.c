@@ -383,29 +383,15 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Tache shell prete. Demarrage du timer...\n");
     timer_init(100);
 
-    print_string("\n=== AI-OS v6.0 - Shell Utilisateur Actif ===\n");
-    print_string("Passage au mode utilisateur...\n");
+    print_string("\n=== AI-OS v6.0 - Attente du premier changement de contexte ===\n");
+    print_string("Le planificateur va maintenant prendre le relais.\n");
     
-    // Passer au shell utilisateur au lieu de rester en simulation
-    shell_task->state = TASK_READY;
-    current_task = shell_task;
-    
-    print_string("Transfert vers l'espace utilisateur...\n");
-    
-    // Changer vers le répertoire de pages de la tâche utilisateur
-    if (current_directory != shell_task->vmm_dir) {
-        vmm_switch_page_directory(shell_task->vmm_dir->physical_dir);
-        current_directory = shell_task->vmm_dir;
+    // Activer les interruptions pour que le timer puisse déclencher le scheduler
+    asm volatile("sti");
+
+    // Boucle d'inactivité du kernel. Le scheduler fera le travail.
+    while(1) {
+        asm volatile("hlt");
     }
-    
-    // Déclarer la fonction assembleur
-    extern void switch_to_userspace(uint32_t eip, uint32_t esp);
-    
-    // Utiliser la fonction assembleur pour la transition
-    switch_to_userspace(shell_task->cpu_state.eip, shell_task->cpu_state.useresp);
-    
-    // Ce code ne devrait jamais être atteint
-    print_string("ERREUR: Retour inattendu du mode utilisateur!\n");
-    while(1) asm volatile("hlt");
 }
 

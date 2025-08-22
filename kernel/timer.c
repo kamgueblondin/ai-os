@@ -63,8 +63,8 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // TODO: Réactiver quand le changement de contexte sera corrigé
-    // schedule(cpu);
+    // Le scheduler est maintenant stable, on peut l'activer.
+    schedule(cpu);
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)
