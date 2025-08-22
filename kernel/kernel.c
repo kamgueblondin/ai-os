@@ -379,27 +379,29 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Tache shell prete. Demarrage du timer...\n");
     timer_init(100);
 
-    print_string("\nMode simulation shell (pour stabilite)...\n");
+    print_string("\n=== AI-OS v6.0 - Shell Utilisateur Actif ===\n");
+    print_string("Passage au mode utilisateur...\n");
     
-    // Pour éviter les crashes, on simule le shell dans le kernel
-    // TODO: Corriger le passage au mode utilisateur plus tard
-    print_string("\n=== AI-OS v5.0 - Shell Interactif avec IA ===\n");
-    print_string("Fonctionnalites :\n");
-    print_string("- Shell interactif complet\n");
-    print_string("- Simulateur d'IA integre\n");
-    print_string("- Appels systeme etendus (SYS_GETS, SYS_EXEC)\n");
-    print_string("- Execution de programmes externes\n");
-    print_string("- Interface conversationnelle\n\n");
-    print_string("Mode simulation active - Systeme stable\n");
-    print_string("AI-OS> ");
+    // Passer au shell utilisateur au lieu de rester en simulation
+    shell_task->state = TASK_READY;
+    current_task = shell_task;
     
-    // Boucle principale du shell simulé
-    while(1) {
-        // Attendre les interruptions (clavier, timer)
-        asm volatile("hlt");
-        
-        // Le timer va générer des ticks périodiques
-        // Le clavier peut être géré ici si nécessaire
+    print_string("Transfert vers l'espace utilisateur...\n");
+    
+    // Changer vers le répertoire de pages de la tâche utilisateur
+    if (current_directory != shell_task->vmm_dir) {
+        vmm_switch_page_directory(shell_task->vmm_dir->physical_dir);
+        current_directory = shell_task->vmm_dir;
     }
+    
+    // Déclarer la fonction assembleur
+    extern void switch_to_userspace(uint32_t eip, uint32_t esp);
+    
+    // Utiliser la fonction assembleur pour la transition
+    switch_to_userspace(shell_task->cpu_state.eip, shell_task->cpu_state.useresp);
+    
+    // Ce code ne devrait jamais être atteint
+    print_string("ERREUR: Retour inattendu du mode utilisateur!\n");
+    while(1) asm volatile("hlt");
 }
 

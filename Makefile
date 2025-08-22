@@ -17,7 +17,7 @@ ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
-OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o \
+OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
@@ -118,6 +118,10 @@ build/paging.o: boot/paging.s
 	$(AS) $(ASFLAGS) $< -o $@
 
 build/context_switch.o: boot/context_switch_new.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $< -o $@
+
+build/userspace_switch.o: boot/userspace_switch.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
