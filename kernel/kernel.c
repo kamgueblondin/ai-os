@@ -39,19 +39,6 @@ int is_transmit_empty() {
     return inb(0x3F8 + 5) & 0x20;
 }
 
-// Initialisation du port série pour la simulation clavier
-void init_serial_for_keyboard() {
-    outb(0x3F8 + 1, 0x00);    // Disable all interrupts
-    outb(0x3F8 + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-    outb(0x3F8 + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-    outb(0x3F8 + 1, 0x00);    //                  (hi byte)
-    outb(0x3F8 + 3, 0x03);    // 8 bits, no parity, one stop bit
-    outb(0x3F8 + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
-    outb(0x3F8 + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-
-    print_string_serial("Port serie initialise pour simulation clavier.\n");
-}
-
 void write_serial(char a) {
     while (!is_transmit_empty());
     outb(0x3F8, a);
@@ -68,23 +55,6 @@ char read_serial() {
         return inb(0x3F8);
     }
     return 0; // Aucun caractère disponible
-}
-
-// Simulation clavier : lit depuis le port série et injecte dans le buffer clavier
-void simulate_keyboard_input() {
-    char c = read_serial();
-    if (c != 0) {
-        // Debug: log du caractère reçu
-        print_string_serial("SIM: recv='");
-        write_serial(c);
-        print_string_serial("'\n");
-
-        // Injecter le caractère dans le buffer clavier
-        syscall_add_input_char(c);
-
-        // Debug: confirmer l'injection
-        print_string_serial("SIM: injected into buffer\n");
-    }
 }
 
 // Function to read a byte from a port
@@ -130,42 +100,74 @@ void print_char_vga(char c, int x, int y, char color) {
     }
 }
 
-// Fonction pour afficher un caractère à la position du curseur
+// Définir les états pour le parseur de codes ANSI
+typedef enum {
+    NORMAL,
+    ESCAPE,
+    BRACKET
+} AnsiState;
+
+// Variable statique pour conserver l'état du parseur
+static AnsiState ansi_state = NORMAL;
+
+// Fonction utilitaire pour effacer l'écran
+void clear_screen_vga() {
+    for (int y = 0; y < 25; y++) {
+        for (int x = 0; x < 80; x++) {
+            vga_buffer[y * 80 + x] = (unsigned short)' ' | ((unsigned short)0x07 << 8);
+        }
+    }
+    vga_x = 0;
+    vga_y = 0;
+}
+
+// Remplace l'ancienne fonction print_char par celle-ci
 void print_char(char c, int x, int y, char color) {
-    if (x == -1 && y == -1) {
-        // Utilise la position actuelle du curseur
-        if (c == '\n') {
-            vga_x = 0;
-            vga_y++;
-        } else if (c == '\b') {
-            // Gestion du backspace
-            if (vga_x > 0) {
-                vga_x--;
-                print_char_vga(' ', vga_x, vga_y, color);
-            } else if (vga_y > 0) {
-                vga_y--;
-                vga_x = 79;
-                print_char_vga(' ', vga_x, vga_y, color);
+    switch (ansi_state) {
+        case NORMAL:
+            if (c == '\x1b') { // Détecte le début d'une séquence
+                ansi_state = ESCAPE;
+            } else {
+                // Comportement normal (code existant)
+                if (x == -1 && y == -1) {
+                    if (c == '\n') {
+                        vga_x = 0; vga_y++;
+                    } else if (c == '\b') {
+                        if (vga_x > 0) vga_x--;
+                        print_char_vga(' ', vga_x, vga_y, color);
+                    } else {
+                        print_char_vga(c, vga_x, vga_y, color);
+                        vga_x++;
+                    }
+                    if (vga_x >= 80) { vga_x = 0; vga_y++; }
+                    if (vga_y >= 25) { scroll_screen(); vga_y = 24; }
+                } else {
+                    print_char_vga(c, x, y, color);
+                }
             }
-        } else {
-            print_char_vga(c, vga_x, vga_y, color);
-            vga_x++;
-        }
+            break;
 
-        // Gestion du passage à la ligne suivante
-        if (vga_x >= 80) {
-            vga_x = 0;
-            vga_y++;
-        }
+        case ESCAPE:
+            ansi_state = (c == '[') ? BRACKET : NORMAL;
+            break;
 
-        // Gestion du défilement
-        if (vga_y >= 25) {
-            scroll_screen();
-            vga_y = 24;
-            vga_x = 0;
-        }
-    } else {
-        print_char_vga(c, x, y, color);
+        case BRACKET:
+            // Gère la commande 'J' (effacer l'écran, en supposant "2J")
+            if (c == 'J') {
+                clear_screen_vga();
+            }
+            // Gère la commande 'H' (retour au début)
+            else if (c == 'H') {
+                vga_x = 0;
+                vga_y = 0;
+            }
+
+            // Si le caractère est une lettre, la séquence est terminée
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                ansi_state = NORMAL;
+            }
+            // Ignore les autres caractères de la séquence (chiffres, ';', etc.)
+            break;
     }
 }
 
@@ -376,9 +378,6 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     // NOUVEAU: Lancement du shell interactif avec IA
     print_string("Lancement du shell interactif AI-OS...\n");
-
-    // Initialiser le port série pour la simulation clavier
-    init_serial_for_keyboard();
 
     if (module_count > 0) {
         // Chercher le shell dans l'initrd
