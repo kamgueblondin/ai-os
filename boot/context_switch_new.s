@@ -9,19 +9,19 @@ global jump_to_task, switch_task
 jump_to_task:
     mov ebx, [esp + 4]  ; Pointeur vers next_state
 
-    ; NEW Structure cpu_state_t:
-    ; 0: gs, 4: fs, 8: es, 12: ds
-    ; 16: edi, 20: esi, 24: ebp, 28: esp_dummy, 32: ebx, 36: edx, 40: ecx, 44: eax
-    ; 48: eip, 52: cs, 56: eflags, 60: useresp, 64: ss
+    ; Correct structure cpu_state_t (from task.h):
+    ; edi:0, esi:4, ebp:8, esp_dummy:12, ebx:16, edx:20, ecx:24, eax:28
+    ; gs:32, fs:36, es:40, ds:44
+    ; eip:48, cs:52, eflags:56, useresp:60, ss:64
 
     ; Charger les registres de segment de données utilisateur
-    mov ax, [ebx + 12]  ; ds
+    mov ax, [ebx + 44]  ; ds
     mov ds, ax
-    mov ax, [ebx + 8]   ; es
+    mov ax, [ebx + 40]   ; es
     mov es, ax
-    mov ax, [ebx + 4]   ; fs
+    mov ax, [ebx + 36]   ; fs
     mov fs, ax
-    mov ax, [ebx + 0]   ; gs
+    mov ax, [ebx + 32]   ; gs
     mov gs, ax
 
     ; Préparer la pile pour iret (ordre inverse)
@@ -32,13 +32,13 @@ jump_to_task:
     push dword [ebx + 48] ; eip
 
     ; Charger les registres généraux
-    mov edi, [ebx + 16]  ; edi
-    mov esi, [ebx + 20]  ; esi
-    mov ebp, [ebx + 24]  ; ebp
-    mov edx, [ebx + 36]  ; edx
-    mov ecx, [ebx + 40]  ; ecx
-    mov eax, [ebx + 44]  ; eax
-    mov ebx, [ebx + 32]  ; ebx (charger en dernier)
+    mov edi, [ebx + 0]   ; edi
+    mov esi, [ebx + 4]   ; esi
+    mov ebp, [ebx + 8]   ; ebp
+    mov edx, [ebx + 20]  ; edx
+    mov ecx, [ebx + 24]  ; ecx
+    mov eax, [ebx + 28]  ; eax
+    mov ebx, [ebx + 16]  ; ebx (charger en dernier)
 
     ; Saut vers le mode utilisateur
     iret

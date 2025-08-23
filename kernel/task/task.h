@@ -20,14 +20,14 @@ typedef enum {
 
 // Structure pour sauvegarder l'état du CPU
 // L'ordre doit correspondre à ce qui est poussé sur la pile par les ISR stubs.
-// L'ISR fait: pushad, puis push ds, es, fs, gs.
-// Le pointeur (cpu) pointe vers le sommet de la pile (gs).
+// L'ordre des push dans l'ISR est: push ds, es, fs, gs, puis pushad.
+// La pile (de l'adresse la plus basse à la plus haute) est donc: edi, esi, ..., eax, gs, fs, es, ds.
 typedef struct cpu_state {
-    // Pushed by our ISR stub (in reverse order of push)
-    uint32_t gs, fs, es, ds;
-    // Pushed by pushad (in reverse order of push)
+    // Pushed by PUSHAD
     uint32_t edi, esi, ebp, esp_dummy, ebx, edx, ecx, eax;
-    // Pushed by the CPU on interrupt
+    // Pushed manually by our ISR stub
+    uint32_t gs, fs, es, ds;
+    // Pushed by the CPU on interrupt from user mode
     uint32_t eip, cs, eflags, useresp, ss;
 } cpu_state_t;
 
