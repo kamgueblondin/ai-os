@@ -230,7 +230,7 @@ vmm_directory_t* create_user_vmm_directory() {
 }
 
 #define USER_STACK_TOP 0xB0000000
-#define USER_STACK_PAGES 4
+#define USER_STACK_PAGES 16
 #define USER_STACK_SIZE (USER_STACK_PAGES * PAGE_SIZE)
 #define USER_STACK_BOTTOM (USER_STACK_TOP - USER_STACK_SIZE)
 
