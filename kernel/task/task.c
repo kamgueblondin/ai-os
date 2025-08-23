@@ -65,16 +65,19 @@ void schedule(cpu_state_t* cpu) {
 
     // Sélectionner la prochaine tâche
     task_t* next = current_task->next;
-    while (next->state != TASK_READY && next != current_task) {
+    while (next->state != TASK_READY) {
         next = next->next;
+        // Si on fait un tour complet sans trouver de tâche, c'est un problème.
+        // Dans un vrai OS, on passerait à une tâche "idle". Ici on continue juste de chercher.
+        if (next == current_task) break;
     }
 
-    // Si une tâche prête a été trouvée (et ce n'est pas la même), on change
-    if (next->state == TASK_READY && next != current_task) {
+    // Si on a trouvé une tâche prête (différente ou la même si c'est la seule)
+    if (next->state == TASK_READY) {
         current_task = next;
     } else {
-        // Aucune autre tâche n'est prête, on ne change pas
-        // On réactive les interruptions et on retourne pour ne pas bloquer
+        // Si aucune tâche n'est prête, on ne change pas de contexte pour l'instant.
+        // On réactive les interruptions et on attend.
         asm volatile("sti");
         return;
     }
