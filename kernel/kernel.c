@@ -355,6 +355,20 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Creation des taches kernel de demonstration... DESACTIVE\n");
     print_string("Mode mono-tache pour stabilite maximale.\n");
 
+/*
+ * SUPPRIMEZ OU COMMENTEZ CES LIGNES
+ *
+ * task_t* task_a = create_task(task_A_function);
+ * if (task_a) print_string("Tache A creee\n");
+ *
+ * task_t* task_b = create_task(task_B_function);
+ * if (task_b) print_string("Tache B creee\n");
+ *
+ * task_t* task_c = create_task(task_C_function);
+ * if (task_c) print_string("Tache C creee\n");
+*/
+
+
     // PHASE 2: Réactiver le timer pour les interruptions clavier
     print_string("PHASE 2: Timer reactive pour interruptions clavier...\n");
     // timer_init(100); // Réactiver le timer à 100Hz pour les interruptions

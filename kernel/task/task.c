@@ -54,34 +54,27 @@ void add_task_to_queue(task_t* task) {
 extern void jump_to_task(cpu_state_t* next_state);
 
 void schedule(cpu_state_t* cpu) {
-    asm volatile("cli");
-    if (!current_task) return;
-
-    // Sauvegarder l'état de la tâche actuelle
-    memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
-    if (current_task->state == TASK_RUNNING) {
-        current_task->state = TASK_READY;
-    }
-
-    // Sélectionner la prochaine tâche
-    task_t* next = current_task->next;
-    while (next->state != TASK_READY) {
-        next = next->next;
-        // Si on fait un tour complet sans trouver de tâche, c'est un problème.
-        // Dans un vrai OS, on passerait à une tâche "idle". Ici on continue juste de chercher.
-        if (next == current_task) break;
-    }
-
-    // Si on a trouvé une tâche prête (différente ou la même si c'est la seule)
-    if (next->state == TASK_READY) {
-        current_task = next;
-    } else {
-        // Si aucune tâche n'est prête, on ne change pas de contexte pour l'instant.
-        // On réactive les interruptions et on attend.
+    asm volatile("cli"); // Désactiver les interruptions pour la planification
+    if (!current_task) {
         asm volatile("sti");
         return;
     }
 
+    // Sauvegarder l'état de la tâche actuelle
+    memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
+
+    // Si la tâche tournait, elle est maintenant prête à être replanifiée plus tard
+    if (current_task->state == TASK_RUNNING) {
+        current_task->state = TASK_READY;
+    }
+
+    // Chercher la prochaine tâche prête (au moins la tâche "idle" du noyau le sera)
+    task_t* next_task = current_task;
+    do {
+        next_task = next_task->next;
+    } while (next_task->state != TASK_READY);
+
+    current_task = next_task;
     current_task->state = TASK_RUNNING;
 
     // Mettre à jour le TSS avec la pile noyau de la nouvelle tâche
@@ -91,7 +84,7 @@ void schedule(cpu_state_t* cpu) {
 
     // Changer de répertoire de pages si nécessaire
     if (current_directory != current_task->vmm_dir) {
-        vmm_switch_page_directory(current_task->vmm_dir->physical_addr);
+        vmm_switch_page_directory(current_task->vmm_dir->physical_dir);
         current_directory = current_task->vmm_dir;
     }
 
@@ -103,10 +96,13 @@ void task_exit() {
     if (!current_task) return;
 
     current_task->state = TASK_TERMINATED;
-    // TODO: Free memory and other resources
 
-    // For now, just halt
-    asm volatile("int $0x30");
+    // Utiliser l'appel système pour quitter proprement
+    // Cela déclenchera le scheduler sans sauvegarder l'état de cette tâche
+    asm volatile("int $0x80" : : "a"(0), "b"(0));
+
+    // On ne devrait jamais arriver ici
+    while(1) { asm volatile("hlt"); }
 }
 
 task_t* create_task_from_initrd_file(const char* filename) {
