@@ -16,6 +16,11 @@ OS_IMAGE = build/ai_os.bin
 ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 
+# Variables pour la création de l'initrd
+USER_SHELL := userspace/shell
+INITRD_DIR := initrd_content
+BIN_DEST_DIR := $(INITRD_DIR)/bin
+
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
@@ -23,7 +28,7 @@ OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
-all: $(OS_IMAGE) $(INITRD_IMAGE)
+all: $(OS_IMAGE) pack-initrd
 	@echo "=== AI-OS v5.0 - Système Complet Construit ==="
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
@@ -133,22 +138,22 @@ build/userspace_switch.o: boot/userspace_switch.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Règle pour créer l'initrd avec shell et IA
-$(INITRD_IMAGE): userspace/shell userspace/fake_ai userspace/test_program
-	@echo "Création de l'initrd AI-OS v5.0 avec shell et IA..."
-	@mkdir -p initrd_content
-	@echo "Ceci est un fichier de test depuis l'initrd !" > initrd_content/test.txt
-	@echo "Un autre fichier de demonstration." > initrd_content/hello.txt
-	@echo "Configuration du systeme AI-OS v5.0" > initrd_content/config.cfg
-	@echo "#!/bin/sh" > initrd_content/startup.sh
-	@echo "echo 'Script de demarrage AI-OS v5.0'" >> initrd_content/startup.sh
-	@echo "Donnees pour l'intelligence artificielle simulee" > initrd_content/ai_data.txt
-	@echo "Base de connaissances IA - Version simulation" > initrd_content/ai_knowledge.txt
-	@cp userspace/shell initrd_content/shell
-	@cp userspace/fake_ai initrd_content/fake_ai
-	@cp userspace/test_program initrd_content/user_program
-	@tar -cf $(INITRD_IMAGE) -C initrd_content .
-	@echo "Initrd AI-OS v5.0 créé avec shell interactif et IA: $(INITRD_IMAGE)"
+# Règle pour empaqueter l'initrd automatiquement
+pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program
+	@echo "[mkinitrd] Création de l'initrd AI-OS v5.0..."
+	@mkdir -p $(BIN_DEST_DIR)
+	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
+	@echo "Un autre fichier de demonstration." > $(INITRD_DIR)/hello.txt
+	@echo "Configuration du systeme AI-OS v5.0" > $(INITRD_DIR)/config.cfg
+	@echo "#!/bin/sh" > $(INITRD_DIR)/startup.sh
+	@echo "echo 'Script de demarrage AI-OS v5.0'" >> $(INITRD_DIR)/startup.sh
+	@echo "Donnees pour l'intelligence artificielle simulee" > $(INITRD_DIR)/ai_data.txt
+	@echo "Base de connaissances IA - Version simulation" > $(INITRD_DIR)/ai_knowledge.txt
+	@cp -f $(USER_SHELL) $(BIN_DEST_DIR)/shell
+	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/fake_ai
+	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
+	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
+	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
 
 # Compile tous les programmes utilisateur
 userspace/shell userspace/fake_ai userspace/test_program:
@@ -156,11 +161,11 @@ userspace/shell userspace/fake_ai userspace/test_program:
 	@$(MAKE) -C userspace all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
-run: $(OS_IMAGE) $(INITRD_IMAGE)
+run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial stdio -d int,guest_errors,cpu_reset -no-reboot -no-shutdown -monitor none
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
-run-gui: $(OS_IMAGE) $(INITRD_IMAGE)
+run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-vga std -display gtk,zoom-to-fit=on \
 		-monitor stdio -m 256M
@@ -171,7 +176,7 @@ test-build: $(OS_IMAGE)
 	@ls -la $(OS_IMAGE)
 
 # Cible pour afficher les informations sur l'initrd
-info-initrd: $(INITRD_IMAGE)
+info-initrd: pack-initrd
 	@echo "Contenu de l'initrd:"
 	@tar -tvf $(INITRD_IMAGE)
 
@@ -221,5 +226,5 @@ help:
 	@echo "  make clean && make all    # Compilation complète"
 	@echo "  make run                  # Test rapide"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd
 
