@@ -24,8 +24,7 @@
 
 // En-tête ELF 32-bit
 typedef struct {
-    uint32_t e_ident;     // Magic number et autres identifiants
-    uint8_t  e_ident_pad[12]; // Padding pour l'identification
+    unsigned char e_ident[16]; // Magic number et autres informations
     uint16_t e_type;      // Type de fichier
     uint16_t e_machine;   // Architecture cible
     uint32_t e_version;   // Version ELF
@@ -40,6 +39,34 @@ typedef struct {
     uint16_t e_shnum;     // Nombre d'entrées section header
     uint16_t e_shstrndx;  // Index de la section string table
 } __attribute__((packed)) elf32_ehdr_t;
+
+// Section Header 32-bit
+typedef struct {
+    uint32_t sh_name;       // Nom de la section (index dans la table de chaînes)
+    uint32_t sh_type;       // Type de la section
+    uint32_t sh_flags;      // Attributs de la section
+    uint32_t sh_addr;       // Adresse virtuelle de la section en mémoire
+    uint32_t sh_offset;     // Offset de la section dans le fichier
+    uint32_t sh_size;       // Taille de la section
+    uint32_t sh_link;       // Index de lien (dépend du type de section)
+    uint32_t sh_info;       // Informations supplémentaires
+    uint32_t sh_addralign;  // Alignement requis
+    uint32_t sh_entsize;    // Taille des entrées si la section en contient
+} __attribute__((packed)) elf32_shdr_t;
+
+// Types de sections (sh_type)
+#define SHT_NULL     0
+#define SHT_PROGBITS 1
+#define SHT_SYMTAB   2
+#define SHT_STRTAB   3
+#define SHT_RELA     4
+#define SHT_HASH     5
+#define SHT_DYNAMIC  6
+#define SHT_NOTE     7
+#define SHT_NOBITS   8
+#define SHT_REL      9
+#define SHT_SHLIB    10
+#define SHT_DYNSYM   11
 
 // Program Header 32-bit
 typedef struct {
