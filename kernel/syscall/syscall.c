@@ -228,16 +228,25 @@ void sys_gets(char* buffer, uint32_t size) {
         return;
     }
 
-    print_string_serial("SYS_GETS: Mise en attente de la tache pour entree utilisateur...\n");
+    // Correction de la race condition : vérifier si une ligne est déjà prête
+    asm volatile("cli"); // Désactiver les interruptions pour la section critique
+    if (!line_ready) {
+        // Si aucune ligne n'est prête, on met la tâche en attente
+        current_task->state = TASK_WAITING_FOR_INPUT;
+        asm volatile("sti"); // Réactiver les interruptions avant de céder le contrôle
 
-    // Mettre la tâche en attente d'entrée
-    current_task->state = TASK_WAITING_FOR_INPUT;
+        print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente...\n");
+        asm volatile("int $0x30"); // Céder le contrôle au scheduler
 
-    // Céder le contrôle au scheduler
-    asm volatile("int $0x30");
+        // La tâche se réveille ici, les interruptions sont déjà activées par le scheduler
+    } else {
+        // Une ligne est déjà prête, on peut la traiter directement
+        asm volatile("sti"); // Réactiver les interruptions
+        print_string_serial("SYS_GETS: Ligne deja prete. Traitement immediat.\n");
+    }
 
-    // À ce point, la tâche a été réveillée et les données sont prêtes
-    print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
+    // À ce point, que la tâche ait attendu ou non, la ligne est prête et les interruptions sont activées.
+    print_string_serial("SYS_GETS: Tache active, lecture de la ligne.\n");
 
     // Copier la ligne dans le buffer utilisateur
     int copy_len = strlen_kernel(line_buffer);
@@ -254,9 +263,9 @@ void sys_gets(char* buffer, uint32_t size) {
     line_ready = 0;
     line_position = 0;
 
-    print_string_serial("SYS_GETS: Ligne lue: ");
+    print_string_serial("SYS_GETS: Ligne lue: '");
     print_string_serial(buffer);
-    print_string_serial("\n");
+    print_string_serial("'\n");
 }
 
 // Nouveau: SYS_EXEC - Exécuter un programme
