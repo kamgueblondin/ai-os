@@ -84,7 +84,7 @@ void schedule(cpu_state_t* cpu) {
 
     // Changer de répertoire de pages si nécessaire
     if (current_directory != current_task->vmm_dir) {
-        vmm_switch_page_directory(current_task->vmm_dir->physical_dir);
+        vmm_switch_page_directory(current_task->vmm_dir->physical_addr);
         current_directory = current_task->vmm_dir;
     }
 

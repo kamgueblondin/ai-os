@@ -8,3 +8,5 @@ build/
 *.bin
 *.iso
 
+# Ignorer les fichiers de log
+*.log

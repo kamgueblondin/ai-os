@@ -137,5 +137,101 @@ isr_syscall:
     ; Retour d'interruption
     iret
 
+; Common C-level fault handler
+extern fault_handler_c
+
+; Macro for ISRs that don't push an error code
+%macro ISR_NO_ERR 1
+global isr%1
+isr%1:
+    cli
+    push 0      ; Push a dummy error code
+    push %1     ; Push the interrupt number
+    jmp isr_common_stub
+%endmacro
+
+; Macro for ISRs that do push an error code
+%macro ISR_ERR 1
+global isr%1
+isr%1:
+    cli
+    ; Error code is already on the stack
+    push %1     ; Push the interrupt number
+    jmp isr_common_stub
+%endmacro
+
+; Common stub that saves state and calls the C handler
+isr_common_stub:
+    ; 1. Save general purpose registers
+    pushad
+
+    ; 2. Save data segment registers
+    push gs
+    push fs
+    push es
+    push ds
+
+    ; 3. Load kernel data segments
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ; 4. Call the C handler, passing a pointer to the stack frame
+    push esp
+    call fault_handler_c
+    add esp, 4 ; Clean up the stack pointer argument
+
+    ; 5. Restore data segment registers
+    pop ds
+    pop es
+    pop fs
+    pop gs
+
+    ; 6. Restore general purpose registers
+    popad
+
+    ; 7. Clean up the interrupt number and error code from the stack
+    add esp, 8
+
+    ; 8. Return from interrupt
+    iret
+
+; Create the 32 ISR stubs
+ISR_NO_ERR  0   ; Divide by zero
+ISR_NO_ERR  1   ; Debug
+ISR_NO_ERR  2   ; Non-maskable Interrupt
+ISR_NO_ERR  3   ; Breakpoint
+ISR_NO_ERR  4   ; Overflow
+ISR_NO_ERR  5   ; Bound Range Exceeded
+ISR_NO_ERR  6   ; Invalid Opcode
+ISR_NO_ERR  7   ; Device Not Available
+ISR_ERR     8   ; Double Fault
+ISR_NO_ERR  9   ; Coprocessor Segment Overrun
+ISR_ERR     10  ; Invalid TSS
+ISR_ERR     11  ; Segment Not Present
+ISR_ERR     12  ; Stack-Segment Fault
+ISR_ERR     13  ; General Protection Fault
+ISR_ERR     14  ; Page Fault
+ISR_NO_ERR  15  ; Reserved
+ISR_NO_ERR  16  ; x87 Floating-Point Exception
+ISR_ERR     17  ; Alignment Check
+ISR_NO_ERR  18  ; Machine Check
+ISR_NO_ERR  19  ; SIMD Floating-Point Exception
+ISR_NO_ERR  20  ; Virtualization Exception
+ISR_ERR     21  ; Control Protection Exception
+ISR_NO_ERR  22
+ISR_NO_ERR  23
+ISR_NO_ERR  24
+ISR_NO_ERR  25
+ISR_NO_ERR  26
+ISR_NO_ERR  27
+ISR_NO_ERR  28
+ISR_NO_ERR  29
+ISR_NO_ERR  30  ; Security Exception
+ISR_NO_ERR  31  ; Reserved
+
+
 ; Section GNU stack (sécurité - pile non exécutable)
 section .note.GNU-stack
