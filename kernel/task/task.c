@@ -185,7 +185,11 @@ void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t sta
     task->cpu_state.gs = 0x23;
     task->cpu_state.ss = 0x23;  // Stack segment utilisateur (Ring 3)
     
-    print_string_serial("Configuration CPU utilisateur terminee\n");
+    print_string_serial("User context setup complete. EIP=0x");
+    print_hex_serial(task->cpu_state.eip);
+    print_string_serial(", ESP=0x");
+    print_hex_serial(task->cpu_state.useresp);
+    print_string_serial("\n");
 }
 
 vmm_directory_t* create_user_vmm_directory() {
@@ -225,15 +229,30 @@ vmm_directory_t* create_user_vmm_directory() {
     return dir;
 }
 
+#define USER_STACK_TOP 0xB0000000
+#define USER_STACK_PAGES 4
+#define USER_STACK_SIZE (USER_STACK_PAGES * PAGE_SIZE)
+#define USER_STACK_BOTTOM (USER_STACK_TOP - USER_STACK_SIZE)
+
 uint32_t allocate_user_stack(vmm_directory_t* vmm_dir) {
-    uint32_t stack_top = 0xB0000000;
-    uint32_t stack_bottom = stack_top - PAGE_SIZE;
+    print_string_serial("Allocating user stack...\n");
+    for (uint32_t addr = USER_STACK_BOTTOM; addr < USER_STACK_TOP; addr += PAGE_SIZE) {
+        void* stack_phys_page = pmm_alloc_page();
+        if (!stack_phys_page) {
+            print_string_serial("ERROR: Could not allocate physical page for user stack\n");
+            // In a real scenario, we should free previously allocated pages
+            return 0;
+        }
+        vmm_map_page_in_directory(vmm_dir, stack_phys_page, (void*)addr, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
+    }
 
-    void* stack_phys = pmm_alloc_page();
-    if (!stack_phys) return 0;
+    print_string_serial("User stack allocated at 0x");
+    print_hex_serial(USER_STACK_BOTTOM);
+    print_string_serial(" - 0x");
+    print_hex_serial(USER_STACK_TOP);
+    print_string_serial("\n");
 
-    vmm_map_page_in_directory(vmm_dir, stack_phys, (void*)stack_bottom, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
-    return stack_top;
+    return USER_STACK_TOP;
 }
 
 task_t* find_task_waiting_for_input() {
