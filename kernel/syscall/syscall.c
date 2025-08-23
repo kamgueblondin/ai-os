@@ -144,24 +144,27 @@ void syscall_add_input_char(char c) {
         input_buffer[input_buffer_head] = c;
         input_buffer_head = next_head;
     }
-    
-    // Gestion spéciale pour SYS_GETS (sans affichage - géré par le shell)
+
+    // Gestion spéciale pour SYS_GETS
     if (c == '\n' || c == '\r') {
-        // Fin de ligne
         line_buffer[line_position] = '\0';
         line_ready = 1;
         line_position = 0;
-        // PAS d'affichage ici - géré par le shell
+
+        // Réveiller la tâche qui attend l'entrée
+        task_t* waiting_task = find_task_waiting_for_input();
+        if (waiting_task) {
+            print_string_serial("syscall_add_input_char: Tache en attente trouvee, reveil.\n");
+            waiting_task->state = TASK_READY;
+        } else {
+            print_string_serial("syscall_add_input_char: Pas de tache en attente d'entree.\n");
+        }
     } else if (c == '\b' || c == 127) {
-        // Backspace
         if (line_position > 0) {
             line_position--;
-            // PAS d'affichage ici - géré par le shell
         }
     } else if (c >= 32 && c <= 126 && line_position < 255) {
-        // Caractère normal
         line_buffer[line_position++] = c;
-        // PAS d'affichage ici - géré par le shell
     }
 }
 
@@ -219,36 +222,39 @@ void sys_yield() {
     asm volatile("int $0x30");
 }
 
-// Nouveau: SYS_GETS - Lire une ligne complète (version sans timer)
+// Nouveau: SYS_GETS - Lire une ligne complète (version avec ordonnancement)
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) {
         return;
     }
-    
-    print_string_serial("SYS_GETS: Attente d'entree utilisateur...\n");
-    
-    // Attendre qu'une ligne soit prête (version sans timer)
-    while (!line_ready) {
-        // Attendre une interruption (clavier principalement)
-        asm volatile("hlt");
-    }
-    
+
+    print_string_serial("SYS_GETS: Mise en attente de la tache pour entree utilisateur...\n");
+
+    // Mettre la tâche en attente d'entrée
+    current_task->state = TASK_WAITING_FOR_INPUT;
+
+    // Céder le contrôle au scheduler
+    asm volatile("int $0x30");
+
+    // À ce point, la tâche a été réveillée et les données sont prêtes
+    print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
+
     // Copier la ligne dans le buffer utilisateur
     int copy_len = strlen_kernel(line_buffer);
     if ((uint32_t)copy_len >= size) {
         copy_len = size - 1;
     }
-    
+
     for (int i = 0; i < copy_len; i++) {
         buffer[i] = line_buffer[i];
     }
     buffer[copy_len] = '\0';
-    
+
     // Réinitialiser pour la prochaine ligne
     line_ready = 0;
     line_position = 0;
-    
-    print_string_serial("SYS_GETS: ligne lue: ");
+
+    print_string_serial("SYS_GETS: Ligne lue: ");
     print_string_serial(buffer);
     print_string_serial("\n");
 }

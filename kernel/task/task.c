@@ -64,9 +64,20 @@ void schedule(cpu_state_t* cpu) {
     }
 
     // Sélectionner la prochaine tâche
-    do {
-        current_task = current_task->next;
-    } while (current_task->state != TASK_READY || current_task->id == 0);
+    task_t* next = current_task->next;
+    while (next->state != TASK_READY && next != current_task) {
+        next = next->next;
+    }
+
+    // Si une tâche prête a été trouvée (et ce n'est pas la même), on change
+    if (next->state == TASK_READY && next != current_task) {
+        current_task = next;
+    } else {
+        // Aucune autre tâche n'est prête, on ne change pas
+        // On réactive les interruptions et on retourne pour ne pas bloquer
+        asm volatile("sti");
+        return;
+    }
 
     current_task->state = TASK_RUNNING;
 
@@ -224,4 +235,20 @@ uint32_t allocate_user_stack(vmm_directory_t* vmm_dir) {
 
     vmm_map_page_in_directory(vmm_dir, stack_phys, (void*)stack_bottom, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
     return stack_top;
+}
+
+task_t* find_task_waiting_for_input() {
+    if (!task_queue) {
+        return NULL;
+    }
+
+    task_t* temp = task_queue;
+    do {
+        if (temp->state == TASK_WAITING_FOR_INPUT) {
+            return temp;
+        }
+        temp = temp->next;
+    } while (temp != task_queue);
+
+    return NULL;
 }

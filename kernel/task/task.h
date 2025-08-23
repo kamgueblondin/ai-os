@@ -9,6 +9,7 @@ typedef enum {
     TASK_RUNNING,
     TASK_READY,
     TASK_WAITING,
+    TASK_WAITING_FOR_INPUT,
     TASK_TERMINATED
 } task_state_t;
 
@@ -63,6 +64,7 @@ task_t* get_task_by_id(int id);
 void remove_task(task_t* task);
 void add_task_to_queue(task_t* task);
 int get_task_count();
+task_t* find_task_waiting_for_input();
 
 #endif
 
