@@ -42,7 +42,7 @@ typedef struct {
 
 // Fonctions publiques
 void vmm_init();
-void vmm_switch_page_directory(page_directory_t *dir);
+void vmm_switch_page_directory(uint32_t physical_addr);
 page_t *vmm_get_page(uint32_t address, int make, vmm_directory_t *dir);
 void vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags);
 
@@ -51,7 +51,7 @@ extern vmm_directory_t *kernel_directory;
 extern vmm_directory_t *current_directory;
 
 // Fonctions assembleur
-extern void load_page_directory(uint32_t *page_directory);
+extern void load_page_directory(uint32_t physical_addr);
 extern void enable_paging();
 
 #endif

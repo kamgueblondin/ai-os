@@ -88,7 +88,7 @@ void schedule(cpu_state_t* cpu) {
 
     // Changer de répertoire de pages si nécessaire
     if (current_directory != current_task->vmm_dir) {
-        vmm_switch_page_directory(current_task->vmm_dir->physical_dir);
+        vmm_switch_page_directory(current_task->vmm_dir->physical_addr);
         current_directory = current_task->vmm_dir;
     }
 
@@ -124,7 +124,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
 
     // --- Critical section for new task's address space ---
     vmm_directory_t* old_dir = current_directory;
-    vmm_switch_page_directory(vmm_dir->physical_dir);
+    vmm_switch_page_directory(vmm_dir->physical_addr);
     current_directory = vmm_dir;
 
     // Load the executable into the new address space
@@ -135,7 +135,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     }
 
     // Restore the kernel's address space
-    vmm_switch_page_directory(old_dir->physical_dir);
+    vmm_switch_page_directory(old_dir->physical_addr);
     current_directory = old_dir;
     // --- End of critical section ---
 

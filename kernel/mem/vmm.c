@@ -51,7 +51,7 @@ void vmm_init() {
     kernel_directory->physical_dir->tablesPhysical[0] = (uint32_t)first_pt | 3; // Présent, R/W, Sup
 
     // Charger le nouveau répertoire de pages et activer
-    load_page_directory(kernel_directory->physical_dir->tablesPhysical);
+    load_page_directory(kernel_directory->physical_addr);
     enable_paging();
 
     current_directory = kernel_directory;
@@ -61,9 +61,8 @@ void vmm_init() {
 }
 
 // Change le répertoire de pages actuel
-void vmm_switch_page_directory(page_directory_t *dir) {
-    // Note: cette fonction doit être mise à jour si on utilise vmm_directory_t partout
-    load_page_directory(dir->tablesPhysical);
+void vmm_switch_page_directory(uint32_t physical_addr) {
+    load_page_directory(physical_addr);
 }
 
 // Obtient une page depuis une adresse virtuelle
