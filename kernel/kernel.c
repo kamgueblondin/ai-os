@@ -382,7 +382,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     if (module_count > 0) {
         // Chercher le shell dans l'initrd
-        uint8_t* shell_program = (uint8_t*)initrd_read_file("shell");
+        uint8_t* shell_program = (uint8_t*)initrd_read_file("bin/shell");
         if (shell_program) {
             print_string("Shell trouve ! Chargement...\n");
 
@@ -398,7 +398,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // --- Lancement du Shell Utilisateur ---
     print_string("\nLancement du Shell Utilisateur...\n");
     
-    task_t* shell_task = create_task_from_initrd_file("shell");
+    task_t* shell_task = create_task_from_initrd_file("bin/shell");
     if (!shell_task) {
         print_string("ERREUR: Impossible de creer la tache shell. Arret du systeme.\n");
         while(1) asm volatile("hlt");
