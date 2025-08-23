@@ -104,11 +104,41 @@ void print_char_vga(char c, int x, int y, char color) {
 typedef enum {
     NORMAL,
     ESCAPE,
-    BRACKET
+    BRACKET,
+    PARAM
 } AnsiState;
 
-// Variable statique pour conserver l'état du parseur
+// Variables statiques pour conserver l'état du parseur
 static AnsiState ansi_state = NORMAL;
+static char ansi_params[16];
+static int ansi_param_index = 0;
+static char current_vga_color = 0x0F; // Blanc sur noir par défaut
+
+// Conversion simple de chaîne en entier
+static int atoi_simple(const char* str) {
+    int res = 0;
+    for (int i = 0; str[i] != '\0'; ++i) {
+        if (str[i] >= '0' && str[i] <= '9') {
+            res = res * 10 + str[i] - '0';
+        }
+    }
+    return res;
+}
+
+// Mappe les codes de couleur ANSI aux codes VGA
+static char ansi_to_vga_color(int code) {
+    switch (code) {
+        case 30: return 0x0; // Noir
+        case 31: return 0x4; // Rouge
+        case 32: return 0x2; // Vert
+        case 33: return 0x6; // Marron (pour Jaune)
+        case 34: return 0x1; // Bleu
+        case 35: return 0x5; // Magenta
+        case 36: return 0x3; // Cyan
+        case 37: return 0x7; // Gris clair
+        default: return current_vga_color & 0x0F; // Garde la couleur actuelle si inconnue
+    }
+}
 
 // Fonction utilitaire pour effacer l'écran
 void clear_screen_vga() {
@@ -123,50 +153,81 @@ void clear_screen_vga() {
 
 // Remplace l'ancienne fonction print_char par celle-ci
 void print_char(char c, int x, int y, char color) {
+    // Le paramètre 'color' est maintenant ignoré au profit de 'current_vga_color' qui gère l'état.
     switch (ansi_state) {
         case NORMAL:
             if (c == '\x1b') { // Détecte le début d'une séquence
                 ansi_state = ESCAPE;
             } else {
-                // Comportement normal (code existant)
+                // Comportement normal
                 if (x == -1 && y == -1) {
                     if (c == '\n') {
                         vga_x = 0; vga_y++;
                     } else if (c == '\b') {
                         if (vga_x > 0) vga_x--;
-                        print_char_vga(' ', vga_x, vga_y, color);
+                        print_char_vga(' ', vga_x, vga_y, current_vga_color);
                     } else {
-                        print_char_vga(c, vga_x, vga_y, color);
+                        print_char_vga(c, vga_x, vga_y, current_vga_color);
                         vga_x++;
                     }
                     if (vga_x >= 80) { vga_x = 0; vga_y++; }
                     if (vga_y >= 25) { scroll_screen(); vga_y = 24; }
                 } else {
-                    print_char_vga(c, x, y, color);
+                    print_char_vga(c, x, y, current_vga_color);
                 }
             }
             break;
 
         case ESCAPE:
-            ansi_state = (c == '[') ? BRACKET : NORMAL;
+            if (c == '[') {
+                ansi_state = BRACKET;
+                ansi_param_index = 0;
+                // Nettoyer le buffer des paramètres
+                for(int i = 0; i < 16; i++) ansi_params[i] = 0;
+            } else {
+                ansi_state = NORMAL;
+            }
             break;
 
         case BRACKET:
-            // Gère la commande 'J' (effacer l'écran, en supposant "2J")
-            if (c == 'J') {
+            if (c >= '0' && c <= '9') {
+                ansi_params[ansi_param_index++] = c;
+                ansi_state = PARAM;
+            } else if (c == 'J') {
                 clear_screen_vga();
-            }
-            // Gère la commande 'H' (retour au début)
-            else if (c == 'H') {
+                ansi_state = NORMAL;
+            } else if (c == 'H') {
                 vga_x = 0;
                 vga_y = 0;
-            }
-
-            // Si le caractère est une lettre, la séquence est terminée
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
                 ansi_state = NORMAL;
+            } else {
+                ansi_state = NORMAL; // Séquence non reconnue
             }
-            // Ignore les autres caractères de la séquence (chiffres, ';', etc.)
+            break;
+
+        case PARAM:
+            if (c >= '0' && c <= '9') {
+                if (ansi_param_index < 15) {
+                    ansi_params[ansi_param_index++] = c;
+                }
+            } else if (c == 'm') {
+                ansi_params[ansi_param_index] = '\0';
+                int code = atoi_simple(ansi_params);
+
+                if (code == 0) { // Reset
+                    current_vga_color = 0x0F; // Blanc sur fond noir
+                } else if (code == 1) { // Bold/Bright
+                    current_vga_color |= 0x08; // Activer le bit d'intensité
+                } else if (code >= 30 && code <= 37) { // Couleurs de premier plan
+                    char fg_color = ansi_to_vga_color(code);
+                    current_vga_color = (current_vga_color & 0xF0) | fg_color;
+                }
+                // Ignorer les autres codes pour le moment (ex: couleurs de fond)
+
+                ansi_state = NORMAL;
+            } else {
+                ansi_state = NORMAL; // Fin de séquence non reconnue
+            }
             break;
     }
 }
