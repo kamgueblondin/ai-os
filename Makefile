@@ -166,7 +166,7 @@ userspace/shell userspace/fake_ai userspace/test_program:
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial file:serial.log -d int,guest_errors,cpu_reset -no-reboot -no-shutdown -monitor telnet:localhost:4444,server,nowait
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial stdio -d int,guest_errors,cpu_reset -no-reboot -no-shutdown -monitor none
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
