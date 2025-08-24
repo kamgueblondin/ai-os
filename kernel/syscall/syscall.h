@@ -35,7 +35,9 @@ void sys_yield();
 // Nouveaux appels système
 void sys_gets(char* buffer, uint32_t size);
 int sys_exec(const char* path, char* argv[]);
-void syscall_add_input_char(char c);
+
+// Ajoute un caractère au buffer d'entrée global du clavier.
+void keyboard_add_char_to_buffer(char c);
 
 #endif
 

@@ -16,49 +16,94 @@ static char input_buffer[256];
 static int input_buffer_head = 0;
 static int input_buffer_tail = 0;
 
-// Buffer pour la saisie de ligne (SYS_GETS)
-static char line_buffer[256];
-static int line_position = 0;
-static int line_ready = 0;
+// ==============================================================================
+// NOUVELLE SECTION POUR LA GESTION DE L'ENTRÉE CLAVIER
+// ==============================================================================
 
-// Fonctions utilitaires internes
-int strlen_kernel(const char* str) {
-    int len = 0;
-    while (str[len] != '\0') len++;
-    return len;
-}
-
-void strcpy_kernel(char* dest, const char* src) {
-    int i = 0;
-    while (src[i] != '\0') {
-        dest[i] = src[i];
-        i++;
+// Ajoute un caractère au buffer d'entrée (appelé par le handler clavier)
+// C'est la seule fonction que le handler d'interruption doit appeler.
+void keyboard_add_char_to_buffer(char c) {
+    // Section critique simple pour éviter les corruptions du buffer
+    asm volatile("cli");
+    int next_head = (input_buffer_head + 1) % 256;
+    if (next_head != input_buffer_tail) {
+        input_buffer[input_buffer_head] = c;
+        input_buffer_head = next_head;
     }
-    dest[i] = '\0';
+    asm volatile("sti");
 }
 
-int strcmp_kernel(const char* s1, const char* s2) {
-    int i = 0;
-    while (s1[i] != '\0' && s2[i] != '\0') {
-        if (s1[i] != s2[i]) {
-            return s1[i] - s2[i];
+// Fonction interne pour lire un caractère du buffer.
+// Si le buffer est vide, elle cède le CPU jusqu'à ce qu'un caractère arrive.
+static char internal_sys_getc() {
+    // Attend qu'un caractère soit disponible dans le buffer
+    while (input_buffer_head == input_buffer_tail) {
+        // Cède le CPU pour éviter une attente active (busy-waiting)
+        asm volatile("int $0x30");
+    }
+
+    // Lit le caractère du buffer
+    asm volatile("cli");
+    char c = input_buffer[input_buffer_tail];
+    input_buffer_tail = (input_buffer_tail + 1) % 256;
+    asm volatile("sti");
+
+    return c;
+}
+
+// NOUVELLE IMPLÉMENTATION ROBUSTE DE SYS_GETS
+void sys_gets(char* buffer, uint32_t size) {
+    if (!buffer || size == 0) {
+        return;
+    }
+
+    char c;
+    uint32_t i = 0;
+
+    // Boucle jusqu'à ce que la ligne soit complète ou le buffer plein
+    while (i < size - 1) {
+        c = internal_sys_getc();
+
+        // Gestion de la fin de ligne
+        if (c == '\n' || c == '\r') {
+            break;
         }
-        i++;
+        // Gestion de la touche "effacer" (backspace)
+        else if (c == '\b' || c == 127) {
+            if (i > 0) {
+                i--;
+                // Fait l'écho du backspace sur la console
+                print_char('\b', -1, -1, 0x0F);
+            }
+        }
+        // Gestion des caractères normaux
+        else {
+            buffer[i++] = c;
+            // Fait l'écho du caractère sur la console
+            print_char(c, -1, -1, 0x0F);
+        }
     }
-    return s1[i] - s2[i];
+
+    buffer[i] = '\0'; // Termine la chaîne de caractères
+
+    // Fait l'écho du retour à la ligne
+    print_char('\n', -1, -1, 0x0F);
 }
 
-// Le handler C appelé par l'ISR de l'int 0x80
+
+// ==============================================================================
+// GESTIONNAIRE D'APPELS SYSTÈME
+// ==============================================================================
+
 void syscall_handler(cpu_state_t* cpu) {
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
-        case SYS_EXIT: // SYS_EXIT
+        case SYS_EXIT:
             current_task->state = TASK_TERMINATED;
             asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
             break;
         
-        case SYS_PUTC: // SYS_PUTC
-            // L'argument (le caractère) est dans EBX
+        case SYS_PUTC:
             {
                 extern void write_serial(char a);
                 print_char((char)cpu->ebx, -1, -1, 0x0F); // VGA
@@ -66,9 +111,9 @@ void syscall_handler(cpu_state_t* cpu) {
             }
             break;
             
-        case SYS_GETC: // SYS_GETC
-            // Retourne un caractère depuis le buffer d'entrée
-            if (input_buffer_head != input_buffer_tail) {
+        case SYS_GETC:
+            // Retourne un caractère du buffer d'entrée, sans bloquer
+             if (input_buffer_head != input_buffer_tail) {
                 cpu->eax = input_buffer[input_buffer_tail];
                 input_buffer_tail = (input_buffer_tail + 1) % 256;
             } else {
@@ -76,12 +121,10 @@ void syscall_handler(cpu_state_t* cpu) {
             }
             break;
             
-        case SYS_PUTS: // SYS_PUTS
-            // L'adresse de la chaîne est dans EBX
+        case SYS_PUTS:
             {
                 char* str = (char*)cpu->ebx;
                 if (str) {
-                    // Limite la longueur pour éviter les boucles infinies
                     for (int i = 0; i < 1024 && str[i] != '\0'; i++) {
                         print_char(str[i], -1, -1, 0x0F);
                     }
@@ -89,18 +132,16 @@ void syscall_handler(cpu_state_t* cpu) {
             }
             break;
             
-        case SYS_YIELD: // SYS_YIELD
+        case SYS_YIELD:
             // Cède volontairement le CPU
             asm volatile("int $0x30");
             break;
             
-        case SYS_GETS: // SYS_GETS - Nouveau
-            // EBX = buffer, ECX = taille
+        case SYS_GETS: // Appelle la nouvelle fonction sys_gets
             sys_gets((char*)cpu->ebx, cpu->ecx);
             break;
             
-        case SYS_EXEC: // SYS_EXEC - Nouveau
-            // EBX = path, ECX = argv
+        case SYS_EXEC:
             cpu->eax = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
             break;
             
@@ -110,145 +151,18 @@ void syscall_handler(cpu_state_t* cpu) {
     }
 }
 
-// Ajoute un caractère au buffer d'entrée (appelé par le handler clavier)
+// Cette fonction est maintenant obsolète pour l'entrée clavier
 void syscall_add_input_char(char c) {
-    // Section critique pour éviter les race conditions
-    asm volatile("cli");
-    
-    int next_head = (input_buffer_head + 1) % 256;
-    if (next_head != input_buffer_tail) {
-        input_buffer[input_buffer_head] = c;
-        input_buffer_head = next_head;
-    }
-
-    // Afficher le caractère immédiatement pour feedback visuel
-    if (c >= 32 && c <= 126) {
-        extern void print_char(char c, int x, int y, char color);
-        print_char(c, -1, -1, 0x0F);
-    } else if (c == '\n' || c == '\r') {
-        extern void print_char(char c, int x, int y, char color);
-        print_char('\n', -1, -1, 0x0F);
-    } else if (c == '\b' || c == 127) {
-        extern void print_char(char c, int x, int y, char color);
-        print_char('\b', -1, -1, 0x0F);
-    }
-
-    // Gestion spéciale pour SYS_GETS
-    if (c == '\n' || c == '\r') {
-        line_buffer[line_position] = '\0';
-        line_ready = 1;
-        line_position = 0;
-
-        // Réveiller la tâche qui attend l'entrée
-        task_t* waiting_task = find_task_waiting_for_input();
-        if (waiting_task) {
-            extern volatile int g_reschedule_needed;
-            waiting_task->state = TASK_READY;
-            g_reschedule_needed = 1;
-            // La tâche sera reprise au prochain tick du timer.
-            // On ne force pas un reschedule ici pour éviter les problèmes de réentrance
-            // dans le scheduler depuis un handler d'interruption.
-        }
-    } else if (c == '\b' || c == 127) {
-        if (line_position > 0) {
-            line_position--;
-        }
-    } else if (c >= 32 && c <= 126 && line_position < 255) {
-        line_buffer[line_position++] = c;
-    }
-    
-    asm volatile("sti");
+    (void)c;
 }
 
 void syscall_init() {
     // Initialise les buffers d'entrée
     input_buffer_head = 0;
     input_buffer_tail = 0;
-    line_position = 0;
-    line_ready = 0;
     
     // Enregistre notre handler pour l'interruption 0x80
     register_interrupt_handler(0x80, (interrupt_handler_t)syscall_handler);
-}
-
-// Fonctions utilitaires (pour usage interne du kernel)
-void sys_exit(uint32_t exit_code) {
-    (void)exit_code;
-    if (current_task) {
-        current_task->state = TASK_TERMINATED;
-        asm volatile("int $0x30");
-    }
-}
-
-void sys_putc(char c) {
-    print_char(c, -1, -1, 0x0F);
-}
-
-char sys_getc() {
-    if (input_buffer_head != input_buffer_tail) {
-        char c = input_buffer[input_buffer_tail];
-        input_buffer_tail = (input_buffer_tail + 1) % 256;
-        return c;
-    }
-    return 0;
-}
-
-// Fonction publique pour accéder au buffer clavier depuis le kernel
-char keyboard_getc() {
-    return sys_getc();
-}
-
-void sys_puts(const char* str) {
-    if (str) {
-        for (int i = 0; str[i] != '\0'; i++) {
-            print_char(str[i], -1, -1, 0x0F);
-        }
-    }
-}
-
-void sys_yield() {
-    asm volatile("int $0x30");
-}
-
-// Nouveau: SYS_GETS - Lire une ligne complète (version améliorée)
-void sys_gets(char* buffer, uint32_t size) {
-    if (!buffer || size == 0) {
-        return;
-    }
-
-    // Vérifier d'abord si une ligne est déjà prête
-    if (line_ready) {
-        int copy_len = strlen_kernel(line_buffer);
-        if ((uint32_t)copy_len >= size) {
-            copy_len = size - 1;
-        }
-        memcpy(buffer, line_buffer, copy_len);
-        buffer[copy_len] = '\0';
-
-        line_ready = 0;
-        line_position = 0;
-        return;
-    }
-
-    // Pas de ligne prête, mettre la tâche en attente
-    if (current_task) {
-        current_task->state = TASK_WAITING_FOR_INPUT;
-        
-        // Céder le CPU et attendre qu'une ligne soit prête
-        asm volatile("int $0x30");
-        
-        // Quand on arrive ici, la tâche a été réveillée
-        int copy_len = strlen_kernel(line_buffer);
-        if ((uint32_t)copy_len >= size) {
-            copy_len = size - 1;
-        }
-        memcpy(buffer, line_buffer, copy_len);
-        buffer[copy_len] = '\0';
-
-        // Réinitialiser pour la prochaine ligne
-        line_ready = 0;
-        line_position = 0;
-    }
 }
 
 // Nouveau: SYS_EXEC - Exécuter un programme
@@ -262,11 +176,9 @@ int sys_exec(const char* path, char* argv[]) {
     }
 
     // L'exec actuel est bloquant. On attend la fin de la tâche.
-    // Un vrai exec remplacerait le processus courant, mais c'est plus simple.
     while (new_task->state != TASK_TERMINATED) {
         asm volatile("int $0x30");
     }
 
     return 0; // Succès
 }
-
