@@ -1,4 +1,4 @@
-extern keyboard_handler
+extern keyboard_interrupt_handler
 extern timer_handler
 extern syscall_handler
 
@@ -58,7 +58,7 @@ irq1:
     mov gs, ax
     
     ; Appelle le handler C du clavier
-    call keyboard_handler
+    call keyboard_interrupt_handler
     
     ; Envoie EOI au PIC pour IRQ 1
     mov al, 0x20          ; Commande EOI

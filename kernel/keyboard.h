@@ -5,7 +5,7 @@
 void keyboard_init();
 
 // Le handler appelé par l'ISR pour traiter une interruption clavier
-void keyboard_handler();
+void keyboard_interrupt_handler();
 
 // Récupère un caractère depuis le buffer clavier (utilisé par le kernel)
 char keyboard_getc(void);
