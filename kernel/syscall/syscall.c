@@ -140,10 +140,25 @@ void syscall_handler(cpu_state_t* cpu) {
 
 // Ajoute un caractère au buffer d'entrée (appelé par le handler clavier)
 void syscall_add_input_char(char c) {
+    // Section critique pour éviter les race conditions
+    asm volatile("cli");
+    
     int next_head = (input_buffer_head + 1) % 256;
     if (next_head != input_buffer_tail) {
         input_buffer[input_buffer_head] = c;
         input_buffer_head = next_head;
+    }
+
+    // Afficher le caractère immédiatement pour feedback visuel
+    if (c >= 32 && c <= 126) {
+        extern void print_char(char c, int x, int y, char color);
+        print_char(c, -1, -1, 0x0F);
+    } else if (c == '\n' || c == '\r') {
+        extern void print_char(char c, int x, int y, char color);
+        print_char('\n', -1, -1, 0x0F);
+    } else if (c == '\b' || c == 127) {
+        extern void print_char(char c, int x, int y, char color);
+        print_char('\b', -1, -1, 0x0F);
     }
 
     // Gestion spéciale pour SYS_GETS
@@ -167,6 +182,8 @@ void syscall_add_input_char(char c) {
     } else if (c >= 32 && c <= 126 && line_position < 255) {
         line_buffer[line_position++] = c;
     }
+    
+    asm volatile("sti");
 }
 
 void syscall_init() {
@@ -223,16 +240,16 @@ void sys_yield() {
     asm volatile("int $0x30");
 }
 
-// Nouveau: SYS_GETS - Lire une ligne complète (version avec ordonnancement et anti-race condition)
+// Nouveau: SYS_GETS - Lire une ligne complète (version améliorée)
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) {
         return;
     }
 
-    asm volatile("cli"); // Début de la section critique
+    print_string_serial("SYS_GETS: Debut de la lecture...\n");
 
+    // Vérifier d'abord si une ligne est déjà prête
     if (line_ready) {
-        // La ligne est déjà prête, pas besoin d'attendre.
         print_string_serial("SYS_GETS: Ligne deja prete. Lecture immediate.\n");
 
         int copy_len = strlen_kernel(line_buffer);
@@ -244,31 +261,37 @@ void sys_gets(char* buffer, uint32_t size) {
 
         line_ready = 0;
         line_position = 0;
-
-        asm volatile("sti"); // Fin de la section critique
         return;
     }
 
-    // La ligne n'est pas prête, on met la tâche en attente.
-    print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente...\n");
-    current_task->state = TASK_WAITING_FOR_INPUT;
+    // Pas de ligne prête, mettre la tâche en attente
+    print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente de la tache...\n");
+    
+    if (current_task) {
+        current_task->state = TASK_WAITING_FOR_INPUT;
+        print_string_serial("SYS_GETS: Tache mise en attente. Cession du CPU...\n");
+        
+        // Céder le CPU et attendre qu'une ligne soit prête
+        asm volatile("int $0x30");
+        
+        // Quand on arrive ici, la tâche a été réveillée
+        print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
+        
+        int copy_len = strlen_kernel(line_buffer);
+        if ((uint32_t)copy_len >= size) {
+            copy_len = size - 1;
+        }
+        memcpy(buffer, line_buffer, copy_len);
+        buffer[copy_len] = '\0';
 
-    // On cède le CPU. Les interruptions seront réactivées par le scheduler.
-    asm volatile("int $0x30");
-
-    // La tâche est réveillée, la ligne est prête.
-    print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
-
-    int copy_len = strlen_kernel(line_buffer);
-    if ((uint32_t)copy_len >= size) {
-        copy_len = size - 1;
+        // Réinitialiser pour la prochaine ligne
+        line_ready = 0;
+        line_position = 0;
+        
+        print_string_serial("SYS_GETS: Lecture terminee.\n");
+    } else {
+        print_string_serial("SYS_GETS: ERREUR - Pas de tache courante!\n");
     }
-    memcpy(buffer, line_buffer, copy_len);
-    buffer[copy_len] = '\0';
-
-    // Réinitialiser pour la prochaine ligne.
-    line_ready = 0;
-    line_position = 0;
 }
 
 // Nouveau: SYS_EXEC - Exécuter un programme

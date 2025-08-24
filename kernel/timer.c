@@ -36,7 +36,6 @@ void software_timer_tick() {
 void timer_handler(cpu_state_t* cpu) {
     timer_ticks++;
     
-    // DEBUG: Désactiver temporairement le scheduler pour éviter les crashes
     // Log périodique pour vérifier que le timer fonctionne
     if (timer_ticks % 100 == 0) {
         print_string_serial("Timer tick: ");
@@ -63,8 +62,19 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // Le scheduler est maintenant stable, on peut l'activer.
-    schedule(cpu);
+    // Vérifier que le système de tâches est initialisé avant de faire du scheduling
+    extern task_t* current_task;
+    extern task_t* task_queue;
+    
+    if (current_task && task_queue && timer_ticks > 10) {
+        // Attendre quelques ticks avant d'activer le scheduler pour la stabilité
+        schedule(cpu);
+    } else {
+        // Pas encore prêt pour le scheduling, juste continuer
+        if (timer_ticks <= 10) {
+            print_string_serial("Timer: Attente avant activation du scheduler...\n");
+        }
+    }
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)

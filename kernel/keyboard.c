@@ -63,16 +63,19 @@ void keyboard_handler() {
     if (c != 0) {
         print_string_serial("KBD: char='");
         write_serial(c);
-        print_string_serial("'\n");
+        print_string_serial("' - Envoi au buffer\n");
         
         // Ajouter le caractère au buffer des syscalls
         syscall_add_input_char(c);
+        
+        print_string_serial("KBD: Caractere ajoute au buffer\n");
     } else {
         print_string_serial("KBD: no mapping for this scancode\n");
     }
     
     // Envoie EOI au PIC
     pic_send_eoi(1);
+    print_string_serial("KBD: EOI envoye\n");
 }
 
 // Helper functions for PS/2 controller communication
@@ -103,43 +106,79 @@ uint8_t keyboard_read_data() {
 
 // Initializes the PS/2 Keyboard
 void keyboard_init() {
-    // Step 3: Disable devices
+    print_string_serial("Initialisation du clavier PS/2...\n");
+    
+    // Step 1: Disable devices
+    print_string_serial("KBD: Desactivation des ports PS/2...\n");
     keyboard_send_command(0xAD); // Disable first PS/2 port
     keyboard_send_command(0xA7); // Disable second PS/2 port (if exists)
 
-    // Step 4: Flush output buffer
-    while (inb(0x64) & 1) {
+    // Step 2: Flush output buffer
+    print_string_serial("KBD: Vidage du buffer de sortie...\n");
+    int flush_count = 0;
+    while ((inb(0x64) & 1) && flush_count < 100) {
         inb(0x60);
+        flush_count++;
     }
+    print_string_serial("KBD: Buffer vide.\n");
 
-    // Step 5: Set controller configuration byte
+    // Step 3: Set controller configuration byte
+    print_string_serial("KBD: Configuration du controleur...\n");
     keyboard_send_command(0x20); // Read config byte
     uint8_t config = keyboard_read_data();
-    config |= 1;  // Enable interrupt for port 1
+    
+    print_string_serial("KBD: Config actuelle: 0x");
+    char hex[3] = "00";
+    hex[0] = (config >> 4) < 10 ? '0' + (config >> 4) : 'A' + (config >> 4) - 10;
+    hex[1] = (config & 0xF) < 10 ? '0' + (config & 0xF) : 'A' + (config & 0xF) - 10;
+    print_string_serial(hex);
+    print_string_serial("\n");
+    
+    config |= 1;     // Enable interrupt for port 1
     config &= ~0x10; // Enable clock for port 1
     config &= ~0x40; // Disable translation
+    
     keyboard_send_command(0x60); // Write config byte
     keyboard_send_data(config);
+    print_string_serial("KBD: Nouvelle configuration appliquee.\n");
 
-    // Step 9: Enable device
+    // Step 4: Enable device
+    print_string_serial("KBD: Activation du premier port...\n");
     keyboard_send_command(0xAE); // Enable first PS/2 port
 
-    // Step 10: Reset device
+    // Step 5: Reset device and wait for response
+    print_string_serial("KBD: Reset du clavier...\n");
     keyboard_send_data(0xFF); // Reset command
 
-    // Attendre ACK et le résultat du self-test
-    uint8_t ack = keyboard_read_data();
-    if (ack == 0xFA) {
-        print_string_serial("KBD: Keyboard ACK received.\n");
-        uint8_t test_result = keyboard_read_data();
-        if (test_result == 0xAA) {
-            print_string_serial("KBD: Keyboard self-test passed.\n");
+    // Attendre ACK et le résultat du self-test avec timeout
+    int timeout = 1000000;
+    while (timeout-- > 0 && !(inb(0x64) & 1));
+    
+    if (timeout > 0) {
+        uint8_t ack = keyboard_read_data();
+        if (ack == 0xFA) {
+            print_string_serial("KBD: Keyboard ACK recu.\n");
+            
+            // Attendre le résultat du self-test
+            timeout = 1000000;
+            while (timeout-- > 0 && !(inb(0x64) & 1));
+            
+            if (timeout > 0) {
+                uint8_t test_result = keyboard_read_data();
+                if (test_result == 0xAA) {
+                    print_string_serial("KBD: Self-test reussi.\n");
+                } else {
+                    print_string_serial("KBD: Self-test echoue.\n");
+                }
+            } else {
+                print_string_serial("KBD: Timeout en attente du self-test.\n");
+            }
         } else {
-            print_string_serial("KBD: Keyboard self-test failed.\n");
+            print_string_serial("KBD: Pas d'ACK recu.\n");
         }
     } else {
-        print_string_serial("KBD: Keyboard did not ACK reset command.\n");
+        print_string_serial("KBD: Timeout en attente de l'ACK.\n");
     }
 
-    print_string_serial("PS/2 Keyboard initialized.\n");
+    print_string_serial("PS/2 Keyboard initialise et pret.\n");
 }
