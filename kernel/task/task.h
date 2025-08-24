@@ -40,7 +40,6 @@ typedef struct task {
     task_type_t type;          // Type de tâche (kernel/user)
     vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
-    volatile int is_about_to_wait; // Utilisé pour signaler l'intention de se mettre en attente
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
 } task_t;

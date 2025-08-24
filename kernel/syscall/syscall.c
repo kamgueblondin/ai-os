@@ -267,29 +267,26 @@ void sys_gets(char* buffer, uint32_t size) {
         return;
     }
 
-    // Pas de ligne prête. Signaler au scheduler notre intention de nous mettre en attente.
-    if (current_task) {
-        current_task->is_about_to_wait = 1;
-        
-        // Céder le CPU. Le scheduler verra le drapeau et changera notre état.
-        asm volatile("int $0x30");
-        
-        // Quand on arrive ici, la tâche a été réveillée et la ligne est prête.
-        int copy_len = strlen_kernel(line_buffer);
-        if ((uint32_t)copy_len >= size) {
-            copy_len = size - 1;
-        }
-        memcpy(buffer, line_buffer, copy_len);
-        buffer[copy_len] = '\0';
-
-        // Réinitialiser pour la prochaine ligne
-        line_ready = 0;
-        line_position = 0;
-        
-        print_string_serial("SYS_GETS: Lecture terminee.\n");
-    } else {
-        print_string_serial("SYS_GETS: ERREUR - Pas de tache courante!\n");
+    // Pas de ligne prête. La solution de planification des tâches s'est avérée
+    // instable et provoque une faute de protection générale.
+    // En tant que solution fonctionnelle, nous utilisons une boucle d'attente
+    // active avec 'hlt' qui attend une interruption. C'est moins efficace
+    // mais cela a été prouvé comme étant stable sur ce système.
+    while (!line_ready) {
+        asm volatile("hlt"); // Attend la prochaine interruption.
     }
+
+    // Une fois que line_ready est à 1 (défini par l'interruption clavier), on copie les données.
+    int copy_len = strlen_kernel(line_buffer);
+    if ((uint32_t)copy_len >= size) {
+        copy_len = size - 1;
+    }
+    memcpy(buffer, line_buffer, copy_len);
+    buffer[copy_len] = '\0';
+
+    // Réinitialiser pour la prochaine ligne
+    line_ready = 0;
+    line_position = 0;
 }
 
 // Nouveau: SYS_EXEC - Exécuter un programme
