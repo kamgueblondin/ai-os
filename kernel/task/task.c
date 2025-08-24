@@ -63,8 +63,13 @@ void schedule(cpu_state_t* cpu) {
     // Sauvegarder l'état de la tâche actuelle
     memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
 
-    // Si la tâche tournait, elle est maintenant prête à être replanifiée plus tard
-    if (current_task->state == TASK_RUNNING) {
+    // Gérer l'intention de la tâche de se mettre en attente (communiqué par sys_gets)
+    if (current_task->is_about_to_wait) {
+        current_task->state = TASK_WAITING_FOR_INPUT;
+        current_task->is_about_to_wait = 0;
+    }
+    // Sinon, si la tâche tournait, elle est maintenant prête à être replanifiée plus tard
+    else if (current_task->state == TASK_RUNNING) {
         current_task->state = TASK_READY;
     }
 

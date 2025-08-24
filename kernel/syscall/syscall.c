@@ -267,19 +267,14 @@ void sys_gets(char* buffer, uint32_t size) {
         return;
     }
 
-    // Pas de ligne prête, mettre la tâche en attente
-    print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente de la tache...\n");
-    
+    // Pas de ligne prête. Signaler au scheduler notre intention de nous mettre en attente.
     if (current_task) {
-        current_task->state = TASK_WAITING_FOR_INPUT;
-        print_string_serial("SYS_GETS: Tache mise en attente. Cession du CPU...\n");
+        current_task->is_about_to_wait = 1;
         
-        // Céder le CPU et attendre qu'une ligne soit prête
+        // Céder le CPU. Le scheduler verra le drapeau et changera notre état.
         asm volatile("int $0x30");
         
-        // Quand on arrive ici, la tâche a été réveillée
-        print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
-        
+        // Quand on arrive ici, la tâche a été réveillée et la ligne est prête.
         int copy_len = strlen_kernel(line_buffer);
         if ((uint32_t)copy_len >= size) {
             copy_len = size - 1;
