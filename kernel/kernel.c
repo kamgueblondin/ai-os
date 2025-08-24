@@ -174,44 +174,52 @@ void print_char(char c, int x, int y, char color) {
             break;
 
         case BRACKET:
-            if (c >= '0' && c <= '9') {
-                if (ansi_pos < 15) {
-                    ansi_buffer[ansi_pos++] = c;
-                }
+            if ((c >= '0' && c <= '9') || c == ';') {
+                if (ansi_pos < 15) ansi_buffer[ansi_pos++] = c;
                 ansi_state = PARAM;
-            } else if (c == 'm') {
-                current_color = 0x0F; // Reset
+            } else if (c == 'H') { // Cursor to Home (0,0)
+                vga_x = 0;
+                vga_y = 0;
                 ansi_state = NORMAL;
-            } else if (c == 'J') {
+            } else if (c == 'J') { // Erase screen
                 clear_screen_vga();
                 ansi_state = NORMAL;
-            }
-            else {
+            } else if (c == 'm') { // Reset color
+                current_color = 0x0F;
+                ansi_state = NORMAL;
+            } else {
                 ansi_state = NORMAL;
             }
             break;
 
         case PARAM:
-            if (c == 'm') {
-                ansi_buffer[ansi_pos] = '\0';
-                int code = ansi_parse_param();
-                switch (code) {
-                    case 0: current_color = 0x0F; break; // Reset
-                    case 30: current_color = 0x00; break; // Black
-                    case 31: current_color = 0x04; break; // Red
-                    case 32: current_color = 0x02; break; // Green
-                    case 33: current_color = 0x06; break; // Yellow
-                    case 34: current_color = 0x01; break; // Blue
-                    case 35: current_color = 0x05; break; // Magenta
-                    case 36: current_color = 0x03; break; // Cyan
-                    case 37: current_color = 0x07; break; // White
-                }
-                ansi_state = NORMAL;
-            } else if (c >= '0' && c <= '9') {
-                 if (ansi_pos < 15) {
-                    ansi_buffer[ansi_pos++] = c;
-                }
+            if ((c >= '0' && c <= '9') || c == ';') {
+                if (ansi_pos < 15) ansi_buffer[ansi_pos++] = c;
             } else {
+                ansi_buffer[ansi_pos] = '\0';
+                if (c == 'm') {
+                    // For now, we only parse the first parameter for simplicity
+                    int code = ansi_parse_param();
+                    switch (code) {
+                        case 0: current_color = 0x0F; break; // Reset
+                        case 1: /* Ignore Bright */ break;
+                        case 30: current_color = 0x00; break; // Black
+                        case 31: current_color = 0x04; break; // Red
+                        case 32: current_color = 0x02; break; // Green
+                        case 33: current_color = 0x06; break; // Yellow
+                        case 34: current_color = 0x01; break; // Blue
+                        case 35: current_color = 0x05; break; // Magenta
+                        case 36: current_color = 0x03; break; // Cyan
+                        case 37: current_color = 0x07; break; // White
+                    }
+                } else if (c == 'J') {
+                    int code = ansi_parse_param();
+                    if (code == 2) clear_screen_vga();
+                } else if (c == 'H') {
+                    // For now, ignore params and just go to 0,0
+                    vga_x = 0;
+                    vga_y = 0;
+                }
                 ansi_state = NORMAL;
             }
             break;
