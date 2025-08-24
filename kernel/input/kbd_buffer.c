@@ -14,14 +14,21 @@ void kbd_push_scancode(uint8_t s){
 
 int kbd_pop_scancode(uint8_t *out){
     for(;;){
+        // Désactive les interruptions pour vérifier le buffer et s'endormir atomiquement
+        __asm__ __volatile__("cli");
+
         unsigned int t = __atomic_load_n(&tail, __ATOMIC_ACQUIRE);
         unsigned int h = __atomic_load_n(&head, __ATOMIC_ACQUIRE);
+
         if (t != h){
+            // Le buffer n'est pas vide, réactive les interruptions et retourne la donnée
+            __asm__ __volatile__("sti");
             *out = buf[t % KBD_BUF_SZ];
             __atomic_store_n(&tail, t + 1, __ATOMIC_RELEASE);
             return 1;
         }
-        // Pas de timer ? on attend une IRQ avec HLT
+
+        // Le buffer est vide, on attend la prochaine interruption de manière sûre
         __asm__ __volatile__("sti; hlt");
     }
 }
