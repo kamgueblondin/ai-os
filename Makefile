@@ -171,7 +171,7 @@ run: $(OS_IMAGE) pack-initrd
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -m 256M -vga std -display sdl -no-reboot -d int -rtc base=utc
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -m 256M -vga std -no-reboot -d int -rtc base=utc
 
 # Cible pour tester la compilation sans exécution
 test-build: $(OS_IMAGE)

@@ -87,8 +87,8 @@ void pic_remap() {
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
     
-    // Autorise au minimum le clavier (bit1=0)
-    outb(0x21, 0xFD);   // 11111101b : IRQ1 démasquée, le reste masqué si besoin
+    // Autorise le timer (IRQ0) et le clavier (IRQ1)
+    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 démasquées
     outb(0xA1, 0xFF);
 }
 
