@@ -42,7 +42,7 @@ void gdt_init() {
     // Create TSS entry
     uint32_t tss_base = (uint32_t)&tss_entry;
     uint32_t tss_limit = sizeof(tss_entry);
-    gdt_set_gate(5, tss_base, tss_limit, 0xE9, 0x00); // 0xE9 = Present, DPL=3, TSS
+    gdt_set_gate(5, tss_base, tss_limit, 0x89, 0x00); // 0x89 = Present, DPL=0, TSS
 
     // Initialize TSS
     memset(&tss_entry, 0, sizeof(tss_entry));
