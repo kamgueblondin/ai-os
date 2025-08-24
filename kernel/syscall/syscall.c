@@ -66,9 +66,9 @@ void syscall_handler(cpu_state_t* cpu) {
             asm volatile("int $0x30");
             break;
             
-        // SYS_GETS est maintenant obsolète. Le shell doit lire caractère par caractère.
+        // SYS_GETS - Lire une ligne depuis le clavier
         case SYS_GETS:
-            // Ne fait plus rien. Pourrait retourner une erreur.
+            sys_gets((char*)cpu->ebx, cpu->ecx);
             break;
             
         case SYS_EXEC:
@@ -108,3 +108,40 @@ int sys_exec(const char* path, char* argv[]) {
 
     return 0; // Succès
 }
+
+
+// Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
+void sys_gets(char* buffer, uint32_t size) {
+    if (!buffer || size == 0) return;
+    
+    print_string_serial("SYS_GETS: Debut de la lecture...\n");
+    
+    uint32_t i = 0;
+    while (i < size - 1) {
+        char c = keyboard_getc(); // Utilise la nouvelle fonction clavier
+        
+        if (c == '\r' || c == '\n') {
+            // Fin de ligne
+            buffer[i] = '\0';
+            print_string_serial("SYS_GETS: ligne lue: ");
+            print_string_serial(buffer);
+            print_string_serial("\n");
+            return;
+        }
+        
+        if (c == '\b' && i > 0) {
+            // Backspace - pour l'instant on ignore le backspace dans sys_gets
+            i--;
+        } else if (c >= 32 && c <= 126) {
+            // Caractère imprimable
+            buffer[i++] = c;
+            // Echo du caractère (simplifié - pas d'affichage pour l'instant)
+        }
+    }
+    
+    buffer[i] = '\0';
+    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
+    print_string_serial(buffer);
+    print_string_serial("\n");
+}
+

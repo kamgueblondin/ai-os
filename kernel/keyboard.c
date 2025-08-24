@@ -9,6 +9,32 @@ extern void print_char_vga(char c, int x, int y, char color);
 extern void write_serial(char c);
 extern int vga_x, vga_y;
 
+// Buffer clavier amélioré pour caractères ASCII
+#define KBD_BUF_SIZE 256
+static volatile unsigned char kbd_buf[KBD_BUF_SIZE];
+static volatile unsigned int kbd_head = 0;
+static volatile unsigned int kbd_tail = 0;
+
+// Pointeur vers la tâche en attente (simplifié pour ce projet)
+static volatile void *kbd_waiting = NULL;
+
+// Fonctions pour gérer le buffer ASCII
+static void kbd_put(char c) {
+    unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
+    if (next != kbd_tail) { // buffer not full
+        kbd_buf[kbd_head] = c;
+        kbd_head = next;
+    }
+    // Si buffer plein, on ignore le caractère (overflow)
+}
+
+int kbd_get_nonblock(char *out) {
+    if (kbd_head == kbd_tail) return -1; // buffer vide
+    *out = kbd_buf[kbd_tail];
+    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
+    return 0;
+}
+
 // Table de correspondance complète Scancode -> ASCII (pour un clavier US QWERTY)
 // ... (le reste de la table est inchangé)
 const char scancode_map[128] = {
@@ -32,10 +58,37 @@ const char scancode_map[128] = {
 
 
 // Le handler appelé par l'ISR.
-// La routine commune dans interrupts.c s'occupe de l'EOI.
 void keyboard_interrupt_handler() {
     uint8_t scancode = inb(0x60); // Lit le scancode
-    kbd_push_scancode(scancode); // Pousse le scancode brut dans le buffer
+    
+    // Debug : envoie scancode sur port série
+    print_string_serial("KBD sc=0x");
+    char hex[3] = "00";
+    hex[0] = (scancode >> 4) < 10 ? '0' + (scancode >> 4) : 'A' + (scancode >> 4) - 10;
+    hex[1] = (scancode & 0xF) < 10 ? '0' + (scancode & 0xF) : 'A' + (scancode & 0xF) - 10;
+    print_string_serial(hex);
+    print_string_serial("\n");
+    
+    // Convertir scancode en ASCII et stocker dans le buffer
+    // Uniquement si keydown (scancode < 0x80)
+    if (!(scancode & 0x80)) {
+        char c = scancode_to_ascii(scancode);
+        if (c) {
+            kbd_put(c);
+            print_string_serial("KBD char='");
+            print_string_serial(&c);
+            print_string_serial("'\n");
+        }
+    }
+    
+    // Réveiller une tâche en attente (implémentation simplifiée)
+    if (kbd_waiting) {
+        // TODO: Implémenter wake_task(kbd_waiting) quand le système de tâches sera disponible
+        kbd_waiting = NULL;
+    }
+    
+    // Important : envoyer EOI au PIC pour permettre d'autres IRQ
+    outb(0x20, 0x20);
 }
 
 char scancode_to_ascii(uint8_t scancode) {
@@ -48,6 +101,16 @@ char scancode_to_ascii(uint8_t scancode) {
         return 0;
     }
     return scancode_map[scancode];
+}
+
+// Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
+char keyboard_getc(void) {
+    char c;
+    while (kbd_get_nonblock(&c) == -1) {
+        // Buffer vide, attendre (implémentation simplifiée avec hlt)
+        asm volatile("hlt");
+    }
+    return c;
 }
 
 
@@ -154,4 +217,23 @@ void keyboard_init() {
     }
 
     print_string_serial("PS/2 Keyboard initialise et pret.\n");
+    
+    // Debug : vérifier le masque PIC
+    uint8_t pic_mask = inb(0x21);
+    print_string_serial("PIC1 mask: 0x");
+    char hex_mask[3] = "00";
+    hex_mask[0] = (pic_mask >> 4) < 10 ? '0' + (pic_mask >> 4) : 'A' + (pic_mask >> 4) - 10;
+    hex_mask[1] = (pic_mask & 0xF) < 10 ? '0' + (pic_mask & 0xF) : 'A' + (pic_mask & 0xF) - 10;
+    print_string_serial(hex_mask);
+    print_string_serial("\n");
+    
+    // S'assurer que IRQ1 n'est pas masqué
+    if (pic_mask & (1 << 1)) {
+        print_string_serial("IRQ1 est masque, demasquage...\n");
+        pic_mask &= ~(1 << 1);
+        outb(0x21, pic_mask);
+        print_string_serial("IRQ1 demasque.\n");
+    } else {
+        print_string_serial("IRQ1 n'est pas masque.\n");
+    }
 }
