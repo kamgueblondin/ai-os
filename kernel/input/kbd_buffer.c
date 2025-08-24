@@ -28,7 +28,9 @@ int kbd_pop_scancode(uint8_t *out){
             return 1;
         }
 
-        // Le buffer est vide, on attend la prochaine interruption de manière sûre
-        __asm__ __volatile__("sti; hlt");
+        // Le buffer est vide. On active les interruptions et on cède le CPU
+        // au planificateur pour qu'il exécute une autre tâche.
+        // C'est une attente active, mais elle évite le blocage de la race condition de "sti; hlt".
+        __asm__ __volatile__("sti; int $0x30");
     }
 }
