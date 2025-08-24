@@ -172,8 +172,11 @@ void syscall_add_input_char(char c) {
         if (waiting_task) {
             print_string_serial("syscall_add_input_char: Tache en attente trouvee, reveil.\n");
             waiting_task->state = TASK_READY;
-            // Forcer un reschedule pour que la tâche réveillée s'exécute immédiatement
-            asm volatile("int $0x30");
+            // NOTE: On ne force PAS un reschedule ici (pas de `int $0x30`).
+            // Forcer le scheduler depuis un handler d'interruption est dangereux
+            // et peut empêcher l'ISR de se terminer correctement (ex: envoi de l'EOI).
+            // Le scheduler principal (sur l'horloge système) prendra en charge
+            // cette tâche maintenant qu'elle est à l'état READY.
         } else {
             print_string_serial("syscall_add_input_char: Pas de tache en attente d'entree.\n");
         }
@@ -242,7 +245,7 @@ void sys_yield() {
     asm volatile("int $0x30");
 }
 
-// Nouveau: SYS_GETS - Lire une ligne complète (version améliorée)
+// Nouveau: SYS_GETS - Lire une ligne complète (version améliorée et sécurisée)
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) {
         return;
@@ -250,7 +253,13 @@ void sys_gets(char* buffer, uint32_t size) {
 
     print_string_serial("SYS_GETS: Debut de la lecture...\n");
 
-    // Vérifier d'abord si une ligne est déjà prête
+    // --- DEBUT SECTION CRITIQUE ---
+    // On désactive les interruptions pour éviter une race condition où
+    // le clavier enverrait un signal de réveil AVANT que la tâche ne soit
+    // officiellement en attente.
+    asm volatile("cli");
+
+    // Vérifier si une ligne est déjà prête
     if (line_ready) {
         print_string_serial("SYS_GETS: Ligne deja prete. Lecture immediate.\n");
 
@@ -263,20 +272,26 @@ void sys_gets(char* buffer, uint32_t size) {
 
         line_ready = 0;
         line_position = 0;
+
+        // On réactive les interruptions avant de quitter.
+        asm volatile("sti");
         return;
     }
 
-    // Pas de ligne prête, mettre la tâche en attente
+    // Pas de ligne prête, mettre la tâche en attente.
+    // Les interruptions sont toujours désactivées à ce stade.
     print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente de la tache...\n");
     
     if (current_task) {
         current_task->state = TASK_WAITING_FOR_INPUT;
         print_string_serial("SYS_GETS: Tache mise en attente. Cession du CPU...\n");
         
-        // Céder le CPU et attendre qu'une ligne soit prête
+        // Céder le CPU. Le scheduler se chargera de réactiver les interruptions
+        // en restaurant l'état de la prochaine tâche (qui a les interruptions activées).
         asm volatile("int $0x30");
         
-        // Quand on arrive ici, la tâche a été réveillée
+        // Quand on arrive ici, la tâche a été réveillée par l'ISR du clavier.
+        // Le scheduler a restauré notre état, donc les interruptions sont de nouveau activées.
         print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
         
         int copy_len = strlen_kernel(line_buffer);
@@ -293,6 +308,8 @@ void sys_gets(char* buffer, uint32_t size) {
         print_string_serial("SYS_GETS: Lecture terminee.\n");
     } else {
         print_string_serial("SYS_GETS: ERREUR - Pas de tache courante!\n");
+        // En cas d'erreur, s'assurer de réactiver les interruptions.
+        asm volatile("sti");
     }
 }
 

@@ -2,8 +2,8 @@
 #include "keyboard.h"
 #include "timer.h"
 
-// Déclaration pour le handler du clavier
-void keyboard_handler();
+// Déclaration pour le nouveau handler
+void keyboard_interrupt_handler();
 
 // Fonctions externes pour les ports I/O (définies dans kernel.c)
 extern unsigned char inb(unsigned short port);
@@ -168,7 +168,7 @@ void interrupts_init() {
 
     // Enregistre les handlers
     register_interrupt_handler(32, timer_handler);    // IRQ 0 - Timer
-    register_interrupt_handler(33, keyboard_handler); // IRQ 1 - Clavier
+    register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier (nouveau handler)
     
     // Associe les entrées de l'IDT aux routines assembleur
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer
