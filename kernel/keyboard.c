@@ -31,7 +31,7 @@ const char scancode_map[128] = {
 };
 
 // Le handler appelé par l'ISR
-void keyboard_handler() {
+void keyboard_interrupt_handler() {
     unsigned char scancode = inb(0x60); // Lit le scancode depuis le port du clavier
     
     // DEBUG: Log tous les scancodes reçus
