@@ -367,8 +367,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Initialisation des interruptions...\n");
     idt_init();         // Initialise la table des interruptions
     interrupts_init();  // Initialise le PIC et active les interruptions
-    keyboard_init();    // Initialise le clavier
-    print_string("Interruptions initialisees.\n");
+
+    // Initialise le clavier avec les interruptions désactivées pour éviter les race conditions
+    asm volatile("cli");
+    keyboard_init();
+    asm volatile("sti");
+
+    print_string("Interruptions et clavier initialises.\n");
 
     // Initialiser la gestion de la mémoire
     print_string("Initialisation de la gestion memoire...\n");

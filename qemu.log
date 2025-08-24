@@ -13,6 +13,7 @@ kernel/interrupts.c:66:19: warning: variable ‘a1’ set but not used [-Wunused
    66 |     unsigned char a1, a2;
       |                   ^~
 gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/keyboard.c -o build/keyboard.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/kernel.c -o build/kernel.o
 gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/input/kbd_buffer.c -o build/kbd_buffer.o
 ld -m elf_i386 -T linker.ld -o build/ai_os.bin --start-group build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o build/syscall.o build/elf.o build/initrd.o build/interrupts.o build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o --end-group
 ld: warning: build/gdt_asm.o: missing .note.GNU-stack section implies executable stack
