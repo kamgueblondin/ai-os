@@ -22,15 +22,15 @@ static int input_buffer_tail = 0;
 
 // Ajoute un caractère au buffer d'entrée (appelé par le handler clavier)
 // C'est la seule fonction que le handler d'interruption doit appeler.
+// NOTE: Pas de cli/sti ici. Les interruptions matérielles sont déjà désactivées
+// par le processeur lors de l'entrée dans le handler d'interruption.
+// Réactiver les interruptions avant l'EOI peut bloquer le PIC.
 void keyboard_add_char_to_buffer(char c) {
-    // Section critique simple pour éviter les corruptions du buffer
-    asm volatile("cli");
     int next_head = (input_buffer_head + 1) % 256;
     if (next_head != input_buffer_tail) {
         input_buffer[input_buffer_head] = c;
         input_buffer_head = next_head;
     }
-    asm volatile("sti");
 }
 
 // Fonction interne pour lire un caractère du buffer.
