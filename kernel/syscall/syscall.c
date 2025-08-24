@@ -42,11 +42,11 @@ static char internal_sys_getc() {
         asm volatile("int $0x30");
     }
 
-    // Lit le caractère du buffer
-    asm volatile("cli");
+    // Lit le caractère du buffer. Pas de cli/sti nécessaire car
+    // le buffer circulaire est safe en single-core. L'IRQ ne modifie que
+    // la tête, et ce code ne modifie que la queue.
     char c = input_buffer[input_buffer_tail];
     input_buffer_tail = (input_buffer_tail + 1) % 256;
-    asm volatile("sti");
 
     return c;
 }
