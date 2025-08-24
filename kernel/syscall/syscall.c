@@ -172,6 +172,8 @@ void syscall_add_input_char(char c) {
         if (waiting_task) {
             print_string_serial("syscall_add_input_char: Tache en attente trouvee, reveil.\n");
             waiting_task->state = TASK_READY;
+            // Forcer un reschedule pour que la tâche réveillée s'exécute immédiatement
+            asm volatile("int $0x30");
         } else {
             print_string_serial("syscall_add_input_char: Pas de tache en attente d'entree.\n");
         }
