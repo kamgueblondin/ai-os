@@ -13,6 +13,7 @@
 task_t* current_task = NULL;
 task_t* task_queue = NULL;
 int next_task_id = 0;
+volatile int g_reschedule_needed = 0;
 
 // Externes
 extern vmm_directory_t* kernel_directory;

@@ -53,31 +53,6 @@ void syscall_handler(cpu_state_t* cpu) {
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
         case SYS_EXIT: // SYS_EXIT
-            print_string_serial("Processus termine avec code ");
-            // Affichage simple du code de sortie
-            char code_str[16];
-            uint32_t code = cpu->ebx;
-            int i = 0;
-            if (code == 0) {
-                code_str[i++] = '0';
-            } else {
-                while (code > 0) {
-                    code_str[i++] = '0' + (code % 10);
-                    code /= 10;
-                }
-            }
-            code_str[i] = '\0';
-            
-            // Inverse la chaîne
-            for (int j = 0; j < i / 2; j++) {
-                char tmp = code_str[j];
-                code_str[j] = code_str[i - 1 - j];
-                code_str[i - 1 - j] = tmp;
-            }
-            
-            print_string_serial(code_str);
-            print_string_serial("\n");
-            
             current_task->state = TASK_TERMINATED;
             asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
             break;
@@ -131,9 +106,6 @@ void syscall_handler(cpu_state_t* cpu) {
             
         default:
             // Syscall inconnu
-            print_string_serial("Syscall inconnu: ");
-            print_hex_serial(cpu->eax);
-            print_string_serial("\n");
             break;
     }
 }
@@ -170,13 +142,12 @@ void syscall_add_input_char(char c) {
         // Réveiller la tâche qui attend l'entrée
         task_t* waiting_task = find_task_waiting_for_input();
         if (waiting_task) {
-            print_string_serial("syscall_add_input_char: Tache en attente trouvee, reveil.\n");
+            extern volatile int g_reschedule_needed;
             waiting_task->state = TASK_READY;
+            g_reschedule_needed = 1;
             // La tâche sera reprise au prochain tick du timer.
             // On ne force pas un reschedule ici pour éviter les problèmes de réentrance
             // dans le scheduler depuis un handler d'interruption.
-        } else {
-            print_string_serial("syscall_add_input_char: Pas de tache en attente d'entree.\n");
         }
     } else if (c == '\b' || c == 127) {
         if (line_position > 0) {
@@ -190,8 +161,6 @@ void syscall_add_input_char(char c) {
 }
 
 void syscall_init() {
-    print_string_serial("Initialisation des appels systeme...\n");
-    
     // Initialise les buffers d'entrée
     input_buffer_head = 0;
     input_buffer_tail = 0;
@@ -200,8 +169,6 @@ void syscall_init() {
     
     // Enregistre notre handler pour l'interruption 0x80
     register_interrupt_handler(0x80, (interrupt_handler_t)syscall_handler);
-    
-    print_string_serial("Appels systeme initialises.\n");
 }
 
 // Fonctions utilitaires (pour usage interne du kernel)
@@ -249,12 +216,8 @@ void sys_gets(char* buffer, uint32_t size) {
         return;
     }
 
-    print_string_serial("SYS_GETS: Debut de la lecture...\n");
-
     // Vérifier d'abord si une ligne est déjà prête
     if (line_ready) {
-        print_string_serial("SYS_GETS: Ligne deja prete. Lecture immediate.\n");
-
         int copy_len = strlen_kernel(line_buffer);
         if ((uint32_t)copy_len >= size) {
             copy_len = size - 1;
@@ -268,18 +231,13 @@ void sys_gets(char* buffer, uint32_t size) {
     }
 
     // Pas de ligne prête, mettre la tâche en attente
-    print_string_serial("SYS_GETS: Pas de ligne prete. Mise en attente de la tache...\n");
-    
     if (current_task) {
         current_task->state = TASK_WAITING_FOR_INPUT;
-        print_string_serial("SYS_GETS: Tache mise en attente. Cession du CPU...\n");
         
         // Céder le CPU et attendre qu'une ligne soit prête
         asm volatile("int $0x30");
         
         // Quand on arrive ici, la tâche a été réveillée
-        print_string_serial("SYS_GETS: Tache reveillee, lecture de la ligne.\n");
-        
         int copy_len = strlen_kernel(line_buffer);
         if ((uint32_t)copy_len >= size) {
             copy_len = size - 1;
@@ -290,10 +248,6 @@ void sys_gets(char* buffer, uint32_t size) {
         // Réinitialiser pour la prochaine ligne
         line_ready = 0;
         line_position = 0;
-        
-        print_string_serial("SYS_GETS: Lecture terminee.\n");
-    } else {
-        print_string_serial("SYS_GETS: ERREUR - Pas de tache courante!\n");
     }
 }
 
@@ -301,14 +255,9 @@ void sys_gets(char* buffer, uint32_t size) {
 int sys_exec(const char* path, char* argv[]) {
     (void)argv; // argv non utilisé pour le moment
 
-    print_string_serial("SYS_EXEC: Execution de '");
-    print_string_serial(path);
-    print_string_serial("'\n");
-
     task_t* new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
-        print_string_serial("SYS_EXEC: Echec de la creation de la tache.\n");
         return -1; // Echec
     }
 
@@ -318,7 +267,6 @@ int sys_exec(const char* path, char* argv[]) {
         asm volatile("int $0x30");
     }
 
-    print_string_serial("SYS_EXEC: Tache terminee.\n");
     return 0; // Succès
 }
 

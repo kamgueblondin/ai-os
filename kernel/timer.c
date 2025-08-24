@@ -35,46 +35,16 @@ void software_timer_tick() {
 
 // Handler appelé par l'ISR du timer matériel
 void timer_handler(cpu_state_t* cpu) {
+    extern volatile int g_reschedule_needed;
     timer_ticks++;
-    
-    // Log périodique pour vérifier que le timer fonctionne
-    if (timer_ticks % 100 == 0) {
-        print_string_serial("Timer tick: ");
-        // Convertir timer_ticks en string et l'afficher
-        char buffer[16];
-        int i = 0;
-        uint32_t num = timer_ticks;
-        if (num == 0) {
-            buffer[i++] = '0';
-        } else {
-            while (num > 0) {
-                buffer[i++] = '0' + (num % 10);
-                num /= 10;
-            }
-        }
-        buffer[i] = '\0';
-        // Inverser la string
-        for (int j = 0; j < i/2; j++) {
-            char temp = buffer[j];
-            buffer[j] = buffer[i-1-j];
-            buffer[i-1-j] = temp;
-        }
-        print_string_serial(buffer);
-        print_string_serial("\n");
-    }
     
     // Vérifier que le système de tâches est initialisé avant de faire du scheduling
     extern task_t* current_task;
     extern task_t* task_queue;
     
-    if (current_task && task_queue && timer_ticks > 10) {
-        // Attendre quelques ticks avant d'activer le scheduler pour la stabilité
+    if (g_reschedule_needed || (current_task && task_queue && timer_ticks > 10)) {
+        g_reschedule_needed = 0;
         schedule(cpu);
-    } else {
-        // Pas encore prêt pour le scheduling, juste continuer
-        if (timer_ticks <= 10) {
-            print_string_serial("Timer: Attente avant activation du scheduler...\n");
-        }
     }
 
     // Envoyer le signal End-of-Interrupt (EOI) au PIC
@@ -97,7 +67,6 @@ void timer_update() {
 // Initialise le timer matériel (PIT) pour le scheduling préemptif
 void timer_init(uint32_t frequency) {
     timer_mode = 1; // Mode matériel
-    print_string_serial("Initialisation du timer materiel...\n");
 
     // Le PIT (Programmable Interval Timer) utilise une fréquence de base de 1.193182 MHz
     uint32_t divisor = 1193182 / frequency;
@@ -109,8 +78,6 @@ void timer_init(uint32_t frequency) {
     // Envoie le diviseur
     outb(0x40, (uint8_t)(divisor & 0xFF));
     outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
-    
-    print_string_serial("Timer materiel active pour le scheduler.\n");
 }
 
 // Attend un certain nombre de ticks

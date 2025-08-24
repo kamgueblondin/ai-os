@@ -48,6 +48,7 @@ typedef struct task {
 extern task_t* current_task;
 extern task_t* task_queue;
 extern int next_task_id;
+extern volatile int g_reschedule_needed;
 
 // Fonctions publiques
 void tasking_init();
