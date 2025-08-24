@@ -16,10 +16,13 @@ static char input_buffer[256];
 static int input_buffer_head = 0;
 static int input_buffer_tail = 0;
 
+#include "kernel/mem/heap.h" // Ajout pour kmalloc
+
 // Buffer pour la saisie de ligne (SYS_GETS)
 static char line_buffer[256];
 static int line_position = 0;
-static int line_ready = 0;
+// Isoler line_ready en l'allouant sur le tas pour éviter les corruptions mémoires.
+static volatile int* line_ready_ptr = NULL;
 
 // Fonctions utilitaires internes
 int strlen_kernel(const char* str) {
@@ -164,20 +167,9 @@ void syscall_add_input_char(char c) {
     // Gestion spéciale pour SYS_GETS
     if (c == '\n' || c == '\r') {
         line_buffer[line_position] = '\0';
-        line_ready = 1;
+        if (line_ready_ptr) *line_ready_ptr = 1;
         line_position = 0;
 
-        // Réveiller la tâche qui attend l'entrée
-        task_t* waiting_task = find_task_waiting_for_input();
-        if (waiting_task) {
-            print_string_serial("syscall_add_input_char: Tache en attente trouvee, reveil.\n");
-            waiting_task->state = TASK_READY;
-            // La tâche sera reprise au prochain tick du timer.
-            // On ne force pas un reschedule ici pour éviter les problèmes de réentrance
-            // dans le scheduler depuis un handler d'interruption.
-        } else {
-            print_string_serial("syscall_add_input_char: Pas de tache en attente d'entree.\n");
-        }
     } else if (c == '\b' || c == 127) {
         if (line_position > 0) {
             line_position--;
@@ -196,7 +188,10 @@ void syscall_init() {
     input_buffer_head = 0;
     input_buffer_tail = 0;
     line_position = 0;
-    line_ready = 0;
+
+    // Allouer dynamiquement line_ready pour l'isoler d'éventuelles corruptions de pile.
+    line_ready_ptr = (int*)kmalloc(sizeof(int));
+    *line_ready_ptr = 0;
     
     // Enregistre notre handler pour l'interruption 0x80
     register_interrupt_handler(0x80, (interrupt_handler_t)syscall_handler);
@@ -243,40 +238,19 @@ void sys_yield() {
     asm volatile("int $0x30");
 }
 
-// Nouveau: SYS_GETS - Lire une ligne complète (version améliorée)
+// Nouveau: SYS_GETS - Lire une ligne complète (version stable)
 void sys_gets(char* buffer, uint32_t size) {
-    if (!buffer || size == 0) {
+    if (!buffer || size == 0 || !line_ready_ptr) {
         return;
     }
 
-    print_string_serial("SYS_GETS: Debut de la lecture...\n");
-
-    // Vérifier d'abord si une ligne est déjà prête
-    if (line_ready) {
-        print_string_serial("SYS_GETS: Ligne deja prete. Lecture immediate.\n");
-
-        int copy_len = strlen_kernel(line_buffer);
-        if ((uint32_t)copy_len >= size) {
-            copy_len = size - 1;
-        }
-        memcpy(buffer, line_buffer, copy_len);
-        buffer[copy_len] = '\0';
-
-        line_ready = 0;
-        line_position = 0;
-        return;
-    }
-
-    // Pas de ligne prête. La solution de planification des tâches s'est avérée
-    // instable et provoque une faute de protection générale.
-    // En tant que solution fonctionnelle, nous utilisons une boucle d'attente
-    // active avec 'hlt' qui attend une interruption. C'est moins efficace
-    // mais cela a été prouvé comme étant stable sur ce système.
-    while (!line_ready) {
+    // Boucle d'attente active avec 'hlt'. C'est une solution de contournement
+    // pour un bug plus profond dans le scheduler, mais elle est stable.
+    while (!(*line_ready_ptr)) {
         asm volatile("hlt"); // Attend la prochaine interruption.
     }
 
-    // Une fois que line_ready est à 1 (défini par l'interruption clavier), on copie les données.
+    // Une fois que la ligne est prête, copier les données.
     int copy_len = strlen_kernel(line_buffer);
     if ((uint32_t)copy_len >= size) {
         copy_len = size - 1;
@@ -284,8 +258,8 @@ void sys_gets(char* buffer, uint32_t size) {
     memcpy(buffer, line_buffer, copy_len);
     buffer[copy_len] = '\0';
 
-    // Réinitialiser pour la prochaine ligne
-    line_ready = 0;
+    // Réinitialiser pour la prochaine ligne.
+    *line_ready_ptr = 0;
     line_position = 0;
 }
 
