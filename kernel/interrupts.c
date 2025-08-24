@@ -174,7 +174,10 @@ void interrupts_init() {
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);        // Clavier
     idt_set_gate(0x30, (uint32_t)isr_schedule, 0x08, 0xEE); // Scheduler (Ring 3)
-    idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0xEE); // Syscalls (Ring 3 accessible)
+    // Syscalls (Ring 3 accessible) - Utilisation de 0x8E (Interrupt Gate)
+    // pour désactiver automatiquement les interruptions lors de l'appel système.
+    // Cela résout la condition de concurrence dans sys_gets.
+    idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0x8E);
 
     // Activer les interruptions sur le CPU
     asm volatile ("sti");
