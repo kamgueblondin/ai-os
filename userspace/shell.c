@@ -75,6 +75,12 @@ void gets(char* buffer, int size) {
     asm volatile("int $0x80" : : "a"(5), "b"(buffer), "c"(size)); 
 }
 
+int sys_getchar(void) {
+    int c;
+    asm volatile("int $0x80" : "=a"(c) : "a"(2));
+    return c;
+}
+
 int exec(const char* path, char* argv[]) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(6), "b"(path), "c"(argv));
@@ -147,6 +153,12 @@ void print_string(const char* str) {
     for (int i = 0; str[i] != '\0'; i++) {
         putc(str[i]);
     }
+}
+
+void backspace() {
+    putc('');
+    putc(' ');
+    putc('');
 }
 
 void print_colored(const char* str, const char* color) {
@@ -738,60 +750,85 @@ void display_prompt(shell_context_t* ctx) {
     print_colored("\n└─$ ", COLOR_CYAN);
 }
 
-void shell_main_loop(shell_context_t* ctx) {
-    char input_buffer[MAX_COMMAND_LENGTH];
+void handle_line(shell_context_t* ctx, char* input_buffer) {
     char command[128];
     char args[MAX_ARGS][128];
     int arg_count;
+
+    // Ignorer les lignes vides
+    if (strlen(input_buffer) == 0) {
+        return;
+    }
     
+    // Ajouter à l'historique
+    add_to_history(ctx, input_buffer);
+
+    // Vérifier si c'est une question en mode IA
+    if (ctx->ai_mode && is_question(input_buffer)) {
+        call_ai_assistant(ctx, input_buffer);
+        return;
+    }
+
+    // Parser la commande
+    if (!parse_command(input_buffer, command, args, &arg_count)) {
+        return;
+    }
+
+    // Exécuter la commande builtin
+    if (execute_builtin_command(ctx, command, args, arg_count)) {
+        return;
+    }
+
+    // Si pas de commande builtin, essayer d'exécuter un programme externe
+    char* exec_args[MAX_ARGS + 2];
+    exec_args[0] = command;
+    for (int i = 0; i < arg_count; i++) {
+        exec_args[i + 1] = args[i];
+    }
+    exec_args[arg_count + 1] = NULL;
+
+    int result = exec(command, exec_args);
+
+    if (result != 0) {
+        print_error("Commande non trouvée ou erreur d'exécution");
+        print_string("   Tapez 'help' pour voir les commandes disponibles\n");
+        
+        // Suggestion IA si mode activé
+        if (ctx->ai_mode) {
+            print_colored("💡 Suggestion IA : ", COLOR_YELLOW);
+            print_string("Voulez-vous que je vous aide avec cette commande ?\n");
+        }
+    }
+}
+
+void shell_main_loop(shell_context_t* ctx) {
+    char buf[MAX_COMMAND_LENGTH];
+    int idx;
+
     while (1) {
         display_prompt(ctx);
-        
-        // Lire l'entrée utilisateur
-        gets(input_buffer, MAX_COMMAND_LENGTH - 1);
-        
-        // Ignorer les lignes vides
-        if (strlen(input_buffer) == 0) {
-            continue;
-        }
-        
-        // Ajouter à l'historique
-        add_to_history(ctx, input_buffer);
-        
-        // Vérifier si c'est une question en mode IA
-        if (ctx->ai_mode && is_question(input_buffer)) {
-            call_ai_assistant(ctx, input_buffer);
-            continue;
-        }
-        
-        // Parser la commande
-        if (!parse_command(input_buffer, command, args, &arg_count)) {
-            continue;
-        }
-        
-        // Exécuter la commande builtin
-        if (execute_builtin_command(ctx, command, args, arg_count)) {
-            continue;
-        }
-        
-        // Si pas de commande builtin, essayer d'exécuter un programme externe
-        char* exec_args[MAX_ARGS + 2];
-        exec_args[0] = command;
-        for (int i = 0; i < arg_count; i++) {
-            exec_args[i + 1] = args[i];
-        }
-        exec_args[arg_count + 1] = NULL;
-        
-        int result = exec(command, exec_args);
-        
-        if (result != 0) {
-            print_error("Commande non trouvée ou erreur d'exécution");
-            print_string("   Tapez 'help' pour voir les commandes disponibles\n");
-            
-            // Suggestion IA si mode activé
-            if (ctx->ai_mode) {
-                print_colored("💡 Suggestion IA : ", COLOR_YELLOW);
-                print_string("Voulez-vous que je vous aide avec cette commande ?\n");
+        idx = 0;
+        buf[0] = '\0';
+
+        for(;;){
+            int c = sys_getchar();
+            if (c == '\r' || c == '\n'){
+                putc('\n');
+                handle_line(ctx, buf);
+                break; // sort de la boucle for(;;) pour ré-afficher le prompt
+            }
+            if (c == 0x08 || c == 127){ // Backspace
+                if (idx > 0){
+                    idx--;
+                    buf[idx] = '\0';
+                    backspace();
+                }
+                continue;
+            }
+            if (idx < (int)sizeof(buf) - 1){
+                buf[idx++] = (char)c;
+                buf[idx] = '\0';
+                putc((char)c);
             }
         }
     }

@@ -25,7 +25,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
-          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
+          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) pack-initrd
@@ -62,6 +62,10 @@ build/interrupts.o: kernel/interrupts.c kernel/interrupts.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/keyboard.o: kernel/keyboard.c kernel/keyboard.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/kbd_buffer.o: kernel/input/kbd_buffer.c kernel/input/kbd_buffer.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -167,9 +171,7 @@ run: $(OS_IMAGE) pack-initrd
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-vga std -display gtk,zoom-to-fit=on \
-		-monitor stdio -m 256M
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -m 256M -vga std -no-reboot -d int -rtc base=utc
 
 # Cible pour tester la compilation sans exécution
 test-build: $(OS_IMAGE)

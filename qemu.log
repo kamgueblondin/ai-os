@@ -1,90 +1,25 @@
-gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/task/task.c -o build/task.o
 gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/syscall/syscall.c -o build/syscall.o
-gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/timer.c -o build/timer.o
-ld -m elf_i386 -T linker.ld -o build/ai_os.bin --start-group build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o build/syscall.o build/elf.o build/initrd.o build/interrupts.o build/keyboard.o build/timer.o build/multiboot.o build/kernel.o --end-group
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/interrupts.c -o build/interrupts.o
+kernel/interrupts.c: In function ‘fault_handler_c’:
+kernel/interrupts.c:39:5: warning: implicit declaration of function ‘print_hex_serial’; did you mean ‘print_string_serial’? [-Wimplicit-function-declaration]
+   39 |     print_hex_serial(r->int_no);
+      |     ^~~~~~~~~~~~~~~~
+      |     print_string_serial
+kernel/interrupts.c: In function ‘pic_remap’:
+kernel/interrupts.c:66:23: warning: variable ‘a2’ set but not used [-Wunused-but-set-variable]
+   66 |     unsigned char a1, a2;
+      |                       ^~
+kernel/interrupts.c:66:19: warning: variable ‘a1’ set but not used [-Wunused-but-set-variable]
+   66 |     unsigned char a1, a2;
+      |                   ^~
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/keyboard.c -o build/keyboard.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/kernel.c -o build/kernel.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/input/kbd_buffer.c -o build/kbd_buffer.o
+ld -m elf_i386 -T linker.ld -o build/ai_os.bin --start-group build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o build/syscall.o build/elf.o build/initrd.o build/interrupts.o build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o --end-group
 ld: warning: build/gdt_asm.o: missing .note.GNU-stack section implies executable stack
 ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
 [mkinitrd] Création de l'initrd AI-OS v5.0...
 [mkinitrd] Packed executables into my_initrd.tar
-qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -nographic -serial stdio -no-reboot -no-shutdown -monitor none
-c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
-
-
-iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
-Press Ctrl-B to configure iPXE (PCI 00:03.0)...
-
-
-Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
-Systeme complet avec espace utilisateur
-
-Multiboot detecte correctement.
-Initialisation des interruptions...
-Initialisation du systeme d'interruptions...
-IRQ timer et clavier demmasques et actifs.
-Systeme d'interruptions initialise.
-Initialisation du clavier PS/2...
-KBD: Desactivation des ports PS/2...
-KBD: Vidage du buffer de sortie...
-KBD: Buffer vide.
-KBD: Configuration du controleur...
-KBD: Config actuelle: 0x71
-KBD: Nouvelle configuration appliquee.
-KBD: Activation du premier port...
-KBD: Reset du clavier...
-KBD: scancode=0xFA
-KBD: key release ignored
-KBD: scancode=0xAA
-KBD: key release ignored
-KBD: Timeout en attente de l'ACK.
-PS/2 Keyboard initialise et pret.
-Interruptions initialisees.
-Initialisation de la gestion memoire...
-Physical Memory Manager initialise.
-Virtual Memory Manager initialise.
-Initrd trouve ! Initialisation...
-Parsing initrd TAR archive...
-Initrd initialized: 9 files found
-Initialisation du systeme de taches...
-Tache kernel creee.
-Initialisation des appels systeme...
-Creation des taches kernel de demonstration... DESACTIVE
-Mode mono-tache pour stabilite maximale.
-PHASE 2: Timer reactive pour interruptions clavier...
-Timer reactive - Interruptions clavier fonctionnelles.
-Lancement du shell interactif AI-OS...
-Shell trouve ! Chargement...
-Shell trouve. Preparation du lancement...
-
-Lancement du Shell Utilisateur...
-create_user_vmm_directory: start
-ELF Loader: Starting...
-  - Segment: vaddr=0x0x3ffff000, memsz=0x0x000000f4, perms=R-
-  - Segment: vaddr=0x0x40000000, memsz=0x0x0000237e, perms=R-
-  - Segment: vaddr=0x0x40003000, memsz=0x0x00001f20, perms=R-
-  - Segment: vaddr=0x0x40005ff4, memsz=0x0x0000000c, perms=RW
-ELF loading complete. Entry point: 0x0x4000236e
-Allocating user stack...
-User stack allocated at 0x0xafff0000 - 0x0xb0000000
-User context setup complete. EIP=0x0x4000236e, ESP=0x0xb0000000
-Tache utilisateur creee avec succes
-Tache shell prete. Demarrage du timer...
-
-=== AI-OS v6.0 - Attente du premier changement de contexte ===
-Le planificateur va maintenant prendre le relais.
-ZJULES-TEST-OK
-[2J[H[36m═══════════════════════════════════════════════════════════
-[0m[1m    🤖 AI-OS v6.0 - Intelligence Artificielle Intégrée
-[0m[36m═══════════════════════════════════════════════════════════
-[0m[32m💻 Shell Avancé[0m | [35m🧠 IA Intelligente[0m | [33m⚡ Haute Performance
-[0m
-[34m[INFO] [0mTapez 'help' pour voir toutes les commandes disponibles
-[34m[INFO] [0mMode IA activé - Posez vos questions directement !
-
-[36m🚀 Initialisation du Shell IA...[0m... [32mTERMINÉ !
-
-[0m[32m[OK] [0mShell AI-OS v6.0 prêt à l'utilisation
-[34m[INFO] [0mMode IA activé - Intelligence artificielle intégrée
-[34m[INFO] [0mTapez 'help' pour découvrir toutes les fonctionnalités
-
-[36m┌─[[0m[1mAI-OS[0m[37m@[0m[33mv6.0[0m[36m][0m[35m 🧠[0m[36m
-└─$ [0mqemu-system-i386: terminating on signal 15 from pid 7234 (timeout)
+qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -m 256M -vga std -no-reboot -d int -rtc base=utc
+gtk initialization failed
+make: *** [Makefile:174: run-gui] Error 1

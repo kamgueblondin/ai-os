@@ -87,9 +87,9 @@ void pic_remap() {
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
     
-    // Restaure les masques
-    outb(0x21, a1);
-    outb(0xA1, a2);
+    // Autorise le timer (IRQ0) et le clavier (IRQ1)
+    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 démasquées
+    outb(0xA1, 0xFF);
 }
 
 // Fonction pour envoyer EOI (End of Interrupt)
@@ -179,13 +179,6 @@ void interrupts_init() {
     // Activer les interruptions sur le CPU
     asm volatile ("sti");
     
-    // NOUVEAU: Démasquer explicitement les IRQs pour s'assurer qu'ils fonctionnent
-    unsigned char mask = inb(0x21);
-    mask &= ~(1 << 0); // Démasquer IRQ0 (timer)
-    mask &= ~(1 << 1); // Démasquer IRQ1 (clavier)
-    outb(0x21, mask);
-    
-    print_string_serial("IRQ timer et clavier demmasques et actifs.\n");
     print_string_serial("Systeme d'interruptions initialise.\n");
 }
 
