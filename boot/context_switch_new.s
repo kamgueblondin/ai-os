@@ -9,7 +9,7 @@ global jump_to_task, switch_task
 jump_to_task:
     mov ebx, [esp + 4]  ; Pointeur vers next_state
 
-    ; Correct structure cpu_state_t (from task.h):
+    ; Structure cpu_state_t correcte (from task.h):
     ; edi:0, esi:4, ebp:8, esp_dummy:12, ebx:16, edx:20, ecx:24, eax:28
     ; gs:32, fs:36, es:40, ds:44
     ; eip:48, cs:52, eflags:56, useresp:60, ss:64
@@ -24,23 +24,23 @@ jump_to_task:
     mov ax, [ebx + 32]   ; gs
     mov gs, ax
 
-    ; Préparer la pile pour iret (ordre inverse)
+    ; Préparer la pile pour iret (ordre inverse: ss, esp, eflags, cs, eip)
     push dword [ebx + 64] ; ss
     push dword [ebx + 60] ; useresp
     push dword [ebx + 56] ; eflags
     push dword [ebx + 52] ; cs
     push dword [ebx + 48] ; eip
 
-    ; Charger les registres généraux
+    ; Charger les registres généraux (attention à l'ordre)
     mov edi, [ebx + 0]   ; edi
     mov esi, [ebx + 4]   ; esi
     mov ebp, [ebx + 8]   ; ebp
     mov edx, [ebx + 20]  ; edx
     mov ecx, [ebx + 24]  ; ecx
     mov eax, [ebx + 28]  ; eax
-    mov ebx, [ebx + 16]  ; ebx (charger en dernier)
+    mov ebx, [ebx + 16]  ; ebx (charger en dernier car on utilise ebx comme pointeur)
 
-    ; Saut vers le mode utilisateur
+    ; Saut vers le mode utilisateur ou kernel selon cs
     iret
 
 ; void switch_task(cpu_state_t* old_state, cpu_state_t* new_state)
