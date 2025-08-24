@@ -68,11 +68,32 @@ void schedule(cpu_state_t* cpu) {
         current_task->state = TASK_READY;
     }
 
-    // Chercher la prochaine tâche prête (au moins la tâche "idle" du noyau le sera)
+    // Chercher la prochaine tâche prête.
+    // C'est un simple ordonnanceur round-robin qui ignore les tâches en attente.
     task_t* next_task = current_task;
-    do {
+    while (1) {
         next_task = next_task->next;
-    } while (next_task->state != TASK_READY);
+
+        // Si la tâche est prête à s'exécuter, on la choisit.
+        if (next_task->state == TASK_READY) {
+            break;
+        }
+
+        // Si on a fait un tour complet et que personne n'est prêt,
+        // et que la tâche actuelle ne peut plus tourner, on choisit la tâche kernel (idle).
+        // Cela evite un blocage si toutes les taches sont en attente.
+        if (next_task == current_task) {
+            // Si la tache courante est en attente, on doit trouver une autre tache.
+            if (current_task->state != TASK_READY && current_task->state != TASK_RUNNING) {
+                 // On cherche la tache kernel (ID 0) comme dernier recours.
+                task_t* kernel_task = task_queue;
+                while(kernel_task->id != 0) kernel_task = kernel_task->next;
+                next_task = kernel_task;
+            }
+            // Si la tache courante est encore prete, on la laisse tourner.
+            break;
+        }
+    }
 
     current_task = next_task;
     current_task->state = TASK_RUNNING;

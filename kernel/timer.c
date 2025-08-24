@@ -5,6 +5,7 @@
 extern void outb(unsigned short port, unsigned char data);
 extern unsigned char inb(unsigned short port);
 extern void print_string_serial(const char* str);
+extern void pic_send_eoi(unsigned char irq);
 
 // Variables globales
 uint32_t timer_ticks = 0;
@@ -75,6 +76,9 @@ void timer_handler(cpu_state_t* cpu) {
             print_string_serial("Timer: Attente avant activation du scheduler...\n");
         }
     }
+
+    // Envoyer le signal End-of-Interrupt (EOI) au PIC
+    pic_send_eoi(0);
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)
