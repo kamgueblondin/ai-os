@@ -96,6 +96,10 @@ void sys_gets(char* buffer, uint32_t size) {
 // ==============================================================================
 
 void syscall_handler(cpu_state_t* cpu) {
+    // Réactive les interruptions pour permettre au clavier de fonctionner
+    // même si un processus est bloqué dans un `sys_gets`.
+    asm volatile("sti");
+
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
         case SYS_EXIT:
