@@ -69,8 +69,10 @@ void keyboard_interrupt_handler() {
     print_string_serial(hex);
     print_string_serial("\n");
     
-    // Convertir scancode en ASCII et stocker dans le buffer
-    // Uniquement si keydown (scancode < 0x80)
+    // Ajouter le scancode au buffer pour les syscalls
+    kbd_push_scancode(scancode);
+    
+    // Aussi convertir en ASCII et stocker dans le buffer local pour compatibilité
     if (!(scancode & 0x80)) {
         char c = scancode_to_ascii(scancode);
         if (c) {
