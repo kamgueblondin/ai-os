@@ -1,14 +1,13 @@
 #include "keyboard.h"
 #include "kernel.h"
 #include <stdint.h>
+#include "input/kbd_buffer.h"
 
-// Déclaration de fonctions définies ailleurs
-extern void print_char_vga(char c, int x, int y, char color); // Depuis kernel.c
-extern void write_serial(char c); // Depuis kernel.c
+// Fonctions externes pour les ports I/O et autres
+extern unsigned char inb(unsigned short port);
+extern void print_char_vga(char c, int x, int y, char color);
+extern void write_serial(char c);
 extern int vga_x, vga_y;
-extern void pic_send_eoi(unsigned char irq);
-// MODIFIÉ : On appelle une nouvelle fonction plus simple
-extern void keyboard_add_char_to_buffer(char c); // Depuis syscall.c
 
 // Table de correspondance complète Scancode -> ASCII (pour un clavier US QWERTY)
 // ... (le reste de la table est inchangé)
@@ -32,32 +31,23 @@ const char scancode_map[128] = {
 };
 
 
-// Le handler appelé par l'ISR
+// Le handler appelé par l'ISR.
+// La routine commune dans interrupts.c s'occupe de l'EOI.
 void keyboard_interrupt_handler() {
-    unsigned char scancode = inb(0x60); // Lit le scancode
+    uint8_t scancode = inb(0x60); // Lit le scancode
+    kbd_push_scancode(scancode); // Pousse le scancode brut dans le buffer
+}
 
-    // Ignorer les codes de relâchement (bit 7 = 1)
+char scancode_to_ascii(uint8_t scancode) {
+    // On ne gère pas les majuscules ou les modificateurs ici, pour rester simple.
+    // On ignore les codes de relâchement de touche.
     if (scancode & 0x80) {
-        pic_send_eoi(1);
-        return;
+        return 0;
     }
-
-    // Vérifier que le scancode est dans la plage valide
     if (scancode >= 128) {
-        pic_send_eoi(1);
-        return;
+        return 0;
     }
-
-    // Obtenir le caractère correspondant
-    char c = scancode_map[scancode];
-    
-    if (c != 0) {
-        // NOUVEAU : On se contente d'ajouter le caractère au buffer
-        keyboard_add_char_to_buffer(c);
-    }
-    
-    // Envoie EOI au PIC
-    pic_send_eoi(1);
+    return scancode_map[scancode];
 }
 
 

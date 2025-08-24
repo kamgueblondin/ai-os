@@ -63,8 +63,9 @@ context_switch_with_ring_transition:
     push esp                 ; ESP
     pushfd                   ; EFLAGS
     pop ecx
-    or ecx, 0x200           ; Enable interrupts
-    push ecx                ; EFLAGS
+    or ecx, 0x200           ; Enable interrupts (IF=1)
+    and ecx, ~0x40000       ; (optionnel) clear NT bit par sécurité
+    push ecx                ; EFLAGS with IF=1
     push USER_CODE_SELECTOR ; CS
     push ebx                ; EIP
     
