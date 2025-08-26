@@ -62,33 +62,46 @@ typedef struct {
 // APPELS SYSTÈME ET UTILITAIRES DE BASE
 // ==============================================================================
 
-// Wrappers pour les appels système
-void putc(char c) { 
-    asm volatile("int $0x80" : : "a"(1), "b"(c)); 
+// Syscall numbers must match the kernel's syscall.h
+#define SYS_EXIT  0
+#define SYS_PUTC  1
+#define SYS_PUTS  2
+#define SYS_READ  3
+#define SYS_EXEC  4
+#define SYS_YIELD 5
+
+// Wrappers for system calls
+void exit_program(int code) {
+    asm volatile("int $0x80" : : "a"(SYS_EXIT), "b"(code));
 }
 
-void exit_program(int code) { 
-    asm volatile("int $0x80" : : "a"(0), "b"(code)); 
+void putc(char c) {
+    asm volatile("int $0x80" : : "a"(SYS_PUTC), "b"(c));
 }
 
-void gets(char* buffer, int size) { 
-    asm volatile("int $0x80" : : "a"(5), "b"(buffer), "c"(size)); 
+void puts(const char* s) {
+    asm volatile("int $0x80" : : "a"(SYS_PUTS), "b"(s));
 }
 
-int sys_getchar(void) {
-    int c;
-    asm volatile("int $0x80" : "=a"(c) : "a"(2));
-    return c;
+long read(int fd, void* buf, unsigned long len) {
+    long ret;
+    asm volatile(
+        "int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_READ), "b"(fd), "c"(buf), "d"(len)
+        : "memory"
+    );
+    return ret;
 }
 
 int exec(const char* path, char* argv[]) {
     int result;
-    asm volatile("int $0x80" : "=a"(result) : "a"(6), "b"(path), "c"(argv));
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_EXEC), "b"(path), "c"(argv));
     return result;
 }
 
 void yield() {
-    asm volatile("int $0x80" : : "a"(4));
+    asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
 
 // ==============================================================================
@@ -801,71 +814,50 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     }
 }
 
-void shell_main_loop(shell_context_t* ctx) {
-    char buf[MAX_COMMAND_LENGTH];
-    int idx;
+// A much simpler, more robust input loop based on the prompt's suggestion.
+// This sacrifices advanced features for basic functionality and correctness.
 
-    while (1) {
-        display_prompt(ctx);
-        idx = 0;
-        buf[0] = '\0';
+void getline_blocking(char* buf, unsigned long max_len) {
+    unsigned long n = 0;
+    while (n + 1 < max_len) {
+        long r = read(0, &buf[n], 1); // Read one character at a time
 
-        for(;;){
-            int c = sys_getchar();
-            if (c == '\r' || c == '\n'){
-                putc('\n');
-                handle_line(ctx, buf);
-                break; // sort de la boucle for(;;) pour ré-afficher le prompt
+        if (r <= 0) { // Error or nothing read
+            yield(); // Avoid spinning
+            continue;
+        }
+
+        char c = buf[n];
+
+        if (c == '\b' || c == 127) { // Handle backspace
+            if (n > 0) {
+                n--;
+                puts("\b \b"); // Erase character on screen
             }
-            if (c == 0x08 || c == 127){ // Backspace
-                if (idx > 0){
-                    idx--;
-                    buf[idx] = '\0';
-                    backspace();
-                }
-                continue;
-            }
-            if (idx < (int)sizeof(buf) - 1){
-                buf[idx++] = (char)c;
-                buf[idx] = '\0';
-                putc((char)c);
-            }
+        } else if (c == '\r' || c == '\n') {
+            putc('\n');
+            break; // End of line
+        } else if (c >= ' ' && c <= '~') {
+            putc(c); // Echo character
+            n++;
         }
     }
+    buf[n] = '\0'; // Null-terminate the string
 }
 
-// ==============================================================================
-// POINT D'ENTRÉE PRINCIPAL
-// ==============================================================================
 
 void main() {
-    shell_context_t shell_ctx;
-    
-    // Initialiser le contexte du shell
-    init_shell_context(&shell_ctx);
-    
-    // Affichage de bienvenue moderne
-    cmd_clear(&shell_ctx, NULL, 0);
-    
-    print_colored("🚀 Initialisation du Shell IA...", COLOR_CYAN);
-    
-    // Simulation d'initialisation progressive
-    for (int i = 0; i < 3; i++) {
-        for (volatile int j = 0; j < 10000000; j++); // Délai
-        print_string(".");
+    puts("AI-OS Shell v1.0\n");
+    char line[256];
+
+    while(1) {
+        puts("ai-os> ");
+        getline_blocking(line, sizeof(line));
+
+        // For now, just echo the command back.
+        // A real shell would parse and execute it.
+        puts("Command received: '");
+        puts(line);
+        puts("'\n");
     }
-    print_string(" ");
-    print_colored("TERMINÉ !\n\n", COLOR_GREEN);
-    
-    print_success("Shell AI-OS v6.0 prêt à l'utilisation");
-    print_info("Mode IA activé - Intelligence artificielle intégrée");
-    print_info("Tapez 'help' pour découvrir toutes les fonctionnalités");
-    
-    print_string("\n");
-    
-    // Démarrer la boucle principale
-    shell_main_loop(&shell_ctx);
-    
-    // Ne devrait jamais être atteint
-    exit_program(0);
 }

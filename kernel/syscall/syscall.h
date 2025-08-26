@@ -2,42 +2,30 @@
 #define SYSCALL_H
 
 #include <stdint.h>
-#include "../task/task.h"
+#include "../task/task.h" // For cpu_state_t, if needed by handler signature
 
-// Numéros des appels système
-#define SYS_EXIT    0
-#define SYS_PUTC    1
-#define SYS_GETC    2
-#define SYS_PUTS    3
-#define SYS_YIELD   4
-#define SYS_GETS    5  // Nouveau: Lire une ligne depuis le clavier
-#define SYS_EXEC    6  // Nouveau: Exécuter un programme
+// System call numbers based on the new, cleaner design.
+// This follows standard conventions (e.g., POSIX-like).
+typedef enum {
+  SYS_EXIT  = 0,
+  SYS_PUTC  = 1, // Retaining for simplicity
+  SYS_PUTS  = 2,
+  SYS_READ  = 3, // New standard read syscall
+  SYS_EXEC  = 4,
+  SYS_YIELD = 5,
+} sysno_t;
 
-// Nombre total d'appels système
-#define MAX_SYSCALLS 7
+// Structure for CPU state passed to the syscall handler
+// This should be defined in a header included by this one, like task.h
+// Ensure cpu_state_t is defined.
 
-// Structure pour passer les paramètres des syscalls
-typedef struct {
-    uint32_t eax, ebx, ecx, edx, esi, edi;
-} syscall_params_t;
-
-// Fonctions publiques
-void syscall_init();
+// Public kernel-side functions
+void syscall_init(void);
 void syscall_handler(cpu_state_t* cpu);
 
-// Fonctions utilitaires pour les syscalls existants
-void sys_exit(uint32_t exit_code);
-void sys_putc(char c);
-char sys_getc();
-void sys_puts(const char* str);
-void sys_yield();
-
-// Nouveaux appels système
-void sys_gets(char* buffer, uint32_t size);
+// Kernel-side implementations of the syscalls
+// These are called by the main syscall_handler
+long sys_read(int fd, void* ubuf, unsigned long len);
 int sys_exec(const char* path, char* argv[]);
 
-// Ajoute un caractère au buffer d'entrée global du clavier.
-void keyboard_add_char_to_buffer(char c);
-
-#endif
-
+#endif // SYSCALL_H
