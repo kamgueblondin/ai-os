@@ -3,7 +3,6 @@
 #include "isr.h"
 #include "io.h"
 #include "spinlock.h"
-#include "debug_serial.h"
 
 #define KBD_DATA 0x60
 #define BUF_SZ   1024
@@ -49,25 +48,18 @@ static int is_break_code(uint8_t scancode) {
 }
 
 void keyboard_interrupt_handler(void) {
-    serial_puts("[K]");
-    uint8_t sc = inb(0x60);
-    serial_putc_direct(' ');
-    serial_puthex32(sc);
-    serial_putc_direct('\n');
+    uint8_t scancode = inb(KBD_DATA);
 
-    if (!is_break_code(sc)) {
-        uint8_t code = sc & 0x7F;
+    if (!is_break_code(scancode)) {
+        uint8_t code = scancode & 0x7F;
         if (code < 128) {
             char ch = scancode_set1[code];
             if (ch) {
                 rb_push(ch);
-                serial_putc_direct('>');
-                serial_putc_direct(ch);
-                serial_putc_direct('\n');
             }
         }
     }
-    outb(0x20, 0x20);
+    outb(0x20, 0x20); // Send EOI
 }
 
 static void keyboard_wait_for_input() {

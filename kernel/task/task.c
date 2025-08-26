@@ -241,11 +241,14 @@ vmm_directory_t* create_user_vmm_directory() {
     memset(dir->physical_dir, 0, sizeof(page_directory_t));
     dir->physical_addr = (uint32_t)dir->physical_dir;
 
-    // Per user suggestion, ensure kernel higher-half is mapped in user space.
-    // This allows interrupt handlers and other kernel code to be accessed.
-    #define KERNEL_PDE_START 768 // Assuming 3G/1G split (kernel at 0xC0000000)
-    for (int i = KERNEL_PDE_START; i < 1024; i++) {
-        dir->physical_dir->tablesPhysical[i] = kernel_directory->physical_dir->tablesPhysical[i];
+    // Clone kernel space by copying all of its page directory entries.
+    // This is crucial so that when an interrupt/syscall occurs in user mode,
+    // the kernel's code and data are still mapped and accessible.
+    for (int i = 0; i < 1024; i++) {
+         if (kernel_directory->tables[i]) {
+            dir->tables[i] = kernel_directory->tables[i];
+            dir->physical_dir->tablesPhysical[i] = kernel_directory->physical_dir->tablesPhysical[i];
+        }
     }
     return dir;
 }
