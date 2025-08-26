@@ -27,7 +27,12 @@ jump_to_task:
     ; Préparer la pile pour iret (ordre inverse: ss, esp, eflags, cs, eip)
     push dword [ebx + 64] ; ss
     push dword [ebx + 60] ; useresp
-    push dword [ebx + 56] ; eflags
+
+    ; Charger eflags et activer les interruptions (IF = bit 9)
+    mov eax, [ebx + 56]
+    or eax, 0x200
+    push eax              ; eflags with IF=1
+
     push dword [ebx + 52] ; cs
     push dword [ebx + 48] ; eip
 
