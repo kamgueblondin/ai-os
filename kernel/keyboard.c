@@ -3,6 +3,12 @@
 #include "isr.h"
 #include "io.h"
 #include "spinlock.h"
+#include <stdint.h>
+
+/* Prototypes for the serial functions already present in the tree.
+   We declare them here to avoid implicit declaration warnings. */
+void print_string_serial(const char *s);
+void print_hex_serial(uint32_t v);
 
 #define KBD_DATA 0x60
 #define BUF_SZ   1024
@@ -48,18 +54,29 @@ static int is_break_code(uint8_t scancode) {
 }
 
 void keyboard_interrupt_handler(void) {
-    uint8_t scancode = inb(KBD_DATA);
+    /* Debug: print a marker and the scancode we just read */
+    print_string_serial("[K]");
+    uint8_t sc = inb(0x60);
+    print_string_serial(" sc=");
+    print_hex_serial((uint32_t)sc);
+    print_string_serial("\n");
 
-    if (!is_break_code(scancode)) {
-        uint8_t code = scancode & 0x7F;
-        if (code < 128) {
-            char ch = scancode_set1[code];
-            if (ch) {
-                rb_push(ch);
+    /* If key down (high bit clear) push to ring buffer and notify */
+    if(!(sc & 0x80)){
+        char ch = scancode_set1[sc & 0x7F];
+        if(ch){
+            rb_push(ch);
+            print_string_serial(">"); /* show pushed char */
+            if((unsigned char)ch >= 0x20 && (unsigned char)ch < 0x7F){
+                char s[2] = { ch, 0 };
+                print_string_serial(s);
+            } else {
+                print_hex_serial((uint32_t)ch);
             }
+            print_string_serial("\n");
         }
     }
-    outb(0x20, 0x20); // Send EOI
+    outb(0x20, 0x20); // EOI
 }
 
 static void keyboard_wait_for_input() {

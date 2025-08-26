@@ -383,6 +383,24 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     print_string("Interruptions et clavier initialises.\n");
 
+    // -- BEGIN DIAGNOSTIC LOGS --
+    uint8_t master = inb(0x21);
+    uint8_t slave  = inb(0xA1);
+    print_string_serial("PIC M:");
+    print_hex_serial(master);
+    print_string_serial(" S:");
+    print_hex_serial(slave);
+    print_string_serial("\n");
+
+    if(master & (1 << 1)){
+        print_string_serial("Unmasking IRQ1\n");
+        master &= ~(1 << 1);
+        outb(0x21, master);
+    } else {
+        print_string_serial("IRQ1 already unmasked\n");
+    }
+    // -- END DIAGNOSTIC LOGS --
+
     // Initialiser la gestion de la mémoire
     print_string("Initialisation de la gestion memoire...\n");
     uint32_t memory_size = multiboot_get_memory_size(mbi);
