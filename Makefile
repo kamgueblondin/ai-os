@@ -25,7 +25,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
-          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o
+          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/debug_serial.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) pack-initrd
@@ -70,6 +70,10 @@ build/timer.o: kernel/timer.c kernel/timer.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/multiboot.o: kernel/multiboot.c kernel/multiboot.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/debug_serial.o: kernel/debug_serial.c kernel/debug_serial.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

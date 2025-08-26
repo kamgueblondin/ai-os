@@ -10,12 +10,43 @@
 #include "elf.h"
 #include "../fs/initrd.h"
 #include "keyboard.h"
+#include "debug_serial.h"
+#include "io.h"
 #include <stddef.h>
 
-// Function to read a byte from a port
-unsigned char inb(unsigned short port);
-// Function to write a byte to a port
-void outb(unsigned short port, unsigned char data);
+// --- BEGIN DIAGNOSTIC FUNCTIONS ---
+void dump_pic_masks_and_unmask_irq1(void){
+    uint8_t master = inb(0x21);
+    uint8_t slave  = inb(0xA1);
+    serial_puts("PIC M:");
+    serial_puthex32(master);
+    serial_puts(" S:");
+    serial_puthex32(slave);
+    serial_putc_direct('\n');
+
+    if(master & (1 << 1)){
+        serial_puts("Unmasking IRQ1\n");
+        master &= ~(1 << 1);
+        outb(0x21, master);
+    } else {
+        serial_puts("IRQ1 already unmasked\n");
+    }
+}
+
+extern struct idt_entry idt[];
+
+void dump_idt_for_keyboard(void){
+    unsigned vec = 33; // IRQ1 is remapped to INT 33
+    struct idt_entry *e = &idt[vec];
+    uint32_t off = ((uint32_t)e->base_high << 16) | e->base_low;
+    serial_puts("IDT_VEC:");
+    serial_puthex32(vec);
+    serial_puts(" -> ");
+    serial_puthex32(off);
+    serial_putc_direct('\n');
+}
+// --- END DIAGNOSTIC FUNCTIONS ---
+
 // Function to print string to serial port (forward declaration)
 void print_string_serial(const char* str);
 
@@ -383,6 +414,11 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
     print_string("Interruptions et clavier initialises.\n");
 
+    // -- BEGIN DIAGNOSTIC CALLS --
+    dump_pic_masks_and_unmask_irq1();
+    dump_idt_for_keyboard();
+    // -- END DIAGNOSTIC CALLS --
+
     // Initialiser la gestion de la mémoire
     print_string("Initialisation de la gestion memoire...\n");
     uint32_t memory_size = multiboot_get_memory_size(mbi);
@@ -477,4 +513,3 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         asm volatile("hlt");
     }
 }
-
