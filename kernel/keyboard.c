@@ -4,10 +4,6 @@
 #include "io.h"
 #include "spinlock.h"
 
-// Forward declarations for logging functions from kernel.c
-void print_string_serial(const char* str);
-
-// From the new implementation
 #define KBD_DATA 0x60
 #define BUF_SZ   1024
 
@@ -15,7 +11,6 @@ static volatile char rb[BUF_SZ];
 static volatile int rhead = 0, rtail = 0;
 static spinlock_t rb_lock = 0;
 
-// Corrected Scancode set 1 for US QWERTY layout. Total 128 elements.
 static const char scancode_set1[128] = {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',       // 0x00 - 0x0F
     'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',    // 0x10 - 0x1F
@@ -27,8 +22,6 @@ static const char scancode_set1[128] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  // 0x70 - 0x7F
 };
 
-
-// --- New Buffer Logic ---
 static inline void rb_push(char c) {
     spin_lock(&rb_lock);
     int next_head = (rhead + 1) % BUF_SZ;
@@ -50,7 +43,6 @@ int kbd_pop_char(void) {
     return c;
 }
 
-// --- New IRQ Handler ---
 static int is_break_code(uint8_t scancode) {
     return scancode & 0x80;
 }
@@ -67,11 +59,8 @@ void keyboard_interrupt_handler(void) {
             }
         }
     }
-    // EOI is sent by the assembly stub (irq1).
 }
 
-
-// --- PS/2 Controller Initialization ---
 static void keyboard_wait_for_input() {
     int retries = 100000;
     while (retries-- > 0 && (inb(0x64) & 1) == 0);
@@ -97,34 +86,20 @@ static uint8_t keyboard_read_data() {
     return inb(0x60);
 }
 
-// --- Combined Initialization ---
 void keyboard_init(void) {
-    // 1. Hardware initialization for the PS/2 controller
-    keyboard_send_command(0xAD); // Disable first PS/2 port
-    keyboard_send_command(0xA7); // Disable second PS/2 port
-
-    // Flush output buffer
-    while (inb(0x64) & 1) {
-        inb(0x60);
-    }
-
-    // Set controller configuration byte
-    keyboard_send_command(0x20); // Read config byte
+    keyboard_send_command(0xAD);
+    keyboard_send_command(0xA7);
+    while (inb(0x64) & 1) { inb(0x60); }
+    keyboard_send_command(0x20);
     uint8_t config = keyboard_read_data();
-    config |= 1;     // Enable interrupt for port 1
-    config &= ~0x10; // Disable PS2 port 2 clock
-    config &= ~0x40; // Disable translation
-    keyboard_send_command(0x60); // Write config byte
+    config |= 1;
+    config &= ~0x10;
+    config &= ~0x40;
+    keyboard_send_command(0x60);
     keyboard_send_data(config);
-
-    // Enable device
-    keyboard_send_command(0xAE); // Enable first PS/2 port
-
-    // Reset device
+    keyboard_send_command(0xAE);
     keyboard_send_data(0xFF);
-    keyboard_read_data(); // Wait for ACK
-
-    // 2. Software initialization for the interrupt handler
+    keyboard_read_data();
     isr_register_irq(1, keyboard_interrupt_handler);
     pic_unmask(1);
 }
