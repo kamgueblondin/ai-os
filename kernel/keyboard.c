@@ -4,6 +4,9 @@
 #include "io.h"
 #include "spinlock.h"
 
+// Forward declarations for logging functions from kernel.c
+void print_string_serial(const char* str);
+
 // From the new implementation
 #define KBD_DATA 0x60
 #define BUF_SZ   1024
@@ -12,17 +15,18 @@ static volatile char rb[BUF_SZ];
 static volatile int rhead = 0, rtail = 0;
 static spinlock_t rb_lock = 0;
 
-// Scancode set 1 for US QWERTY layout.
+// Corrected Scancode set 1 for US QWERTY layout. Total 128 elements.
 static const char scancode_set1[128] = {
-    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',
-    'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
-    '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',       // 0x00 - 0x0F
+    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',    // 0x10 - 0x1F
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',   // 0x20 - 0x2F
+    'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,                   // 0x30 - 0x3F
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0x40 - 0x4F
+    0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1', // 0x50 - 0x5F
+    '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0x60 - 0x6F
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  // 0x70 - 0x7F
 };
+
 
 // --- New Buffer Logic ---
 static inline void rb_push(char c) {
@@ -53,6 +57,7 @@ static int is_break_code(uint8_t scancode) {
 
 void keyboard_interrupt_handler(void) {
     uint8_t scancode = inb(KBD_DATA);
+
     if (!is_break_code(scancode)) {
         uint8_t code = scancode & 0x7F;
         if (code < 128) {
@@ -62,11 +67,11 @@ void keyboard_interrupt_handler(void) {
             }
         }
     }
-    // EOI is sent by the assembly stub (irq1), so it's removed from here.
+    // EOI is sent by the assembly stub (irq1).
 }
 
 
-// --- PS/2 Controller Initialization (restored from original file) ---
+// --- PS/2 Controller Initialization ---
 static void keyboard_wait_for_input() {
     int retries = 100000;
     while (retries-- > 0 && (inb(0x64) & 1) == 0);
