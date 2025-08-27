@@ -9,86 +9,41 @@ extern void print_char_vga(char c, int x, int y, char color);
 extern void write_serial(char c);
 extern int vga_x, vga_y;
 
-// Buffer clavier stable avec protection anti-spam
+// Buffer clavier simple et efficace
 #define KBD_BUF_SIZE 256
-static volatile unsigned char kbd_buf[KBD_BUF_SIZE];
+static volatile char kbd_buffer[KBD_BUF_SIZE];
 static volatile unsigned int kbd_head = 0;
 static volatile unsigned int kbd_tail = 0;
 
-// Système de contrôle de qualité des caractères
+// Statistiques simples
 static volatile int interrupt_count = 0;
-static volatile int valid_chars_received = 0;
-static volatile int spam_protection_counter = 0;
-static volatile int polling_active = 0;
-static volatile uint8_t last_scancode = 0;
-static volatile int duplicate_protection = 0;
+static volatile int chars_processed = 0;
 
-// Délais optimisés
-void stable_delay() {
-    for (volatile int i = 0; i < 500; i++);
-}
-
-void long_delay() {
-    for (volatile int i = 0; i < 10000; i++);
+// Délai basique
+void kbd_delay() {
+    for (volatile int i = 0; i < 1000; i++);
 }
 
 // Attendre que le contrôleur soit prêt
-int wait_controller_ready(int for_command) {
-    int timeout = 5000;
+int wait_keyboard_ready(int for_command) {
+    int timeout = 10000;
     uint8_t status;
     
     while (timeout-- > 0) {
         status = inb(0x64);
         if (for_command) {
-            if (!(status & 0x02)) return 1; // Prêt pour commande
+            if (!(status & 0x02)) return 1; // Input buffer empty, ready for command
         } else {
-            if (status & 0x01) return 1;    // Données disponibles
+            if (status & 0x01) return 1;    // Output buffer full, data available
         }
-        stable_delay();
+        kbd_delay();
     }
     return 0;
 }
 
-// Buffer management avec protection anti-spam
-void kbd_put_filtered(char c) {
-    // Protection anti-spam: ignorer les caractères trop rapides
-    spam_protection_counter++;
-    if (spam_protection_counter > 1000) {
-        spam_protection_counter = 0;
-        return; // Skip ce caractère pour éviter le spam
-    }
-    
-    // Protection anti-doublons
-    static char last_char = 0;
-    if (c == last_char && c != '\n' && c != ' ') {
-        duplicate_protection++;
-        if (duplicate_protection < 3) return; // Skip les doublons rapides
-    } else {
-        duplicate_protection = 0;
-    }
-    last_char = c;
-    
-    unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
-    if (next != kbd_tail) {
-        kbd_buf[kbd_head] = c;
-        kbd_head = next;
-        valid_chars_received++;
-    }
-}
-
-int kbd_get_stable(char *out) {
-    if (kbd_head == kbd_tail) {
-        return 0; // Vide
-    }
-    
-    *out = kbd_buf[kbd_tail];
-    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
-    return 1;
-}
-
-// Table scancode stable et vérifiée
-const char stable_scancode_map[128] = {
-    0, 27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
+// Table de conversion scancode simple et vérifiée
+static const char scancode_to_char[128] = {
+    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
     'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',
     'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',
     'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
@@ -98,315 +53,253 @@ const char stable_scancode_map[128] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-char stable_scancode_to_ascii(uint8_t scancode) {
-    if (scancode >= 128) return 0;
-    return stable_scancode_map[scancode];
-}
-
-// Polling contrôlé (beaucoup moins agressif)
-void controlled_keyboard_poll() {
-    static int poll_counter = 0;
-    poll_counter++;
+// Buffer management simple
+void kbd_put_char(char c) {
+    if (c == 0) return; // Ignorer les caractères nuls
     
-    // Polling très espacé si les interruptions marchent
-    if (interrupt_count > 0) {
-        if (poll_counter % 50000 != 0) return; // Très peu fréquent
-    } else {
-        if (poll_counter % 5000 != 0) return; // Modérément fréquent
-    }
-    
-    uint8_t status = inb(0x64);
-    if (!(status & 0x01)) return; // Pas de données
-    
-    uint8_t scancode = inb(0x60);
-    
-    // Protection contre les répétitions de scancode
-    if (scancode == last_scancode) {
-        return; // Ignorer les répétitions immédiates
-    }
-    last_scancode = scancode;
-    
-    // Filtrer les codes de contrôle
-    if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
-        return;
-    }
-    
-    // Seulement les key presses (pas les releases)
-    if (!(scancode & 0x80)) {
-        char c = stable_scancode_to_ascii(scancode);
-        if (c != 0) {
-            polling_active = 1;
-            kbd_put_filtered(c);
-            
-            // Debug limité
-            if (valid_chars_received <= 3) {
-                print_string_serial("POLL: '");
-                write_serial(c);
-                print_string_serial("'\n");
-            }
-        }
+    unsigned int next_head = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
+    if (next_head != kbd_tail) {
+        kbd_buffer[kbd_head] = c;
+        kbd_head = next_head;
+        chars_processed++;
     }
 }
 
-// Handler d'interruption stable
+int kbd_get_char(char *c) {
+    if (kbd_head == kbd_tail) {
+        return 0; // Buffer vide
+    }
+    
+    *c = kbd_buffer[kbd_tail];
+    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
+    return 1;
+}
+
+// Handler d'interruption simple et efficace
 void keyboard_interrupt_handler() {
     interrupt_count++;
     
-    if (interrupt_count <= 2) {
-        print_string_serial("KBD_IRQ: #");
-        write_serial('0' + (interrupt_count % 10));
-        print_string_serial("\n");
+    // Lire le status du contrôleur
+    uint8_t status = inb(0x64);
+    if (!(status & 0x01)) {
+        return; // Pas de données disponibles
     }
     
-    uint8_t status = inb(0x64);
-    if (!(status & 0x01)) return;
-    
+    // Lire le scancode
     uint8_t scancode = inb(0x60);
     
-    // Protection contre les répétitions
-    if (scancode == last_scancode) {
-        return;
-    }
-    last_scancode = scancode;
-    
-    // Debug limité
-    if (interrupt_count <= 5) {
-        print_string_serial("IRQ_SCAN: 0x");
+    // Debug limité (seulement les 3 premières)
+    if (interrupt_count <= 3) {
+        print_string_serial("KBD_IRQ: scancode=0x");
         char hex[] = "0123456789ABCDEF";
-        write_serial(hex[scancode >> 4]);
+        write_serial(hex[(scancode >> 4) & 0xF]);
         write_serial(hex[scancode & 0xF]);
         print_string_serial("\n");
     }
     
-    // Filtrer les codes de contrôle
-    if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
-        return;
+    // Filtrer les codes de contrôle et les ACK
+    if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA || scancode == 0xFC) {
+        return; // Ignorer les codes de contrôle
     }
     
-    // Seulement les key presses
+    // Seulement traiter les key press (pas les releases)
     if (!(scancode & 0x80)) {
-        char c = stable_scancode_to_ascii(scancode);
+        char c = scancode_to_char[scancode & 0x7F];
         if (c != 0) {
-            kbd_put_filtered(c);
+            kbd_put_char(c);
+            
+            // Debug limité
+            if (chars_processed <= 5) {
+                print_string_serial("KBD: char='");
+                write_serial(c);
+                print_string_serial("'\n");
+            }
         }
     }
 }
 
-// Initialisation simplifiée et stable
+// Initialisation clavier simplifiée
 void keyboard_init() {
-    print_string_serial("=== KEYBOARD STABLE INIT ===\n");
+    print_string_serial("=== KEYBOARD CLEAN INIT ===\n");
     
-    // Reset variables
+    // Reset des variables
     interrupt_count = 0;
-    valid_chars_received = 0;
-    spam_protection_counter = 0;
-    polling_active = 0;
+    chars_processed = 0;
     kbd_head = 0;
     kbd_tail = 0;
-    last_scancode = 0;
-    duplicate_protection = 0;
     
-    // Nettoyage initial simple
+    // Nettoyer le buffer du contrôleur
     int flush_count = 0;
-    while ((inb(0x64) & 1) && flush_count < 20) {
-        inb(0x60);
+    while ((inb(0x64) & 1) && flush_count < 16) {
+        inb(0x60); // Vider les données en attente
         flush_count++;
-        stable_delay();
+        kbd_delay();
     }
+    print_string_serial("KBD: Buffer nettoyé\n");
     
-    // Configuration minimale mais efficace
-    print_string_serial("KBD: Configuration de base...\n");
-    
+    // Configuration basique du contrôleur
     // Désactiver les ports temporairement
-    if (wait_controller_ready(1)) {
-        outb(0x64, 0xAD); // Disable port 1
-        stable_delay();
+    if (wait_keyboard_ready(1)) {
+        outb(0x64, 0xAD); // Désactiver port 1
+        kbd_delay();
     }
     
-    // Nettoyer après désactivation
+    if (wait_keyboard_ready(1)) {
+        outb(0x64, 0xA7); // Désactiver port 2 (souris)
+        kbd_delay();
+    }
+    
+    // Vider encore après désactivation
     flush_count = 0;
-    while ((inb(0x64) & 1) && flush_count < 10) {
+    while ((inb(0x64) & 1) && flush_count < 8) {
         inb(0x60);
         flush_count++;
-        stable_delay();
+        kbd_delay();
     }
     
-    // Configuration du contrôleur
-    if (wait_controller_ready(1)) {
-        outb(0x64, 0x20); // Read config
-        stable_delay();
+    // Lire et modifier la configuration
+    if (wait_keyboard_ready(1)) {
+        outb(0x64, 0x20); // Lire configuration byte
+        kbd_delay();
         
-        if (wait_controller_ready(0)) {
+        if (wait_keyboard_ready(0)) {
             uint8_t config = inb(0x60);
-            stable_delay();
+            kbd_delay();
             
-            // Configuration stable
+            // Configuration simple : activer interruption port 1, désactiver port 2
             config |= 0x01;  // Enable interrupt port 1
+            config &= ~0x02; // Disable interrupt port 2
             config &= ~0x10; // Enable clock port 1
-            config &= ~0x40; // No translation
+            config |= 0x20;  // Disable clock port 2
             
-            if (wait_controller_ready(1)) {
-                outb(0x64, 0x60); // Write config
-                stable_delay();
+            if (wait_keyboard_ready(1)) {
+                outb(0x64, 0x60); // Écrire configuration
+                kbd_delay();
                 
-                if (wait_controller_ready(1)) {
+                if (wait_keyboard_ready(1)) {
                     outb(0x60, config);
-                    stable_delay();
+                    kbd_delay();
                 }
             }
         }
     }
     
-    // Test optionnel du contrôleur
-    if (wait_controller_ready(1)) {
-        outb(0x64, 0xAA); // Self-test
-        stable_delay();
-        
-        if (wait_controller_ready(0)) {
-            uint8_t result = inb(0x60);
-            if (result == 0x55) {
-                print_string_serial("KBD: Contrôleur OK\n");
-            }
-            stable_delay();
-        }
+    // Réactiver le port clavier
+    if (wait_keyboard_ready(1)) {
+        outb(0x64, 0xAE); // Activer port 1
+        kbd_delay();
     }
     
-    // Réactiver le port
-    if (wait_controller_ready(1)) {
-        outb(0x64, 0xAE); // Enable port 1
-        stable_delay();
-    }
-    
-    // Configuration périphérique simple
-    if (wait_controller_ready(1)) {
+    // Activer le scanning du clavier
+    if (wait_keyboard_ready(1)) {
         outb(0x60, 0xF4); // Enable scanning
-        stable_delay();
+        kbd_delay();
         
-        // Attendre ACK éventuel
-        int ack_wait = 1000;
+        // Attendre l'ACK
+        int ack_wait = 5000;
         while (ack_wait-- > 0) {
             if (inb(0x64) & 1) {
                 uint8_t response = inb(0x60);
                 if (response == 0xFA) {
-                    print_string_serial("KBD: Scanning activé\n");
+                    print_string_serial("KBD: Scanning activé (ACK reçu)\n");
                     break;
                 }
             }
-            stable_delay();
+            kbd_delay();
         }
     }
     
-    // Pause de stabilisation
-    long_delay();
-    
     // Nettoyage final
     flush_count = 0;
-    while ((inb(0x64) & 1) && flush_count < 5) {
+    while ((inb(0x64) & 1) && flush_count < 4) {
         inb(0x60);
         flush_count++;
-        stable_delay();
+        kbd_delay();
     }
     
-    print_string_serial("=== KEYBOARD STABLE READY ===\n");
-    print_string_serial("Mode: Interruption avec polling contrôlé\n");
-    print_string_serial("Anti-spam: Activé\n");
-    print_string_serial("============================\n");
+    print_string_serial("=== KEYBOARD READY (INTERRUPT-ONLY) ===\n");
 }
 
-// Fonction getchar stable avec timeout raisonnable
+// Fonction getchar simple - SANS POLLING
 char keyboard_getc(void) {
-    static int getc_calls = 0;
+    static int getc_call_count = 0;
     char c;
-    int attempts = 0;
-    const int MAX_ATTEMPTS = 100000; // Timeout plus court
+    int wait_cycles = 0;
+    const int MAX_WAIT = 200000; // Timeout raisonnable
     
-    getc_calls++;
+    getc_call_count++;
     
-    if (getc_calls <= 2) {
-        print_string_serial("GETC: start\n");
+    if (getc_call_count <= 2) {
+        print_string_serial("GETC_START: waiting for input\n");
     }
     
-    // Réactiver les interruptions
+    // Assurer que les interruptions sont activées
     asm volatile("sti");
     
-    while (attempts < MAX_ATTEMPTS) {
-        // 1. Vérifier le buffer principal
-        if (kbd_get_stable(&c)) {
-            if (getc_calls <= 3) {
-                print_string_serial("GETC: got '");
+    // Attente simple basée sur les interruptions UNIQUEMENT
+    while (wait_cycles < MAX_WAIT) {
+        // Vérifier le buffer
+        if (kbd_get_char(&c)) {
+            if (getc_call_count <= 3) {
+                print_string_serial("GETC_SUCCESS: got '");
                 write_serial(c);
                 print_string_serial("'\n");
             }
             return c;
         }
         
-        // 2. Polling contrôlé (très espacé)
-        if (attempts % 1000 == 0) {
-            controlled_keyboard_poll();
-        }
+        // Attendre un peu (pas de polling du hardware)
+        for (volatile int i = 0; i < 100; i++);
+        wait_cycles++;
         
-        // 3. Re-vérifier après polling
-        if (kbd_get_stable(&c)) {
-            return c;
-        }
-        
-        attempts++;
-        
-        // Debug espacé
-        if (attempts % 25000 == 0 && getc_calls <= 2) {
-            print_string_serial("GETC: wait...\n");
+        // Debug périodique
+        if (wait_cycles % 50000 == 0 && getc_call_count <= 2) {
+            print_string_serial("GETC: still waiting...\n");
         }
     }
     
-    // Timeout doux - retourner null sans bloquer
-    if (getc_calls <= 2) {
-        print_string_serial("GETC: timeout\n");
+    // Timeout - retourner caractère spécial ou rien
+    if (getc_call_count <= 2) {
+        print_string_serial("GETC_TIMEOUT: no input received\n");
     }
     
-    return 0;
+    return 0; // Timeout sans caractère
 }
 
-// Fonctions utilitaires
+// Fonctions de compatibilité
 char scancode_to_ascii(uint8_t scancode) {
-    return stable_scancode_to_ascii(scancode);
+    if (scancode >= 128) return 0;
+    return scancode_to_char[scancode];
 }
 
-// Diagnostic complet
+// Diagnostic simple
 void keyboard_diagnostic() {
-    print_string_serial("=== DIAGNOSTIC CLAVIER STABLE ===\n");
+    print_string_serial("=== DIAGNOSTIC CLAVIER ===\n");
     
     uint8_t status = inb(0x64);
     uint8_t pic_mask = inb(0x21);
     
-    print_string_serial("Status: 0x");
+    print_string_serial("Controller Status: 0x");
     char hex[] = "0123456789ABCDEF";
-    write_serial(hex[status >> 4]);
+    write_serial(hex[(status >> 4) & 0xF]);
     write_serial(hex[status & 0xF]);
-    print_string_serial(" | PIC: 0x");
-    write_serial(hex[pic_mask >> 4]);
+    print_string_serial("\n");
+    
+    print_string_serial("PIC Mask: 0x");
+    write_serial(hex[(pic_mask >> 4) & 0xF]);
     write_serial(hex[pic_mask & 0xF]);
-    print_string_serial("\n");
+    print_string_serial(" (IRQ1 ");
+    print_string_serial((pic_mask & 2) ? "BLOCKED" : "ACTIVE");
+    print_string_serial(")\n");
     
-    print_string_serial("IRQ1: ");
-    print_string_serial((pic_mask & 2) ? "MASKED" : "ACTIVE");
-    print_string_serial("\n");
-    
-    print_string_serial("Interruptions: ");
+    print_string_serial("Interruptions reçues: ");
     write_serial('0' + (interrupt_count % 10));
-    print_string_serial(" | Chars: ");
-    write_serial('0' + (valid_chars_received % 10));
     print_string_serial("\n");
     
-    print_string_serial("Mode: ");
-    if (interrupt_count > 0) {
-        print_string_serial("INTERRUPTION");
-        if (polling_active) print_string_serial(" + POLL");
-    } else if (polling_active) {
-        print_string_serial("POLLING");
-    } else {
-        print_string_serial("ATTENTE");
-    }
+    print_string_serial("Caractères traités: ");
+    write_serial('0' + (chars_processed % 10));
     print_string_serial("\n");
     
-    print_string_serial("===============================\n");
+    print_string_serial("Mode: INTERRUPT ONLY (no polling)\n");
+    print_string_serial("========================\n");
 }

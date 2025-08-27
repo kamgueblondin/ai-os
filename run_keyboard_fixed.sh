@@ -1,31 +1,21 @@
 #!/bin/bash
 
-# AI-OS - Script de lancement optimisé pour QEMU
-# Version corrigée avec driver clavier hybride
+# AI-OS - Script de lancement optimisé pour test clavier
+# Version finale corrigée - Interruptions pures
 
 set -e
 
-echo "=== AI-OS KEYBOARD SOLUTION - LAUNCH OPTIMISÉ ==="
-echo "Driver: Hybride (interruption + polling fallback)"
-echo "QEMU: Configuration optimisée pour émulation clavier"
+echo "=== AI-OS KEYBOARD SOLUTION - VERSION FINALE ==="
+echo "Driver: Interruptions pures (ZERO polling = ZERO touches fantômes)"
+echo "QEMU: Configuration optimisée et testée"
 echo ""
 
 # Vérifier que le système est compilé
 if [ ! -f "build/ai_os.bin" ] || [ ! -f "my_initrd.tar" ]; then
     echo "🔨 Compilation nécessaire..."
     
-    # Nettoyer
-    rm -rf build
-    rm -f my_initrd.tar
+    # Nettoyer et compiler
     make clean
-    
-    # Appliquer la correction
-    if [ -f "kernel/keyboard_ultimate.c" ]; then
-        echo "   ✓ Application du driver clavier ultimate"
-        cp kernel/keyboard_ultimate.c kernel/keyboard.c
-    fi
-    
-    # Compiler
     make
     
     if [ $? -ne 0 ]; then
@@ -34,26 +24,32 @@ if [ ! -f "build/ai_os.bin" ] || [ ! -f "my_initrd.tar" ]; then
     fi
 fi
 
-echo "✅ Système AI-OS prêt"
+echo "✅ Système AI-OS prêt (version corrigée)"
 echo "   Noyau: build/ai_os.bin ($(du -h build/ai_os.bin | cut -f1))"
 echo "   Initrd: my_initrd.tar ($(du -h my_initrd.tar | cut -f1))"
 echo ""
 
-# Configuration QEMU optimisée basée sur les tests
-echo "🚀 Lancement QEMU avec configuration optimisée..."
+echo "🎯 CORRECTIONS APPLIQUÉES:"
+echo "   ✓ Makefile: Conflits -serial stdio résolus"
+echo "   ✓ Driver clavier: Polling agressif supprimé"
+echo "   ✓ Buffer: Gestion simplifiée et efficace"
+echo "   ✓ QEMU: Configuration optimisée"
+echo ""
+
+echo "🚀 Lancement avec configuration finale optimisée..."
 echo ""
 echo "📝 INSTRUCTIONS D'UTILISATION:"
-echo "   1. ⏳ Attendez l'apparition du prompt AI-OS"
+echo "   1. ⏳ Attendez l'apparition du prompt AI-OS (~5-10 sec)"
 echo "   2. 🖱️ Cliquez dans la fenêtre pour capturer le clavier"
-echo "   3. ⌨️ Tapez des lettres simples pour tester"
-echo "   4. ✅ Si ça marche: tapez 'help' pour voir les commandes"
-echo "   5. 🔄 Le système supporte interruption + polling automatique"
+echo "   3. ⌨️ Tapez des lettres simples (a, b, c, etc.)"
+echo "   4. ✅ Plus de caractères fantômes en boucle!"
+echo "   5. 📝 Tapez 'help' pour voir les commandes disponibles"
 echo "   6. ⏹️ Ctrl+Alt+G pour libérer la souris, fermez pour quitter"
 echo ""
-echo "⚡ Lancement dans 3 secondes..."
+echo "⚡ Démarrage imminent..."
 sleep 3
 
-# Configuration optimale identifiée (syntaxe corrigée)
+# Configuration QEMU finale testée et optimisée
 exec qemu-system-i386 \
     -kernel build/ai_os.bin \
     -initrd my_initrd.tar \

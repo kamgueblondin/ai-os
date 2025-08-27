@@ -168,7 +168,7 @@ userspace/shell userspace/fake_ai userspace/test_program:
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-nographic -serial stdio \
+		-nographic \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -177,7 +177,8 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
-		-serial stdio \
+		-chardev stdio,id=serial0 \
+		-device isa-serial,chardev=serial0 \
 		-no-reboot -no-shutdown
 
 # Cible pour tester le clavier avec GUI et capture des logs série
