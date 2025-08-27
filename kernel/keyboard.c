@@ -79,21 +79,44 @@ int kbd_get_char_nonblock(char *out) {
     return 1; // Succès
 }
 
-// Table de conversion scancode optimisée
-static const char qemu_scancode_map[128] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',
-    'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
-    '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+// Table de conversion scancode PS/2 Set 1 standard (corrigée)
+static const char ps2_scancode_map[128] = {
+    // 0x00-0x0F
+    0,   0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
+    // 0x10-0x1F  
+    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,   'a', 's',
+    // 0x20-0x2F
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
+    // 0x30-0x3F
+    'b', 'n', 'm', ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
+    // 0x40-0x4F (F-keys et autres)
+    0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
+    // 0x50-0x5F (pavé numérique)
+    '2', '3', '0', '.', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    // 0x60-0x6F
+    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    // 0x70-0x7F
+    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
 };
 
-char qemu_scancode_to_ascii(uint8_t scancode) {
+char ps2_scancode_to_ascii(uint8_t scancode) {
     if (scancode >= 128) return 0;
-    return qemu_scancode_map[scancode];
+    char result = ps2_scancode_map[scancode];
+    
+    // Debug détaillé du mappage pour les premiers caractères
+    static int debug_mapping_count = 0;
+    if (debug_mapping_count < 10 && result != 0) {
+        debug_mapping_count++;
+        print_string_serial("SCANCODE_MAP: 0x");
+        char hex[] = "0123456789ABCDEF";
+        write_serial(hex[(scancode >> 4) & 0xF]);
+        write_serial(hex[scancode & 0xF]);
+        print_string_serial(" -> '");
+        write_serial(result);
+        print_string_serial("'\n");
+    }
+    
+    return result;
 }
 
 // Polling de secours optimisé (controlled fallback)
@@ -125,7 +148,7 @@ void keyboard_poll_check() {
             
             // Traiter seulement les key press (pas les releases)
             if (!(scancode & 0x80)) {
-                char c = qemu_scancode_to_ascii(scancode);
+                char c = ps2_scancode_to_ascii(scancode);
                 if (c != 0) {
                     kbd_put_char(c);
                     polling_fallback_active = 1;
@@ -167,7 +190,7 @@ void keyboard_interrupt_handler() {
     
     // Traiter seulement les key press
     if (!(scancode & 0x80)) {
-        char c = qemu_scancode_to_ascii(scancode);
+        char c = ps2_scancode_to_ascii(scancode);
         if (c != 0) {
             kbd_put_char(c);
         }
@@ -220,7 +243,7 @@ void keyboard_init() {
         qemu_delay();
     }
     
-    // Configuration du contrôleur
+    // Configuration optimale pour QEMU avec scancode Set 1
     if (wait_kbd_ready(1)) {
         outb(0x64, 0x20); // Read configuration
         qemu_delay();
@@ -229,10 +252,10 @@ void keyboard_init() {
             uint8_t config = inb(0x60);
             qemu_delay();
             
-            // Configuration optimale pour QEMU
+            // Configuration PS/2 Set 1 compatible
             config |= 0x01;  // Enable port 1 interrupt
             config &= ~0x10; // Enable port 1 clock  
-            config &= ~0x40; // Disable scancode translation
+            config |= 0x40;  // Enable scancode translation (Set 1)
             
             if (wait_kbd_ready(1)) {
                 outb(0x64, 0x60); // Write configuration
@@ -241,7 +264,7 @@ void keyboard_init() {
                 if (wait_kbd_ready(1)) {
                     outb(0x60, config);
                     qemu_delay();
-                    print_string_serial("Phase 2: Configuration appliquée\n");
+                    print_string_serial("Phase 2: Configuration PS/2 Set 1 appliquée\n");
                 }
             }
         }
@@ -358,7 +381,7 @@ char keyboard_getc(void) {
 
 // Fonctions de compatibilité
 char scancode_to_ascii(uint8_t scancode) {
-    return qemu_scancode_to_ascii(scancode);
+    return ps2_scancode_to_ascii(scancode);
 }
 
 // Diagnostic complet
