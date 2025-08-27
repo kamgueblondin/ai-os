@@ -35,13 +35,17 @@ void software_timer_tick() {
 
 // Handler appelé par l'ISR du timer matériel
 void timer_handler(cpu_state_t* cpu) {
-    (void)cpu; // Éviter l'avertissement de paramètre non utilisé
+    extern volatile int g_reschedule_needed;
     timer_ticks++;
 
-    // NOTE: Le scheduling est désactivé pour le débogage du clavier.
-    // L'appel à schedule() semble être la cause du gel du système.
-    // Laisser le timer actif permet de réveiller le 'hlt' dans sys_gets,
-    // mais sans déclencher le scheduler potentiellement instable.
+    // Vérifier que le système de tâches est initialisé avant de faire du scheduling
+    extern task_t* current_task;
+    extern task_t* task_queue;
+
+    if (g_reschedule_needed || (current_task && task_queue && timer_ticks > 10)) {
+        g_reschedule_needed = 0;
+        schedule(cpu);
+    }
 
     // Envoyer le signal End-of-Interrupt (EOI) au PIC
     pic_send_eoi(0);

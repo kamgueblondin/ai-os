@@ -58,19 +58,26 @@ const char scancode_map[128] = {
 };
 
 
-// Le handler appelé par l'ISR, corrigé pour inclure EOI.
-void keyboard_interrupt_handler() {
+#include "interrupts.h" // Pour la structure intr_frame
+
+// Le handler d'interruption pour IRQ1 (clavier), utilisant l'attribut 'interrupt'.
+// Le compilateur génère le prologue/épilogue, et l'IDT peut pointer directement ici.
+__attribute__((interrupt))
+void irq1_handler(struct intr_frame* frame) {
+    (void)frame; // Le frame n'est pas utilisé, mais requis par le type d'ISR.
+
+    // Lire le scancode depuis le port du clavier
     uint8_t scancode = inb(0x60);
 
-    // Ignorer les key releases (bit 7 = 1)
+    // Ignorer les relâchements de touche (bit 7 à 1)
     if (!(scancode & 0x80)) {
         char c = scancode_to_ascii(scancode);
         if (c) {
-            kbd_push(c);
+            kbd_push(c); // Ajouter le caractère au buffer
         }
     }
 
-    // Indispensable: envoyer End-Of-Interrupt (EOI) au PIC maître
+    // Envoyer le signal End-of-Interrupt (EOI) au contrôleur PIC maître
     outb(0x20, 0x20);
 }
 
