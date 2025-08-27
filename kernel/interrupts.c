@@ -2,7 +2,7 @@
 #include "keyboard.h"
 #include "timer.h"
 
-// Déclaration pour le handler du clavier en C
+// Déclaration pour le nouveau handler
 void keyboard_interrupt_handler();
 
 // Fonctions externes pour les ports I/O (définies dans kernel.c)
@@ -63,6 +63,12 @@ static interrupt_handler_t interrupt_handlers[256];
 // Par défaut, les IRQs du PIC (0-15) entrent en conflit avec les exceptions CPU.
 // On les décale vers les entrées IDT 32-47.
 void pic_remap() {
+    unsigned char a1, a2;
+
+    // Sauvegarde les masques
+    a1 = inb(0x21);
+    a2 = inb(0xA1);
+
     // Démarre la séquence d'initialisation (en mode cascade)
     outb(0x20, 0x11);
     outb(0xA0, 0x11);
@@ -162,7 +168,7 @@ void interrupts_init() {
 
     // Enregistre les handlers
     register_interrupt_handler(32, timer_handler);    // IRQ 0 - Timer
-    register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier
+    register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier (nouveau handler)
     
     // Associe les entrées de l'IDT aux routines assembleur
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer

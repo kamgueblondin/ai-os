@@ -1,40 +1,9 @@
 #include "keyboard.h"
-#include "kernel.h"
 #include <stdint.h>
-#include "input/kbd_buffer.h"
 
-// Fonctions externes pour les ports I/O et autres
+// Fonctions externes pour les ports I/O
 extern unsigned char inb(unsigned short port);
 extern void outb(unsigned short port, unsigned char data);
-extern void print_char_vga(char c, int x, int y, char color);
-extern void write_serial(char c);
-extern int vga_x, vga_y;
-
-// Ring buffer pour le clavier, comme suggéré
-static volatile char kbd_rb[256];
-static volatile uint8_t rb_h = 0, rb_t = 0;
-
-int kbd_empty(void) {
-    return rb_h == rb_t;
-}
-
-// kbd_push reste static car il n'est utilisé que dans ce fichier.
-static void kbd_push(char c) {
-    uint8_t next_head = rb_h + 1; // Le débordement de l'uint8_t gère le modulo 256
-    if (next_head != rb_t) { // Vérifie si le buffer est plein
-        kbd_rb[rb_h] = c;
-        rb_h = next_head;
-    }
-}
-
-char kbd_pop(void) {
-    if (kbd_empty()) {
-        return 0; // Buffer vide
-    }
-    char c = kbd_rb[rb_t];
-    rb_t++; // Le débordement de l'uint8_t gère le modulo 256
-    return c;
-}
 
 // Table de correspondance complète Scancode -> ASCII (pour un clavier US QWERTY)
 // ... (le reste de la table est inchangé)
@@ -58,49 +27,17 @@ const char scancode_map[128] = {
 };
 
 
-// Le handler appelé par l'ISR stub.
+volatile int g_key_pressed = 0; // Global flag for testing
+
+// Minimal interrupt handler for diagnostics.
+// It just sets a flag and acknowledges the interrupt.
 void keyboard_interrupt_handler() {
-    // Lire le scancode depuis le port du clavier
-    uint8_t scancode = inb(0x60);
-
-    // Ignorer les relâchements de touche (bit 7 à 1)
-    if (!(scancode & 0x80)) {
-        char c = scancode_to_ascii(scancode);
-        if (c) {
-            kbd_push(c); // Ajouter le caractère au buffer
-        }
-    }
-
-    // Envoyer le signal End-of-Interrupt (EOI) au contrôleur PIC maître
-    outb(0x20, 0x20);
+    g_key_pressed = 1; // Set the flag
+    inb(0x60);         // Read scancode to allow next interrupt
+    outb(0x20, 0x20);  // Send EOI to PIC
 }
 
-// Convertit un scancode en caractère ASCII (implémentation simplifiée)
-char scancode_to_ascii(uint8_t scancode) {
-    // On ne gère pas les majuscules ou les modificateurs ici, pour rester simple.
-    // On ignore les codes de relâchement de touche.
-    if (scancode & 0x80) {
-        return 0;
-    }
-    if (scancode >= 128) {
-        return 0;
-    }
-    return scancode_map[scancode];
-}
-
-// Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
-// Version bloquante qui attend une interruption.
-char keyboard_getc(void) {
-    // Attendre qu'un caractère soit disponible dans le buffer
-    while (kbd_empty()) {
-        // Mettre le CPU en pause jusqu'à la prochaine interruption.
-        // Cela suppose que les interruptions sont activées (IF=1).
-        asm volatile("hlt");
-    }
-    
-    // Récupérer le caractère du buffer
-    return kbd_pop();
-}
+// Fonctions scancode_to_ascii et keyboard_getc supprimées pour le test.
 
 
 // Helper functions for PS/2 controller communication

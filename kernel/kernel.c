@@ -469,12 +469,19 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("\n=== AI-OS v6.0 - Attente du premier changement de contexte ===\n");
     print_string("Le planificateur va maintenant prendre le relais.\n");
     
-    // Activer les interruptions pour que le timer puisse déclencher le scheduler
-    asm volatile("sti");
+    // --- TEST CLAVIER ---
+    // On désactive le scheduling et on teste le clavier en polling.
+    extern volatile int g_key_pressed;
+    print_string("\nAppuyez sur une touche...\n");
 
-    // Boucle d'inactivité du kernel. Le scheduler fera le travail.
-    while(1) {
-        asm volatile("hlt");
+    asm volatile("sti"); // Activer les interruptions pour le clavier
+
+    while (1) {
+        if (g_key_pressed) {
+            print_string("Touche pressee!\n");
+            g_key_pressed = 0; // Reset du flag
+        }
+        // On ne met pas 'hlt' ici pour voir si la boucle tourne
     }
 }
 

@@ -19,7 +19,6 @@ void init_pmm(); // Assuming this is in a pmm.h, but let's declare for safety
 void init_scheduler_timer();
 
 // Utility functions
-void print_char(char c, int x, int y, char color);
 void print_string(const char* str);
 void print_string_serial(const char* str); // Used in many places
 void print_hex_serial(uint32_t n);

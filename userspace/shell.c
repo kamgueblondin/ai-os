@@ -71,10 +71,8 @@ void exit_program(int code) {
     asm volatile("int $0x80" : : "a"(0), "b"(code)); 
 }
 
-int gets(char* buffer, int size) {
-    int result;
-    asm volatile("int $0x80" : "=a"(result) : "a"(5), "b"(buffer), "c"(size));
-    return result;
+void gets(char* buffer, int size) {
+    asm volatile("int $0x80" : : "a"(5), "b"(buffer), "c"(size));
 }
 
 int sys_getchar(void) {
@@ -805,19 +803,33 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
 
 void shell_main_loop(shell_context_t* ctx) {
     char buf[MAX_COMMAND_LENGTH];
+    int idx;
 
     while (1) {
         display_prompt(ctx);
+        idx = 0;
+        buf[0] = '\0';
 
-        // Utilise le nouvel appel système bloquant gets()
-        int n = gets(buf, sizeof(buf));
-
-        // Le noyau ne gère pas l'écho, donc on affiche un retour à la ligne
-        // après que l'utilisateur ait appuyé sur Entrée.
-        putc('\n');
-
-        if (n > 0) {
-            handle_line(ctx, buf);
+        for(;;){
+            int c = sys_getchar();
+            if (c == '\r' || c == '\n'){
+                putc('\n');
+                handle_line(ctx, buf);
+                break; // sort de la boucle for(;;) pour ré-afficher le prompt
+            }
+            if (c == 0x08 || c == 127){ // Backspace
+                if (idx > 0){
+                    idx--;
+                    buf[idx] = '\0';
+                    backspace();
+                }
+                continue;
+            }
+            if (idx < (int)sizeof(buf) - 1){
+                buf[idx++] = (char)c;
+                buf[idx] = '\0';
+                putc((char)c);
+            }
         }
     }
 }

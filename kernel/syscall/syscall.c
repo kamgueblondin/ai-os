@@ -8,8 +8,9 @@
 #include "../../fs/initrd.h"
 #include "../mem/string.h"
 
-// Fonctions externes (maintenant dans les headers)
+// Fonctions externes
 extern void print_string_serial(const char* str);
+extern void print_char(char c, int x, int y, char color);
 extern unsigned char inb(unsigned short port);
 
 
@@ -62,7 +63,7 @@ void syscall_handler(cpu_state_t* cpu) {
             
         // SYS_GETS - Lire une ligne depuis le clavier
         case SYS_GETS:
-            cpu->eax = sys_gets((char*)cpu->ebx, cpu->ecx);
+            sys_gets((char*)cpu->ebx, cpu->ecx);
             break;
             
         case SYS_EXEC:
@@ -104,63 +105,38 @@ int sys_exec(const char* path, char* argv[]) {
 }
 
 
-#include <stddef.h> // For size_t
-
-// Erreur standard pour les pointeurs invalides
-#define EFAULT 14
-
-// Helper function to print a character to both VGA and serial.
-static void kernel_putc(char c) {
-    extern void write_serial(char a);
-    print_char(c, -1, -1, 0x0F); // VGA
-    write_serial(c);             // Serial
-}
-
 // Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
-// Version bloquante, interactive, avec écho et gestion du backspace.
-int sys_gets(char __user *dst, size_t maxlen) {
-    char kbd_buffer[256];
-    size_t index = 0;
+void sys_gets(char* buffer, uint32_t size) {
+    if (!buffer || size == 0) return;
 
-    if (maxlen == 0) return 0;
-    // Laisser de la place pour le terminateur nul.
-    if (maxlen > sizeof(kbd_buffer)) maxlen = sizeof(kbd_buffer);
+    print_string_serial("SYS_GETS: Debut de la lecture...\n");
 
-    // Les interruptions doivent être activées pour que hlt fonctionne.
-    asm volatile("sti");
+    uint32_t i = 0;
+    while (i < size - 1) {
+        char c = keyboard_getc(); // Utilise la nouvelle fonction clavier
 
-    while (index < maxlen - 1) {
-        // Attendre qu'un caractère soit disponible.
-        while (kbd_empty()) {
-            asm volatile("hlt");
+        if (c == '\r' || c == '\n') {
+            // Fin de ligne
+            buffer[i] = '\0';
+            print_string_serial("SYS_GETS: ligne lue: ");
+            print_string_serial(buffer);
+            print_string_serial("\n");
+            return;
         }
-        char c = kbd_pop();
 
-        // Traiter le caractère
-        if (c == '\n' || c == '\r') {
-            // Ne pas afficher le retour à la ligne, le shell s'en chargera.
-            break; // Sortir de la boucle
-        } else if (c == '\b') {
-            if (index > 0) {
-                index--;
-                // Effacer le caractère à l'écran
-                kernel_putc('\b');
-                kernel_putc(' ');
-                kernel_putc('\b');
-            }
-        } else if (c >= ' ') { // Caractères imprimables
-            kbd_buffer[index++] = c;
-            kernel_putc(c); // Echo
+        if (c == '\b' && i > 0) {
+            // Backspace - pour l'instant on ignore le backspace dans sys_gets
+            i--;
+        } else if (c >= 32 && c <= 126) {
+            // Caractère imprimable
+            buffer[i++] = c;
+            // Echo du caractère (simplifié - pas d'affichage pour l'instant)
         }
     }
 
-    kbd_buffer[index] = '\0'; // Terminer la chaîne de caractères
-
-    // Copier le buffer vers l'espace utilisateur
-    if (copy_to_user(dst, kbd_buffer, index + 1) != 0) {
-        return -EFAULT;
-    }
-
-    return (int)index;
+    buffer[i] = '\0';
+    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
+    print_string_serial(buffer);
+    print_string_serial("\n");
 }
 

@@ -32,15 +32,8 @@ char sys_getc();
 void sys_puts(const char* str);
 void sys_yield();
 
-#include <stddef.h> // Pour size_t
-
-// Définition de __user pour l'annotation de l'espace d'adressage
-#ifndef __user
-#define __user
-#endif
-
 // Nouveaux appels système
-int sys_gets(char __user *dst, size_t maxlen);
+void sys_gets(char* buffer, uint32_t size);
 int sys_exec(const char* path, char* argv[]);
 
 // Ajoute un caractère au buffer d'entrée global du clavier.
