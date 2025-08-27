@@ -165,10 +165,12 @@ userspace/shell userspace/fake_ai userspace/test_program:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
 	@$(MAKE) -C userspace all
 
-# Cible pour exécuter l'OS dans QEMU avec initrd
+# Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-nographic \
+		-display curses \
+		-chardev stdio,id=serial0 \
+		-device isa-serial,chardev=serial0 \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -179,6 +181,16 @@ run-gui: $(OS_IMAGE) pack-initrd
 		-display gtk \
 		-chardev stdio,id=serial0 \
 		-device isa-serial,chardev=serial0 \
+		-no-reboot -no-shutdown
+
+# Alternative nographic (si curses ne fonctionne pas)
+run-nographic: $(OS_IMAGE) pack-initrd
+	@echo "=== Mode NOGRAPHIC - Clavier peut être limité ==="
+	@echo "Utilisez 'make run' pour le mode console optimal"
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-nographic \
+		-chardev stdio,id=serial0 \
+		-m 128M \
 		-no-reboot -no-shutdown
 
 # Cible pour tester le clavier avec GUI et capture des logs série

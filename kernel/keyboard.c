@@ -119,13 +119,15 @@ char ps2_scancode_to_ascii(uint8_t scancode) {
     return result;
 }
 
-// Polling de secours optimisé (controlled fallback)
+// Polling de secours optimisé (controlled fallback) - plus agressif pour mode console
 void keyboard_poll_check() {
     static uint32_t poll_counter = 0;
     poll_counter++;
     
-    // Polling de secours même avec interruptions (au cas où)
-    if (poll_counter % 5000 == 0) { // Moins agressif
+    // Polling plus fréquent si pas d'interruptions (mode console/nographic)
+    int poll_freq = (debug_interrupt_count > 0) ? 5000 : 1000; // Plus agressif si pas d'IRQ
+    
+    if (poll_counter % poll_freq == 0) {
         uint8_t status = inb(0x64);
         if (status & 0x01) { // Données disponibles
             uint8_t scancode = inb(0x60);
@@ -137,13 +139,13 @@ void keyboard_poll_check() {
                 return;
             }
             
-            // Debug polling
-            if (debug_polling_count <= 3) {
+            // Debug polling (plus de traces si pas d'interruptions)
+            if ((debug_interrupt_count == 0 && debug_polling_count <= 10) || debug_polling_count <= 3) {
                 print_string_serial("POLL: scancode=0x");
                 char hex[] = "0123456789ABCDEF";
                 write_serial(hex[(scancode >> 4) & 0xF]);
                 write_serial(hex[scancode & 0xF]);
-                print_string_serial("\n");
+                print_string_serial(" (mode console)\n");
             }
             
             // Traiter seulement les key press (pas les releases)
@@ -243,7 +245,8 @@ void keyboard_init() {
         qemu_delay();
     }
     
-    // Configuration optimale pour QEMU avec scancode Set 1
+    // Configuration optimale pour QEMU avec scancode Set 1 (renforcée pour console)
+    print_string_serial("Phase 2: Configuration PS/2 renforcée...\n");
     if (wait_kbd_ready(1)) {
         outb(0x64, 0x20); // Read configuration
         qemu_delay();
@@ -252,10 +255,17 @@ void keyboard_init() {
             uint8_t config = inb(0x60);
             qemu_delay();
             
-            // Configuration PS/2 Set 1 compatible
+            print_string_serial("Configuration actuelle: 0x");
+            char hex[] = "0123456789ABCDEF";
+            write_serial(hex[(config >> 4) & 0xF]);
+            write_serial(hex[config & 0xF]);
+            print_string_serial("\n");
+            
+            // Configuration PS/2 Set 1 compatible renforcée
             config |= 0x01;  // Enable port 1 interrupt
             config &= ~0x10; // Enable port 1 clock  
             config |= 0x40;  // Enable scancode translation (Set 1)
+            config &= ~0x20; // Disable port 2 interrupt (focus sur port 1)
             
             if (wait_kbd_ready(1)) {
                 outb(0x64, 0x60); // Write configuration
@@ -264,6 +274,11 @@ void keyboard_init() {
                 if (wait_kbd_ready(1)) {
                     outb(0x60, config);
                     qemu_delay();
+                    
+                    print_string_serial("Nouvelle configuration: 0x");
+                    write_serial(hex[(config >> 4) & 0xF]);
+                    write_serial(hex[config & 0xF]);
+                    print_string_serial("\n");
                     print_string_serial("Phase 2: Configuration PS/2 Set 1 appliquée\n");
                 }
             }
@@ -314,6 +329,17 @@ void keyboard_init() {
     initialization_phase = 0;
     print_string_serial("=== KEYBOARD INIT COMPLETE ===\n");
     print_string_serial("Mode: Interruption + Polling Fallback\n");
+    print_string_serial("Compatible: Console et GUI\n");
+    
+    // Test rapide du clavier
+    print_string_serial("Test: Vérification du contrôleur...\n");
+    uint8_t final_status = inb(0x64);
+    print_string_serial("Status final: 0x");
+    char hex[] = "0123456789ABCDEF";
+    write_serial(hex[(final_status >> 4) & 0xF]);
+    write_serial(hex[final_status & 0xF]);
+    print_string_serial("\n");
+    
     print_string_serial("Ready for input!\n");
     print_string_serial("===============================\n");
 }
