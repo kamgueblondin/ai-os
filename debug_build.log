@@ -1,0 +1,71 @@
+nasm -f elf32 boot/boot.s -o build/boot.o
+nasm -f elf32 boot/idt_loader.s -o build/idt_loader.o
+nasm -f elf32 boot/isr_stubs.s -o build/isr_stubs.o
+nasm -f elf32 boot/paging.s -o build/paging.o
+nasm -f elf32 boot/context_switch_new.s -o build/context_switch.o
+nasm -f elf32 boot/userspace_switch.s -o build/userspace_switch.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/mem/string.c -o build/string.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/mem/pmm.c -o build/pmm.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/mem/heap.c -o build/heap.o
+nasm -f elf32 boot/gdt.s -o build/gdt_asm.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/gdt.c -o build/gdt.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/idt.c -o build/idt.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/mem/vmm.c -o build/vmm.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/task/task.c -o build/task.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/syscall/syscall.c -o build/syscall.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/elf.c -o build/elf.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c fs/initrd.c -o build/initrd.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/interrupts.c -o build/interrupts.o
+kernel/interrupts.c: In function ‘fault_handler_c’:
+kernel/interrupts.c:40:5: warning: implicit declaration of function ‘print_hex_serial’; did you mean ‘print_hex_byte_serial’? [-Wimplicit-function-declaration]
+   40 |     print_hex_serial(r->int_no);
+      |     ^~~~~~~~~~~~~~~~
+      |     print_hex_byte_serial
+kernel/interrupts.c: In function ‘pic_remap’:
+kernel/interrupts.c:70:23: warning: variable ‘a2’ set but not used [-Wunused-but-set-variable]
+   70 |     unsigned char a1, a2;
+      |                       ^~
+kernel/interrupts.c:70:19: warning: variable ‘a1’ set but not used [-Wunused-but-set-variable]
+   70 |     unsigned char a1, a2;
+      |                   ^~
+kernel/interrupts.c: In function ‘pic_diagnose’:
+kernel/interrupts.c:128:9: warning: implicit declaration of function ‘write_serial’ [-Wimplicit-function-declaration]
+  128 |         write_serial((mask1 & (1 << i)) ? '1' : '0');
+      |         ^~~~~~~~~~~~
+kernel/interrupts.c:124:13: warning: unused variable ‘mask2’ [-Wunused-variable]
+  124 |     uint8_t mask2 = inb(0xA1);
+      |             ^~~~~
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/keyboard.c -o build/keyboard.o
+kernel/keyboard.c:19:23: warning: ‘kbd_waiting’ defined but not used [-Wunused-variable]
+   19 | static volatile void *kbd_waiting = NULL;
+      |                       ^~~~~~~~~~~
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/timer.c -o build/timer.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/multiboot.c -o build/multiboot.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/kernel.c -o build/kernel.o
+gcc -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -c kernel/input/kbd_buffer.c -o build/kbd_buffer.o
+ld -m elf_i386 -T linker.ld -o build/ai_os.bin --start-group build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o build/syscall.o build/elf.o build/initrd.o build/interrupts.o build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o --end-group
+ld: warning: build/gdt_asm.o: missing .note.GNU-stack section implies executable stack
+ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
+Compilation des programmes utilisateur AI-OS v5.0...
+make[1]: Entering directory '/workspace/ai-os/userspace'
+Compiling C: shell.c
+gcc -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector -I../kernel -I../include -c -o shell.o shell.c
+Assembling with AS: start.s
+as --32 start.s -o start.o
+Linking shell...
+ld -m elf_i386 -nostdlib -Ttext=0x40000000 -o shell shell.o start.o
+Compiling C: fake_ai.c
+gcc -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector -I../kernel -I../include -c -o fake_ai.o fake_ai.c
+Linking fake_ai...
+ld -m elf_i386 -nostdlib -Ttext=0x40000000 -o fake_ai fake_ai.o start.o
+Compiling C: test_program.c
+gcc -m32 -nostdlib -nostdinc -fno-builtin -fno-stack-protector -I../kernel -I../include -c -o test_program.o test_program.c
+Linking test_program...
+ld -m elf_i386 -nostdlib -Ttext=0x40000000 -o test_program test_program.o start.o
+make[1]: Leaving directory '/workspace/ai-os/userspace'
+[mkinitrd] Création de l'initrd AI-OS v5.0...
+[mkinitrd] Packed executables into my_initrd.tar
+=== AI-OS v5.0 - Système Complet Construit ===
+Noyau: build/ai_os.bin (43K)
+Initrd: my_initrd.tar (70K)
+Système prêt pour exécution avec: make run

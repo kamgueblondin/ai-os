@@ -1,0 +1,126 @@
+c[?7l[2J[0mSeaBIOS (version 1.16.2-debian-1.16.2-1)
+
+
+iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCF000+06F0F000 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
+
+Multiboot detecte correctement.
+=== Initialisation systeme interruptions ===
+Etape 1: IDT...
+Etape 2: PIC et handlers...
+=== INITIALISATION SYSTEME INTERRUPTIONS ===
+Step 1: Interruptions CPU désactivées
+Step 2: Handlers d'exceptions installés
+Step 3: Table des handlers initialisée
+Step 4: Remapping du PIC...
+PIC: Début du remappage...
+PIC: Masques sauvegardés
+PIC: ICW1 envoyé
+PIC: ICW2 envoyé (offsets: PIC1=32, PIC2=40)
+PIC: ICW3 envoyé (cascade configurée)
+PIC: ICW4 envoyé (mode 8086)
+PIC: Masques configurés - IRQ0/IRQ1 activées
+PIC: Remappage terminé avec succès
+Step 4: PIC remappé avec succès
+Step 5: Enregistrement des handlers IRQ...
+Step 5: Handlers IRQ enregistrés
+Step 6: Configuration des entrées IDT...
+Step 6: Entrées IDT configurées
+Step 7: Diagnostic PIC...
+=== DIAGNOSTIC PIC ===
+PIC1 mask: 0b11111100 (0xFC)
+IRQ0 (timer): ENABLED
+IRQ1 (keyboard): ENABLED
+======================
+Step 8: Activation forcée des IRQ critiques...
+Masque PIC final: 0xFC
+Step 9: Activation des interruptions CPU...
+Step 10: Test des interruptions...
+=== SYSTEME INTERRUPTIONS PRET ===
+IRQ0 (timer): activé
+IRQ1 (keyboard): activé
+Interruptions CPU: activées
+=====================================
+Etape 3: Clavier PS/2 (interruptions temporairement desactivees)...
+=== INITIALISATION CLAVIER PS/2 ===
+KBD: Vidage préliminaire du buffer...
+KBD: Désactivation des ports PS/2...
+KBD: Vidage du buffer après désactivation...
+KBD: Buffer vidé.
+KBD: Configuration du contrôleur...
+KBD: Config actuelle: 0x71
+KBD: Nouvelle config: 0x01
+KBD: Configuration appliquée.
+KBD: Test du contrôleur PS/2...
+KBD: Contrôleur PS/2 OK
+KBD: Test du port 1...
+KBD: Port 1 OK
+KBD: Activation du port 1...
+KBD: Configuration du périphérique clavier...
+KBD: Scanning désactivé (ACK)
+KBD: Scancode set 1 configuré
+KBD: Scanning réactivé (ACK)
+KBD: Test final...
+KBD: Status final du contrôleur: 0x1C
+=== CLAVIER PS/2 INITIALISE ===
+=== DIAGNOSTIC PIC APRES INIT CLAVIER ===
+PIC1 mask: 0xFC
+IRQ1 (clavier): ACTIVE
+==========================================
+=== Systeme interruptions PRET ===
+IRQ0 (timer): OK
+IRQ1 (keyboard): OK
+QEMU devrait maintenant generer les interruptions clavier.
+Initialisation de la gestion memoire...
+Physical Memory Manager initialise.
+Virtual Memory Manager initialise.
+Initrd trouve ! Initialisation...
+Parsing initrd TAR archive...
+Initrd initialized: 9 files found
+Initialisation du systeme de taches...
+Tache kernel creee.
+Initialisation des appels systeme...
+Creation des taches kernel de demonstration... DESACTIVE
+Mode mono-tache pour stabilite maximale.
+PHASE 2: Timer reactive pour interruptions clavier...
+Timer reactive - Interruptions clavier fonctionnelles.
+Lancement du shell interactif AI-OS...
+Shell trouve ! Chargement...
+Shell trouve. Preparation du lancement...
+
+Lancement du Shell Utilisateur...
+create_user_vmm_directory: start
+ELF Loader: Starting...
+  - Segment: vaddr=0x0x3ffff000, memsz=0x0x000000f4, perms=R-
+  - Segment: vaddr=0x0x40000000, memsz=0x0x00002438, perms=R-
+  - Segment: vaddr=0x0x40003000, memsz=0x0x00001f74, perms=R-
+  - Segment: vaddr=0x0x40005ff4, memsz=0x0x0000000c, perms=RW
+ELF loading complete. Entry point: 0x0x40002428
+Allocating user stack...
+User stack allocated at 0x0xafff0000 - 0x0xb0000000
+User context setup complete. EIP=0x0x40002428, ESP=0x0xb0000000
+Tache utilisateur creee avec succes
+Tache shell prete. Demarrage du timer...
+
+=== AI-OS v6.0 - Attente du premier changement de contexte ===
+Le planificateur va maintenant prendre le relais.
+[2J[H[36m═══════════════════════════════════════════════════════════
+[0m[1m    🤖 AI-OS v6.0 - Intelligence Artificielle Intégrée    
+[0m[36m═══════════════════════════════════════════════════════════
+[0m[32m💻 Shell Avancé[0m | [35m🧠 IA Intelligente[0m | [33m⚡ Haute Performance
+[0m
+[34m[INFO] [0mTapez 'help' pour voir toutes les commandes disponibles
+[34m[INFO] [0mMode IA activé - Posez vos questions directement !
+
+[36m🚀 Initialisation du Shell IA...[0m... [32mTERMINÉ !
+
+[0m[32m[OK] [0mShell AI-OS v6.0 prêt à l'utilisation
+[34m[INFO] [0mMode IA activé - Intelligence artificielle intégrée
+[34m[INFO] [0mTapez 'help' pour découvrir toutes les fonctionnalités
+
+[36m┌─[[0m[1mAI-OS[0m[37m@[0m[33mv6.0[0m[36m][0m[35m 🧠[0m[36m
+└─$ [0m

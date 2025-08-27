@@ -1,0 +1,55 @@
+c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+07F8B340+07ECB340 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
+
+Multiboot detecte correctement.
+Initialisation des interruptions...
+Initialisation du systeme d'interruptions...
+IRQ timer et clavier demmasques et actifs.
+Systeme d'interruptions initialise.
+Interruptions initialisees.
+Initialisation de la gestion memoire...
+Physical Memory Manager initialise.
+Virtual Memory Manager initialise.
+Initrd trouve ! Initialisation...
+Parsing initrd TAR archive...
+Initrd initialized: 9 files found
+Initialisation du systeme de taches...
+Initialisation du systeme de taches...
+Tache kernel creee avec ID 0
+Initialisation des appels systeme...
+Initialisation des appels systeme...
+Appels systeme initialises.
+Creation des taches kernel de demonstration...
+Nouvelle tache creee avec ID 1
+Nouvelle tache creee avec ID 2
+Nouvelle tache creee avec ID 3
+PHASE 2: Activation timer hybride...
+Initialisation du timer hybride...
+Mode timer logiciel force pour stabilite...
+Timer logiciel actif et stable!
+Frequence simulee: 2 Hz (logiciel)
+Timer hybride initialise. Mode auto-detecte.
+Lancement du shell interactif AI-OS...
+Port serie initialise pour simulation clavier.
+Shell trouve ! Chargement...
+Shell charge avec succes !
+Tache shell creee ! Demarrage de l'interface...
+
+=== AI-OS v5.0 - Shell Interactif avec IA ===
+Fonctionnalites :
+- Shell interactif complet
+- Simulateur d'IA integre
+- Appels systeme etendus (SYS_GETS, SYS_EXEC)
+- Execution de programmes externes
+- Interface conversationnelle
+
+Shell kernel actif. Tapez vos commandes:
+
+AI-OS> 

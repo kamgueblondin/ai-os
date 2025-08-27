@@ -1,0 +1,9 @@
+[mkinitrd] Création de l'initrd AI-OS v5.0...
+[mkinitrd] Packed executables into my_initrd.tar
+qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar \
+	-m 256M -vga std \
+	-machine type=pc,accel=tcg \
+	-device i8042 \
+	-serial stdio \
+	-d int -rtc base=utc -no-reboot
+make: *** [Makefile:179: run-gui] Terminated
