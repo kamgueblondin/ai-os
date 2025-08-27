@@ -113,38 +113,26 @@ char scancode_to_ascii(uint8_t scancode) {
 // Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
 char keyboard_getc(void) {
     char c;
-    static int test_mode = 0;
-    static char test_input[] = "hello\n";
-    static int test_index = 0;
     
-    // Essayer de lire un caractère du buffer
+    // Essayer de lire un caractère du buffer de manière non-bloquante
     if (kbd_get_nonblock(&c) == 0) {
-        return c;
-    }
-    
-    // Mode de test : simuler des entrées après un délai
-    if (!test_mode) {
-        test_mode = 1;
-        print_string_serial("Mode test activé - simulation d'entrées clavier\n");
-    }
-    
-    // Attendre un peu puis retourner le caractère suivant du test
-    for (volatile int i = 0; i < 5000000; i++); // Délai
-    
-    if (test_index < (int)sizeof(test_input) - 1) {
-        c = test_input[test_index++];
-        print_string_serial("Test: caractère simulé '");
+        print_string_serial("keyboard_getc: caractère lu du buffer: '");
         write_serial(c);
         print_string_serial("'\n");
         return c;
     }
     
-    // Si on a fini le test, céder le CPU au scheduler
+    // Si aucun caractère n'est disponible, attendre en cédant le CPU
+    print_string_serial("keyboard_getc: buffer vide, attente d'une interruption clavier...\n");
+    
     while (kbd_get_nonblock(&c) == -1) {
-        // Utiliser l'interruption de scheduling volontaire au lieu de hlt
+        // Céder le CPU au scheduler et attendre qu'une interruption clavier arrive
         asm volatile("int $0x30");
     }
     
+    print_string_serial("keyboard_getc: caractère reçu après attente: '");
+    write_serial(c);
+    print_string_serial("'\n");
     return c;
 }
 
