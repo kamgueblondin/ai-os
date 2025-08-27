@@ -70,8 +70,16 @@ void keyboard_interrupt_handler() {
     print_string_serial(hex);
     print_string_serial("\n");
     
-    // Convertir en ASCII et stocker uniquement dans le buffer ASCII unifié
-    if (!(scancode & 0x80)) { // Ignore les key releases (bit 7 = 1)
+    // Ignorer les codes de contrôle PS/2
+    if (scancode == 0xFA || scancode == 0xFE || scancode == 0x00 || scancode == 0xFF) {
+        print_string_serial("KBD: code de contrôle PS/2 ignoré\n");
+    }
+    // Ignorer les key releases (bit 7 = 1)
+    else if (scancode & 0x80) {
+        print_string_serial("KBD: key release ignoré\n");
+    }
+    // Traiter les key presses normaux
+    else {
         char c = scancode_to_ascii(scancode);
         if (c) {
             kbd_put(c);
@@ -86,8 +94,6 @@ void keyboard_interrupt_handler() {
         } else {
             print_string_serial("KBD: scancode non convertible en ASCII\n");
         }
-    } else {
-        print_string_serial("KBD: key release ignoré\n");
     }
     
     // S'assurer que les interruptions sont toujours activées

@@ -183,6 +183,29 @@ run-gui: $(OS_IMAGE) pack-initrd
 		-serial stdio \
 		-d int -rtc base=utc -no-reboot
 
+# Cible pour tester le clavier avec configuration optimisée
+run-kbd-test: $(OS_IMAGE) pack-initrd
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-nographic \
+		-serial file:serial_output.log \
+		-monitor stdio \
+		-machine pc \
+		-no-reboot -no-shutdown
+
+# Cible pour test interactif du clavier
+run-interactive: $(OS_IMAGE) pack-initrd
+	@echo "=== Test Interactif du Clavier AI-OS ==="
+	@echo "Instructions:"
+	@echo "1. Le système va démarrer avec interface graphique"
+	@echo "2. Tapez des caractères pour tester le clavier"
+	@echo "3. Utilisez Ctrl+Alt+2 pour accéder au moniteur QEMU"
+	@echo "4. Dans le moniteur, tapez 'quit' pour quitter"
+	@echo ""
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-serial stdio \
+		-monitor telnet:localhost:4444,server,nowait \
+		-machine pc
+
 # Cible pour tester la compilation sans exécution
 test-build: $(OS_IMAGE)
 	@echo "Compilation réussie ! Image générée: $(OS_IMAGE)"
