@@ -169,19 +169,16 @@ userspace/shell userspace/fake_ai userspace/test_program:
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-nographic -serial stdio \
-		-machine type=pc,accel=tcg \
-		-device i8042 \
-		-d int,guest_errors,cpu_reset \
-		-no-reboot -no-shutdown -monitor none
+		-m 128M \
+		-no-reboot -no-shutdown
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-m 256M -vga std \
-		-machine type=pc,accel=tcg \
-		-device i8042 \
+		-m 128M -vga std \
+		-display gtk \
 		-serial stdio \
-		-d int -rtc base=utc -no-reboot
+		-no-reboot -no-shutdown
 
 # Cible pour tester le clavier avec GUI et capture des logs série
 run-kbd-gui-test: $(OS_IMAGE) pack-initrd
