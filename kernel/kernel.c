@@ -463,8 +463,8 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         while(1) asm volatile("hlt");
     }
     
-    print_string("Tache shell prete. Demarrage du timer... DESACTIVE POUR STABILITE.\n");
-    // timer_init(100); // NOTE: Désactivé pour la stabilité du shell sans scheduler.
+    print_string("Tache shell prete. Demarrage du timer...\n");
+    timer_init(100);
 
     print_string("\n=== AI-OS v6.0 - Attente du premier changement de contexte ===\n");
     print_string("Le planificateur va maintenant prendre le relais.\n");

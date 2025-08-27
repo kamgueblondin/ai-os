@@ -88,13 +88,13 @@ char scancode_to_ascii(uint8_t scancode) {
 }
 
 // Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
-// NOTE: Cette fonction dépend toujours du scheduler via 'int $0x30'.
-// Elle sera rendue obsolète par la nouvelle implémentation de sys_gets.
+// Version bloquante qui attend une interruption.
 char keyboard_getc(void) {
     // Attendre qu'un caractère soit disponible dans le buffer
     while (kbd_empty()) {
-        // Céder le CPU (mécanisme qui sera remplacé par 'hlt' dans sys_gets)
-        asm volatile("int $0x30");
+        // Mettre le CPU en pause jusqu'à la prochaine interruption.
+        // Cela suppose que les interruptions sont activées (IF=1).
+        asm volatile("hlt");
     }
     
     // Récupérer le caractère du buffer
