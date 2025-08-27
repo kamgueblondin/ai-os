@@ -63,12 +63,6 @@ static interrupt_handler_t interrupt_handlers[256];
 // Par défaut, les IRQs du PIC (0-15) entrent en conflit avec les exceptions CPU.
 // On les décale vers les entrées IDT 32-47.
 void pic_remap() {
-    unsigned char a1, a2;
-
-    // Sauvegarde les masques
-    a1 = inb(0x21);
-    a2 = inb(0xA1);
-
     // Démarre la séquence d'initialisation (en mode cascade)
     outb(0x20, 0x11);
     outb(0xA0, 0x11);

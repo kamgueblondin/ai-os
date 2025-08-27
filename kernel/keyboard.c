@@ -1,9 +1,10 @@
 #include "keyboard.h"
 #include <stdint.h>
+#include "kernel.h" // Pour outb, inb, print_string_serial
 
 // Fonctions externes pour les ports I/O
-extern unsigned char inb(unsigned short port);
-extern void outb(unsigned short port, unsigned char data);
+// extern unsigned char inb(unsigned short port); // Fourni par kernel.h
+// extern void outb(unsigned short port, unsigned char data); // Fourni par kernel.h
 
 // Table de correspondance complète Scancode -> ASCII (pour un clavier US QWERTY)
 // ... (le reste de la table est inchangé)
@@ -37,7 +38,22 @@ void keyboard_interrupt_handler() {
     outb(0x20, 0x20);  // Send EOI to PIC
 }
 
-// Fonctions scancode_to_ascii et keyboard_getc supprimées pour le test.
+// Convertit un scancode en caractère ASCII (implémentation simplifiée)
+char scancode_to_ascii(uint8_t scancode) {
+    if (scancode & 0x80) {
+        return 0;
+    }
+    if (scancode >= 128) {
+        return 0;
+    }
+    return scancode_map[scancode];
+}
+
+// Fonction factice pour satisfaire le l'éditeur de liens.
+char keyboard_getc(void) {
+    while(1) { asm volatile("hlt"); }
+    return 0;
+}
 
 
 // Helper functions for PS/2 controller communication
