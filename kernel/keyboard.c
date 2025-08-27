@@ -58,14 +58,8 @@ const char scancode_map[128] = {
 };
 
 
-#include "interrupts.h" // Pour la structure intr_frame
-
-// Le handler d'interruption pour IRQ1 (clavier), utilisant l'attribut 'interrupt'.
-// Le compilateur génère le prologue/épilogue, et l'IDT peut pointer directement ici.
-__attribute__((interrupt))
-void irq1_handler(struct intr_frame* frame) {
-    (void)frame; // Le frame n'est pas utilisé, mais requis par le type d'ISR.
-
+// Le handler appelé par l'ISR stub.
+void keyboard_interrupt_handler() {
     // Lire le scancode depuis le port du clavier
     uint8_t scancode = inb(0x60);
 
