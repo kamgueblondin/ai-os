@@ -11,6 +11,7 @@
 extern void print_string_serial(const char* str);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
+extern volatile void* kbd_waiting;
 
 
 // ==============================================================================
@@ -38,16 +39,25 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
-                // Réactiver les interruptions avant de lire le clavier
-                asm volatile("sti");
+                char c = 0;
+                // Essayer de lire un caractère sans bloquer
+                c = keyboard_getc();
+
+                if (c == 0) {
+                    // Si le buffer est vide, mettre la tâche en attente
+                    asm volatile("cli"); // Section critique
+                    kbd_waiting = (void*)current_task;
+                    current_task->state = TASK_WAITING;
+                    asm volatile("sti");
+
+                    // Forcer un changement de contexte
+                    asm volatile("int $0x30");
+
+                    // La tâche se réveille ici. On peut maintenant lire le caractère.
+                    c = keyboard_getc();
+                }
                 
-                // Utilise directement keyboard_getc() qui gère le buffer ASCII
-                char c = keyboard_getc();
                 cpu->eax = c;
-                
-                print_string_serial("SYS_GETC: caractère retourné: '");
-                write_serial(c);
-                print_string_serial("'\n");
             }
             break;
             

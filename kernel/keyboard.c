@@ -1,6 +1,7 @@
 #include "keyboard.h"
 #include "kernel.h"
 #include <stdint.h>
+#include "task/task.h"
 
 // Fonctions externes pour les ports I/O et autres
 extern unsigned char inb(unsigned short port);
@@ -15,7 +16,7 @@ static volatile unsigned int kbd_head = 0;
 static volatile unsigned int kbd_tail = 0;
 
 // Pointeur vers la tâche en attente (simplifié pour ce projet)
-static volatile void *kbd_waiting = NULL;
+volatile void *kbd_waiting = NULL;
 
 // Fonctions pour gérer le buffer ASCII
 void kbd_put(char c) {
@@ -58,48 +59,49 @@ const char scancode_map[128] = {
 
 // Le handler appelé par l'ISR.
 void keyboard_interrupt_handler() {
-    print_string_serial("=== INTERRUPTION CLAVIER RECUE ===\n");
+    // print_string_serial("=== INTERRUPTION CLAVIER RECUE ===\n");
     
     uint8_t scancode = inb(0x60); // Lit le scancode
     
     // Debug : envoie scancode sur port série
-    print_string_serial("KBD sc=0x");
-    char hex[3] = "00";
-    hex[0] = (scancode >> 4) < 10 ? '0' + (scancode >> 4) : 'A' + (scancode >> 4) - 10;
-    hex[1] = (scancode & 0xF) < 10 ? '0' + (scancode & 0xF) : 'A' + (scancode & 0xF) - 10;
-    print_string_serial(hex);
-    print_string_serial("\n");
+    // print_string_serial("KBD sc=0x");
+    // char hex[3] = "00";
+    // hex[0] = (scancode >> 4) < 10 ? '0' + (scancode >> 4) : 'A' + (scancode >> 4) - 10;
+    // hex[1] = (scancode & 0xF) < 10 ? '0' + (scancode & 0xF) : 'A' + (scancode & 0xF) - 10;
+    // print_string_serial(hex);
+    // print_string_serial("\n");
     
     // Ignorer les codes de contrôle PS/2
     if (scancode == 0xFA || scancode == 0xFE || scancode == 0x00 || scancode == 0xFF) {
-        print_string_serial("KBD: code de contrôle PS/2 ignoré\n");
+        // print_string_serial("KBD: code de contrôle PS/2 ignoré\n");
     }
     // Ignorer les key releases (bit 7 = 1)
     else if (scancode & 0x80) {
-        print_string_serial("KBD: key release ignoré\n");
+        // print_string_serial("KBD: key release ignoré\n");
     }
     // Traiter les key presses normaux
     else {
         char c = scancode_to_ascii(scancode);
         if (c) {
             kbd_put(c);
-            print_string_serial("KBD char='");
-            write_serial(c);
-            print_string_serial("' ajouté au buffer ASCII unifié\n");
-            
-            // Forcer un reschedule pour réveiller les tâches en attente
-            extern volatile int g_reschedule_needed;
-            g_reschedule_needed = 1;
-            print_string_serial("Reschedule déclenché\n");
+
+            // Wake up a waiting task if there is one
+            if (kbd_waiting) {
+                task_t* t = (task_t*)kbd_waiting;
+                if (t->state == TASK_WAITING) {
+                    t->state = TASK_READY;
+                }
+                kbd_waiting = NULL;
+            }
         } else {
-            print_string_serial("KBD: scancode non convertible en ASCII\n");
+            // print_string_serial("KBD: scancode non convertible en ASCII\n");
         }
     }
     
     // S'assurer que les interruptions sont toujours activées
     asm volatile("sti");
     
-    print_string_serial("=== FIN INTERRUPTION CLAVIER ===\n");
+    // print_string_serial("=== FIN INTERRUPTION CLAVIER ===\n");
 }
 
 // Convertit un scancode en caractère ASCII (implémentation simplifiée)
@@ -115,68 +117,14 @@ char scancode_to_ascii(uint8_t scancode) {
     return scancode_map[scancode];
 }
 
-// Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
+// Fonction pour lire un caractère depuis le buffer (non-bloquant)
+// Retourne le caractère ou 0 si le buffer est vide.
 char keyboard_getc(void) {
     char c;
-    int timeout = 0;
-    const int MAX_TIMEOUT = 10000; // Timeout plus court
-    
-    // Essayer de lire un caractère du buffer de manière non-bloquante
     if (kbd_get_nonblock(&c) == 0) {
-        print_string_serial("keyboard_getc: caractère lu du buffer: '");
-        write_serial(c);
-        print_string_serial("'\n");
         return c;
     }
-    
-    // Si aucun caractère n'est disponible, utiliser le polling direct
-    print_string_serial("keyboard_getc: buffer vide, polling direct du clavier...\n");
-    
-    // Réactiver les interruptions
-    asm volatile("sti");
-    
-    while (timeout < MAX_TIMEOUT) {
-        // D'abord essayer le buffer (au cas où une interruption arriverait)
-        if (kbd_get_nonblock(&c) == 0) {
-            print_string_serial("keyboard_getc: caractère reçu via interruption: '");
-            write_serial(c);
-            print_string_serial("'\n");
-            return c;
-        }
-        
-        // Polling direct du clavier (méthode alternative)
-        uint8_t status = inb(0x64);
-        if (status & 0x01) { // Données disponibles
-            uint8_t scancode = inb(0x60);
-            
-            // Ne traiter que les key press (pas key release)
-            if (!(scancode & 0x80)) {
-                char ch = scancode_to_ascii(scancode);
-                if (ch) {
-                    // Ajouter au buffer pour cohérence
-                    kbd_put(ch);
-                    print_string_serial("keyboard_getc: caractère lu par polling: '");
-                    write_serial(ch);
-                    print_string_serial("'\n");
-                    return ch;
-                }
-            }
-        }
-        
-        // Courte pause
-        for (volatile int i = 0; i < 100; i++) {
-            asm volatile("nop");
-        }
-        timeout++;
-        
-        // Céder le CPU périodiquement
-        if (timeout % 100 == 0) {
-            asm volatile("int $0x30");
-        }
-    }
-    
-    print_string_serial("keyboard_getc: TIMEOUT - retour caractère par défaut\n");
-    return '\n'; // Retourner une nouvelle ligne en cas de timeout
+    return 0; // Retourne 0 si aucun caractère n'est disponible
 }
 
 
