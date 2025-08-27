@@ -15,6 +15,27 @@ extern volatile void* kbd_waiting;
 
 
 // ==============================================================================
+// FONCTIONS D'APPELS SYSTÈME INTERNES
+// ==============================================================================
+
+// Fonction de blocage interne pour obtenir un caractère
+static char kernel_getc_blocking() {
+    char c = 0;
+    while ((c = keyboard_getc()) == 0) {
+        // Le buffer est vide, on met la tâche en attente
+        asm volatile("cli");
+        kbd_waiting = (void*)current_task;
+        current_task->state = TASK_WAITING;
+        asm volatile("sti");
+
+        // On cède le CPU, en attendant d'être réveillé par l'ISR du clavier
+        asm volatile("int $0x30");
+    }
+    return c;
+}
+
+
+// ==============================================================================
 // GESTIONNAIRE D'APPELS SYSTÈME
 // ==============================================================================
 
@@ -39,25 +60,7 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
-                char c = 0;
-                // Essayer de lire un caractère sans bloquer
-                c = keyboard_getc();
-
-                if (c == 0) {
-                    // Si le buffer est vide, mettre la tâche en attente
-                    asm volatile("cli"); // Section critique
-                    kbd_waiting = (void*)current_task;
-                    current_task->state = TASK_WAITING;
-                    asm volatile("sti");
-
-                    // Forcer un changement de contexte
-                    asm volatile("int $0x30");
-
-                    // La tâche se réveille ici. On peut maintenant lire le caractère.
-                    c = keyboard_getc();
-                }
-                
-                cpu->eax = c;
+                cpu->eax = kernel_getc_blocking();
             }
             break;
             
@@ -124,46 +127,37 @@ int sys_exec(const char* path, char* argv[]) {
 // Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) return;
-    
-    print_string_serial("SYS_GETS: Debut de la lecture (version corrigee)...\n");
-    
-    // Réactiver les interruptions
-    asm volatile("sti");
+
+    // print_string_serial("SYS_GETS: Debut de la lecture...\n");
     
     uint32_t i = 0;
-    
     while (i < size - 1) {
-        char c = keyboard_getc(); // Utilise directement keyboard_getc qui est plus robuste
+        char c = kernel_getc_blocking(); // Utilise la fonction de blocage interne
         
-        if (c == '\r' || c == '\n') {
-            // Fin de ligne - afficher aussi sur écran
-            print_char('\n', -1, -1, 0x0F);
-            buffer[i] = '\0';
-            print_string_serial("SYS_GETS: ligne lue: ");
-            print_string_serial(buffer);
-            print_string_serial("\n");
-            return;
+        // Gérer le retour arrière
+        if (c == '\b') {
+            if (i > 0) {
+                i--;
+                print_char('\b', -1, -1, 0x0F);
+                print_char(' ', -1, -1, 0x0F);
+                print_char('\b', -1, -1, 0x0F);
+            }
         }
-        
-        if (c == '\b' && i > 0) {
-            // Backspace - effacer sur l'écran aussi
-            i--;
-            print_char('\b', -1, -1, 0x0F);  // Backspace
-            print_char(' ', -1, -1, 0x0F);   // Espace
-            print_char('\b', -1, -1, 0x0F);  // Backspace
-        } else if (c >= 32 && c <= 126) {
-            // Caractère imprimable - l'afficher sur l'écran
+        // Gérer la fin de ligne
+        else if (c == '\n' || c == '\r') {
+            print_char('\n', -1, -1, 0x0F);
+            break;
+        }
+        // Gérer les caractères imprimables
+        else if (c >= ' ') {
             buffer[i++] = c;
-            print_char(c, -1, -1, 0x0F);
-            print_string_serial("SYS_GETS: caractère ajouté: '");
-            write_serial(c);
-            print_string_serial("'\n");
+            print_char(c, -1, -1, 0x0F); // Afficher le caractère à l'écran
         }
     }
     
     buffer[i] = '\0';
-    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
-    print_string_serial(buffer);
-    print_string_serial("\n");
+    // print_string_serial("SYS_GETS: Ligne lue: ");
+    // print_string_serial(buffer);
+    // print_string_serial("\n");
 }
 
