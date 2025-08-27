@@ -5,34 +5,35 @@
 
 // Fonctions externes pour les ports I/O et autres
 extern unsigned char inb(unsigned short port);
+extern void outb(unsigned short port, unsigned char data);
 extern void print_char_vga(char c, int x, int y, char color);
 extern void write_serial(char c);
 extern int vga_x, vga_y;
 
-// Buffer clavier amélioré pour caractères ASCII
-#define KBD_BUF_SIZE 256
-static volatile unsigned char kbd_buf[KBD_BUF_SIZE];
-static volatile unsigned int kbd_head = 0;
-static volatile unsigned int kbd_tail = 0;
+// Ring buffer pour le clavier, comme suggéré
+static volatile char kbd_rb[256];
+static volatile uint8_t rb_h = 0, rb_t = 0;
 
-// Pointeur vers la tâche en attente (simplifié pour ce projet)
-static volatile void *kbd_waiting = NULL;
-
-// Fonctions pour gérer le buffer ASCII
-static void kbd_put(char c) {
-    unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
-    if (next != kbd_tail) { // buffer not full
-        kbd_buf[kbd_head] = c;
-        kbd_head = next;
-    }
-    // Si buffer plein, on ignore le caractère (overflow)
+int kbd_empty(void) {
+    return rb_h == rb_t;
 }
 
-int kbd_get_nonblock(char *out) {
-    if (kbd_head == kbd_tail) return -1; // buffer vide
-    *out = kbd_buf[kbd_tail];
-    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
-    return 0;
+// kbd_push reste static car il n'est utilisé que dans ce fichier.
+static void kbd_push(char c) {
+    uint8_t next_head = rb_h + 1; // Le débordement de l'uint8_t gère le modulo 256
+    if (next_head != rb_t) { // Vérifie si le buffer est plein
+        kbd_rb[rb_h] = c;
+        rb_h = next_head;
+    }
+}
+
+char kbd_pop(void) {
+    if (kbd_empty()) {
+        return 0; // Buffer vide
+    }
+    char c = kbd_rb[rb_t];
+    rb_t++; // Le débordement de l'uint8_t gère le modulo 256
+    return c;
 }
 
 // Table de correspondance complète Scancode -> ASCII (pour un clavier US QWERTY)
@@ -57,44 +58,20 @@ const char scancode_map[128] = {
 };
 
 
-// Le handler appelé par l'ISR.
+// Le handler appelé par l'ISR, corrigé pour inclure EOI.
 void keyboard_interrupt_handler() {
-    print_string_serial("=== INTERRUPTION CLAVIER RECUE ===\n");
-    
-    uint8_t scancode = inb(0x60); // Lit le scancode
-    
-    // Debug : envoie scancode sur port série
-    print_string_serial("KBD sc=0x");
-    char hex[3] = "00";
-    hex[0] = (scancode >> 4) < 10 ? '0' + (scancode >> 4) : 'A' + (scancode >> 4) - 10;
-    hex[1] = (scancode & 0xF) < 10 ? '0' + (scancode & 0xF) : 'A' + (scancode & 0xF) - 10;
-    print_string_serial(hex);
-    print_string_serial("\n");
-    
-    // Ajouter le scancode au buffer pour les syscalls (pour compatibilité)
-    kbd_push_scancode(scancode);
-    
-    // Convertir en ASCII et stocker dans le buffer local (prioritaire)
-    if (!(scancode & 0x80)) { // Ignore les key releases (bit 7 = 1)
+    uint8_t scancode = inb(0x60);
+
+    // Ignorer les key releases (bit 7 = 1)
+    if (!(scancode & 0x80)) {
         char c = scancode_to_ascii(scancode);
         if (c) {
-            kbd_put(c);
-            print_string_serial("KBD char='");
-            write_serial(c);
-            print_string_serial("' ajouté au buffer ASCII\n");
-            
-            // Déclencher un reschedule pour réveiller les tâches en attente
-            extern volatile int g_reschedule_needed;
-            g_reschedule_needed = 1;
-            print_string_serial("Reschedule déclenché\n");
-        } else {
-            print_string_serial("KBD: scancode non convertible en ASCII\n");
+            kbd_push(c);
         }
-    } else {
-        print_string_serial("KBD: key release ignoré\n");
     }
-    
-    print_string_serial("=== FIN INTERRUPTION CLAVIER ===\n");
+
+    // Indispensable: envoyer End-Of-Interrupt (EOI) au PIC maître
+    outb(0x20, 0x20);
 }
 
 // Convertit un scancode en caractère ASCII (implémentation simplifiée)
@@ -111,29 +88,17 @@ char scancode_to_ascii(uint8_t scancode) {
 }
 
 // Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
+// NOTE: Cette fonction dépend toujours du scheduler via 'int $0x30'.
+// Elle sera rendue obsolète par la nouvelle implémentation de sys_gets.
 char keyboard_getc(void) {
-    char c;
-    
-    // Essayer de lire un caractère du buffer de manière non-bloquante
-    if (kbd_get_nonblock(&c) == 0) {
-        print_string_serial("keyboard_getc: caractère lu du buffer: '");
-        write_serial(c);
-        print_string_serial("'\n");
-        return c;
-    }
-    
-    // Si aucun caractère n'est disponible, attendre en cédant le CPU
-    print_string_serial("keyboard_getc: buffer vide, attente d'une interruption clavier...\n");
-    
-    while (kbd_get_nonblock(&c) == -1) {
-        // Céder le CPU au scheduler et attendre qu'une interruption clavier arrive
+    // Attendre qu'un caractère soit disponible dans le buffer
+    while (kbd_empty()) {
+        // Céder le CPU (mécanisme qui sera remplacé par 'hlt' dans sys_gets)
         asm volatile("int $0x30");
     }
     
-    print_string_serial("keyboard_getc: caractère reçu après attente: '");
-    write_serial(c);
-    print_string_serial("'\n");
-    return c;
+    // Récupérer le caractère du buffer
+    return kbd_pop();
 }
 
 

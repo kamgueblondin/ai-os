@@ -63,7 +63,7 @@ void syscall_handler(cpu_state_t* cpu) {
             
         // SYS_GETS - Lire une ligne depuis le clavier
         case SYS_GETS:
-            sys_gets((char*)cpu->ebx, cpu->ecx);
+            cpu->eax = sys_gets((char*)cpu->ebx, cpu->ecx);
             break;
             
         case SYS_EXEC:
@@ -105,38 +105,60 @@ int sys_exec(const char* path, char* argv[]) {
 }
 
 
+#include <stddef.h> // For size_t
+
+// Erreur standard pour les pointeurs invalides
+#define EFAULT 14
+
 // Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
-void sys_gets(char* buffer, uint32_t size) {
-    if (!buffer || size == 0) return;
-    
-    print_string_serial("SYS_GETS: Debut de la lecture...\n");
-    
-    uint32_t i = 0;
-    while (i < size - 1) {
-        char c = keyboard_getc(); // Utilise la nouvelle fonction clavier
-        
-        if (c == '\r' || c == '\n') {
-            // Fin de ligne
-            buffer[i] = '\0';
-            print_string_serial("SYS_GETS: ligne lue: ");
-            print_string_serial(buffer);
-            print_string_serial("\n");
-            return;
-        }
-        
-        if (c == '\b' && i > 0) {
-            // Backspace - pour l'instant on ignore le backspace dans sys_gets
-            i--;
-        } else if (c >= 32 && c <= 126) {
+// Version bloquante utilisant 'hlt' pour attendre les interruptions clavier.
+int sys_gets(char __user *dst, size_t maxlen) {
+    // Buffer temporaire dans le noyau pour assembler la ligne
+    char buf[256];
+    size_t i = 0;
+
+    if (maxlen == 0) return 0;
+    if (maxlen > sizeof(buf)) maxlen = sizeof(buf);
+
+    // Assure que les interruptions sont activées pour que 'hlt' puisse être réveillé
+    asm volatile("sti");
+
+    for (;;) {
+        // Traiter les caractères déjà présents dans le buffer
+        while (!kbd_empty() && i < maxlen - 1) {
+            char c = kbd_pop();
+
+            if (c == '\r') c = '\n'; // Traiter CR comme LF
+            if (c == '\n') {
+                goto done; // Fin de la ligne
+            }
+            // Gérer le backspace
+            else if (c == '\b') {
+                if (i > 0) i--;
+            }
             // Caractère imprimable
-            buffer[i++] = c;
-            // Echo du caractère (simplifié - pas d'affichage pour l'instant)
+            else if (c >= ' ') {
+                buf[i++] = c;
+            }
         }
+
+        // Si le buffer est plein ou la ligne est terminée, sortir
+        if (i >= maxlen - 1) {
+            break;
+        }
+
+        // Si le buffer est vide, attendre la prochaine interruption clavier
+        asm volatile("hlt");
     }
-    
-    buffer[i] = '\0';
-    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
-    print_string_serial(buffer);
-    print_string_serial("\n");
+
+done:
+    buf[i] = '\0'; // Terminer la chaîne de caractères
+
+    // Copier le buffer local du noyau vers l'espace utilisateur en toute sécurité
+    if (copy_to_user(dst, buf, i + 1) != 0) {
+        return -EFAULT; // Erreur de copie
+    }
+
+    return (int)i; // Retourne le nombre de caractères lus
 }
 

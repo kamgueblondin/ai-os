@@ -15,5 +15,9 @@ char scancode_to_ascii(uint8_t scancode);
 // Récupère un caractère depuis le buffer clavier (utilisé par le kernel)
 char keyboard_getc(void);
 
+// Fonctions pour interagir avec le buffer clavier depuis d'autres parties du noyau
+int kbd_empty(void);
+char kbd_pop(void);
+
 #endif
 
