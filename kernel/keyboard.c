@@ -53,8 +53,13 @@ int wait_kbd_ready(int is_command) {
     return 0; // Timeout
 }
 
-// Buffer management amélioré
+// Buffer management amélioré avec filtrage anti-fantômes
 void kbd_put_char(char c) {
+    // Filtrer les caractères nuls pour éviter les touches fantômes
+    if (c == 0) {
+        return; // Ne pas ajouter les caractères nuls au buffer
+    }
+    
     unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
     if (next != kbd_tail) {
         kbd_buf[kbd_head] = c;
@@ -74,9 +79,21 @@ int kbd_get_char_nonblock(char *out) {
         return 0; // Vide
     }
     
-    *out = kbd_buf[kbd_tail];
-    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
-    return 1; // Succès
+    // Chercher le prochain caractère valide (non-nul) dans le buffer
+    int max_tries = KBD_BUF_SIZE; // Éviter boucle infinie
+    while (kbd_head != kbd_tail && max_tries-- > 0) {
+        char c = kbd_buf[kbd_tail];
+        kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
+        
+        // Retourner seulement les caractères valides (non-nuls)
+        if (c != 0) {
+            *out = c;
+            return 1; // Succès
+        }
+        // Sinon continuer à chercher le prochain caractère valide
+    }
+    
+    return 0; // Aucun caractère valide trouvé
 }
 
 // Table de conversion scancode PS/2 Set 1 standard (corrigée)
@@ -344,12 +361,14 @@ void keyboard_init() {
     print_string_serial("===============================\n");
 }
 
-// Fonction getchar hybride avec plusieurs mécanismes
+// Fonction getchar hybride avec plusieurs mécanismes et protection anti-fantômes
 char keyboard_getc(void) {
     static int getc_calls = 0;
+    static int consecutive_empty_returns = 0;
     char c;
     int attempts = 0;
     const int MAX_ATTEMPTS = 200000; // Timeout raisonnable
+    const int MAX_CONSECUTIVE_EMPTY = 5; // Maximum de retours vides consécutifs
     
     getc_calls++;
     
@@ -366,12 +385,16 @@ char keyboard_getc(void) {
     while (attempts < MAX_ATTEMPTS) {
         // 1. Essayer d'abord le buffer d'interruptions
         if (kbd_get_char_nonblock(&c)) {
-            if (getc_calls <= 3) {
-                print_string_serial("GETC: got '");
-                write_serial(c);
-                print_string_serial("' from buffer\n");
+            // Vérifier que le caractère n'est pas nul (protection anti-fantômes)
+            if (c != 0) {
+                consecutive_empty_returns = 0; // Reset compteur
+                if (getc_calls <= 3) {
+                    print_string_serial("GETC: got valid '");
+                    write_serial(c);
+                    print_string_serial("' from buffer\n");
+                }
+                return c;
             }
-            return c;
         }
         
         // 2. Polling de secours (actif même avec interruptions)
@@ -379,30 +402,58 @@ char keyboard_getc(void) {
         
         // 3. Vérifier à nouveau le buffer
         if (kbd_get_char_nonblock(&c)) {
-            if (getc_calls <= 3) {
-                print_string_serial("GETC: got '");
-                write_serial(c);
-                print_string_serial("' from polling\n");
+            // Vérifier que le caractère n'est pas nul
+            if (c != 0) {
+                consecutive_empty_returns = 0; // Reset compteur
+                if (getc_calls <= 3) {
+                    print_string_serial("GETC: got valid '");
+                    write_serial(c);
+                    print_string_serial("' from polling\n");
+                }
+                return c;
             }
-            return c;
         }
         
         attempts++;
         
-        // Debug périodique
+        // Debug périodique - réduit si trop de tentatives vides
         if (attempts % 50000 == 0 && getc_calls <= 2) {
             print_string_serial("GETC: waiting... (");
             write_serial('0' + (attempts / 50000));
             print_string_serial(")\n");
         }
+        
+        // Protection contre les boucles infinies de caractères vides
+        if (attempts > MAX_ATTEMPTS / 2) {
+            consecutive_empty_returns++;
+            if (consecutive_empty_returns > MAX_CONSECUTIVE_EMPTY) {
+                if (getc_calls <= 2) {
+                    print_string_serial("GETC: détection boucle fantôme - pause\n");
+                }
+                // Pause plus longue pour casser la boucle
+                for (volatile int pause = 0; pause < 100000; pause++);
+                consecutive_empty_returns = 0; // Reset
+            }
+        }
     }
     
-    // Timeout
+    // Timeout - ne retourner des caractères nuls qu'en dernier recours
+    consecutive_empty_returns++;
     if (getc_calls <= 2) {
-        print_string_serial("GETC: timeout\n");
+        print_string_serial("GETC: timeout après filtrage\n");
     }
     
-    return 0; // Caractère null en cas de timeout
+    // Au lieu de retourner 0 (qui cause les touches fantômes), attendre plus
+    if (consecutive_empty_returns < MAX_CONSECUTIVE_EMPTY) {
+        // Pause et retry une dernière fois
+        for (volatile int pause = 0; pause < 50000; pause++);
+        if (kbd_get_char_nonblock(&c) && c != 0) {
+            consecutive_empty_returns = 0;
+            return c;
+        }
+    }
+    
+    return 0; // Caractère null seulement après tous les filtres
 }
 
 // Fonctions de compatibilité

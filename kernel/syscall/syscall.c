@@ -38,6 +38,7 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
+                static int null_char_count = 0;
                 // Réactiver les interruptions avant de lire le clavier
                 asm volatile("sti");
                 
@@ -45,9 +46,25 @@ void syscall_handler(cpu_state_t* cpu) {
                 char c = keyboard_getc();
                 cpu->eax = c;
                 
-                print_string_serial("SYS_GETC: caractère retourné: '");
-                write_serial(c);
-                print_string_serial("'\n");
+                // Debug intelligent - réduire le spam pour les caractères nuls
+                if (c != 0) {
+                    null_char_count = 0; // Reset compteur
+                    print_string_serial("SYS_GETC: caractère retourné: '");
+                    write_serial(c);
+                    print_string_serial("'\n");
+                } else {
+                    null_char_count++;
+                    // N'afficher les caractères nuls que les 3 premières fois
+                    if (null_char_count <= 3) {
+                        print_string_serial("SYS_GETC: caractère retourné: '");
+                        write_serial(c);
+                        print_string_serial("'\n");
+                    } else if (null_char_count == 10) {
+                        print_string_serial("SYS_GETC: suppression du spam null (");
+                        write_serial('0' + (null_char_count % 10));
+                        print_string_serial(" chars nuls)\n");
+                    }
+                }
             }
             break;
             
