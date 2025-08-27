@@ -39,9 +39,17 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
+                // Réactiver les interruptions avant de lire le clavier
+                asm volatile("sti");
+                
                 // Utilise directement keyboard_getc() qui gère le buffer ASCII
                 char c = keyboard_getc();
                 cpu->eax = c;
+                
+                print_string_serial("SYS_GETC: caractère retourné: '");
+                extern void write_serial(char a);
+                write_serial(c);
+                print_string_serial("'\n");
             }
             break;
             
@@ -111,9 +119,34 @@ void sys_gets(char* buffer, uint32_t size) {
     
     print_string_serial("SYS_GETS: Debut de la lecture...\n");
     
+    // Réactiver les interruptions
+    asm volatile("sti");
+    
     uint32_t i = 0;
+    int timeout_counter = 0;
+    const int MAX_TIMEOUT = 5000000; // Plus grand timeout pour éviter les blocages
+    
     while (i < size - 1) {
-        char c = keyboard_getc(); // Utilise la nouvelle fonction clavier
+        char c = 0;
+        
+        // Essayer de lire un caractère avec gestion de timeout
+        while (kbd_get_nonblock(&c) == -1 && timeout_counter < MAX_TIMEOUT) {
+            // Petite pause pour permettre aux interruptions de se déclencher
+            for (volatile int j = 0; j < 1000; j++) {
+                asm volatile("nop");
+            }
+            timeout_counter++;
+            
+            // Périodiquement céder le CPU
+            if (timeout_counter % 10000 == 0) {
+                asm volatile("int $0x30");
+            }
+        }
+        
+        if (timeout_counter >= MAX_TIMEOUT) {
+            print_string_serial("SYS_GETS: timeout atteint, retour prématuré\n");
+            break;
+        }
         
         if (c == '\r' || c == '\n') {
             // Fin de ligne
@@ -125,12 +158,13 @@ void sys_gets(char* buffer, uint32_t size) {
         }
         
         if (c == '\b' && i > 0) {
-            // Backspace - pour l'instant on ignore le backspace dans sys_gets
+            // Backspace
             i--;
+            timeout_counter = 0; // Reset timeout après action valide
         } else if (c >= 32 && c <= 126) {
             // Caractère imprimable
             buffer[i++] = c;
-            // Echo du caractère (simplifié - pas d'affichage pour l'instant)
+            timeout_counter = 0; // Reset timeout après action valide
         }
     }
     

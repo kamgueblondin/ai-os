@@ -83,7 +83,7 @@ void keyboard_interrupt_handler() {
             write_serial(c);
             print_string_serial("' ajouté au buffer ASCII\n");
             
-            // Déclencher un reschedule pour réveiller les tâches en attente
+            // Forcer un reschedule pour réveiller les tâches en attente
             extern volatile int g_reschedule_needed;
             g_reschedule_needed = 1;
             print_string_serial("Reschedule déclenché\n");
@@ -93,6 +93,9 @@ void keyboard_interrupt_handler() {
     } else {
         print_string_serial("KBD: key release ignoré\n");
     }
+    
+    // S'assurer que les interruptions sont toujours activées
+    asm volatile("sti");
     
     print_string_serial("=== FIN INTERRUPTION CLAVIER ===\n");
 }
@@ -113,6 +116,8 @@ char scancode_to_ascii(uint8_t scancode) {
 // Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
 char keyboard_getc(void) {
     char c;
+    int timeout = 0;
+    const int MAX_TIMEOUT = 1000000; // Eviter les blocages infinis
     
     // Essayer de lire un caractère du buffer de manière non-bloquante
     if (kbd_get_nonblock(&c) == 0) {
@@ -122,12 +127,28 @@ char keyboard_getc(void) {
         return c;
     }
     
-    // Si aucun caractère n'est disponible, attendre en cédant le CPU
+    // Si aucun caractère n'est disponible, attendre avec timeout
     print_string_serial("keyboard_getc: buffer vide, attente d'une interruption clavier...\n");
     
-    while (kbd_get_nonblock(&c) == -1) {
-        // Céder le CPU au scheduler et attendre qu'une interruption clavier arrive
-        asm volatile("int $0x30");
+    // Réactiver les interruptions au cas où elles seraient désactivées
+    asm volatile("sti");
+    
+    while (kbd_get_nonblock(&c) == -1 && timeout < MAX_TIMEOUT) {
+        // Yield CPU et permettre aux interruptions de se déclencher
+        for (volatile int i = 0; i < 1000; i++) {
+            asm volatile("nop");
+        }
+        timeout++;
+        
+        // Periodiquement céder le CPU au scheduler
+        if (timeout % 1000 == 0) {
+            asm volatile("int $0x30");
+        }
+    }
+    
+    if (timeout >= MAX_TIMEOUT) {
+        print_string_serial("keyboard_getc: TIMEOUT - retour caractère par défaut\n");
+        return '\n'; // Retourner une nouvelle ligne en cas de timeout
     }
     
     print_string_serial("keyboard_getc: caractère reçu après attente: '");
@@ -241,7 +262,8 @@ void keyboard_init() {
 
     print_string_serial("PS/2 Keyboard initialise et pret.\n");
     
-    // Debug : vérifier le masque PIC
+    // Diagnostic final du PIC
+    print_string_serial("=== DIAGNOSTIC FINAL PIC APRES INIT CLAVIER ===\n");
     uint8_t pic_mask = inb(0x21);
     print_string_serial("PIC1 mask: 0x");
     char hex_mask[3] = "00";
@@ -252,11 +274,23 @@ void keyboard_init() {
     
     // S'assurer que IRQ1 n'est pas masqué
     if (pic_mask & (1 << 1)) {
-        print_string_serial("IRQ1 est masque, demasquage...\n");
+        print_string_serial("ERREUR: IRQ1 est masque apres init, correction...\n");
         pic_mask &= ~(1 << 1);
         outb(0x21, pic_mask);
-        print_string_serial("IRQ1 demasque.\n");
+        print_string_serial("IRQ1 demasque force.\n");
     } else {
-        print_string_serial("IRQ1 n'est pas masque.\n");
+        print_string_serial("OK: IRQ1 n'est pas masque.\n");
     }
+    
+    // Test rapide du contrôleur clavier
+    print_string_serial("Test du controleur clavier...\n");
+    uint8_t status = inb(0x64);
+    print_string_serial("Status register: 0x");
+    hex_mask[0] = (status >> 4) < 10 ? '0' + (status >> 4) : 'A' + (status >> 4) - 10;
+    hex_mask[1] = (status & 0xF) < 10 ? '0' + (status & 0xF) : 'A' + (status & 0xF) - 10;
+    print_string_serial(hex_mask);
+    print_string_serial("\n");
+    
+    print_string_serial("Clavier pret pour les interruptions.\n");
+    print_string_serial("=============================================\n");
 }

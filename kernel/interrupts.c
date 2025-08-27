@@ -87,9 +87,39 @@ void pic_remap() {
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
     
-    // Autorise le timer (IRQ0) et le clavier (IRQ1)
-    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 démasquées
-    outb(0xA1, 0xFF);
+    // Autorise le timer (IRQ0) et le clavier (IRQ1), désactive les autres
+    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 démasquées, autres masquées
+    outb(0xA1, 0xFF);   // Toutes les IRQ du PIC2 masquées
+    
+    print_string_serial("PIC: IRQ0 (timer) et IRQ1 (clavier) démasquées\n");
+}
+
+// Fonction pour diagnostiquer l'état du PIC
+void pic_diagnose() {
+    print_string_serial("=== DIAGNOSTIC PIC ===\n");
+    uint8_t mask1 = inb(0x21);
+    uint8_t mask2 = inb(0xA1);
+    
+    print_string_serial("PIC1 mask: 0b");
+    for (int i = 7; i >= 0; i--) {
+        write_serial((mask1 & (1 << i)) ? '1' : '0');
+    }
+    print_string_serial(" (0x");
+    char hex[3] = "00";
+    hex[0] = (mask1 >> 4) < 10 ? '0' + (mask1 >> 4) : 'A' + (mask1 >> 4) - 10;
+    hex[1] = (mask1 & 0xF) < 10 ? '0' + (mask1 & 0xF) : 'A' + (mask1 & 0xF) - 10;
+    print_string_serial(hex);
+    print_string_serial(")\n");
+    
+    print_string_serial("IRQ0 (timer): ");
+    print_string_serial((mask1 & 1) ? "MASKED" : "ENABLED");
+    print_string_serial("\n");
+    
+    print_string_serial("IRQ1 (keyboard): ");
+    print_string_serial((mask1 & 2) ? "MASKED" : "ENABLED");
+    print_string_serial("\n");
+    
+    print_string_serial("======================\n");
 }
 
 // Fonction pour envoyer EOI (End of Interrupt)
@@ -175,6 +205,9 @@ void interrupts_init() {
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);        // Clavier
     idt_set_gate(0x30, (uint32_t)isr_schedule, 0x08, 0xEE); // Scheduler (Ring 3)
     idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0xEE); // Syscalls (Ring 3 accessible)
+
+    // Diagnostic du PIC
+    pic_diagnose();
 
     // Activer les interruptions sur le CPU
     asm volatile ("sti");

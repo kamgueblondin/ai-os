@@ -15,5 +15,8 @@ char scancode_to_ascii(uint8_t scancode);
 // Récupère un caractère depuis le buffer clavier (utilisé par le kernel)
 char keyboard_getc(void);
 
+// Lecture non-bloquante depuis le buffer ASCII du clavier
+int kbd_get_nonblock(char *out);
+
 #endif
 
