@@ -1,7 +1,6 @@
 #include "keyboard.h"
 #include "kernel.h"
 #include <stdint.h>
-#include "input/kbd_buffer.h"
 
 // Fonctions externes pour les ports I/O et autres
 extern unsigned char inb(unsigned short port);
@@ -71,17 +70,14 @@ void keyboard_interrupt_handler() {
     print_string_serial(hex);
     print_string_serial("\n");
     
-    // Ajouter le scancode au buffer pour les syscalls (pour compatibilité)
-    kbd_push_scancode(scancode);
-    
-    // Convertir en ASCII et stocker dans le buffer local (prioritaire)
+    // Convertir en ASCII et stocker uniquement dans le buffer ASCII unifié
     if (!(scancode & 0x80)) { // Ignore les key releases (bit 7 = 1)
         char c = scancode_to_ascii(scancode);
         if (c) {
             kbd_put(c);
             print_string_serial("KBD char='");
             write_serial(c);
-            print_string_serial("' ajouté au buffer ASCII\n");
+            print_string_serial("' ajouté au buffer ASCII unifié\n");
             
             // Forcer un reschedule pour réveiller les tâches en attente
             extern volatile int g_reschedule_needed;

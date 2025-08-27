@@ -2,6 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-6.0-blue.svg)](https://github.com/kamgueblondin/ai-os)
 [![Status](https://img.shields.io/badge/status-stable-green.svg)](https://github.com/kamgueblondin/ai-os)
+[![Keyboard](https://img.shields.io/badge/keyboard-fixed-brightgreen.svg)](https://github.com/kamgueblondin/ai-os)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 🎯 Description
@@ -177,6 +178,20 @@ Le projet suit une architecture modulaire facilitant l'ajout de nouvelles foncti
 - Tests automatisés
 - Interfaces bien définies
 - Architecture extensible
+
+## 🛠️ Mises à Jour Récentes
+
+### v6.0.1 - Correction Clavier (Août 2025) ✅
+- **Problème résolu** : Affichage clavier non fonctionnel dans le shell
+- **Cause** : Incohérence entre systèmes de buffer clavier (ASCII vs scancodes)
+- **Solution** : Unification du système de buffer et correction de `sys_gets()`
+- **Résultat** : Shell entièrement interactif avec saisie temps réel
+
+**Détails techniques** :
+- Unified buffer keyboard system (ASCII only)
+- Fixed `keyboard_interrupt_handler()` redundancy 
+- Refactored `sys_gets()` with real-time echo
+- Removed timeout-based polling issues
 
 ## 📞 Support
 
