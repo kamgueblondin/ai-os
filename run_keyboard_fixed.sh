@@ -53,19 +53,16 @@ echo ""
 echo "⚡ Lancement dans 3 secondes..."
 sleep 3
 
-# Configuration optimale identifiée
+# Configuration optimale identifiée (syntaxe corrigée)
 exec qemu-system-i386 \
     -kernel build/ai_os.bin \
     -initrd my_initrd.tar \
     -m 128M \
     -machine pc \
     -cpu pentium3 \
-    -device i8042 \
-    -device ps2-kbd,id=kbd \
     -vga std \
     -display gtk,zoom-to-fit=on \
     -chardev stdio,id=serial0 \
     -device isa-serial,chardev=serial0 \
-    -monitor none \
     -no-reboot \
     -no-shutdown
