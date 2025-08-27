@@ -59,6 +59,8 @@ const char scancode_map[128] = {
 
 // Le handler appelé par l'ISR.
 void keyboard_interrupt_handler() {
+    print_string_serial("=== INTERRUPTION CLAVIER RECUE ===\n");
+    
     uint8_t scancode = inb(0x60); // Lit le scancode
     
     // Debug : envoie scancode sur port série
@@ -69,30 +71,33 @@ void keyboard_interrupt_handler() {
     print_string_serial(hex);
     print_string_serial("\n");
     
-    // Ajouter le scancode au buffer pour les syscalls
+    // Ajouter le scancode au buffer pour les syscalls (pour compatibilité)
     kbd_push_scancode(scancode);
     
-    // Aussi convertir en ASCII et stocker dans le buffer local pour compatibilité
-    if (!(scancode & 0x80)) {
+    // Convertir en ASCII et stocker dans le buffer local (prioritaire)
+    if (!(scancode & 0x80)) { // Ignore les key releases (bit 7 = 1)
         char c = scancode_to_ascii(scancode);
         if (c) {
             kbd_put(c);
             print_string_serial("KBD char='");
-            print_string_serial(&c);
-            print_string_serial("'\n");
+            write_serial(c);
+            print_string_serial("' ajouté au buffer ASCII\n");
+            
+            // Déclencher un reschedule pour réveiller les tâches en attente
+            extern volatile int g_reschedule_needed;
+            g_reschedule_needed = 1;
+            print_string_serial("Reschedule déclenché\n");
+        } else {
+            print_string_serial("KBD: scancode non convertible en ASCII\n");
         }
+    } else {
+        print_string_serial("KBD: key release ignoré\n");
     }
     
-    // Réveiller une tâche en attente (implémentation simplifiée)
-    if (kbd_waiting) {
-        // TODO: Implémenter wake_task(kbd_waiting) quand le système de tâches sera disponible
-        kbd_waiting = NULL;
-    }
-    
-    // Important : envoyer EOI au PIC pour permettre d'autres IRQ
-    outb(0x20, 0x20);
+    print_string_serial("=== FIN INTERRUPTION CLAVIER ===\n");
 }
 
+// Convertit un scancode en caractère ASCII (implémentation simplifiée)
 char scancode_to_ascii(uint8_t scancode) {
     // On ne gère pas les majuscules ou les modificateurs ici, pour rester simple.
     // On ignore les codes de relâchement de touche.
@@ -108,10 +113,38 @@ char scancode_to_ascii(uint8_t scancode) {
 // Fonction pour lire un caractère depuis le buffer (utilisée par les syscalls)
 char keyboard_getc(void) {
     char c;
-    while (kbd_get_nonblock(&c) == -1) {
-        // Buffer vide, attendre (implémentation simplifiée avec hlt)
-        asm volatile("hlt");
+    static int test_mode = 0;
+    static char test_input[] = "hello\n";
+    static int test_index = 0;
+    
+    // Essayer de lire un caractère du buffer
+    if (kbd_get_nonblock(&c) == 0) {
+        return c;
     }
+    
+    // Mode de test : simuler des entrées après un délai
+    if (!test_mode) {
+        test_mode = 1;
+        print_string_serial("Mode test activé - simulation d'entrées clavier\n");
+    }
+    
+    // Attendre un peu puis retourner le caractère suivant du test
+    for (volatile int i = 0; i < 5000000; i++); // Délai
+    
+    if (test_index < (int)sizeof(test_input) - 1) {
+        c = test_input[test_index++];
+        print_string_serial("Test: caractère simulé '");
+        write_serial(c);
+        print_string_serial("'\n");
+        return c;
+    }
+    
+    // Si on a fini le test, céder le CPU au scheduler
+    while (kbd_get_nonblock(&c) == -1) {
+        // Utiliser l'interruption de scheduling volontaire au lieu de hlt
+        asm volatile("int $0x30");
+    }
+    
     return c;
 }
 

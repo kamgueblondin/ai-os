@@ -39,13 +39,8 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
-                uint8_t scancode;
-                char c = 0;
-                // Boucle tant qu'on ne reçoit pas un caractère imprimable (ignore les key releases et autres)
-                while (c == 0) {
-                    kbd_pop_scancode(&scancode); // C'est une fonction bloquante
-                    c = scancode_to_ascii(scancode);
-                }
+                // Utilise directement keyboard_getc() qui gère le buffer ASCII
+                char c = keyboard_getc();
                 cpu->eax = c;
             }
             break;
