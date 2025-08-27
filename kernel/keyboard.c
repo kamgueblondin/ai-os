@@ -19,7 +19,7 @@ static volatile unsigned int kbd_tail = 0;
 static volatile void *kbd_waiting = NULL;
 
 // Fonctions pour gérer le buffer ASCII
-static void kbd_put(char c) {
+void kbd_put(char c) {
     unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
     if (next != kbd_tail) { // buffer not full
         kbd_buf[kbd_head] = c;
@@ -117,7 +117,7 @@ char scancode_to_ascii(uint8_t scancode) {
 char keyboard_getc(void) {
     char c;
     int timeout = 0;
-    const int MAX_TIMEOUT = 1000000; // Eviter les blocages infinis
+    const int MAX_TIMEOUT = 10000; // Timeout plus court
     
     // Essayer de lire un caractère du buffer de manière non-bloquante
     if (kbd_get_nonblock(&c) == 0) {
@@ -127,34 +127,54 @@ char keyboard_getc(void) {
         return c;
     }
     
-    // Si aucun caractère n'est disponible, attendre avec timeout
-    print_string_serial("keyboard_getc: buffer vide, attente d'une interruption clavier...\n");
+    // Si aucun caractère n'est disponible, utiliser le polling direct
+    print_string_serial("keyboard_getc: buffer vide, polling direct du clavier...\n");
     
-    // Réactiver les interruptions au cas où elles seraient désactivées
+    // Réactiver les interruptions
     asm volatile("sti");
     
-    while (kbd_get_nonblock(&c) == -1 && timeout < MAX_TIMEOUT) {
-        // Yield CPU et permettre aux interruptions de se déclencher
-        for (volatile int i = 0; i < 1000; i++) {
+    while (timeout < MAX_TIMEOUT) {
+        // D'abord essayer le buffer (au cas où une interruption arriverait)
+        if (kbd_get_nonblock(&c) == 0) {
+            print_string_serial("keyboard_getc: caractère reçu via interruption: '");
+            write_serial(c);
+            print_string_serial("'\n");
+            return c;
+        }
+        
+        // Polling direct du clavier (méthode alternative)
+        uint8_t status = inb(0x64);
+        if (status & 0x01) { // Données disponibles
+            uint8_t scancode = inb(0x60);
+            
+            // Ne traiter que les key press (pas key release)
+            if (!(scancode & 0x80)) {
+                char ch = scancode_to_ascii(scancode);
+                if (ch) {
+                    // Ajouter au buffer pour cohérence
+                    kbd_put(ch);
+                    print_string_serial("keyboard_getc: caractère lu par polling: '");
+                    write_serial(ch);
+                    print_string_serial("'\n");
+                    return ch;
+                }
+            }
+        }
+        
+        // Courte pause
+        for (volatile int i = 0; i < 100; i++) {
             asm volatile("nop");
         }
         timeout++;
         
-        // Periodiquement céder le CPU au scheduler
-        if (timeout % 1000 == 0) {
+        // Céder le CPU périodiquement
+        if (timeout % 100 == 0) {
             asm volatile("int $0x30");
         }
     }
     
-    if (timeout >= MAX_TIMEOUT) {
-        print_string_serial("keyboard_getc: TIMEOUT - retour caractère par défaut\n");
-        return '\n'; // Retourner une nouvelle ligne en cas de timeout
-    }
-    
-    print_string_serial("keyboard_getc: caractère reçu après attente: '");
-    write_serial(c);
-    print_string_serial("'\n");
-    return c;
+    print_string_serial("keyboard_getc: TIMEOUT - retour caractère par défaut\n");
+    return '\n'; // Retourner une nouvelle ligne en cas de timeout
 }
 
 
@@ -186,111 +206,142 @@ uint8_t keyboard_read_data() {
 
 // Initializes the PS/2 Keyboard
 void keyboard_init() {
-    print_string_serial("Initialisation du clavier PS/2...\n");
+    print_string_serial("=== INITIALISATION CLAVIER PS/2 ===\n");
     
-    // Step 1: Disable devices
-    print_string_serial("KBD: Desactivation des ports PS/2...\n");
+    // Étape 0: Vider le buffer de sortie initial
+    print_string_serial("KBD: Vidage préliminaire du buffer...\n");
+    int initial_flush = 0;
+    while ((inb(0x64) & 1) && initial_flush < 100) {
+        inb(0x60);
+        initial_flush++;
+    }
+    
+    // Étape 1: Désactiver les ports PS/2
+    print_string_serial("KBD: Désactivation des ports PS/2...\n");
     keyboard_send_command(0xAD); // Disable first PS/2 port
     keyboard_send_command(0xA7); // Disable second PS/2 port (if exists)
 
-    // Step 2: Flush output buffer
-    print_string_serial("KBD: Vidage du buffer de sortie...\n");
+    // Étape 2: Vider le buffer de sortie après désactivation
+    print_string_serial("KBD: Vidage du buffer après désactivation...\n");
     int flush_count = 0;
     while ((inb(0x64) & 1) && flush_count < 100) {
         inb(0x60);
         flush_count++;
     }
-    print_string_serial("KBD: Buffer vide.\n");
+    print_string_serial("KBD: Buffer vidé.\n");
 
-    // Step 3: Set controller configuration byte
-    print_string_serial("KBD: Configuration du controleur...\n");
+    // Étape 3: Lire et modifier la configuration du contrôleur
+    print_string_serial("KBD: Configuration du contrôleur...\n");
     keyboard_send_command(0x20); // Read config byte
     uint8_t config = keyboard_read_data();
     
     print_string_serial("KBD: Config actuelle: 0x");
-    char hex[3] = "00";
-    hex[0] = (config >> 4) < 10 ? '0' + (config >> 4) : 'A' + (config >> 4) - 10;
-    hex[1] = (config & 0xF) < 10 ? '0' + (config & 0xF) : 'A' + (config & 0xF) - 10;
-    print_string_serial(hex);
+    print_hex_byte_serial(config);
     print_string_serial("\n");
     
-    config |= 1;     // Enable interrupt for port 1
+    // Modifier la configuration pour QEMU:
+    config |= 0x01;  // Enable interrupt for port 1 (IRQ1)
     config &= ~0x10; // Enable clock for port 1
-    config &= ~0x40; // Disable translation
+    config &= ~0x20; // Enable clock for port 2 (si présent)
+    config &= ~0x40; // Disable translation (scancode set 1)
+    
+    print_string_serial("KBD: Nouvelle config: 0x");
+    print_hex_byte_serial(config);
+    print_string_serial("\n");
     
     keyboard_send_command(0x60); // Write config byte
     keyboard_send_data(config);
-    print_string_serial("KBD: Nouvelle configuration appliquee.\n");
+    print_string_serial("KBD: Configuration appliquée.\n");
 
-    // Step 4: Enable device
-    print_string_serial("KBD: Activation du premier port...\n");
+    // Étape 4: Effectuer un self-test du contrôleur
+    print_string_serial("KBD: Test du contrôleur PS/2...\n");
+    keyboard_send_command(0xAA); // Controller self test
+    uint8_t test_result = keyboard_read_data();
+    
+    if (test_result == 0x55) {
+        print_string_serial("KBD: Contrôleur PS/2 OK\n");
+    } else {
+        print_string_serial("KBD: ERREUR contrôleur PS/2!\n");
+    }
+
+    // Étape 5: Tester le port 1
+    print_string_serial("KBD: Test du port 1...\n");
+    keyboard_send_command(0xAB); // Test port 1
+    uint8_t port_test = keyboard_read_data();
+    
+    if (port_test == 0x00) {
+        print_string_serial("KBD: Port 1 OK\n");
+    } else {
+        print_string_serial("KBD: ERREUR port 1!\n");
+    }
+
+    // Étape 6: Activer le port 1
+    print_string_serial("KBD: Activation du port 1...\n");
     keyboard_send_command(0xAE); // Enable first PS/2 port
 
-    // Step 5: Reset device and wait for response
-    print_string_serial("KBD: Reset du clavier...\n");
-    keyboard_send_data(0xFF); // Reset command
-
-    // Attendre ACK et le résultat du self-test avec timeout
-    int timeout = 1000000;
-    while (timeout-- > 0 && !(inb(0x64) & 1));
+    // Étape 7: Configurer le clavier lui-même
+    print_string_serial("KBD: Configuration du périphérique clavier...\n");
     
+    // Désactiver le scanning pendant la configuration
+    keyboard_send_data(0xF5); // Disable scanning
+    
+    int timeout = 100000;
+    while (timeout-- > 0 && !(inb(0x64) & 1));
     if (timeout > 0) {
         uint8_t ack = keyboard_read_data();
         if (ack == 0xFA) {
-            print_string_serial("KBD: Keyboard ACK recu.\n");
-            
-            // Attendre le résultat du self-test
-            timeout = 1000000;
-            while (timeout-- > 0 && !(inb(0x64) & 1));
-            
-            if (timeout > 0) {
-                uint8_t test_result = keyboard_read_data();
-                if (test_result == 0xAA) {
-                    print_string_serial("KBD: Self-test reussi.\n");
-                } else {
-                    print_string_serial("KBD: Self-test echoue.\n");
-                }
-            } else {
-                print_string_serial("KBD: Timeout en attente du self-test.\n");
-            }
-        } else {
-            print_string_serial("KBD: Pas d'ACK recu.\n");
+            print_string_serial("KBD: Scanning désactivé (ACK)\n");
         }
-    } else {
-        print_string_serial("KBD: Timeout en attente de l'ACK.\n");
+    }
+    
+    // Configurer le scancode set 1 (compatible QEMU)
+    keyboard_send_data(0xF0); // Set scancode set
+    timeout = 100000;
+    while (timeout-- > 0 && !(inb(0x64) & 1));
+    if (timeout > 0) {
+        uint8_t ack = keyboard_read_data();
+        if (ack == 0xFA) {
+            keyboard_send_data(0x01); // Scancode set 1
+            print_string_serial("KBD: Scancode set 1 configuré\n");
+        }
+    }
+    
+    // Réactiver le scanning
+    keyboard_send_data(0xF4); // Enable scanning
+    timeout = 100000;
+    while (timeout-- > 0 && !(inb(0x64) & 1));
+    if (timeout > 0) {
+        uint8_t ack = keyboard_read_data();
+        if (ack == 0xFA) {
+            print_string_serial("KBD: Scanning réactivé (ACK)\n");
+        }
     }
 
-    print_string_serial("PS/2 Keyboard initialise et pret.\n");
+    // Étape 8: Test final - Lire l'état du contrôleur
+    print_string_serial("KBD: Test final...\n");
+    uint8_t final_status = inb(0x64);
+    print_string_serial("KBD: Status final du contrôleur: 0x");
+    print_hex_byte_serial(final_status);
+    print_string_serial("\n");
+
+    print_string_serial("=== CLAVIER PS/2 INITIALISE ===\n");
     
-    // Diagnostic final du PIC
-    print_string_serial("=== DIAGNOSTIC FINAL PIC APRES INIT CLAVIER ===\n");
+    // Diagnostic final du PIC après init clavier
+    print_string_serial("=== DIAGNOSTIC PIC APRES INIT CLAVIER ===\n");
     uint8_t pic_mask = inb(0x21);
     print_string_serial("PIC1 mask: 0x");
-    char hex_mask[3] = "00";
-    hex_mask[0] = (pic_mask >> 4) < 10 ? '0' + (pic_mask >> 4) : 'A' + (pic_mask >> 4) - 10;
-    hex_mask[1] = (pic_mask & 0xF) < 10 ? '0' + (pic_mask & 0xF) : 'A' + (pic_mask & 0xF) - 10;
-    print_string_serial(hex_mask);
+    print_hex_byte_serial(pic_mask);
     print_string_serial("\n");
-    
-    // S'assurer que IRQ1 n'est pas masqué
-    if (pic_mask & (1 << 1)) {
-        print_string_serial("ERREUR: IRQ1 est masque apres init, correction...\n");
-        pic_mask &= ~(1 << 1);
-        outb(0x21, pic_mask);
-        print_string_serial("IRQ1 demasque force.\n");
-    } else {
-        print_string_serial("OK: IRQ1 n'est pas masque.\n");
-    }
-    
-    // Test rapide du contrôleur clavier
-    print_string_serial("Test du controleur clavier...\n");
-    uint8_t status = inb(0x64);
-    print_string_serial("Status register: 0x");
-    hex_mask[0] = (status >> 4) < 10 ? '0' + (status >> 4) : 'A' + (status >> 4) - 10;
-    hex_mask[1] = (status & 0xF) < 10 ? '0' + (status & 0xF) : 'A' + (status & 0xF) - 10;
-    print_string_serial(hex_mask);
+    print_string_serial("IRQ1 (clavier): ");
+    print_string_serial((pic_mask & 2) ? "MASQUE" : "ACTIVE");
     print_string_serial("\n");
-    
-    print_string_serial("Clavier pret pour les interruptions.\n");
-    print_string_serial("=============================================\n");
+    print_string_serial("==========================================\n");
+}
+
+// Helper function pour afficher un byte en hexadécimal
+void print_hex_byte_serial(uint8_t byte) {
+    char hex[3] = "00";
+    hex[0] = (byte >> 4) < 10 ? '0' + (byte >> 4) : 'A' + (byte >> 4) - 10;
+    hex[1] = (byte & 0xF) < 10 ? '0' + (byte & 0xF) : 'A' + (byte & 0xF) - 10;
+    print_string_serial(hex);
 }

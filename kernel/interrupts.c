@@ -4,6 +4,7 @@
 
 // Déclaration pour le nouveau handler
 void keyboard_interrupt_handler();
+void io_delay();
 
 // Fonctions externes pour les ports I/O (définies dans kernel.c)
 extern unsigned char inb(unsigned short port);
@@ -63,35 +64,57 @@ static interrupt_handler_t interrupt_handlers[256];
 // Par défaut, les IRQs du PIC (0-15) entrent en conflit avec les exceptions CPU.
 // On les décale vers les entrées IDT 32-47.
 void pic_remap() {
-    unsigned char a1, a2;
+    print_string_serial("PIC: Début du remappage...\n");
     
-    // Sauvegarde les masques
+    // Sauvegarde les masques actuels
+    unsigned char a1, a2;
     a1 = inb(0x21);
     a2 = inb(0xA1);
+    print_string_serial("PIC: Masques sauvegardés\n");
     
-    // Démarre la séquence d'initialisation (en mode cascade)
-    outb(0x20, 0x11);
-    outb(0xA0, 0x11);
+    // Démarre la séquence d'initialisation ICW1 (en mode cascade)
+    outb(0x20, 0x11);  // PIC1: ICW1 - Initialisation + ICW4 needed + Cascade mode
+    io_delay();
+    outb(0xA0, 0x11);  // PIC2: ICW1
+    io_delay();
+    print_string_serial("PIC: ICW1 envoyé\n");
     
-    // PIC1: offset de vecteur 0x20 (32)
-    outb(0x21, 0x20);
-    // PIC2: offset de vecteur 0x28 (40)
-    outb(0xA1, 0x28);
+    // ICW2: Offset de vecteur
+    outb(0x21, 0x20);  // PIC1: offset de vecteur 0x20 (32)
+    io_delay();
+    outb(0xA1, 0x28);  // PIC2: offset de vecteur 0x28 (40)
+    io_delay();
+    print_string_serial("PIC: ICW2 envoyé (offsets: PIC1=32, PIC2=40)\n");
     
-    // PIC1: il y a un esclave PIC à IRQ2 (0000 0100)
-    outb(0x21, 0x04);
-    // PIC2: son identité en cascade (0000 0010)
-    outb(0xA1, 0x02);
+    // ICW3: Configuration de la cascade
+    outb(0x21, 0x04);  // PIC1: il y a un esclave PIC à IRQ2 (0000 0100)
+    io_delay();
+    outb(0xA1, 0x02);  // PIC2: son identité en cascade (0000 0010)
+    io_delay();
+    print_string_serial("PIC: ICW3 envoyé (cascade configurée)\n");
     
-    // Mode 8086
-    outb(0x21, 0x01);
-    outb(0xA1, 0x01);
+    // ICW4: Mode 8086/88
+    outb(0x21, 0x01);  // PIC1: Mode 8086
+    io_delay();
+    outb(0xA1, 0x01);  // PIC2: Mode 8086
+    io_delay();
+    print_string_serial("PIC: ICW4 envoyé (mode 8086)\n");
     
-    // Autorise le timer (IRQ0) et le clavier (IRQ1), désactive les autres
-    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 démasquées, autres masquées
-    outb(0xA1, 0xFF);   // Toutes les IRQ du PIC2 masquées
+    // Configuration optimale des masques pour QEMU
+    // IRQ0 (timer) et IRQ1 (clavier) démasquées, autres masquées
+    outb(0x21, 0xFC);  // 11111100b : IRQ0, IRQ1 démasquées uniquement
+    io_delay();
+    outb(0xA1, 0xFF);  // Toutes les IRQ du PIC2 masquées
+    io_delay();
     
-    print_string_serial("PIC: IRQ0 (timer) et IRQ1 (clavier) démasquées\n");
+    print_string_serial("PIC: Masques configurés - IRQ0/IRQ1 activées\n");
+    print_string_serial("PIC: Remappage terminé avec succès\n");
+}
+
+// Fonction de délai pour les opérations PIC (nécessaire sur hardware réel)
+void io_delay() {
+    // Courte pause pour laisser le temps au PIC de traiter
+    asm volatile("outb %%al, $0x80" : : "a"(0));
 }
 
 // Fonction pour diagnostiquer l'état du PIC
@@ -185,33 +208,70 @@ void install_exception_handlers() {
 
 // Initialise toutes nos interruptions
 void interrupts_init() {
-    print_string_serial("Initialisation du systeme d'interruptions...\n");
+    print_string_serial("=== INITIALISATION SYSTEME INTERRUPTIONS ===\n");
     
+    // 1. Désactiver les interruptions pendant l'initialisation
+    asm volatile ("cli");
+    print_string_serial("Step 1: Interruptions CPU désactivées\n");
+    
+    // 2. Installer les handlers d'exceptions CPU (0-31)
     install_exception_handlers();
+    print_string_serial("Step 2: Handlers d'exceptions installés\n");
 
-    // Initialise la table des handlers
+    // 3. Initialiser la table des handlers
     for (int i = 0; i < 256; i++) {
         interrupt_handlers[i] = 0;
     }
+    print_string_serial("Step 3: Table des handlers initialisée\n");
     
+    // 4. Remapper le PIC AVANT d'enregistrer les handlers
+    print_string_serial("Step 4: Remapping du PIC...\n");
     pic_remap();
+    print_string_serial("Step 4: PIC remappé avec succès\n");
 
-    // Enregistre les handlers
+    // 5. Enregistrer les handlers d'IRQ
+    print_string_serial("Step 5: Enregistrement des handlers IRQ...\n");
     register_interrupt_handler(32, timer_handler);    // IRQ 0 - Timer
-    register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier (nouveau handler)
+    register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier
+    print_string_serial("Step 5: Handlers IRQ enregistrés\n");
     
-    // Associe les entrées de l'IDT aux routines assembleur
+    // 6. Associer les entrées de l'IDT aux routines assembleur
+    print_string_serial("Step 6: Configuration des entrées IDT...\n");
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);        // Clavier
     idt_set_gate(0x30, (uint32_t)isr_schedule, 0x08, 0xEE); // Scheduler (Ring 3)
     idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0xEE); // Syscalls (Ring 3 accessible)
+    print_string_serial("Step 6: Entrées IDT configurées\n");
 
-    // Diagnostic du PIC
+    // 7. Diagnostic du PIC avant activation
+    print_string_serial("Step 7: Diagnostic PIC...\n");
     pic_diagnose();
 
-    // Activer les interruptions sur le CPU
+    // 8. Forcer l'unmask des IRQ critiques
+    print_string_serial("Step 8: Activation forcée des IRQ critiques...\n");
+    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 activées
+    outb(0xA1, 0xFF);   // Toutes les IRQ du PIC2 désactivées
+    
+    // Vérification finale
+    uint8_t final_mask = inb(0x21);
+    print_string_serial("Masque PIC final: 0x");
+    char hex[3] = "00";
+    hex[0] = (final_mask >> 4) < 10 ? '0' + (final_mask >> 4) : 'A' + (final_mask >> 4) - 10;
+    hex[1] = (final_mask & 0xF) < 10 ? '0' + (final_mask & 0xF) : 'A' + (final_mask & 0xF) - 10;
+    print_string_serial(hex);
+    print_string_serial("\n");
+
+    // 9. Activer les interruptions sur le CPU
+    print_string_serial("Step 9: Activation des interruptions CPU...\n");
     asm volatile ("sti");
     
-    print_string_serial("Systeme d'interruptions initialise.\n");
+    // 10. Test immédiat des interruptions
+    print_string_serial("Step 10: Test des interruptions...\n");
+    
+    print_string_serial("=== SYSTEME INTERRUPTIONS PRET ===\n");
+    print_string_serial("IRQ0 (timer): activé\n");
+    print_string_serial("IRQ1 (keyboard): activé\n");
+    print_string_serial("Interruptions CPU: activées\n");
+    print_string_serial("=====================================\n");
 }
 

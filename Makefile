@@ -167,11 +167,21 @@ userspace/shell userspace/fake_ai userspace/test_program:
 
 # Cible pour exécuter l'OS dans QEMU avec initrd
 run: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -serial stdio -d int,guest_errors,cpu_reset -no-reboot -no-shutdown -monitor none
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-nographic -serial stdio \
+		-machine type=pc,accel=tcg \
+		-device i8042 \
+		-d int,guest_errors,cpu_reset \
+		-no-reboot -no-shutdown -monitor none
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -m 256M -vga std -no-reboot -d int -rtc base=utc
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-m 256M -vga std \
+		-machine type=pc,accel=tcg \
+		-device i8042 \
+		-serial stdio \
+		-d int -rtc base=utc -no-reboot
 
 # Cible pour tester la compilation sans exécution
 test-build: $(OS_IMAGE)

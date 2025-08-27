@@ -18,5 +18,11 @@ char keyboard_getc(void);
 // Lecture non-bloquante depuis le buffer ASCII du clavier
 int kbd_get_nonblock(char *out);
 
+// Fonction pour ajouter un caractère au buffer
+void kbd_put(char c);
+
+// Helper function pour afficher un byte en hexadécimal
+void print_hex_byte_serial(uint8_t byte);
+
 #endif
 

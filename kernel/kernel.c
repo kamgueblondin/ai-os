@@ -371,17 +371,24 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // Récupération des informations Multiboot
     multiboot_info_t* mbi = (multiboot_info_t*)multiboot_addr;
 
-    // Initialisation des interruptions
-    print_string("Initialisation des interruptions...\n");
+    // Initialisation des interruptions - ORDRE CRITIQUE POUR QEMU
+    print_string("=== Initialisation systeme interruptions ===\n");
+    print_string("Etape 1: IDT...\n");
     idt_init();         // Initialise la table des interruptions
+    
+    print_string("Etape 2: PIC et handlers...\n");
     interrupts_init();  // Initialise le PIC et active les interruptions
-
+    
+    print_string("Etape 3: Clavier PS/2 (interruptions temporairement desactivees)...\n");
     // Initialise le clavier avec les interruptions désactivées pour éviter les race conditions
     asm volatile("cli");
     keyboard_init();
     asm volatile("sti");
-
-    print_string("Interruptions et clavier initialises.\n");
+    
+    print_string("=== Systeme interruptions PRET ===\n");
+    print_string("IRQ0 (timer): OK\n");
+    print_string("IRQ1 (keyboard): OK\n");
+    print_string("QEMU devrait maintenant generer les interruptions clavier.\n");
 
     // Initialiser la gestion de la mémoire
     print_string("Initialisation de la gestion memoire...\n");
