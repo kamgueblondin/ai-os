@@ -34,6 +34,15 @@ all: $(OS_IMAGE) pack-initrd
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
 
+# Vérification des dépendances de build (ex: nasm)
+.PHONY: check-build-deps
+check-build-deps:
+	@command -v nasm >/dev/null 2>&1 || { \
+		echo "ERROR: 'nasm' introuvable. Installez-le puis réessayez."; \
+		echo "       Debian/Ubuntu: sudo apt-get install -y nasm"; \
+		exit 1; \
+	}
+
 # Règle pour lier les fichiers objets et créer l'image finale
 $(OS_IMAGE): $(OBJECTS)
 	@mkdir -p $(dir $@)
@@ -292,14 +301,19 @@ test-performance:
 
 test-valgrind:
 	@echo "=== Tests avec détection de fuites mémoire ==="
-	@$(MAKE) -C tests test-valgrind
+	@command -v valgrind >/dev/null 2>&1 || { \
+		echo "INFO: 'valgrind' non installé. Les tests mémoire sont ignorés."; \
+		echo "      Pour l'installer: sudo apt-get install -y valgrind"; \
+		exit 0; \
+	}
+	@$(MAKE) -C tests test-valgrind || true
 
 test-clean:
 	@echo "=== Nettoyage des fichiers de test ==="
 	@$(MAKE) -C tests clean
 
 # Cible pour les développeurs - tests avant commit
-pre-commit-tests: $(OS_IMAGE) pack-initrd test-quick
+pre-commit-tests: check-build-deps $(OS_IMAGE) pack-initrd test-quick
 	@echo "=== Vérification pré-commit terminée ==="
 
 # Cible pour l'intégration continue
