@@ -264,9 +264,52 @@ distclean: clean
 	rm -f *~ */*~ */*/*~
 	rm -f *.bak */*.bak */*/*.bak
 
+# Cibles pour les tests de non-régression
+test-setup:
+	@echo "=== Configuration des tests de non-régression ==="
+	@$(MAKE) -C tests setup
+	@echo "Tests configurés avec succès"
+
+test-quick:
+	@echo "=== Tests rapides (critiques seulement) ==="
+	@$(MAKE) -C tests test-quick
+
+test-kernel:
+	@echo "=== Tests des modules kernel ==="
+	@$(MAKE) -C tests test-kernel
+
+test-userspace:
+	@echo "=== Tests des modules userspace ==="
+	@$(MAKE) -C tests test-userspace
+
+test-all:
+	@echo "=== Suite complète de tests de non-régression ==="
+	@$(MAKE) -C tests test
+
+test-performance:
+	@echo "=== Tests de performance et benchmarks ==="
+	@$(MAKE) -C tests benchmark
+
+test-valgrind:
+	@echo "=== Tests avec détection de fuites mémoire ==="
+	@$(MAKE) -C tests test-valgrind
+
+test-clean:
+	@echo "=== Nettoyage des fichiers de test ==="
+	@$(MAKE) -C tests clean
+
+# Cible pour les développeurs - tests avant commit
+pre-commit-tests: $(OS_IMAGE) pack-initrd test-quick
+	@echo "=== Vérification pré-commit terminée ==="
+
+# Cible pour l'intégration continue
+ci-tests: $(OS_IMAGE) pack-initrd
+	@echo "=== Tests d'intégration continue ==="
+	@$(MAKE) -C tests ci-test
+
 # Cible pour afficher l'aide
 help:
-	@echo "=== AI-OS v5.0 - Cibles de Compilation Disponibles ==="
+	@echo "=== AI-OS v6.1 - Cibles de Compilation Disponibles ==="
 	@echo ""
 	@echo "Cibles principales:"
 	@echo "  all          - Compile le système complet (noyau + initrd + programmes)"
@@ -280,14 +323,32 @@ help:
 	@echo "  info-initrd  - Affiche le contenu de l'initrd"
 	@echo "  info-user    - Affiche les infos des programmes utilisateur"
 	@echo ""
+	@echo "Cibles de tests (NOUVEAU):"
+	@echo "  test-setup      - Configure l'environnement de test"
+	@echo "  test-quick      - Tests rapides (< 1 min, pour développement)"
+	@echo "  test-kernel     - Tests des modules kernel uniquement"
+	@echo "  test-userspace  - Tests des modules userspace uniquement"  
+	@echo "  test-all        - Suite complète de tests (< 5 min)"
+	@echo "  test-performance - Benchmarks et tests de performance"
+	@echo "  test-valgrind   - Tests avec détection fuites mémoire"
+	@echo "  pre-commit-tests - Tests rapides avant commit"
+	@echo "  ci-tests        - Tests pour intégration continue"
+	@echo "  test-clean      - Nettoie les fichiers de test"
+	@echo ""
 	@echo "Cibles de maintenance:"
 	@echo "  clean        - Nettoie les fichiers générés"
 	@echo "  distclean    - Nettoie tout (y compris sauvegardes)"
 	@echo "  help         - Affiche cette aide"
 	@echo ""
-	@echo "Usage recommandé:"
+	@echo "Usage recommandé pour développeurs:"
 	@echo "  make clean && make all    # Compilation complète"
-	@echo "  make run                  # Test rapide"
+	@echo "  make pre-commit-tests     # Tests avant commit"
+	@echo "  make run                  # Test rapide du système"
+	@echo ""
+	@echo "Tests de non-régression:"
+	@echo "  make test-setup           # Configuration initiale (une fois)"
+	@echo "  make test-quick           # Tests pendant développement"
+	@echo "  make test-all             # Tests complets avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests
 

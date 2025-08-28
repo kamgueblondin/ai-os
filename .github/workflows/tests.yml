@@ -1,0 +1,268 @@
+name: AI-OS Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Test de base sur Ubuntu
+  test-ubuntu:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind
+    
+    - name: Setup test environment
+      run: |
+        cd tests
+        make setup
+    
+    - name: Check dependencies
+      run: |
+        cd tests
+        make check-deps
+    
+    - name: Validate test files
+      run: |
+        cd tests
+        make validate
+    
+    - name: Compile all tests
+      run: |
+        cd tests
+        make all
+    
+    - name: Run quick test suite
+      run: |
+        cd tests
+        make test-quick
+    
+    - name: Run kernel tests
+      run: |
+        cd tests
+        make test-kernel
+    
+    - name: Run userspace tests
+      run: |
+        cd tests  
+        make test-userspace
+    
+    - name: Generate test report
+      run: |
+        cd tests
+        make test-report
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-ubuntu
+        path: |
+          test_logs/
+          tests/test_logs/
+    
+  # Tests complets (plus longs)
+  test-complete:
+    runs-on: ubuntu-latest
+    needs: test-ubuntu
+    if: github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind
+    
+    - name: Setup test environment
+      run: |
+        cd tests
+        make setup
+    
+    - name: Run complete test suite
+      run: |
+        cd tests
+        make test
+    
+    - name: Run memory tests with Valgrind
+      run: |
+        cd tests
+        make test-valgrind
+    
+    - name: Run performance benchmarks
+      run: |
+        cd tests
+        make benchmark
+    
+    - name: Generate coverage report
+      run: |
+        cd tests
+        make coverage-report
+    
+    - name: Upload complete results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-complete
+        path: |
+          test_logs/
+          tests/test_logs/
+
+  # Test de build du système principal
+  test-system-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
+    
+    - name: Build AI-OS system
+      run: |
+        make clean
+        make all
+    
+    - name: Test basic boot (headless)
+      run: |
+        timeout 30s make run-nographic || true
+        echo "Boot test completed (may timeout normally)"
+    
+    - name: Verify build artifacts
+      run: |
+        ls -la build/
+        file build/ai_os.bin
+        ls -la my_initrd.tar
+
+  # Tests sur différentes configurations
+  test-configurations:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config: [debug, release]
+        
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-multilib nasm
+    
+    - name: Build with configuration
+      run: |
+        if [ "${{ matrix.config }}" = "debug" ]; then
+          export CFLAGS="-DDEBUG -g"
+        else
+          export CFLAGS="-DNDEBUG -O2"
+        fi
+        cd tests
+        make setup
+        make all
+        make test-quick
+
+  # Analyse de sécurité statique
+  security-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install analysis tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cppcheck clang-tools
+    
+    - name: Run static analysis
+      run: |
+        echo "Running cppcheck..."
+        cppcheck --enable=all --inconclusive --std=c99 \
+          --suppress=missingIncludeSystem \
+          kernel/ userspace/ tests/ || true
+        
+        echo "Running clang-tidy..."
+        find . -name "*.c" -not -path "./build/*" | \
+          xargs clang-tidy --checks='-*,clang-analyzer-*,bugprone-*' || true
+
+  # Tests de régression spécifiques
+  regression-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
+    
+    - name: Setup and run regression tests
+      run: |
+        cd tests
+        make setup
+        make test-integration
+        make test-robustness
+    
+    - name: Check for memory leaks
+      run: |
+        cd tests
+        make test-valgrind
+    
+    - name: Performance regression check
+      run: |
+        cd tests
+        make benchmark
+        # Ici on pourrait comparer avec des benchmarks de référence
+
+  # Notification de résultats
+  notify-results:
+    runs-on: ubuntu-latest
+    needs: [test-ubuntu, test-complete, test-system-build]
+    if: always()
+    
+    steps:
+    - name: Notify success
+      if: needs.test-ubuntu.result == 'success' && needs.test-complete.result == 'success' && needs.test-system-build.result == 'success'
+      run: |
+        echo "✅ All tests passed successfully!"
+        echo "commit_status=success" >> $GITHUB_ENV
+    
+    - name: Notify failure
+      if: needs.test-ubuntu.result == 'failure' || needs.test-complete.result == 'failure' || needs.test-system-build.result == 'failure'
+      run: |
+        echo "❌ Some tests failed!"
+        echo "commit_status=failure" >> $GITHUB_ENV
+    
+    - name: Create summary comment
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const testStatus = process.env.commit_status;
+          const icon = testStatus === 'success' ? '✅' : '❌';
+          const message = testStatus === 'success' 
+            ? 'All tests passed successfully!' 
+            : 'Some tests failed - please check the logs';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `${icon} **AI-OS Test Results**\n\n${message}\n\nDetailed results are available in the Actions tab.`
+          });
+
+# Variables d'environnement pour tous les jobs
+env:
+  DEBIAN_FRONTEND: noninteractive
+  CFLAGS: -Wall -Wextra
+  MAKEFLAGS: -j$(nproc)
