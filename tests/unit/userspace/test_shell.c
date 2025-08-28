@@ -1,7 +1,7 @@
 /* test_shell.c - Tests unitaires pour le Shell AI-OS */
 
-#include "../framework/unity.h"
-#include "../framework/test_kernel.h"
+#include "../../framework/unity.h"
+#include "../../framework/test_kernel.h"
 
 // Mock des syscalls pour les tests userspace
 static char mock_output_buffer[2048];

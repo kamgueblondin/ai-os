@@ -21,7 +21,7 @@ void test_kernel_init(void) {
     test_context.heap_used = 0;
     
     // Initialiser le heap de test
-    for (int i = 0; i < sizeof(test_context.test_heap); i++) {
+    for (size_t i = 0; i < sizeof(test_context.test_heap); i++) {
         test_context.test_heap[i] = 0;
     }
     
@@ -45,26 +45,26 @@ void test_kernel_cleanup(void) {
 }
 
 void test_kernel_save_state(void) {
-    // Sauvegarder CR3 (page directory)
-    asm volatile("mov %%cr3, %0" : "=r"(test_context.original_cr3));
+    // Sauvegarder CR3 (page directory) - 64-bit version
+    __asm__ volatile("mov %%cr3, %0" : "=r"(test_context.original_cr3));
     
-    // Sauvegarder l'état des interruptions
-    uint32_t eflags;
-    asm volatile("pushf; pop %0" : "=r"(eflags));
-    test_context.interrupts_enabled = (eflags & 0x200) != 0;
+    // Sauvegarder l'état des interruptions - 64-bit version
+    uint64_t rflags;
+    __asm__ volatile("pushfq; pop %0" : "=r"(rflags));
+    test_context.interrupts_enabled = (rflags & 0x200) != 0;
 }
 
 void test_kernel_restore_state(void) {
-    // Restaurer CR3
+    // Restaurer CR3 - 64-bit version
     if (test_context.original_cr3 != 0) {
-        asm volatile("mov %0, %%cr3" :: "r"(test_context.original_cr3));
+        __asm__ volatile("mov %0, %%cr3" :: "r"(test_context.original_cr3));
     }
     
     // Restaurer l'état des interruptions
     if (test_context.interrupts_enabled) {
-        asm volatile("sti");
+        __asm__ volatile("sti");
     } else {
-        asm volatile("cli");
+        __asm__ volatile("cli");
     }
 }
 
@@ -97,7 +97,7 @@ void test_free(void* ptr) {
 
 void test_heap_reset(void) {
     test_context.heap_used = 0;
-    for (int i = 0; i < sizeof(test_context.test_heap); i++) {
+    for (size_t i = 0; i < sizeof(test_context.test_heap); i++) {
         test_context.test_heap[i] = 0;
     }
 }
@@ -367,7 +367,7 @@ void test_debug_print_task_stats(void) {
 void test_benchmark_start(test_benchmark_t* bench, const char* name) {
     bench->name = name;
     bench->start_cycles = rdtsc();
-    bench->iterations = 0;
+    bench->num_calls = 0;
 }
 
 void test_benchmark_end(test_benchmark_t* bench) {
@@ -382,10 +382,10 @@ void test_benchmark_print_results(const test_benchmark_t* bench) {
     unity_print_string("\nTotal Cycles: ");
     unity_print_number((uint32_t)bench->elapsed_cycles);
     unity_print_string("\nIterations: ");
-    unity_print_number(bench->iterations);
-    if (bench->iterations > 0) {
+    unity_print_number(bench->num_calls);
+    if (bench->num_calls > 0) {
         unity_print_string("\nCycles per iteration: ");
-        unity_print_number((uint32_t)(bench->elapsed_cycles / bench->iterations));
+        unity_print_number((uint32_t)(bench->elapsed_cycles / bench->num_calls));
     }
     unity_print_string("\n");
 }
@@ -459,7 +459,7 @@ int test_verify_syscall_validation(void) {
     // Test simple: vérifier que les pointeurs NULL sont rejetés
     // et que les adresses kernel sont protégées depuis l'userspace
     
-    uint32_t null_ptr = 0;
+    uint32_t null_ptr __attribute__((unused)) = 0;
     uint32_t kernel_ptr = 0xC0000000;
     uint32_t valid_user_ptr = 0x40000000;
     

@@ -27,7 +27,7 @@ typedef struct {
     test_ring_mode_t ring_mode;
     uint32_t kernel_stack;
     uint32_t user_stack;
-    uint32_t original_cr3;
+    uint64_t original_cr3;  // 64-bit pour compatibilité
     int interrupts_enabled;
     char test_heap[4096];
     size_t heap_used;
@@ -243,7 +243,7 @@ typedef struct {
     uint64_t start_cycles;
     uint64_t end_cycles;
     uint64_t elapsed_cycles;
-    uint32_t iterations;
+    uint32_t num_calls;  // Temporarily renamed from iterations
 } test_benchmark_t;
 
 void test_benchmark_start(test_benchmark_t* bench, const char* name);
@@ -254,12 +254,12 @@ void test_benchmark_print_results(const test_benchmark_t* bench);
 #define TEST_BENCHMARK(name, iterations, code_block) \
     do { \
         test_benchmark_t bench; \
+        uint32_t iter_count = (uint32_t)(iterations); \
         test_benchmark_start(&bench, name); \
-        for (uint32_t i = 0; i < iterations; i++) { \
-            code_block; \
-        } \
+        bench.num_calls = iter_count; \
+        for (uint32_t i = 0; i < iter_count; i++) \
+            code_block \
         test_benchmark_end(&bench); \
-        bench.iterations = iterations; \
         test_benchmark_print_results(&bench); \
     } while(0)
 

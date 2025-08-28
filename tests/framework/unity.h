@@ -189,6 +189,13 @@ int unity_compare_string(const char* expected, const char* actual);
         return; \
     } while(0)
 
+// Macro pour faire échouer un test explicitement
+#define TEST_FAIL() \
+    do { \
+        unity_test_fail("Test failed explicitly", __FILE__, __LINE__); \
+        return; \
+    } while(0)
+
 // Macros pour les tests de performance
 #define TEST_ASSERT_EXECUTION_TIME_LESS_THAN(threshold_us, code_block) \
     do { \
@@ -205,7 +212,7 @@ int unity_compare_string(const char* expected, const char* actual);
 // Fonction pour lire le timestamp counter (pour les tests de performance)
 static inline uint64_t rdtsc(void) {
     uint32_t lo, hi;
-    asm volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t)hi << 32) | lo;
 }
 

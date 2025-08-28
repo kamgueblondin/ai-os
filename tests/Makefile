@@ -2,9 +2,9 @@
 
 # Configuration de base
 CC = gcc
-CFLAGS_BASE = -Wall -Wextra -std=c99 -I.
-CFLAGS_KERNEL = $(CFLAGS_BASE) -m32 -ffreestanding -nostdlib -fno-pie
-CFLAGS_USER = $(CFLAGS_BASE) -m32
+CFLAGS_BASE = -Wall -Wextra -std=c99 -I. -I.. -I../kernel -I../include
+CFLAGS_KERNEL = $(CFLAGS_BASE) -DUSE_INLINE_ASM -g
+CFLAGS_USER = $(CFLAGS_BASE) -g
 
 # Répertoires
 TEST_DIR = .
@@ -18,7 +18,7 @@ BUILD_DIR = ../build
 LOG_DIR = ../test_logs
 
 # Fichiers du framework
-FRAMEWORK_SOURCES = $(FRAMEWORK_DIR)/unity.c $(FRAMEWORK_DIR)/test_kernel.c
+FRAMEWORK_SOURCES = $(FRAMEWORK_DIR)/unity.c $(FRAMEWORK_DIR)/test_kernel.c $(FRAMEWORK_DIR)/kernel_mocks.c
 FRAMEWORK_HEADERS = $(FRAMEWORK_DIR)/unity.h $(FRAMEWORK_DIR)/test_kernel.h
 
 # Listes des tests
@@ -53,33 +53,33 @@ all: $(ALL_TEST_BINS)
 # Cible par défaut
 test: all
 	@echo "Running complete test suite..."
-	@./scripts/run_all_tests.sh
+	@bash ./scripts/run_all_tests.sh
 
 # Tests rapides (critiques seulement)
 test-quick: $(KERNEL_TEST_BINS)
 	@echo "Running quick test suite..."
-	@./scripts/run_all_tests.sh --quick
+	@bash ./scripts/run_all_tests.sh --quick
 
 # Tests par catégorie
 test-kernel: $(KERNEL_TEST_BINS)
 	@echo "Running kernel tests..."
-	@./scripts/run_all_tests.sh --kernel-only
+	@bash ./scripts/run_all_tests.sh --kernel-only
 
 test-userspace: $(USERSPACE_TEST_BINS)
 	@echo "Running userspace tests..."
-	@./scripts/run_all_tests.sh --userspace-only
+	@bash ./scripts/run_all_tests.sh --userspace-only
 
 test-integration: $(INTEGRATION_TEST_BINS)
 	@echo "Running integration tests..."
-	@./scripts/run_all_tests.sh --integration
+	@bash ./scripts/run_all_tests.sh --integration
 
 test-performance: $(PERFORMANCE_TEST_BINS)
 	@echo "Running performance tests..."
-	@./scripts/run_all_tests.sh --performance
+	@bash ./scripts/run_all_tests.sh --performance
 
 test-robustness: $(ROBUSTNESS_TEST_BINS)
 	@echo "Running robustness tests..."
-	@./scripts/run_all_tests.sh --robustness
+	@bash ./scripts/run_all_tests.sh --robustness
 
 # Compilation des tests kernel
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_%: $(UNIT_DIR)/kernel/test_%.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)

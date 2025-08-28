@@ -1,11 +1,12 @@
 /* test_syscall.c - Tests unitaires pour le système d'appels système */
 
-#include "../framework/unity.h"
-#include "../framework/test_kernel.h"
+#include <string.h>
+#include "../../framework/unity.h"
+#include "../../framework/test_kernel.h"
 
 // Include du module à tester
-#include "../../kernel/syscall/syscall.h"
-#include "../../kernel/task/task.h"
+#include "../../../kernel/syscall/syscall.h"
+#include "../../../kernel/task/task.h"
 
 // === MOCK DATA ET HELPERS ===
 
@@ -53,6 +54,11 @@ static uint32_t mock_exit_code = 0;
 void mock_task_exit_with_code(uint32_t code) {
     mock_task_exit_called = 1;
     mock_exit_code = code;
+}
+
+// Fonction dummy pour les tâches de test
+void dummy_task_function(void) {
+    // Fonction vide pour les tests
 }
 
 // === SETUP ET TEARDOWN ===

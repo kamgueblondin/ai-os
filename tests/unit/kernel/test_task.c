@@ -1,10 +1,10 @@
 /* test_task.c - Tests unitaires pour le Task Manager */
 
-#include "../framework/unity.h"
-#include "../framework/test_kernel.h"
+#include "../../framework/unity.h"
+#include "../../framework/test_kernel.h"
 
 // Include du module à tester
-#include "../../kernel/task/task.h"
+#include "../../../kernel/task/task.h"
 
 // Mock des dépendances
 static int mock_task_switch_called = 0;

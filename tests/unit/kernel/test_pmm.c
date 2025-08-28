@@ -1,11 +1,11 @@
 /* test_pmm.c - Tests unitaires pour le Physical Memory Manager */
 
-#include "../framework/unity.h"
-#include "../framework/test_kernel.h"
+#include "../../framework/unity.h"
+#include "../../framework/test_kernel.h"
 
 // Include du module à tester
-#include "../../kernel/mem/pmm.h"
-#include "../../kernel/mem/pmm.c"
+#include "../../../kernel/mem/pmm.h"
+#include "../../../kernel/mem/pmm.c"
 
 // === SETUP ET TEARDOWN ===
 
@@ -28,15 +28,15 @@ void test_pmm_init_basic(void) {
     pmm_init(memory_size, multiboot_addr);
     
     // Vérifier que l'initialisation s'est bien passée
-    TEST_ASSERT_GREATER_THAN(0, get_total_pages());
-    TEST_ASSERT_GREATER_THAN(0, get_free_pages());
-    TEST_ASSERT(get_free_pages() <= get_total_pages());
+    TEST_ASSERT_GREATER_THAN(0, pmm_get_total_pages());
+    TEST_ASSERT_GREATER_THAN(0, pmm_get_free_pages());
+    TEST_ASSERT(pmm_get_free_pages() <= pmm_get_total_pages());
 }
 
 void test_pmm_init_boundary_conditions(void) {
     // Test avec mémoire minimale
     pmm_init(4 * 1024 * 1024, 0x100000); // 4MB minimum
-    TEST_ASSERT_GREATER_THAN(0, get_free_pages());
+    TEST_ASSERT_GREATER_THAN(0, pmm_get_free_pages());
     
     // Reset pour test suivant
     pmm_init(128 * 1024 * 1024, 0x100000);
@@ -47,8 +47,8 @@ void test_pmm_bitmap_integrity(void) {
     pmm_init(memory_size, 0x100000);
     
     // Vérifier que le bitmap est correctement initialisé
-    uint32_t total_pages = get_total_pages();
-    uint32_t free_pages = get_free_pages();
+    uint32_t total_pages = pmm_get_total_pages();
+    uint32_t free_pages = pmm_get_free_pages();
     uint32_t used_pages = total_pages - free_pages;
     
     // Il devrait y avoir des pages utilisées pour le kernel et le bitmap
@@ -63,14 +63,14 @@ void test_pmm_bitmap_integrity(void) {
 void test_pmm_alloc_single_page(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before = pmm_get_free_pages();
     
     void* page = pmm_alloc_page();
     
     TEST_ASSERT_NOT_NULL(page);
     TEST_ASSERT_PAGE_ALIGNED((uint32_t)page);
     
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after = pmm_get_free_pages();
     TEST_ASSERT_EQUAL(free_pages_before - 1, free_pages_after);
 }
 
@@ -79,7 +79,7 @@ void test_pmm_alloc_multiple_pages(void) {
     
     const int num_allocs = 10;
     void* pages[num_allocs];
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before = pmm_get_free_pages();
     
     // Allouer plusieurs pages
     for (int i = 0; i < num_allocs; i++) {
@@ -93,7 +93,7 @@ void test_pmm_alloc_multiple_pages(void) {
         }
     }
     
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after = pmm_get_free_pages();
     TEST_ASSERT_EQUAL(free_pages_before - num_allocs, free_pages_after);
 }
 
@@ -118,7 +118,7 @@ void test_pmm_alloc_until_exhaustion(void) {
     
     // Vérifier qu'on ne peut plus allouer
     TEST_ASSERT_NULL(pmm_alloc_page());
-    TEST_ASSERT_EQUAL(0, get_free_pages());
+    TEST_ASSERT_EQUAL(0, pmm_get_free_pages());
     
     // Il devrait y avoir eu au moins quelques allocations
     TEST_ASSERT_GREATER_THAN(0, allocated_count);
@@ -132,11 +132,11 @@ void test_pmm_free_single_page(void) {
     void* page = pmm_alloc_page();
     TEST_ASSERT_NOT_NULL(page);
     
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before = pmm_get_free_pages();
     
     pmm_free_page(page);
     
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after = pmm_get_free_pages();
     TEST_ASSERT_EQUAL(free_pages_before + 1, free_pages_after);
 }
 
@@ -152,39 +152,39 @@ void test_pmm_free_multiple_pages(void) {
         TEST_ASSERT_NOT_NULL(pages[i]);
     }
     
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before = pmm_get_free_pages();
     
     // Libérer toutes les pages
     for (int i = 0; i < num_pages; i++) {
         pmm_free_page(pages[i]);
     }
     
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after = pmm_get_free_pages();
     TEST_ASSERT_EQUAL(free_pages_before + num_pages, free_pages_after);
 }
 
 void test_pmm_free_null_pointer(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before = pmm_get_free_pages();
     
     // Libérer un pointeur NULL ne devrait rien faire
     pmm_free_page(NULL);
     
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after = pmm_get_free_pages();
     TEST_ASSERT_EQUAL(free_pages_before, free_pages_after);
 }
 
 void test_pmm_free_invalid_address(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    uint32_t free_pages_before = get_free_pages();
+    uint32_t free_pages_before __attribute__((unused)) = pmm_get_free_pages();
     
     // Essayer de libérer une adresse invalide
     pmm_free_page((void*)0x12345678); // Adresse non alignée sur page
     
     // Le gestionnaire devrait ignorer ou gérer gracieusement
-    uint32_t free_pages_after = get_free_pages();
+    uint32_t free_pages_after __attribute__((unused)) = pmm_get_free_pages();
     // On ne peut pas faire d'assertion spécifique car le comportement
     // peut varier selon l'implémentation
 }
@@ -194,7 +194,7 @@ void test_pmm_free_invalid_address(void) {
 void test_pmm_alloc_free_cycle(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    uint32_t initial_free = get_free_pages();
+    uint32_t initial_free = pmm_get_free_pages();
     
     // Effectuer plusieurs cycles allocation/libération
     for (int cycle = 0; cycle < 10; cycle++) {
@@ -205,7 +205,7 @@ void test_pmm_alloc_free_cycle(void) {
         pmm_free_page(page);
         
         // Vérifier qu'on revient à l'état initial
-        TEST_ASSERT_EQUAL(initial_free, get_free_pages());
+        TEST_ASSERT_EQUAL(initial_free, pmm_get_free_pages());
     }
 }
 
@@ -246,31 +246,41 @@ void test_pmm_fragmentation_resistance(void) {
 void test_pmm_allocation_performance(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    const int num_iterations = 1000;
+    test_benchmark_t bench;
+    test_benchmark_start(&bench, "PMM Single Page Allocation");
+    bench.num_calls = 1000;
     
-    TEST_BENCHMARK("PMM Single Page Allocation", num_iterations, {
+    for (uint32_t i = 0; i < 1000; i++) {
         void* page = pmm_alloc_page();
         if (page) pmm_free_page(page);
-    });
+    }
+    
+    test_benchmark_end(&bench);
+    test_benchmark_print_results(&bench);
 }
 
 void test_pmm_batch_allocation_performance(void) {
     pmm_init(128 * 1024 * 1024, 0x100000);
     
-    const int batch_size = 100;
+    const uint32_t batch_size = 100;
     void* pages[batch_size];
     
-    TEST_BENCHMARK("PMM Batch Allocation", 1, {
-        // Allouer un lot de pages
-        for (int i = 0; i < batch_size; i++) {
-            pages[i] = pmm_alloc_page();
-        }
-        
-        // Les libérer
-        for (int i = 0; i < batch_size; i++) {
-            if (pages[i]) pmm_free_page(pages[i]);
-        }
-    });
+    test_benchmark_t bench;
+    test_benchmark_start(&bench, "PMM Batch Allocation");
+    bench.num_calls = 1;
+    
+    // Allouer un lot de pages
+    for (uint32_t i = 0; i < batch_size; i++) {
+        pages[i] = pmm_alloc_page();
+    }
+    
+    // Les libérer
+    for (uint32_t i = 0; i < batch_size; i++) {
+        if (pages[i]) pmm_free_page(pages[i]);
+    }
+    
+    test_benchmark_end(&bench);
+    test_benchmark_print_results(&bench);
 }
 
 // === TESTS DE ROBUSTESSE ===
@@ -283,11 +293,11 @@ void test_pmm_double_free_detection(void) {
     
     // Première libération
     pmm_free_page(page);
-    uint32_t free_after_first = get_free_pages();
+    uint32_t free_after_first = pmm_get_free_pages();
     
     // Deuxième libération (double free)
     pmm_free_page(page);
-    uint32_t free_after_second = get_free_pages();
+    uint32_t free_after_second = pmm_get_free_pages();
     
     // Le double free ne devrait pas augmenter le nombre de pages libres
     TEST_ASSERT_EQUAL(free_after_first, free_after_second);
@@ -328,8 +338,8 @@ void test_pmm_integration_with_multiboot(void) {
     for (int i = 0; i < 4; i++) {
         pmm_init(memory_configs[i][0], memory_configs[i][1]);
         
-        TEST_ASSERT_GREATER_THAN(0, get_total_pages());
-        TEST_ASSERT_GREATER_THAN(0, get_free_pages());
+        TEST_ASSERT_GREATER_THAN(0, pmm_get_total_pages());
+        TEST_ASSERT_GREATER_THAN(0, pmm_get_free_pages());
         
         // Tester une allocation de base
         void* page = pmm_alloc_page();

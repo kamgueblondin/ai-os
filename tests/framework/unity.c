@@ -58,7 +58,7 @@ void unity_print_results(void) {
 }
 
 void unity_run_test(void (*test_func)(void), const char* test_name, 
-                   const char* file, uint32_t line) {
+                   const char* file __attribute__((unused)), uint32_t line __attribute__((unused))) {
     unity_stats.current_test_name = test_name;
     unity_stats.tests_run++;
     
