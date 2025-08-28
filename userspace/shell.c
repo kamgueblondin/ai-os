@@ -610,28 +610,13 @@ static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
     strcpy(ctx->current_dir, newdir);
 }
 
-extern char* initrd_read_file(const char* filename);
 static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
     if (arg_count == 0) {
         print_error("cat: fichier manquant");
         return;
     }
-    // Résolution naïve: essayer tel quel, puis bin/<file>
-    const char* path = args[0];
-    char alt[MAX_PATH_LENGTH];
-    char* data = initrd_read_file(path);
-    if (!data) {
-        strcpy(alt, "bin/");
-        strcat(alt, path);
-        data = initrd_read_file(alt);
-    }
-    if (!data) {
-        print_error("cat: fichier introuvable dans l'initrd");
-        return;
-    }
-    // Affichage jusqu'au premier '\0' (contenus texte)
-    print_string(data);
-    print_string("\n");
+    // Pas d'accès FS direct en userspace: placeholder
+    print_error("cat: non disponible en userspace (pas d'API FS) ");
 }
 
 static int is_builtin(const char* cmd) {
@@ -649,23 +634,10 @@ static void cmd_which(shell_context_t* ctx, const char* cmd) {
         print_string("builtin\n");
         return;
     }
-    // Vérifier bin/cmd dans l'initrd
-    char alt[MAX_PATH_LENGTH];
-    strcpy(alt, "bin/");
-    strcat(alt, cmd);
-    extern int initrd_file_exists(const char* filename);
-    if (initrd_file_exists(alt)) {
-        print_string(alt);
-        print_string("\n");
-        return;
-    }
-    // Tel quel
-    if (initrd_file_exists(cmd)) {
-        print_string(cmd);
-        print_string("\n");
-        return;
-    }
-    print_error("which: commande introuvable");
+    // Sans API FS: indiquer l'emplacement probable
+    print_string("bin/");
+    print_string(cmd);
+    print_string(" (non vérifié)\n");
 }
 
 void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
