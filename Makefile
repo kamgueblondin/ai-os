@@ -217,8 +217,6 @@ userspace/shell userspace/fake_ai userspace/test_program:
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -227,8 +225,6 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
 		-no-reboot -no-shutdown
 
 # Alternative nographic (si curses ne fonctionne pas)
