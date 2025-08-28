@@ -831,7 +831,8 @@ void shell_main_loop(shell_context_t* ctx) {
                 continue;
             }
             if (c == 0) {
-                // Ignorer les NULs éventuels
+                // Ignorer les NULs éventuels et céder le CPU pour laisser arriver l'input
+                yield();
                 continue;
             }
             if (idx < (int)sizeof(buf) - 1){
