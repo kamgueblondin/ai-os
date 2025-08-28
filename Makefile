@@ -174,6 +174,8 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
+		-device i8042 \
+		-usb -device usb-kbd \
 		-chardev stdio,id=serial0 \
 		-device isa-serial,chardev=serial0 \
 		-no-reboot -no-shutdown
