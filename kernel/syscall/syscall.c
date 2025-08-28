@@ -11,9 +11,6 @@
 extern void print_string_serial(const char* str);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
-// Serial I/O helpers (defined in kernel.c)
-extern int is_receive_ready();
-extern char read_serial();
 
 
 // ==============================================================================
@@ -41,21 +38,32 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
+                static int null_char_count = 0;
                 // Réactiver les interruptions avant de lire le clavier
                 asm volatile("sti");
                 
-                // Lecture clavier
-                char kc = keyboard_getc();
-                if (kc == 0) {
-                    // Fallback: lecture depuis la console série (stdin de QEMU)
-                    if (is_receive_ready()) {
-                        char sc = read_serial();
-                        cpu->eax = (uint32_t)sc;
-                    } else {
-                        cpu->eax = 0;
-                    }
+                // Utilise directement keyboard_getc() qui gère le buffer ASCII
+                char c = keyboard_getc();
+                cpu->eax = c;
+                
+                // Debug intelligent - réduire le spam pour les caractères nuls
+                if (c != 0) {
+                    null_char_count = 0; // Reset compteur
+                    print_string_serial("SYS_GETC: caractère retourné: '");
+                    write_serial(c);
+                    print_string_serial("'\n");
                 } else {
-                    cpu->eax = (uint32_t)kc;
+                    null_char_count++;
+                    // N'afficher les caractères nuls que les 3 premières fois
+                    if (null_char_count <= 3) {
+                        print_string_serial("SYS_GETC: caractère retourné: '");
+                        write_serial(c);
+                        print_string_serial("'\n");
+                    } else if (null_char_count == 10) {
+                        print_string_serial("SYS_GETC: suppression du spam null (");
+                        write_serial('0' + (null_char_count % 10));
+                        print_string_serial(" chars nuls)\n");
+                    }
                 }
             }
             break;
@@ -121,13 +129,10 @@ int sys_exec(const char* path, char* argv[]) {
 
 
 // Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
-// ATTENTION: Cette fonction est maintenant dépréciée pour l'input complexe.
-// Elle ne gère que les caractères ASCII et ne fonctionnera pas correctement avec l'UTF-8.
-// Le shell moderne doit utiliser SYS_GETC et gérer l'édition de ligne en userspace.
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) return;
     
-    print_string_serial("SYS_GETS: Debut de la lecture (version Unicode-legacy)...\n");
+    print_string_serial("SYS_GETS: Debut de la lecture (version corrigee)...\n");
     
     // Réactiver les interruptions
     asm volatile("sti");
@@ -135,46 +140,37 @@ void sys_gets(char* buffer, uint32_t size) {
     uint32_t i = 0;
     
     while (i < size - 1) {
-        // Essayer d'abord le clavier
-        uint32_t c_unicode = (uint32_t)keyboard_getc();
-        char c = (char)c_unicode;
-        
-        // Fallback série si rien au clavier
-        if (c == 0) {
-            if (is_receive_ready()) {
-                c = read_serial();
-                c_unicode = (uint32_t)c;
-            } else {
-                continue; // attendre une vraie entrée
-            }
-        }
-
-        // On ne traite que les cas simples pour assurer la compilation.
-        if (c_unicode > 127) {
-            // Ignorer les caractères non-ASCII pour cette fonction legacy.
-            continue;
-        }
+        char c = keyboard_getc(); // Utilise directement keyboard_getc qui est plus robuste
         
         if (c == '\r' || c == '\n') {
-            // Fin de ligne
+            // Fin de ligne - afficher aussi sur écran
             print_char('\n', -1, -1, 0x0F);
             buffer[i] = '\0';
+            print_string_serial("SYS_GETS: ligne lue: ");
+            print_string_serial(buffer);
+            print_string_serial("\n");
             return;
         }
         
         if (c == '\b' && i > 0) {
-            // Backspace
+            // Backspace - effacer sur l'écran aussi
             i--;
-            print_char('\b', -1, -1, 0x0F);
-            print_char(' ', -1, -1, 0x0F);
-            print_char('\b', -1, -1, 0x0F);
+            print_char('\b', -1, -1, 0x0F);  // Backspace
+            print_char(' ', -1, -1, 0x0F);   // Espace
+            print_char('\b', -1, -1, 0x0F);  // Backspace
         } else if (c >= 32 && c <= 126) {
-            // Caractère imprimable
+            // Caractère imprimable - l'afficher sur l'écran
             buffer[i++] = c;
             print_char(c, -1, -1, 0x0F);
+            print_string_serial("SYS_GETS: caractère ajouté: '");
+            write_serial(c);
+            print_string_serial("'\n");
         }
     }
     
     buffer[i] = '\0';
+    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
+    print_string_serial(buffer);
+    print_string_serial("\n");
 }
 

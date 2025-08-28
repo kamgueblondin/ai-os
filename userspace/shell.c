@@ -819,20 +819,10 @@ void shell_main_loop(shell_context_t* ctx) {
             }
             if (c == 0x08 || c == 127){ // Backspace
                 if (idx > 0){
-                    // Reculer d'un caractère UTF-8 complet
-                    int new_idx = idx - 1;
-                    while (new_idx > 0 && ((unsigned char)buf[new_idx] & 0xC0) == 0x80) {
-                        new_idx--;
-                    }
-                    idx = new_idx;
+                    idx--;
                     buf[idx] = '\0';
                     backspace();
                 }
-                continue;
-            }
-            if (c == 0) {
-                // Ignorer les NULs éventuels et céder le CPU pour laisser arriver l'input
-                yield();
                 continue;
             }
             if (idx < (int)sizeof(buf) - 1){

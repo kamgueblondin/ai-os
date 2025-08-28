@@ -165,10 +165,12 @@ userspace/shell userspace/fake_ai userspace/test_program:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
 	@$(MAKE) -C userspace all
 
-# Cible pour exécuter l'OS dans QEMU avec initrd (mode console interactif)
+# Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
+		-chardev stdio,id=serial0 \
+		-device isa-serial,chardev=serial0 \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -177,27 +179,9 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
-		-no-reboot -no-shutdown
-
-# Mode GUI avec saisie via le terminal (STDIN attaché au port série)
-run-gui-stdio: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-m 128M -vga std \
-		-display gtk \
-		-device i8042 \
-		-usb -device usb-kbd \
-		-chardev stdio,id=serial0,signal=off \
+		-chardev stdio,id=serial0 \
 		-device isa-serial,chardev=serial0 \
-		-monitor none \
 		-no-reboot -no-shutdown
-
-# Mode console série pur (sans GUI), interaction via le terminal
-run-serial: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-nographic \
-		-chardev stdio,id=serial0,signal=off \
-		-device isa-serial,chardev=serial0 \
-		-no-reboot
 
 # Alternative nographic (si curses ne fonctionne pas)
 run-nographic: $(OS_IMAGE) pack-initrd

@@ -9,249 +9,494 @@ extern void print_char_vga(char c, int x, int y, char color);
 extern void write_serial(char c);
 extern int vga_x, vga_y;
 
+// Buffer clavier hybride (interruption + polling)
 #define KBD_BUF_SIZE 256
-static volatile uint32_t kbd_buf[KBD_BUF_SIZE];
+static volatile unsigned char kbd_buf[KBD_BUF_SIZE];
 static volatile unsigned int kbd_head = 0;
 static volatile unsigned int kbd_tail = 0;
 
-// État des modifieurs
-static int shift_pressed = 0;
-static int altgr_pressed = 0;
-static int ctrl_pressed = 0;
+// Système de fallback hybride
+static volatile int interrupt_mode_active = 1;
+static volatile int polling_fallback_active = 0;
+static volatile int debug_interrupt_count = 0;
+static volatile int debug_polling_count = 0;
+static volatile uint32_t last_poll_time = 0;
 
-// Pour les "dead keys" (touches mortes)
-static uint32_t dead_key_state = 0;
+// Variables de diagnostic
+static volatile int initialization_phase = 0;
 
-// Table de conversion scancode PS/2 Set 1 vers Unicode (AZERTY Français)
-// Source: https://wiki.osdev.org/PS/2_Keyboard#Scan_Code_Set_1
-// et https://www.utf8-chartable.de/
+// Délai optimisé pour QEMU
+void qemu_delay() {
+    for (volatile int i = 0; i < 1000; i++);
+}
 
-// Layout de base (sans modifieurs)
-static const uint32_t ps2_map_base[128] = {
-    0, 0x1B, '&', 0xE9, '"', '\'', '(', '-', 0xE8, '_', 0xE7, 0xE0, ')', '=', '\b', '\t',
-    'a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '^', '$', '\n', 0, 'q', 's',
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 0xF9, '%', 0, '*', '<', 'w', 'x', 'c',
-    'v', 'b', 'n', '?', '.', '/', 0xA7, 0, 0, ' ', 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
-    '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+// Délai plus long pour les opérations critiques
+void qemu_long_delay() {
+    for (volatile int i = 0; i < 50000; i++);
+}
 
-// Layout avec SHIFT
-static const uint32_t ps2_map_shift[128] = {
-    0, 0x1B, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 0xB0, '+', '\b', '\t',
-    'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 0xA8, 0xA3, '\n', 0, 'Q', 'S',
-    'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', '?', '.', 0, '>', 'W', 'X', 'C',
-    'V', 'B', 'N', ',', ';', ':', '!', 0, 0, ' ', 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, '7', '8', '9', '-', '4', '5', '6', '+', '1',
-    '2', '3', '0', '.', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
+// Attendre que le contrôleur soit prêt (version optimisée QEMU)
+int wait_kbd_ready(int is_command) {
+    int timeout = 10000; // Timeout plus court pour QEMU
+    uint8_t status;
+    
+    while (timeout-- > 0) {
+        status = inb(0x64);
+        if (is_command) {
+            if (!(status & 0x02)) return 1; // Prêt pour commande
+        } else {
+            if (status & 0x01) return 1;    // Données disponibles
+        }
+        qemu_delay();
+    }
+    
+    return 0; // Timeout
+}
 
-// Layout avec ALT-GR
-static const uint32_t ps2_map_altgr[128] = {
-    0, 0, '~', '#', '{', '[', '|', '`', '\\', '^', '@', ']', '}', 0, '\b', '\t',
-    0, 0, 0x20AC, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\n', 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, ' ', 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-
-void kbd_put_char(uint32_t c) {
-    if (c == 0) return;
+// Buffer management amélioré avec filtrage anti-fantômes
+void kbd_put_char(char c) {
+    // Filtrer les caractères nuls pour éviter les touches fantômes
+    if (c == 0) {
+        return; // Ne pas ajouter les caractères nuls au buffer
+    }
+    
     unsigned int next = (kbd_head + 1) & (KBD_BUF_SIZE - 1);
     if (next != kbd_tail) {
         kbd_buf[kbd_head] = c;
         kbd_head = next;
+        
+        // Debug limité
+        if (debug_interrupt_count + debug_polling_count <= 5) {
+            print_string_serial("KBD_PUT: '");
+            write_serial(c);
+            print_string_serial("'\n");
+        }
     }
 }
 
-int kbd_get_char_nonblock(uint32_t *out) {
+int kbd_get_char_nonblock(char *out) {
     if (kbd_head == kbd_tail) {
         return 0; // Vide
     }
-    *out = kbd_buf[kbd_tail];
-    kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
-    return 1; // Succès
-}
-
-// Gère la logique des touches mortes
-uint32_t handle_dead_key(uint32_t key) {
-    if (dead_key_state == 0) return key;
-
-    uint32_t accent = dead_key_state;
-    dead_key_state = 0; // Reset state
-
-    switch (accent) {
-        case '^': // Circonflexe
-            switch (key) {
-                case 'a': return 0xE2; // â
-                case 'e': return 0xEA; // ê
-                case 'i': return 0xEE; // î
-                case 'o': return 0xF4; // ô
-                case 'u': return 0xFB; // û
-                case 'A': return 0xC2; // Â
-                case 'E': return 0xCA; // Ê
-                case 'I': return 0xCE; // Î
-                case 'O': return 0xD4; // Ô
-                case 'U': return 0xDB; // Û
-                default: return key; // Pas de combinaison, retourne la touche
-            }
-        case 0xA8: // Tréma (diaeresis)
-            switch (key) {
-                case 'a': return 0xE4; // ä
-                case 'e': return 0xEB; // ë
-                case 'i': return 0xEF; // ï
-                case 'o': return 0xF6; // ö
-                case 'u': return 0xFC; // ü
-                case 'y': return 0xFF; // ÿ
-                case 'A': return 0xC4; // Ä
-                case 'E': return 0xCB; // Ë
-                case 'I': return 0xCF; // Ï
-                case 'O': return 0xD6; // Ö
-                case 'U': return 0xDC; // Ü
-                default: return key;
-            }
-    }
-    return key; // Retourne la touche si pas de combinaison
-}
-
-
-uint32_t scancode_to_unicode(uint8_t scancode) {
-    if (scancode >= 128) return 0;
-
-    uint32_t key;
-
-    if (altgr_pressed) {
-        key = ps2_map_altgr[scancode];
-    } else if (shift_pressed) {
-        key = ps2_map_shift[scancode];
-    } else {
-        key = ps2_map_base[scancode];
-    }
-
-    if (key == 0) return 0; // Pas de mapping pour cette touche
-
-    // Gestion des touches mortes
-    if (key == '^' || key == 0xA8) { // '^' ou '¨'
-        if (dead_key_state == key) { // Appuyer deux fois sur la touche morte
-            dead_key_state = 0;
-            return key; // Retourne le caractère lui-même
+    
+    // Chercher le prochain caractère valide (non-nul) dans le buffer
+    int max_tries = KBD_BUF_SIZE; // Éviter boucle infinie
+    while (kbd_head != kbd_tail && max_tries-- > 0) {
+        char c = kbd_buf[kbd_tail];
+        kbd_tail = (kbd_tail + 1) & (KBD_BUF_SIZE - 1);
+        
+        // Retourner seulement les caractères valides (non-nuls)
+        if (c != 0) {
+            *out = c;
+            return 1; // Succès
         }
-        dead_key_state = key;
-        return 0; // Ne retourne rien, attend la prochaine touche
+        // Sinon continuer à chercher le prochain caractère valide
     }
-
-    return handle_dead_key(key);
+    
+    return 0; // Aucun caractère valide trouvé
 }
 
+// Table de conversion scancode PS/2 Set 1 standard (corrigée)
+static const char ps2_scancode_map[128] = {
+    // 0x00-0x0F
+    0,   0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
+    // 0x10-0x1F  
+    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,   'a', 's',
+    // 0x20-0x2F
+    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
+    // 0x30-0x3F
+    'b', 'n', 'm', ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
+    // 0x40-0x4F (F-keys et autres)
+    0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
+    // 0x50-0x5F (pavé numérique)
+    '2', '3', '0', '.', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    // 0x60-0x6F
+    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+    // 0x70-0x7F
+    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+};
+
+char ps2_scancode_to_ascii(uint8_t scancode) {
+    if (scancode >= 128) return 0;
+    char result = ps2_scancode_map[scancode];
+    
+    // Debug détaillé du mappage pour les premiers caractères
+    static int debug_mapping_count = 0;
+    if (debug_mapping_count < 10 && result != 0) {
+        debug_mapping_count++;
+        print_string_serial("SCANCODE_MAP: 0x");
+        char hex[] = "0123456789ABCDEF";
+        write_serial(hex[(scancode >> 4) & 0xF]);
+        write_serial(hex[scancode & 0xF]);
+        print_string_serial(" -> '");
+        write_serial(result);
+        print_string_serial("'\n");
+    }
+    
+    return result;
+}
+
+// Polling de secours optimisé (controlled fallback) - plus agressif pour mode console
+void keyboard_poll_check() {
+    static uint32_t poll_counter = 0;
+    poll_counter++;
+    
+    // Polling plus fréquent si pas d'interruptions (mode console/nographic)
+    int poll_freq = (debug_interrupt_count > 0) ? 5000 : 1000; // Plus agressif si pas d'IRQ
+    
+    if (poll_counter % poll_freq == 0) {
+        uint8_t status = inb(0x64);
+        if (status & 0x01) { // Données disponibles
+            uint8_t scancode = inb(0x60);
+            
+            debug_polling_count++;
+            
+            // Filtrer les ACK et codes de contrôle
+            if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
+                return;
+            }
+            
+            // Debug polling (plus de traces si pas d'interruptions)
+            if ((debug_interrupt_count == 0 && debug_polling_count <= 10) || debug_polling_count <= 3) {
+                print_string_serial("POLL: scancode=0x");
+                char hex[] = "0123456789ABCDEF";
+                write_serial(hex[(scancode >> 4) & 0xF]);
+                write_serial(hex[scancode & 0xF]);
+                print_string_serial(" (mode console)\n");
+            }
+            
+            // Traiter seulement les key press (pas les releases)
+            if (!(scancode & 0x80)) {
+                char c = ps2_scancode_to_ascii(scancode);
+                if (c != 0) {
+                    kbd_put_char(c);
+                    polling_fallback_active = 1;
+                }
+            }
+        }
+    }
+}
+
+// Handler d'interruption optimisé
 void keyboard_interrupt_handler() {
+    debug_interrupt_count++;
+    
+    // Debug interruptions
+    if (debug_interrupt_count <= 3) {
+        print_string_serial("KBD_IRQ: #");
+        write_serial('0' + (debug_interrupt_count % 10));
+        print_string_serial("\n");
+    }
+    
+    uint8_t status = inb(0x64);
+    if (!(status & 0x01)) return; // Pas de données
+    
     uint8_t scancode = inb(0x60);
     
-    // Scancodes pour les modifieurs (utilisez #define pour les case-labels)
-    #define LSHIFT_PRESS    0x2A
-    #define LSHIFT_RELEASE  0xAA
-    #define RSHIFT_PRESS    0x36
-    #define RSHIFT_RELEASE  0xB6
-    #define LCTRL_PRESS     0x1D
-    #define LCTRL_RELEASE   0x9D
-    #define ALTGR_PRESS     0xE0 // Préfixe pour AltGr
+    // Debug scancode
+    if (debug_interrupt_count <= 5) {
+        print_string_serial("IRQ: scancode=0x");
+        char hex[] = "0123456789ABCDEF";
+        write_serial(hex[(scancode >> 4) & 0xF]);
+        write_serial(hex[scancode & 0xF]);
+        print_string_serial("\n");
+    }
     
-    static int altgr_prefix = 0;
-
-    if (scancode == ALTGR_PRESS) {
-        altgr_prefix = 1;
+    // Filtrer les codes de contrôle
+    if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
         return;
     }
-
-    if (altgr_prefix) {
-        if (scancode == 0x1D) altgr_pressed = 1; // AltGr press
-        if (scancode == 0x9D) altgr_pressed = 0; // AltGr release
-        altgr_prefix = 0;
-        return;
-    }
-
-    switch (scancode) {
-        case LSHIFT_PRESS:
-        case RSHIFT_PRESS:
-            shift_pressed = 1;
-            return;
-        case LSHIFT_RELEASE:
-        case RSHIFT_RELEASE:
-            shift_pressed = 0;
-            return;
-        case LCTRL_PRESS:
-            ctrl_pressed = 1;
-            return;
-        case LCTRL_RELEASE:
-            ctrl_pressed = 0;
-            return;
-    }
-
-    // C'est un "key press" si le bit 7 n'est pas à 1
+    
+    // Traiter seulement les key press
     if (!(scancode & 0x80)) {
-        uint32_t unicode_char = scancode_to_unicode(scancode);
-        if (unicode_char != 0) {
-            kbd_put_char(unicode_char);
+        char c = ps2_scancode_to_ascii(scancode);
+        if (c != 0) {
+            kbd_put_char(c);
         }
     }
 }
 
+// Initialisation clavier hybride optimisée pour QEMU
 void keyboard_init() {
-    print_string_serial("=== UNICODE KEYBOARD INIT (AZERTY) ===\n");
-    // La logique d'initialisation du contrôleur PS/2 reste la même
-    // car elle est indépendante du mapping des scancodes.
+    print_string_serial("=== KEYBOARD HYBRID INIT (FIXED) ===\n");
     
-    // Vider le buffer du clavier
-    while (inb(0x64) & 1) {
+    // Reset variables
+    debug_interrupt_count = 0;
+    debug_polling_count = 0;
+    interrupt_mode_active = 1;
+    polling_fallback_active = 0;
+    kbd_head = 0;
+    kbd_tail = 0;
+    
+    initialization_phase = 1;
+    
+    // Phase 1: Nettoyage initial
+    print_string_serial("Phase 1: Nettoyage initial...\n");
+    
+    int flush_count = 0;
+    while ((inb(0x64) & 1) && flush_count < 100) {
         inb(0x60);
+        flush_count++;
+        qemu_delay();
     }
     
-    // Envoyer la commande de self-test (0xAA) au clavier
-    outb(0x64, 0xAA);
-    // Attendre la réponse
-    while(inb(0x60) != 0x55);
-
-    // Configuration du contrôleur
-    outb(0x64, 0x20); // Lire le "command byte"
-    uint8_t status = inb(0x60);
-    status |= 1;  // Activer l'IRQ1
-    status &= ~0x10; // Désactiver la translation de scancodes (on le fait nous-mêmes)
-    outb(0x64, 0x60); // Ecrire le "command byte"
-    outb(0x60, status);
-
-    // Activer le clavier
-    outb(0x60, 0xF4);
-    while(inb(0x60) != 0xFA); // Attendre l'ACK
-
-    print_string_serial("Keyboard init done.\n");
-}
-
-uint32_t keyboard_getc(void) {
-    uint32_t c;
+    // Phase 2: Configuration minimale pour QEMU
+    print_string_serial("Phase 2: Configuration QEMU...\n");
     
-    // Attendre qu'un caractère soit disponible
-    while (kbd_get_char_nonblock(&c) == 0) {
-        // On pourrait ajouter un "hlt" ici pour économiser le CPU
-        // en attendant la prochaine interruption clavier.
-        asm volatile("hlt");
+    // Désactivation temporaire des ports
+    if (wait_kbd_ready(1)) {
+        outb(0x64, 0xAD); // Disable port 1
+        qemu_delay();
     }
     
-    return c;
+    if (wait_kbd_ready(1)) {
+        outb(0x64, 0xA7); // Disable port 2  
+        qemu_delay();
+    }
+    
+    // Flush après désactivation
+    flush_count = 0;
+    while ((inb(0x64) & 1) && flush_count < 50) {
+        inb(0x60);
+        flush_count++;
+        qemu_delay();
+    }
+    
+    // Configuration optimale pour QEMU avec scancode Set 1 (renforcée pour console)
+    print_string_serial("Phase 2: Configuration PS/2 renforcée...\n");
+    if (wait_kbd_ready(1)) {
+        outb(0x64, 0x20); // Read configuration
+        qemu_delay();
+        
+        if (wait_kbd_ready(0)) {
+            uint8_t config = inb(0x60);
+            qemu_delay();
+            
+            print_string_serial("Configuration actuelle: 0x");
+            char hex[] = "0123456789ABCDEF";
+            write_serial(hex[(config >> 4) & 0xF]);
+            write_serial(hex[config & 0xF]);
+            print_string_serial("\n");
+            
+            // Configuration PS/2 Set 1 compatible renforcée
+            config |= 0x01;  // Enable port 1 interrupt
+            config &= ~0x10; // Enable port 1 clock  
+            config |= 0x40;  // Enable scancode translation (Set 1)
+            config &= ~0x20; // Disable port 2 interrupt (focus sur port 1)
+            
+            if (wait_kbd_ready(1)) {
+                outb(0x64, 0x60); // Write configuration
+                qemu_delay();
+                
+                if (wait_kbd_ready(1)) {
+                    outb(0x60, config);
+                    qemu_delay();
+                    
+                    print_string_serial("Nouvelle configuration: 0x");
+                    write_serial(hex[(config >> 4) & 0xF]);
+                    write_serial(hex[config & 0xF]);
+                    print_string_serial("\n");
+                    print_string_serial("Phase 2: Configuration PS/2 Set 1 appliquée\n");
+                }
+            }
+        }
+    }
+    
+    // Réactivation du port 1
+    if (wait_kbd_ready(1)) {
+        outb(0x64, 0xAE); // Enable port 1
+        qemu_delay();
+        print_string_serial("Phase 2: Port 1 réactivé\n");
+    }
+    
+    // Phase 3: Configuration du périphérique simple
+    print_string_serial("Phase 3: Configuration périphérique...\n");
+    
+    // Activer le scanning (simple pour QEMU)
+    if (wait_kbd_ready(1)) {
+        outb(0x60, 0xF4); // Enable scanning
+        qemu_delay();
+        
+        // Attendre ACK éventuel
+        int ack_wait = 5000;
+        while (ack_wait-- > 0) {
+            if (inb(0x64) & 1) {
+                uint8_t response = inb(0x60);
+                if (response == 0xFA) {
+                    print_string_serial("Phase 3: Scanning activé\n");
+                    break;
+                }
+            }
+            qemu_delay();
+        }
+    }
+    
+    // Phase 4: Stabilisation et test
+    print_string_serial("Phase 4: Finalisation...\n");
+    qemu_long_delay(); // Pause de stabilisation
+    
+    // Nettoyage final
+    flush_count = 0;
+    while ((inb(0x64) & 1) && flush_count < 20) {
+        inb(0x60);
+        flush_count++;
+        qemu_delay();
+    }
+    
+    initialization_phase = 0;
+    print_string_serial("=== KEYBOARD INIT COMPLETE ===\n");
+    print_string_serial("Mode: Interruption + Polling Fallback\n");
+    print_string_serial("Compatible: Console et GUI\n");
+    
+    // Test rapide du clavier
+    print_string_serial("Test: Vérification du contrôleur...\n");
+    uint8_t final_status = inb(0x64);
+    print_string_serial("Status final: 0x");
+    char hex[] = "0123456789ABCDEF";
+    write_serial(hex[(final_status >> 4) & 0xF]);
+    write_serial(hex[final_status & 0xF]);
+    print_string_serial("\n");
+    
+    print_string_serial("Ready for input!\n");
+    print_string_serial("===============================\n");
 }
 
-// Fonction de compatibilité gardée pour ne pas casser d'autres parties du code
-// qui pourraient encore l'appeler. Elle est maintenant obsolète.
+// Fonction getchar hybride avec plusieurs mécanismes et protection anti-fantômes
+char keyboard_getc(void) {
+    static int getc_calls = 0;
+    static int consecutive_empty_returns = 0;
+    char c;
+    int attempts = 0;
+    const int MAX_ATTEMPTS = 200000; // Timeout raisonnable
+    const int MAX_CONSECUTIVE_EMPTY = 5; // Maximum de retours vides consécutifs
+    
+    getc_calls++;
+    
+    // Debug limité
+    if (getc_calls <= 3) {
+        print_string_serial("GETC: start (call #");
+        write_serial('0' + (getc_calls % 10));
+        print_string_serial(")\n");
+    }
+    
+    // Réactiver les interruptions
+    asm volatile("sti");
+    
+    while (attempts < MAX_ATTEMPTS) {
+        // 1. Essayer d'abord le buffer d'interruptions
+        if (kbd_get_char_nonblock(&c)) {
+            // Vérifier que le caractère n'est pas nul (protection anti-fantômes)
+            if (c != 0) {
+                consecutive_empty_returns = 0; // Reset compteur
+                if (getc_calls <= 3) {
+                    print_string_serial("GETC: got valid '");
+                    write_serial(c);
+                    print_string_serial("' from buffer\n");
+                }
+                return c;
+            }
+        }
+        
+        // 2. Polling de secours (actif même avec interruptions)
+        keyboard_poll_check();
+        
+        // 3. Vérifier à nouveau le buffer
+        if (kbd_get_char_nonblock(&c)) {
+            // Vérifier que le caractère n'est pas nul
+            if (c != 0) {
+                consecutive_empty_returns = 0; // Reset compteur
+                if (getc_calls <= 3) {
+                    print_string_serial("GETC: got valid '");
+                    write_serial(c);
+                    print_string_serial("' from polling\n");
+                }
+                return c;
+            }
+        }
+        
+        attempts++;
+        
+        // Debug périodique - réduit si trop de tentatives vides
+        if (attempts % 50000 == 0 && getc_calls <= 2) {
+            print_string_serial("GETC: waiting... (");
+            write_serial('0' + (attempts / 50000));
+            print_string_serial(")\n");
+        }
+        
+        // Protection contre les boucles infinies de caractères vides
+        if (attempts > MAX_ATTEMPTS / 2) {
+            consecutive_empty_returns++;
+            if (consecutive_empty_returns > MAX_CONSECUTIVE_EMPTY) {
+                if (getc_calls <= 2) {
+                    print_string_serial("GETC: détection boucle fantôme - pause\n");
+                }
+                // Pause plus longue pour casser la boucle
+                for (volatile int pause = 0; pause < 100000; pause++);
+                consecutive_empty_returns = 0; // Reset
+            }
+        }
+    }
+    
+    // Timeout - ne retourner des caractères nuls qu'en dernier recours
+    consecutive_empty_returns++;
+    if (getc_calls <= 2) {
+        print_string_serial("GETC: timeout après filtrage\n");
+    }
+    
+    // Au lieu de retourner 0 (qui cause les touches fantômes), attendre plus
+    if (consecutive_empty_returns < MAX_CONSECUTIVE_EMPTY) {
+        // Pause et retry une dernière fois
+        for (volatile int pause = 0; pause < 50000; pause++);
+        if (kbd_get_char_nonblock(&c) && c != 0) {
+            consecutive_empty_returns = 0;
+            return c;
+        }
+    }
+    
+    return 0; // Caractère null seulement après tous les filtres
+}
+
+// Fonctions de compatibilité
 char scancode_to_ascii(uint8_t scancode) {
-    uint32_t unicode = scancode_to_unicode(scancode);
-    if (unicode > 0 && unicode < 128) {
-        return (char)unicode;
+    return ps2_scancode_to_ascii(scancode);
+}
+
+// Diagnostic complet
+void keyboard_diagnostic() {
+    print_string_serial("=== DIAGNOSTIC CLAVIER HYBRID ===\n");
+    
+    uint8_t status = inb(0x64);
+    uint8_t pic_mask = inb(0x21);
+    
+    print_string_serial("Status: 0x");
+    char hex[] = "0123456789ABCDEF";
+    write_serial(hex[(status >> 4) & 0xF]);
+    write_serial(hex[status & 0xF]);
+    print_string_serial(" | PIC: 0x");
+    write_serial(hex[(pic_mask >> 4) & 0xF]);
+    write_serial(hex[pic_mask & 0xF]);
+    print_string_serial("\n");
+    
+    print_string_serial("IRQ1: ");
+    print_string_serial((pic_mask & 2) ? "MASKED" : "ACTIVE");
+    print_string_serial("\n");
+    
+    print_string_serial("Interruptions: ");
+    write_serial('0' + (debug_interrupt_count % 10));
+    print_string_serial(" | Polling: ");
+    write_serial('0' + (debug_polling_count % 10));
+    print_string_serial("\n");
+    
+    print_string_serial("Mode principal: ");
+    if (debug_interrupt_count > 0) {
+        print_string_serial("INTERRUPTION");
+        if (polling_fallback_active) print_string_serial(" + FALLBACK");
+    } else if (polling_fallback_active) {
+        print_string_serial("POLLING");
+    } else {
+        print_string_serial("ATTENTE");
     }
-    return 0; // Retourne 0 pour les caractères non-ASCII
+    print_string_serial("\n");
+    
+    print_string_serial("===============================\n");
 }
