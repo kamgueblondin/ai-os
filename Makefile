@@ -171,8 +171,8 @@ run: $(OS_IMAGE) pack-initrd
 		-display curses \
 		-device i8042 \
 		-usb -device usb-kbd \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
+		-serial none \
+		-monitor none \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -183,8 +183,8 @@ run-gui: $(OS_IMAGE) pack-initrd
 		-display gtk \
 		-device i8042 \
 		-usb -device usb-kbd \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
+		-serial file:serial.log \
+		-monitor none \
 		-no-reboot -no-shutdown
 
 # Alternative nographic (si curses ne fonctionne pas)
