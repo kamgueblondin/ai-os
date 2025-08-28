@@ -60,6 +60,20 @@ make clean && make all
 make run
 ```
 
+### Générer une ISO bootable (GRUB2)
+Prérequis:
+```bash
+sudo apt-get install grub-pc-bin xorriso
+```
+
+Construire l'ISO et la tester:
+```bash
+make iso           # Produit build/ai_os.iso (Multiboot + initrd inclus)
+make run-iso       # Lance QEMU directement sur l'ISO générée
+```
+
+Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + module initrd).
+
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
 AI-OS v6.1 inclut maintenant une suite complète de tests automatisés pour garantir la qualité du code.

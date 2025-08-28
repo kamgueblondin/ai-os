@@ -169,6 +169,45 @@ pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
 
+# ===== ISO (GRUB) Build =====
+.PHONY: iso check-iso-deps run-iso iso-clean
+
+check-iso-deps:
+	@command -v grub-mkrescue >/dev/null 2>&1 || { \
+		echo "ERROR: 'grub-mkrescue' introuvable. Installez grub-pc-bin et xorriso."; \
+		echo "       Debian/Ubuntu: sudo apt-get install -y grub-pc-bin xorriso"; \
+		exit 1; \
+	}
+	@command -v xorriso >/dev/null 2>&1 || { \
+		echo "ERROR: 'xorriso' introuvable. Installez-le: sudo apt-get install -y xorriso"; \
+		exit 1; \
+	}
+
+# Construire une image ISO bootable (Multiboot + GRUB2)
+iso: check-iso-deps $(OS_IMAGE) pack-initrd
+	@echo "=== Construction ISO bootable (GRUB2) ==="
+	@rm -rf build/isodir
+	@mkdir -p build/isodir/boot/grub
+	@cp -f $(OS_IMAGE) build/isodir/boot/ai_os.bin
+	@cp -f $(INITRD_IMAGE) build/isodir/boot/$(INITRD_IMAGE)
+	@echo "set timeout=0" > build/isodir/boot/grub/grub.cfg
+	@echo "set default=0" >> build/isodir/boot/grub/grub.cfg
+	@echo "menuentry 'AI-OS' {" >> build/isodir/boot/grub/grub.cfg
+	@echo "  multiboot /boot/ai_os.bin" >> build/isodir/boot/grub/grub.cfg
+	@echo "  module    /boot/$(INITRD_IMAGE)" >> build/isodir/boot/grub/grub.cfg
+	@echo "  boot" >> build/isodir/boot/grub/grub.cfg
+	@echo "}" >> build/isodir/boot/grub/grub.cfg
+	@grub-mkrescue -o $(ISO_IMAGE) build/isodir >/dev/null 2>&1 || \
+		(grub-mkrescue -o $(ISO_IMAGE) build/isodir)
+	@echo "ISO générée: $(ISO_IMAGE)"
+
+# Lancer l'ISO avec QEMU (boot CD)
+run-iso: iso
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m 128M -no-reboot -no-shutdown
+
+iso-clean:
+	@rm -rf build/isodir $(ISO_IMAGE)
+
 # Compile tous les programmes utilisateur
 userspace/shell userspace/fake_ai userspace/test_program:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
