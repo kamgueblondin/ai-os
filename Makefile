@@ -165,9 +165,16 @@ userspace/shell userspace/fake_ai userspace/test_program:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
 	@$(MAKE) -C userspace all
 
-# Cible pour exécuter l'OS dans QEMU avec initrd (mode console non-interactif)
+# Cible pour exécuter l'OS dans QEMU avec initrd (mode console interactif)
 run: $(OS_IMAGE) pack-initrd
-	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) -nographic -m 128M -no-reboot -serial file:serial.log
+	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
+		-display curses \
+		-device i8042 \
+		-usb -device usb-kbd \
+		-chardev stdio,id=serial0 \
+		-device isa-serial,chardev=serial0 \
+		-m 128M \
+		-no-reboot -no-shutdown
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
