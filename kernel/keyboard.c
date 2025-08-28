@@ -25,6 +25,10 @@ static volatile uint32_t last_poll_time = 0;
 // Variables de diagnostic
 static volatile int initialization_phase = 0;
 
+// Modifieurs
+static volatile int g_shift_pressed = 0;
+static volatile int g_caps_lock = 0;
+
 // Délai optimisé pour QEMU
 void qemu_delay() {
     for (volatile int i = 0; i < 1000; i++);
@@ -96,44 +100,38 @@ int kbd_get_char_nonblock(char *out) {
     return 0; // Aucun caractère valide trouvé
 }
 
-// Table de conversion scancode PS/2 Set 1 standard (corrigée)
-static const char ps2_scancode_map[128] = {
-    // 0x00-0x0F
-    0,   0,   '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    // 0x10-0x1F  
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,   'a', 's',
-    // 0x20-0x2F
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
-    // 0x30-0x3F
-    'b', 'n', 'm', ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,   0,   0,   0,   0,
-    // 0x40-0x4F (F-keys et autres)
-    0,   0,   0,   0,   0,   0,   0,   '7', '8', '9', '-', '4', '5', '6', '+', '1',
-    // 0x50-0x5F (pavé numérique)
-    '2', '3', '0', '.', 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    // 0x60-0x6F
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-    // 0x70-0x7F
-    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
+// Tables US QWERTY base et SHIFT (Set 1)
+static const char base_map[128] = {
+    /*00-0F*/  0,   0,  '1','2','3','4','5','6','7','8','9','0','-','=', '\b','\t',
+    /*10-1F*/ 'q','w','e','r','t','y','u','i','o','p','[',']','\n',  0, 'a','s',
+    /*20-2F*/ 'd','f','g','h','j','k','l',';','\'', '`',  0, '\\','z','x','c','v',
+    /*30-3F*/ 'b','n','m',',','.','/',  0,  '*',  0, ' ',  0,   0,   0,   0,   0,   0,
+    /*40-4F*/  0,  0,  0,  0,  0,  0,  0,  '7','8','9','-','4','5','6','+','1',
+    /*50-5F*/ '2','3','0','.', 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /*60-6F*/  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /*70-7F*/  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
 };
 
-char ps2_scancode_to_ascii(uint8_t scancode) {
-    if (scancode >= 128) return 0;
-    char result = ps2_scancode_map[scancode];
-    
-    // Debug détaillé du mappage pour les premiers caractères
-    static int debug_mapping_count = 0;
-    if (debug_mapping_count < 10 && result != 0) {
-        debug_mapping_count++;
-        print_string_serial("SCANCODE_MAP: 0x");
-        char hex[] = "0123456789ABCDEF";
-        write_serial(hex[(scancode >> 4) & 0xF]);
-        write_serial(hex[scancode & 0xF]);
-        print_string_serial(" -> '");
-        write_serial(result);
-        print_string_serial("'\n");
+static const char shift_map[128] = {
+    /*00-0F*/  0,   0,  '!','@','#','$','%','^','&','*','(',')','_','+', '\b','\t',
+    /*10-1F*/ 'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',  0, 'A','S',
+    /*20-2F*/ 'D','F','G','H','J','K','L',':','"','~',  0,  '|', 'Z','X','C','V',
+    /*30-3F*/ 'B','N','M','<','>','?',  0,  '*',  0, ' ',  0,   0,   0,   0,   0,   0,
+    /*40-4F*/  0,  0,  0,  0,  0,  0,  0,  '7','8','9','-','4','5','6','+','1',
+    /*50-5F*/ '2','3','0','.', 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /*60-6F*/  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /*70-7F*/  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+};
+
+static inline char map_scancode(uint8_t sc) {
+    if (sc >= 128) return 0;
+    char ch = g_shift_pressed ? shift_map[sc] : base_map[sc];
+    // Caps Lock: inverser casse pour lettres si SHIFT non actif
+    if (g_caps_lock) {
+        if (!g_shift_pressed && ch >= 'a' && ch <= 'z') return (char)(ch - 'a' + 'A');
+        if (!g_shift_pressed && ch >= 'A' && ch <= 'Z') return (char)(ch - 'A' + 'a');
     }
-    
-    return result;
+    return ch;
 }
 
 // Polling de secours optimisé (controlled fallback) - plus agressif pour mode console
@@ -141,8 +139,8 @@ void keyboard_poll_check() {
     static uint32_t poll_counter = 0;
     poll_counter++;
     
-    // Polling plus fréquent si pas d'interruptions (mode console/nographic)
-    int poll_freq = (debug_interrupt_count > 0) ? 5000 : 1000; // Plus agressif si pas d'IRQ
+    // Polling plus agressif en console si pas d'IRQ, mais avec moins de pauses
+    int poll_freq = (debug_interrupt_count > 0) ? 20000 : 500; // fréquence d'essai
     
     if (poll_counter % poll_freq == 0) {
         uint8_t status = inb(0x64);
@@ -156,8 +154,8 @@ void keyboard_poll_check() {
                 return;
             }
             
-            // Debug polling (plus de traces si pas d'interruptions)
-            if ((debug_interrupt_count == 0 && debug_polling_count <= 10) || debug_polling_count <= 3) {
+            // Debug polling réduit pour éviter le bruit
+            if ((debug_interrupt_count == 0 && debug_polling_count <= 3)) {
                 print_string_serial("POLL: scancode=0x");
                 char hex[] = "0123456789ABCDEF";
                 write_serial(hex[(scancode >> 4) & 0xF]);
@@ -167,7 +165,10 @@ void keyboard_poll_check() {
             
             // Traiter seulement les key press (pas les releases)
             if (!(scancode & 0x80)) {
-                char c = ps2_scancode_to_ascii(scancode);
+                // Modifieurs
+                if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }
+                if (scancode == 0x3A) { g_caps_lock = !g_caps_lock; return; }
+                char c = map_scancode(scancode);
                 if (c != 0) {
                     kbd_put_char(c);
                     polling_fallback_active = 1;
@@ -207,9 +208,14 @@ void keyboard_interrupt_handler() {
         return;
     }
     
+    // Modifieurs (press/release)
+    if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }     // LSHIFT/RSHIFT press
+    if (scancode == 0xAA || scancode == 0xB6) { g_shift_pressed = 0; return; }     // LSHIFT/RSHIFT release
+    if (scancode == 0x3A) { g_caps_lock = !g_caps_lock; return; }                  // CAPSLOCK toggle
+    
     // Traiter seulement les key press
     if (!(scancode & 0x80)) {
-        char c = ps2_scancode_to_ascii(scancode);
+        char c = map_scancode(scancode);
         if (c != 0) {
             kbd_put_char(c);
         }
@@ -227,6 +233,8 @@ void keyboard_init() {
     polling_fallback_active = 0;
     kbd_head = 0;
     kbd_tail = 0;
+    g_shift_pressed = 0;
+    g_caps_lock = 0;
     
     initialization_phase = 1;
     
@@ -331,15 +339,15 @@ void keyboard_init() {
         }
     }
     
-    // Phase 4: Stabilisation et test
+    // Phase 4: Finalisation et test
     print_string_serial("Phase 4: Finalisation...\n");
     qemu_long_delay(); // Pause de stabilisation
     
     // Nettoyage final
-    flush_count = 0;
-    while ((inb(0x64) & 1) && flush_count < 20) {
+    int flush_count2 = 0;
+    while ((inb(0x64) & 1) && flush_count2 < 20) {
         inb(0x60);
-        flush_count++;
+        flush_count2++;
         qemu_delay();
     }
     
@@ -347,16 +355,6 @@ void keyboard_init() {
     print_string_serial("=== KEYBOARD INIT COMPLETE ===\n");
     print_string_serial("Mode: Interruption + Polling Fallback\n");
     print_string_serial("Compatible: Console et GUI\n");
-    
-    // Test rapide du clavier
-    print_string_serial("Test: Vérification du contrôleur...\n");
-    uint8_t final_status = inb(0x64);
-    print_string_serial("Status final: 0x");
-    char hex[] = "0123456789ABCDEF";
-    write_serial(hex[(final_status >> 4) & 0xF]);
-    write_serial(hex[final_status & 0xF]);
-    print_string_serial("\n");
-    
     print_string_serial("Ready for input!\n");
     print_string_serial("===============================\n");
 }
@@ -385,8 +383,8 @@ char keyboard_getc(void) {
     while (attempts < MAX_ATTEMPTS) {
         // 1. Essayer d'abord le buffer d'interruptions
         if (kbd_get_char_nonblock(&c)) {
-            // Vérifier que le caractère n'est pas nul (protection anti-fantômes)
-            if (c != 0) {
+            // Filtrer: uniquement ASCII imprimable + contrôle utiles
+            if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t' || c == '\b') {
                 consecutive_empty_returns = 0; // Reset compteur
                 if (getc_calls <= 3) {
                     print_string_serial("GETC: got valid '");
@@ -394,6 +392,8 @@ char keyboard_getc(void) {
                     print_string_serial("' from buffer\n");
                 }
                 return c;
+            } else {
+                continue;
             }
         }
         
@@ -402,8 +402,7 @@ char keyboard_getc(void) {
         
         // 3. Vérifier à nouveau le buffer
         if (kbd_get_char_nonblock(&c)) {
-            // Vérifier que le caractère n'est pas nul
-            if (c != 0) {
+            if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t' || c == '\b') {
                 consecutive_empty_returns = 0; // Reset compteur
                 if (getc_calls <= 3) {
                     print_string_serial("GETC: got valid '");
@@ -411,13 +410,15 @@ char keyboard_getc(void) {
                     print_string_serial("' from polling\n");
                 }
                 return c;
+            } else {
+                continue;
             }
         }
         
         attempts++;
         
         // Debug périodique - réduit si trop de tentatives vides
-        if (attempts % 50000 == 0 && getc_calls <= 2) {
+        if (attempts % 100000 == 0 && getc_calls <= 1) {
             print_string_serial("GETC: waiting... (");
             write_serial('0' + (attempts / 50000));
             print_string_serial(")\n");
@@ -427,11 +428,8 @@ char keyboard_getc(void) {
         if (attempts > MAX_ATTEMPTS / 2) {
             consecutive_empty_returns++;
             if (consecutive_empty_returns > MAX_CONSECUTIVE_EMPTY) {
-                if (getc_calls <= 2) {
-                    print_string_serial("GETC: détection boucle fantôme - pause\n");
-                }
-                // Pause plus longue pour casser la boucle
-                for (volatile int pause = 0; pause < 100000; pause++);
+                // Pause très courte et silencieuse
+                for (volatile int pause = 0; pause < 10000; pause++);
                 consecutive_empty_returns = 0; // Reset
             }
         }
@@ -458,7 +456,7 @@ char keyboard_getc(void) {
 
 // Fonctions de compatibilité
 char scancode_to_ascii(uint8_t scancode) {
-    return ps2_scancode_to_ascii(scancode);
+    return map_scancode(scancode);
 }
 
 // Diagnostic complet

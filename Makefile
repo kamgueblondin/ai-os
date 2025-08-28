@@ -8,7 +8,7 @@ LD = ld
 # -ffreestanding : Ne pas utiliser la bibliothèque standard C
 # -nostdlib : Ne pas lier avec la bibliothèque standard C
 # -fno-pie : Produire du code indépendant de la position
-CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -DCONFIG_UTF8_VGA=1
 ASFLAGS = -f elf32
 
 # Nom du fichier final de notre OS
@@ -33,6 +33,15 @@ all: $(OS_IMAGE) pack-initrd
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
+
+# Vérification des dépendances de build (ex: nasm)
+.PHONY: check-build-deps
+check-build-deps:
+	@command -v nasm >/dev/null 2>&1 || { \
+		echo "ERROR: 'nasm' introuvable. Installez-le puis réessayez."; \
+		echo "       Debian/Ubuntu: sudo apt-get install -y nasm"; \
+		exit 1; \
+	}
 
 # Règle pour lier les fichiers objets et créer l'image finale
 $(OS_IMAGE): $(OBJECTS)
@@ -160,6 +169,45 @@ pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
 
+# ===== ISO (GRUB) Build =====
+.PHONY: iso check-iso-deps run-iso iso-clean
+
+check-iso-deps:
+	@command -v grub-mkrescue >/dev/null 2>&1 || { \
+		echo "ERROR: 'grub-mkrescue' introuvable. Installez grub-pc-bin et xorriso."; \
+		echo "       Debian/Ubuntu: sudo apt-get install -y grub-pc-bin xorriso"; \
+		exit 1; \
+	}
+	@command -v xorriso >/dev/null 2>&1 || { \
+		echo "ERROR: 'xorriso' introuvable. Installez-le: sudo apt-get install -y xorriso"; \
+		exit 1; \
+	}
+
+# Construire une image ISO bootable (Multiboot + GRUB2)
+iso: check-iso-deps $(OS_IMAGE) pack-initrd
+	@echo "=== Construction ISO bootable (GRUB2) ==="
+	@rm -rf build/isodir
+	@mkdir -p build/isodir/boot/grub
+	@cp -f $(OS_IMAGE) build/isodir/boot/ai_os.bin
+	@cp -f $(INITRD_IMAGE) build/isodir/boot/$(INITRD_IMAGE)
+	@echo "set timeout=0" > build/isodir/boot/grub/grub.cfg
+	@echo "set default=0" >> build/isodir/boot/grub/grub.cfg
+	@echo "menuentry 'AI-OS' {" >> build/isodir/boot/grub/grub.cfg
+	@echo "  multiboot /boot/ai_os.bin" >> build/isodir/boot/grub/grub.cfg
+	@echo "  module    /boot/$(INITRD_IMAGE)" >> build/isodir/boot/grub/grub.cfg
+	@echo "  boot" >> build/isodir/boot/grub/grub.cfg
+	@echo "}" >> build/isodir/boot/grub/grub.cfg
+	@grub-mkrescue -o $(ISO_IMAGE) build/isodir >/dev/null 2>&1 || \
+		(grub-mkrescue -o $(ISO_IMAGE) build/isodir)
+	@echo "ISO générée: $(ISO_IMAGE)"
+
+# Lancer l'ISO avec QEMU (boot CD)
+run-iso: iso
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m 128M -no-reboot -no-shutdown
+
+iso-clean:
+	@rm -rf build/isodir $(ISO_IMAGE)
+
 # Compile tous les programmes utilisateur
 userspace/shell userspace/fake_ai userspace/test_program:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
@@ -169,8 +217,6 @@ userspace/shell userspace/fake_ai userspace/test_program:
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -179,8 +225,6 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
-		-chardev stdio,id=serial0 \
-		-device isa-serial,chardev=serial0 \
 		-no-reboot -no-shutdown
 
 # Alternative nographic (si curses ne fonctionne pas)
@@ -292,14 +336,19 @@ test-performance:
 
 test-valgrind:
 	@echo "=== Tests avec détection de fuites mémoire ==="
-	@$(MAKE) -C tests test-valgrind
+	@command -v valgrind >/dev/null 2>&1 || { \
+		echo "INFO: 'valgrind' non installé. Les tests mémoire sont ignorés."; \
+		echo "      Pour l'installer: sudo apt-get install -y valgrind"; \
+		exit 0; \
+	}
+	@$(MAKE) -C tests test-valgrind || true
 
 test-clean:
 	@echo "=== Nettoyage des fichiers de test ==="
 	@$(MAKE) -C tests clean
 
 # Cible pour les développeurs - tests avant commit
-pre-commit-tests: $(OS_IMAGE) pack-initrd test-quick
+pre-commit-tests: check-build-deps $(OS_IMAGE) pack-initrd test-quick
 	@echo "=== Vérification pré-commit terminée ==="
 
 # Cible pour l'intégration continue

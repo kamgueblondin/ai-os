@@ -38,32 +38,18 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
-                static int null_char_count = 0;
                 // Réactiver les interruptions avant de lire le clavier
                 asm volatile("sti");
                 
-                // Utilise directement keyboard_getc() qui gère le buffer ASCII
+                // Lecture clavier (ASCII)
                 char c = keyboard_getc();
                 cpu->eax = c;
                 
-                // Debug intelligent - réduire le spam pour les caractères nuls
+                // Log uniquement si caractère non nul pour éviter le bruit
                 if (c != 0) {
-                    null_char_count = 0; // Reset compteur
                     print_string_serial("SYS_GETC: caractère retourné: '");
                     write_serial(c);
                     print_string_serial("'\n");
-                } else {
-                    null_char_count++;
-                    // N'afficher les caractères nuls que les 3 premières fois
-                    if (null_char_count <= 3) {
-                        print_string_serial("SYS_GETC: caractère retourné: '");
-                        write_serial(c);
-                        print_string_serial("'\n");
-                    } else if (null_char_count == 10) {
-                        print_string_serial("SYS_GETC: suppression du spam null (");
-                        write_serial('0' + (null_char_count % 10));
-                        print_string_serial(" chars nuls)\n");
-                    }
                 }
             }
             break;
@@ -73,7 +59,11 @@ void syscall_handler(cpu_state_t* cpu) {
                 char* str = (char*)cpu->ebx;
                 if (str) {
                     for (int i = 0; i < 1024 && str[i] != '\0'; i++) {
-                        print_char(str[i], -1, -1, 0x0F);
+                        char ch = str[i];
+                        // Filtrer les non-imprimables (sauf \n, \r, \t)
+                        if ((ch >= 32 && ch <= 126) || ch == '\n' || ch == '\r' || ch == '\t') {
+                            print_char(ch, -1, -1, 0x0F);
+                        }
                     }
                 }
             }

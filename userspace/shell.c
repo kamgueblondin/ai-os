@@ -316,7 +316,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  ls [path]          - Lister les fichiers et dossiers\n");
-    print_string("  cat <file>         - Afficher le contenu d'un fichier\n");
+    print_string("  cat <file>         - Afficher le contenu d'un fichier (stub)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire\n");
@@ -560,6 +560,86 @@ void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+// === Builtins manquants / stubs ===
+static void cmd_pwd(shell_context_t* ctx) {
+    print_string(ctx->current_dir);
+    print_string("\n");
+}
+
+static int is_absolute_path(const char* path) {
+    return path && path[0] == '/';
+}
+
+static void normalize_path(char* out, const char* base, const char* add) {
+    // Très simple: si add est absolu, le copier; sinon concaténer base + '/' + add
+    if (is_absolute_path(add)) {
+        strcpy(out, add);
+    } else {
+        strcpy(out, base);
+        int len = strlen(out);
+        if (len > 1 && out[len-1] == '/') out[len-1] = '\0';
+        if (!(len == 1 && out[0] == '/')) strcat(out, "/");
+        strcat(out, add);
+    }
+    // Retirer les doubles slash basiques
+    char tmp[MAX_PATH_LENGTH];
+    int j = 0;
+    for (int i = 0; out[i] != '\0' && j < MAX_PATH_LENGTH-1; i++) {
+        if (out[i] == '/' && out[i+1] == '/') continue;
+        tmp[j++] = out[i];
+    }
+    tmp[j] = '\0';
+    strcpy(out, tmp);
+}
+
+static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        // Aller à HOME
+        const char* home = get_env_var(ctx, "HOME");
+        if (!home) home = "/";
+        strcpy(ctx->current_dir, home);
+        return;
+    }
+    char newdir[MAX_PATH_LENGTH];
+    normalize_path(newdir, ctx->current_dir, args[0]);
+    // Pas de FS réel: accepter tout chemin "raisonnable"
+    if (strlen(newdir) == 0) {
+        print_error("cd: chemin invalide");
+        return;
+    }
+    strcpy(ctx->current_dir, newdir);
+}
+
+static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        print_error("cat: fichier manquant");
+        return;
+    }
+    // Pas d'accès FS direct en userspace: placeholder
+    print_error("cat: non disponible en userspace (pas d'API FS) ");
+}
+
+static int is_builtin(const char* cmd) {
+    return strcmp(cmd, "help")==0 || strcmp(cmd, "ls")==0 || strcmp(cmd, "dir")==0 ||
+           strcmp(cmd, "ps")==0 || strcmp(cmd, "sysinfo")==0 || strcmp(cmd, "info")==0 ||
+           strcmp(cmd, "mem")==0 || strcmp(cmd, "memory")==0 || strcmp(cmd, "history")==0 ||
+           strcmp(cmd, "env")==0 || strcmp(cmd, "echo")==0 || strcmp(cmd, "clear")==0 ||
+           strcmp(cmd, "cls")==0 || strcmp(cmd, "exit")==0 || strcmp(cmd, "quit")==0 ||
+           strcmp(cmd, "ai")==0 || strcmp(cmd, "ai-mode")==0 || strcmp(cmd, "ai-help")==0 ||
+           strcmp(cmd, "cd")==0 || strcmp(cmd, "pwd")==0 || strcmp(cmd, "cat")==0;
+}
+
+static void cmd_which(shell_context_t* ctx, const char* cmd) {
+    if (is_builtin(cmd)) {
+        print_string("builtin\n");
+        return;
+    }
+    // Sans API FS: indiquer l'emplacement probable
+    print_string("bin/");
+    print_string(cmd);
+    print_string(" (non vérifié)\n");
+}
+
 void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
     int exit_code = 0;
     
@@ -700,6 +780,22 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "clear") == 0 || strcmp(command, "cls") == 0) {
         cmd_clear(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "pwd") == 0) {
+        cmd_pwd(ctx);
+        return 1;
+    } else if (strcmp(command, "cd") == 0) {
+        cmd_cd(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "cat") == 0) {
+        cmd_cat(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "which") == 0) {
+        if (arg_count == 0) {
+            print_error("which: commande manquante");
+        } else {
+            cmd_which(ctx, args[0]);
+        }
+        return 1;
     } else if (strcmp(command, "exit") == 0 || strcmp(command, "quit") == 0) {
         cmd_exit(ctx, args, arg_count);
         return 1;
@@ -735,19 +831,27 @@ int is_question(const char* input) {
 // BOUCLE PRINCIPALE DU SHELL
 // ==============================================================================
 
+// Renvoie le nom de base du chemin (après le dernier '/')
+static const char* get_basename(const char* path) {
+    if (!path || path[0] == '\0') return "/";
+    const char* end = path;
+    // Aller à la fin
+    while (*end) end++;
+    // Sauter éventuels '/'
+    while (end > path && *(end - 1) == '/') end--;
+    if (end == path) return "/";
+    // Chercher le dernier '/'
+    const char* p = end;
+    while (p > path && *(p - 1) != '/') p--;
+    if (p == end) return "/"; // chemin composé uniquement de '/'
+    return p;
+}
+
 void display_prompt(shell_context_t* ctx) {
-    // Prompt coloré moderne
-    print_colored("┌─[", COLOR_CYAN);
-    print_colored("AI-OS", COLOR_BRIGHT);
-    print_colored("@", COLOR_WHITE);
-    print_colored("v6.0", COLOR_YELLOW);
-    print_colored("]", COLOR_CYAN);
-    
-    if (ctx->ai_mode) {
-        print_colored(" 🧠", COLOR_MAGENTA);
-    }
-    
-    print_colored("\n└─$ ", COLOR_CYAN);
+    const char* folder = get_basename(ctx->current_dir);
+    // Exemple: documents (-.-) :
+    print_colored(folder, COLOR_BRIGHT);
+    print_string(" (-.-) : ");
 }
 
 void handle_line(shell_context_t* ctx, char* input_buffer) {
@@ -787,7 +891,14 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     }
     exec_args[arg_count + 1] = NULL;
 
+    // Résolution simple PATH: essayer tel quel, puis bin/<cmd>
     int result = exec(command, exec_args);
+    if (result != 0) {
+        char alt[MAX_PATH_LENGTH];
+        strcpy(alt, "bin/");
+        strcat(alt, command);
+        result = exec(alt, exec_args);
+    }
 
     if (result != 0) {
         print_error("Commande non trouvée ou erreur d'exécution");
@@ -825,10 +936,13 @@ void shell_main_loop(shell_context_t* ctx) {
                 }
                 continue;
             }
-            if (idx < (int)sizeof(buf) - 1){
-                buf[idx++] = (char)c;
-                buf[idx] = '\0';
-                putc((char)c);
+            // N'accepter que les caractères ASCII imprimables (espace inclus)
+            if (c >= 32 && c <= 126) {
+                if (idx < (int)sizeof(buf) - 1){
+                    buf[idx++] = (char)c;
+                    buf[idx] = '\0';
+                    putc((char)c);
+                }
             }
         }
     }

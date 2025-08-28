@@ -114,6 +114,57 @@ static char ansi_buffer[16];
 static int ansi_pos = 0;
 static char current_color = 0x0F; // Blanc sur noir par défaut
 
+#if CONFIG_UTF8_VGA
+// Suivi minimal UTF-8 pour l'affichage VGA (le port série reste octet-par-octet)
+static int utf8_expected_continuations = 0;
+static unsigned int utf8_codepoint = 0;
+
+static int unicode_to_cp437(unsigned int cp, char* out) {
+    switch (cp) {
+        case 0x2500: *out = (char)0xC4; return 1; // ─
+        case 0x2502: *out = (char)0xB3; return 1; // │
+        case 0x250C: *out = (char)0xDA; return 1; // ┌
+        case 0x2510: *out = (char)0xBF; return 1; // ┐
+        case 0x2514: *out = (char)0xC0; return 1; // └
+        case 0x2518: *out = (char)0xD9; return 1; // ┘
+        case 0x251C: *out = (char)0xC3; return 1; // ├
+        case 0x2524: *out = (char)0xB4; return 1; // ┤
+        case 0x252C: *out = (char)0xC2; return 1; // ┬
+        case 0x2534: *out = (char)0xC1; return 1; // ┴
+        case 0x253C: *out = (char)0xC5; return 1; // ┼
+        case 0x2550: *out = (char)0xCD; return 1; // ═
+        case 0x2551: *out = (char)0xBA; return 1; // ║
+        case 0x2554: *out = (char)0xC9; return 1; // ╔
+        case 0x2557: *out = (char)0xBB; return 1; // ╗
+        case 0x255A: *out = (char)0xC8; return 1; // ╚
+        case 0x255D: *out = (char)0xBC; return 1; // ╝
+        case 0x2560: *out = (char)0xCC; return 1; // ╠
+        case 0x2563: *out = (char)0xB9; return 1; // ╣
+        case 0x2566: *out = (char)0xCB; return 1; // ╦
+        case 0x2569: *out = (char)0xCA; return 1; // ╩
+        case 0x256C: *out = (char)0xCE; return 1; // ╬
+        case 0x2591: *out = (char)0xB0; return 1; // ░
+        case 0x2592: *out = (char)0xB1; return 1; // ▒
+        case 0x2593: *out = (char)0xB2; return 1; // ▓
+        case 0x2588: *out = (char)0xDB; return 1; // █
+        case 0x2013: case 0x2014: *out = '-'; return 1; // – —
+        case 0x00E9: case 0x00E8: case 0x00EA: case 0x00EB: *out = 'e'; return 1; // é è ê ë
+        case 0x00E0: case 0x00E1: case 0x00E2: case 0x00E4: *out = 'a'; return 1; // à á â ä
+        case 0x00E7: *out = 'c'; return 1; // ç
+        case 0x00F1: *out = 'n'; return 1; // ñ
+        case 0x00FC: case 0x00F9: case 0x00FA: *out = 'u'; return 1; // ü ù ú
+        case 0x00F6: case 0x00F3: case 0x00F4: *out = 'o'; return 1; // ö ó ô
+        case 0x00ED: case 0x00EF: case 0x00EC: *out = 'i'; return 1; // í ï ì
+        case 0x00C9: *out = 'E'; return 1; // É
+        case 0x00C7: *out = 'C'; return 1; // Ç
+        case 0x00D1: *out = 'N'; return 1; // Ñ
+        case 0x00DC: *out = 'U'; return 1; // Ü
+        case 0x00C0: *out = 'A'; return 1; // À
+        default: return 0;
+    }
+}
+#endif
+
 void clear_screen_vga() {
     for (int y = 0; y < 25; y++) {
         for (int x = 0; x < 80; x++) {
@@ -136,7 +187,36 @@ int ansi_parse_param() {
 
 // Remplace l'ancienne fonction print_char par celle-ci
 void print_char(char c, int x, int y, char color) {
-    if (ansi_state == NORMAL && c != '\x1b') {
+    if (ansi_state == NORMAL) {
+#if CONFIG_UTF8_VGA
+        // Décodage UTF-8 minimal et rendu VGA via CP437
+        unsigned char uc = (unsigned char)c;
+        if (uc == '\x1b') {
+            // traité par la machine ANSI plus bas
+        } else if (utf8_expected_continuations > 0) {
+            if ((uc & 0xC0) == 0x80) {
+                utf8_codepoint = (utf8_codepoint << 6) | (uc & 0x3F);
+                utf8_expected_continuations--;
+                if (utf8_expected_continuations > 0) {
+                    return; // en cours
+                }
+                char mapped;
+                if (unicode_to_cp437(utf8_codepoint, &mapped)) {
+                    c = mapped;
+                } else {
+                    c = '?';
+                }
+            } else {
+                utf8_expected_continuations = 0; // séquence invalide
+            }
+        } else if (uc >= 0x80) {
+            if ((uc & 0xE0) == 0xC0) { utf8_expected_continuations = 1; utf8_codepoint = (uc & 0x1F); return; }
+            if ((uc & 0xF0) == 0xE0) { utf8_expected_continuations = 2; utf8_codepoint = (uc & 0x0F); return; }
+            if ((uc & 0xF8) == 0xF0) { utf8_expected_continuations = 3; utf8_codepoint = (uc & 0x07); return; }
+            return; // octet >127 non conforme, ignorer
+        }
+#endif
+        if (c != '\x1b') {
         if (x == -1 && y == -1) {
             if (c == '\n') {
                 vga_x = 0; vga_y++;
@@ -153,6 +233,7 @@ void print_char(char c, int x, int y, char color) {
             print_char_vga(c, x, y, color);
         }
         return;
+        }
     }
 
     // Gestion de la machine à états ANSI
