@@ -169,10 +169,6 @@ userspace/shell userspace/fake_ai userspace/test_program:
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
-		-device i8042 \
-		-usb -device usb-kbd \
-		-serial none \
-		-monitor none \
 		-m 128M \
 		-no-reboot -no-shutdown
 
@@ -181,10 +177,6 @@ run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m 128M -vga std \
 		-display gtk \
-		-device i8042 \
-		-usb -device usb-kbd \
-		-serial file:serial.log \
-		-monitor none \
 		-no-reboot -no-shutdown
 
 # Mode GUI avec saisie via le terminal (STDIN attaché au port série)
