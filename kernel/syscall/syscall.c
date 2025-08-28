@@ -11,6 +11,9 @@
 extern void print_string_serial(const char* str);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
+// Serial I/O helpers (defined in kernel.c)
+extern int is_receive_ready();
+extern char read_serial();
 
 
 // ==============================================================================
@@ -41,13 +44,18 @@ void syscall_handler(cpu_state_t* cpu) {
                 // Réactiver les interruptions avant de lire le clavier
                 asm volatile("sti");
                 
-                // keyboard_getc() retourne maintenant un uint32_t (Unicode)
-                uint32_t c = keyboard_getc();
-                cpu->eax = c;
-                
-                // Le debug serial est simplifié car on ne peut pas afficher l'UTF-8 facilement
-                if (c != 0) {
-                    print_string_serial("SYS_GETC: Unicode char returned.\n");
+                // Lecture clavier
+                char kc = keyboard_getc();
+                if (kc == 0) {
+                    // Fallback: lecture depuis la console série (stdin de QEMU)
+                    if (is_receive_ready()) {
+                        char sc = read_serial();
+                        cpu->eax = (uint32_t)sc;
+                    } else {
+                        cpu->eax = 0;
+                    }
+                } else {
+                    cpu->eax = (uint32_t)kc;
                 }
             }
             break;
@@ -127,10 +135,19 @@ void sys_gets(char* buffer, uint32_t size) {
     uint32_t i = 0;
     
     while (i < size - 1) {
-        // keyboard_getc retourne un uint32_t, mais cette fonction le caste en char.
-        // Cela ne fonctionnera que pour les caractères du range ASCII.
-        uint32_t c_unicode = keyboard_getc();
+        // Essayer d'abord le clavier
+        uint32_t c_unicode = (uint32_t)keyboard_getc();
         char c = (char)c_unicode;
+        
+        // Fallback série si rien au clavier
+        if (c == 0) {
+            if (is_receive_ready()) {
+                c = read_serial();
+                c_unicode = (uint32_t)c;
+            } else {
+                continue; // attendre une vraie entrée
+            }
+        }
 
         // On ne traite que les cas simples pour assurer la compilation.
         if (c_unicode > 127) {
