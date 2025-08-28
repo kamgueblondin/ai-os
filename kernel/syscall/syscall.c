@@ -38,32 +38,16 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_GETC:
             {
-                static int null_char_count = 0;
                 // Réactiver les interruptions avant de lire le clavier
                 asm volatile("sti");
                 
-                // Utilise directement keyboard_getc() qui gère le buffer ASCII
-                char c = keyboard_getc();
+                // keyboard_getc() retourne maintenant un uint32_t (Unicode)
+                uint32_t c = keyboard_getc();
                 cpu->eax = c;
                 
-                // Debug intelligent - réduire le spam pour les caractères nuls
+                // Le debug serial est simplifié car on ne peut pas afficher l'UTF-8 facilement
                 if (c != 0) {
-                    null_char_count = 0; // Reset compteur
-                    print_string_serial("SYS_GETC: caractère retourné: '");
-                    write_serial(c);
-                    print_string_serial("'\n");
-                } else {
-                    null_char_count++;
-                    // N'afficher les caractères nuls que les 3 premières fois
-                    if (null_char_count <= 3) {
-                        print_string_serial("SYS_GETC: caractère retourné: '");
-                        write_serial(c);
-                        print_string_serial("'\n");
-                    } else if (null_char_count == 10) {
-                        print_string_serial("SYS_GETC: suppression du spam null (");
-                        write_serial('0' + (null_char_count % 10));
-                        print_string_serial(" chars nuls)\n");
-                    }
+                    print_string_serial("SYS_GETC: Unicode char returned.\n");
                 }
             }
             break;
@@ -129,10 +113,13 @@ int sys_exec(const char* path, char* argv[]) {
 
 
 // Implémentation de SYS_GETS - Lire une ligne complète depuis le clavier
+// ATTENTION: Cette fonction est maintenant dépréciée pour l'input complexe.
+// Elle ne gère que les caractères ASCII et ne fonctionnera pas correctement avec l'UTF-8.
+// Le shell moderne doit utiliser SYS_GETC et gérer l'édition de ligne en userspace.
 void sys_gets(char* buffer, uint32_t size) {
     if (!buffer || size == 0) return;
     
-    print_string_serial("SYS_GETS: Debut de la lecture (version corrigee)...\n");
+    print_string_serial("SYS_GETS: Debut de la lecture (version Unicode-legacy)...\n");
     
     // Réactiver les interruptions
     asm volatile("sti");
@@ -140,37 +127,37 @@ void sys_gets(char* buffer, uint32_t size) {
     uint32_t i = 0;
     
     while (i < size - 1) {
-        char c = keyboard_getc(); // Utilise directement keyboard_getc qui est plus robuste
+        // keyboard_getc retourne un uint32_t, mais cette fonction le caste en char.
+        // Cela ne fonctionnera que pour les caractères du range ASCII.
+        uint32_t c_unicode = keyboard_getc();
+        char c = (char)c_unicode;
+
+        // On ne traite que les cas simples pour assurer la compilation.
+        if (c_unicode > 127) {
+            // Ignorer les caractères non-ASCII pour cette fonction legacy.
+            continue;
+        }
         
         if (c == '\r' || c == '\n') {
-            // Fin de ligne - afficher aussi sur écran
+            // Fin de ligne
             print_char('\n', -1, -1, 0x0F);
             buffer[i] = '\0';
-            print_string_serial("SYS_GETS: ligne lue: ");
-            print_string_serial(buffer);
-            print_string_serial("\n");
             return;
         }
         
         if (c == '\b' && i > 0) {
-            // Backspace - effacer sur l'écran aussi
+            // Backspace
             i--;
-            print_char('\b', -1, -1, 0x0F);  // Backspace
-            print_char(' ', -1, -1, 0x0F);   // Espace
-            print_char('\b', -1, -1, 0x0F);  // Backspace
+            print_char('\b', -1, -1, 0x0F);
+            print_char(' ', -1, -1, 0x0F);
+            print_char('\b', -1, -1, 0x0F);
         } else if (c >= 32 && c <= 126) {
-            // Caractère imprimable - l'afficher sur l'écran
+            // Caractère imprimable
             buffer[i++] = c;
             print_char(c, -1, -1, 0x0F);
-            print_string_serial("SYS_GETS: caractère ajouté: '");
-            write_serial(c);
-            print_string_serial("'\n");
         }
     }
     
     buffer[i] = '\0';
-    print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
-    print_string_serial(buffer);
-    print_string_serial("\n");
 }
 

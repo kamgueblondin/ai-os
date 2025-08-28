@@ -1,0 +1,93 @@
+c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAE00+06F0AE00 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...
+
+
+Booting from ROM..=== Bienvenue dans AI-OS v4.0 ===
+Systeme complet avec espace utilisateur
+
+Multiboot detecte correctement.
+=== Initialisation systeme interruptions ===
+Etape 1: IDT...
+Etape 2: PIC et handlers...
+=== INITIALISATION SYSTEME INTERRUPTIONS ===
+Step 1: Interruptions CPU désactivées
+Step 2: Handlers d'exceptions installés
+Step 3: Table des handlers initialisée
+Step 4: Remapping du PIC...
+PIC: Début du remappage...
+PIC: Masques sauvegardés
+PIC: ICW1 envoyé
+PIC: ICW2 envoyé (offsets: PIC1=32, PIC2=40)
+PIC: ICW3 envoyé (cascade configurée)
+PIC: ICW4 envoyé (mode 8086)
+PIC: Masques configurés - IRQ0/IRQ1 activées
+PIC: Remappage terminé avec succès
+Step 4: PIC remappé avec succès
+Step 5: Enregistrement des handlers IRQ...
+Step 5: Handlers IRQ enregistrés
+Step 6: Configuration des entrées IDT...
+Step 6: Entrées IDT configurées
+Step 7: Diagnostic PIC...
+=== DIAGNOSTIC PIC ===
+PIC1 mask: 0b11111100 (0xFC)
+IRQ0 (timer): ENABLED
+IRQ1 (keyboard): ENABLED
+======================
+Step 8: Activation forcée des IRQ critiques...
+Masque PIC final: 0xFC
+Step 9: Activation des interruptions CPU...
+Step 10: Test des interruptions...
+=== SYSTEME INTERRUPTIONS PRET ===
+IRQ0 (timer): activé
+IRQ1 (keyboard): activé
+Interruptions CPU: activées
+=====================================
+Etape 3: Clavier PS/2 (interruptions temporairement desactivees)...
+=== UNICODE KEYBOARD INIT (AZERTY) ===
+Keyboard init done.
+=== Systeme interruptions PRET ===
+IRQ0 (timer): OK
+IRQ1 (keyboard): OK
+QEMU devrait maintenant generer les interruptions clavier.
+Initialisation de la gestion memoire...
+Physical Memory Manager initialise.
+Virtual Memory Manager initialise.
+Initrd trouve ! Initialisation...
+Parsing initrd TAR archive...
+Initrd initialized: 9 files found
+Initialisation du systeme de taches...
+Tache kernel creee.
+Initialisation des appels systeme...
+Creation des taches kernel de demonstration... DESACTIVE
+Mode mono-tache pour stabilite maximale.
+PHASE 2: Timer reactive pour interruptions clavier...
+Timer reactive - Interruptions clavier fonctionnelles.
+Lancement du shell interactif AI-OS...
+Shell trouve ! Chargement...
+Shell trouve. Preparation du lancement...
+
+Lancement du Shell Utilisateur...
+create_user_vmm_directory: start
+ELF Loader: Starting...
+  - Segment: vaddr=0x0x3ffff000, memsz=0x0x000000f4, perms=R-
+  - Segment: vaddr=0x0x40000000, memsz=0x0x00000d6a, perms=R-
+  - Segment: vaddr=0x0x40001000, memsz=0x0x000005e8, perms=R-
+  - Segment: vaddr=0x0x40002ff4, memsz=0x0x0000000c, perms=RW
+ELF loading complete. Entry point: 0x0x40000d5a
+Allocating user stack...
+User stack allocated at 0x0xafff0000 - 0x0xb0000000
+User context setup complete. EIP=0x0x40000d5a, ESP=0x0xb0000000
+Tache utilisateur creee avec succes
+Tache shell prete. Demarrage du timer...
+
+=== AI-OS v6.0 - Force le premier changement de contexte ===
+Declencher immediatement le planificateur...
+--- DEBUT TEST UTF-8 ---
+Test accents: éàçêü
+Test symboles: €
+Test emoji: 🤖
+Test texte complet: Bonjour le monde! Comment ca va, l'ami? €€€
+--- FIN TEST UTF-8 ---
