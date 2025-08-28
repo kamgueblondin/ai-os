@@ -141,8 +141,8 @@ void keyboard_poll_check() {
     static uint32_t poll_counter = 0;
     poll_counter++;
     
-    // Polling plus fréquent si pas d'interruptions (mode console/nographic)
-    int poll_freq = (debug_interrupt_count > 0) ? 5000 : 1000; // Plus agressif si pas d'IRQ
+    // Polling plus agressif en console si pas d'IRQ, mais avec moins de pauses
+    int poll_freq = (debug_interrupt_count > 0) ? 20000 : 500; // fréquence d'essai
     
     if (poll_counter % poll_freq == 0) {
         uint8_t status = inb(0x64);
@@ -156,8 +156,8 @@ void keyboard_poll_check() {
                 return;
             }
             
-            // Debug polling (plus de traces si pas d'interruptions)
-            if ((debug_interrupt_count == 0 && debug_polling_count <= 10) || debug_polling_count <= 3) {
+            // Debug polling réduit pour éviter le bruit
+            if ((debug_interrupt_count == 0 && debug_polling_count <= 3)) {
                 print_string_serial("POLL: scancode=0x");
                 char hex[] = "0123456789ABCDEF";
                 write_serial(hex[(scancode >> 4) & 0xF]);
@@ -417,7 +417,7 @@ char keyboard_getc(void) {
         attempts++;
         
         // Debug périodique - réduit si trop de tentatives vides
-        if (attempts % 50000 == 0 && getc_calls <= 2) {
+        if (attempts % 100000 == 0 && getc_calls <= 1) {
             print_string_serial("GETC: waiting... (");
             write_serial('0' + (attempts / 50000));
             print_string_serial(")\n");
@@ -427,11 +427,8 @@ char keyboard_getc(void) {
         if (attempts > MAX_ATTEMPTS / 2) {
             consecutive_empty_returns++;
             if (consecutive_empty_returns > MAX_CONSECUTIVE_EMPTY) {
-                if (getc_calls <= 2) {
-                    print_string_serial("GETC: détection boucle fantôme - pause\n");
-                }
-                // Pause plus longue pour casser la boucle
-                for (volatile int pause = 0; pause < 100000; pause++);
+                // Pause très courte et silencieuse
+                for (volatile int pause = 0; pause < 10000; pause++);
                 consecutive_empty_returns = 0; // Reset
             }
         }
