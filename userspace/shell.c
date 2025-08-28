@@ -735,19 +735,27 @@ int is_question(const char* input) {
 // BOUCLE PRINCIPALE DU SHELL
 // ==============================================================================
 
+// Renvoie le nom de base du chemin (après le dernier '/')
+static const char* get_basename(const char* path) {
+    if (!path || path[0] == '\0') return "/";
+    const char* end = path;
+    // Aller à la fin
+    while (*end) end++;
+    // Sauter éventuels '/'
+    while (end > path && *(end - 1) == '/') end--;
+    if (end == path) return "/";
+    // Chercher le dernier '/'
+    const char* p = end;
+    while (p > path && *(p - 1) != '/') p--;
+    if (p == end) return "/"; // chemin composé uniquement de '/'
+    return p;
+}
+
 void display_prompt(shell_context_t* ctx) {
-    // Prompt coloré moderne
-    print_colored("┌─[", COLOR_CYAN);
-    print_colored("AI-OS", COLOR_BRIGHT);
-    print_colored("@", COLOR_WHITE);
-    print_colored("v6.0", COLOR_YELLOW);
-    print_colored("]", COLOR_CYAN);
-    
-    if (ctx->ai_mode) {
-        print_colored(" 🧠", COLOR_MAGENTA);
-    }
-    
-    print_colored("\n└─$ ", COLOR_CYAN);
+    const char* folder = get_basename(ctx->current_dir);
+    // Exemple: documents (-.-) :
+    print_colored(folder, COLOR_BRIGHT);
+    print_string(" (-.-) : ");
 }
 
 void handle_line(shell_context_t* ctx, char* input_buffer) {
