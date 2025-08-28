@@ -8,7 +8,7 @@ LD = ld
 # -ffreestanding : Ne pas utiliser la bibliothèque standard C
 # -nostdlib : Ne pas lier avec la bibliothèque standard C
 # -fno-pie : Produire du code indépendant de la position
-CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -DCONFIG_UTF8_VGA=1
 ASFLAGS = -f elf32
 
 # Nom du fichier final de notre OS

@@ -113,6 +113,8 @@ static AnsiState ansi_state = NORMAL;
 static char ansi_buffer[16];
 static int ansi_pos = 0;
 static char current_color = 0x0F; // Blanc sur noir par défaut
+
+#if CONFIG_UTF8_VGA
 // Suivi minimal UTF-8 pour l'affichage VGA (le port série reste octet-par-octet)
 static int utf8_expected_continuations = 0;
 static unsigned int utf8_codepoint = 0;
@@ -161,6 +163,7 @@ static int unicode_to_cp437(unsigned int cp, char* out) {
         default: return 0;
     }
 }
+#endif
 
 void clear_screen_vga() {
     for (int y = 0; y < 25; y++) {
@@ -185,6 +188,7 @@ int ansi_parse_param() {
 // Remplace l'ancienne fonction print_char par celle-ci
 void print_char(char c, int x, int y, char color) {
     if (ansi_state == NORMAL) {
+#if CONFIG_UTF8_VGA
         // Décodage UTF-8 minimal et rendu VGA via CP437
         unsigned char uc = (unsigned char)c;
         if (uc == '\x1b') {
@@ -211,6 +215,7 @@ void print_char(char c, int x, int y, char color) {
             if ((uc & 0xF8) == 0xF0) { utf8_expected_continuations = 3; utf8_codepoint = (uc & 0x07); return; }
             return; // octet >127 non conforme, ignorer
         }
+#endif
         if (c != '\x1b') {
         if (x == -1 && y == -1) {
             if (c == '\n') {
