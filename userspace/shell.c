@@ -91,6 +91,16 @@ void yield() {
     asm volatile("int $0x80" : : "a"(4));
 }
 
+// Lecture bloquante d'un caractère utilisateur
+static int getchar_blocking() {
+    while (1) {
+        int ch = sys_getchar();
+        if (ch != 0) return ch;
+        // Éviter de monopoliser le CPU si aucune touche n'est disponible
+        yield();
+    }
+}
+
 // ==============================================================================
 // FONCTIONS UTILITAIRES MODERNES
 // ==============================================================================
@@ -811,13 +821,7 @@ void shell_main_loop(shell_context_t* ctx) {
         buf[0] = '\0';
 
         for(;;){
-            int c = sys_getchar();
-            if (c == 0) {
-                // Aucune entrée disponible pour l'instant: éviter de remplir le buffer
-                // avec des NULs et céder le CPU pour ne pas spinner inutilement.
-                yield();
-                continue;
-            }
+            int c = getchar_blocking();
             if (c == '\r' || c == '\n'){
                 putc('\n');
                 handle_line(ctx, buf);
