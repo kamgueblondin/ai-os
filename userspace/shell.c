@@ -825,10 +825,13 @@ void shell_main_loop(shell_context_t* ctx) {
                 }
                 continue;
             }
-            if (idx < (int)sizeof(buf) - 1){
-                buf[idx++] = (char)c;
-                buf[idx] = '\0';
-                putc((char)c);
+            // N'accepter que les caractères ASCII imprimables (espace inclus)
+            if (c >= 32 && c <= 126) {
+                if (idx < (int)sizeof(buf) - 1){
+                    buf[idx++] = (char)c;
+                    buf[idx] = '\0';
+                    putc((char)c);
+                }
             }
         }
     }

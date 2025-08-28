@@ -59,7 +59,11 @@ void syscall_handler(cpu_state_t* cpu) {
                 char* str = (char*)cpu->ebx;
                 if (str) {
                     for (int i = 0; i < 1024 && str[i] != '\0'; i++) {
-                        print_char(str[i], -1, -1, 0x0F);
+                        char ch = str[i];
+                        // Filtrer les non-imprimables (sauf \n, \r, \t)
+                        if ((ch >= 32 && ch <= 126) || ch == '\n' || ch == '\r' || ch == '\t') {
+                            print_char(ch, -1, -1, 0x0F);
+                        }
                     }
                 }
             }

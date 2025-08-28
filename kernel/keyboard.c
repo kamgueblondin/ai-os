@@ -385,8 +385,8 @@ char keyboard_getc(void) {
     while (attempts < MAX_ATTEMPTS) {
         // 1. Essayer d'abord le buffer d'interruptions
         if (kbd_get_char_nonblock(&c)) {
-            // Vérifier que le caractère n'est pas nul (protection anti-fantômes)
-            if (c != 0) {
+            // Filtrer: uniquement ASCII imprimable + contrôle utiles
+            if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t' || c == '\b') {
                 consecutive_empty_returns = 0; // Reset compteur
                 if (getc_calls <= 3) {
                     print_string_serial("GETC: got valid '");
@@ -394,6 +394,9 @@ char keyboard_getc(void) {
                     print_string_serial("' from buffer\n");
                 }
                 return c;
+            } else {
+                // ignorer les non imprimables
+                continue;
             }
         }
         
@@ -402,8 +405,7 @@ char keyboard_getc(void) {
         
         // 3. Vérifier à nouveau le buffer
         if (kbd_get_char_nonblock(&c)) {
-            // Vérifier que le caractère n'est pas nul
-            if (c != 0) {
+            if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t' || c == '\b') {
                 consecutive_empty_returns = 0; // Reset compteur
                 if (getc_calls <= 3) {
                     print_string_serial("GETC: got valid '");
@@ -411,6 +413,8 @@ char keyboard_getc(void) {
                     print_string_serial("' from polling\n");
                 }
                 return c;
+            } else {
+                continue;
             }
         }
         
