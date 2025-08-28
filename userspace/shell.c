@@ -819,7 +819,13 @@ void shell_main_loop(shell_context_t* ctx) {
             }
             if (c == 0x08 || c == 127){ // Backspace
                 if (idx > 0){
-                    idx--;
+                    // Reculer d'un caractère UTF-8 complet
+                    int new_idx = idx - 1;
+                    // Reculer sur les octets de continuation (10xxxxxx)
+                    while (new_idx > 0 && ((unsigned char)buf[new_idx] & 0xC0) == 0x80) {
+                        new_idx--;
+                    }
+                    idx = new_idx;
                     buf[idx] = '\0';
                     backspace();
                 }

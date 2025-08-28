@@ -6,7 +6,7 @@
 
 // Include du module à tester
 #include "../../../kernel/syscall/syscall.h"
-#include "../../../kernel/task/task.h"
+// Ne pas inclure les en-têtes réels du kernel pour éviter les conflits de types
 
 // === MOCK DATA ET HELPERS ===
 
@@ -384,10 +384,9 @@ void test_syscall_parameter_validation(void) {
 
 void test_syscall_integration_with_tasks(void) {
     // Simuler une tâche utilisateur qui fait des appels système
-    task_t* user_task = test_create_task(dummy_task_function, "user_task", 1);
-    user_task->type = TASK_TYPE_USER;
-    
-    current_task = user_task;
+    test_task_t* user_task = test_create_task(dummy_task_function, "user_task", 1);
+    // Adapter vers le type mocké task_t défini dans kernel_mocks.c
+    current_task = (task_t*)user_task;
     
     // Test d'appels système depuis une tâche utilisateur
     clear_test_output();
@@ -417,13 +416,13 @@ void test_syscall_exec_basic(void) {
 
 void test_syscall_yield_integration(void) {
     // Créer plusieurs tâches pour tester yield
-    task_t* task1 = test_create_task(dummy_task_function, "task1", 1);
-    task_t* task2 = test_create_task(dummy_task_function, "task2", 1);
+    test_task_t* task1 = test_create_task(dummy_task_function, "task1", 1);
+    test_task_t* task2 = test_create_task(dummy_task_function, "task2", 1);
     
-    add_task_to_queue(task1);
-    add_task_to_queue(task2);
+    add_task_to_queue((task_t*)task1);
+    add_task_to_queue((task_t*)task2);
     
-    current_task = task1;
+    current_task = (task_t*)task1;
     
     // Appeler sys_yield
     sys_yield();
