@@ -812,6 +812,12 @@ void shell_main_loop(shell_context_t* ctx) {
 
         for(;;){
             int c = sys_getchar();
+            if (c == 0) {
+                // Aucune entrée disponible pour l'instant: éviter de remplir le buffer
+                // avec des NULs et céder le CPU pour ne pas spinner inutilement.
+                yield();
+                continue;
+            }
             if (c == '\r' || c == '\n'){
                 putc('\n');
                 handle_line(ctx, buf);
