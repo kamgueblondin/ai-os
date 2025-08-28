@@ -5,11 +5,17 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Test de base sur Ubuntu
   test-ubuntu:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
     - uses: actions/checkout@v3
@@ -17,7 +23,17 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind ccache
+    - name: Setup ccache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/*.c', '**/*.h', 'Makefile', 'kernel/**', 'userspace/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+    - name: Enable ccache
+      run: |
+        echo "CC='ccache gcc'" >> $GITHUB_ENV
     
     - name: Setup test environment
       run: |
@@ -73,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: test-ubuntu
     if: github.event_name == 'push'
+    timeout-minutes: 30
     
     steps:
     - uses: actions/checkout@v3
@@ -80,7 +97,17 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 valgrind ccache
+    - name: Setup ccache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/*.c', '**/*.h', 'Makefile', 'kernel/**', 'userspace/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+    - name: Enable ccache
+      run: |
+        echo "CC='ccache gcc'" >> $GITHUB_ENV
     
     - name: Setup test environment
       run: |
@@ -119,6 +146,7 @@ jobs:
   # Test de build du système principal
   test-system-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - uses: actions/checkout@v3
@@ -126,7 +154,17 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
+        sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 ccache
+    - name: Setup ccache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/*.c', '**/*.h', 'Makefile', 'kernel/**', 'userspace/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+    - name: Enable ccache
+      run: |
+        echo "CC='ccache gcc'" >> $GITHUB_ENV
     
     - name: Build AI-OS system
       run: |
@@ -134,6 +172,7 @@ jobs:
         make all
     
     - name: Test basic boot (headless)
+      if: github.event_name == 'push'
       run: |
         timeout 30s make run-nographic || true
         echo "Boot test completed (may timeout normally)"
@@ -150,6 +189,8 @@ jobs:
     strategy:
       matrix:
         config: [debug, release]
+      fail-fast: false
+    timeout-minutes: 15
         
     steps:
     - uses: actions/checkout@v3
@@ -157,7 +198,17 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc-multilib nasm
+        sudo apt-get install -y build-essential gcc-multilib nasm ccache
+    - name: Setup ccache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-ccache-${{ matrix.config }}-${{ hashFiles('**/*.c', '**/*.h', 'Makefile', 'kernel/**', 'userspace/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
+    - name: Enable ccache
+      run: |
+        echo "CC='ccache gcc'" >> $GITHUB_ENV
     
     - name: Build with configuration
       run: |
@@ -197,6 +248,7 @@ jobs:
   # Tests de régression spécifiques
   regression-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
     - uses: actions/checkout@v3
@@ -213,7 +265,8 @@ jobs:
         make test-integration
         make test-robustness
     
-    - name: Check for memory leaks
+    - name: Check for memory leaks (push only)
+      if: github.event_name == 'push'
       run: |
         cd tests
         make test-valgrind
