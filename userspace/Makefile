@@ -8,7 +8,7 @@ LDFLAGS = -nostdlib -Ttext=0x40000000
 ASFLAGS = --32
 
 # Programmes à compiler
-PROGRAMS = shell fake_ai test_program
+PROGRAMS = shell fake_ai test_program ai_assistant
 
 all: $(PROGRAMS)
 
@@ -18,6 +18,10 @@ shell: shell.o start.o
 
 fake_ai: fake_ai.o start.o
 	@echo "Linking fake_ai..."
+	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
+
+ai_assistant: ai_assistant.o start.o
+	@echo "Linking ai_assistant..."
 	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
 
 test_program: test_program.o start.o
