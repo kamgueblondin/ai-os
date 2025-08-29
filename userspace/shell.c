@@ -914,42 +914,13 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
 
 void shell_main_loop(shell_context_t* ctx) {
     char buf[MAX_COMMAND_LENGTH];
-    int idx;
 
     while (1) {
         display_prompt(ctx);
-        idx = 0;
         buf[0] = '\0';
-
-        for(;;){
-            int c = sys_getchar();
-            if (c == '\r' || c == '\n'){
-                putc('\n');
-                handle_line(ctx, buf);
-                break; // sort de la boucle for(;;) pour ré-afficher le prompt
-            }
-            if (c == 0x08 || c == 127){ // Backspace
-                if (idx > 0){
-                    idx--;
-                    buf[idx] = '\0';
-                    backspace();
-                }
-                continue;
-            }
-            if (c == 0) {
-                // Aucun caractere dispo: ceder le CPU pour laisser traiter les IRQ clavier
-                yield();
-                continue;
-            }
-            // N'accepter que les caractères ASCII imprimables (espace inclus)
-            if (c >= 32 && c <= 126) {
-                if (idx < (int)sizeof(buf) - 1){
-                    buf[idx++] = (char)c;
-                    buf[idx] = '\0';
-                    putc((char)c);
-                }
-            }
-        }
+        // Lecture bloquante et stable de la ligne par le noyau
+        gets(buf, (int)sizeof(buf));
+        handle_line(ctx, buf);
     }
 }
 
