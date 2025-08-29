@@ -130,10 +130,12 @@ int sys_spawn(const char* path, char* argv[]) {
     if (!new_task) {
         return -1;
     }
-    // Passer au moins le premier argument texte via EBX (copie dans l'espace user de la nouvelle tache)
+    // Passer au moins un argument texte (preferer argv[1] si present)
     if (argv) {
         char** argv_list = (char**)argv;
-        const char* src = argv_list[0];
+        const char* src = 0;
+        if (argv_list[1]) src = argv_list[1];
+        else if (argv_list[0]) src = argv_list[0];
         if (src) {
             // Copier jusqu'a 255 octets
             char kbuf[256];
@@ -153,6 +155,9 @@ int sys_spawn(const char* path, char* argv[]) {
             new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
         }
     }
+    // Demander un reschedule immediat pour afficher rapidement la sortie
+    extern volatile int g_reschedule_needed;
+    g_reschedule_needed = 1;
     return 0;
 }
 
