@@ -173,47 +173,10 @@ void print_colored(const char* str, const char* color) {
     print_string(COLOR_RESET);
 }
 
-// === Helpers ANSI (cursor + effacement) ===
-static void ansi_move_left(int n) {
-    if (n <= 0) return;
-    print_string("\x1b[");
-    // n en decimales (max 3 chiffres suffisants ici)
-    char buf[8]; int i=0; int t=n; char tmp[8]; int j=0;
-    if (t==0){ buf[i++]='0'; }
-    while(t>0){ tmp[j++] = (char)('0'+(t%10)); t/=10; }
-    while(j>0){ buf[i++] = tmp[--j]; }
-    buf[i] = '\0';
-    print_string(buf);
-    print_string("D");
-}
-static void ansi_move_right(int n) {
-    if (n <= 0) return;
-    print_string("\x1b[");
-    char buf[8]; int i=0; int t=n; char tmp[8]; int j=0;
-    if (t==0){ buf[i++]='0'; }
-    while(t>0){ tmp[j++] = (char)('0'+(t%10)); t/=10; }
-    while(j>0){ buf[i++] = tmp[--j]; }
-    buf[i] = '\0';
-    print_string(buf);
-    print_string("C");
-}
-static void ansi_clear_eol() {
-    print_string("\x1b[K");
-}
-
-static void ansi_home_clearline() {
-    print_string("\x1b[2K"); // clear entire line
-    print_string("\r");     // carriage return to column 0
-}
-
-static void redraw_line(shell_context_t* ctx, const char* buf, int len, int cursor) {
-    ansi_home_clearline();
-    display_prompt(ctx);
-    print_string(buf);
-    ansi_clear_eol();
-    if (cursor < len) {
-        ansi_move_left(len - cursor);
-    }
+// === Minimal terminal helpers (no ANSI CSI) ===
+static void move_left_n(int n) { while (n-- > 0) putc('\b'); }
+static void print_substr(const char* s, int start, int end) {
+    for (int i = start; i < end && s[i] != '\0'; i++) putc(s[i]);
 }
 
 void print_info(const char* str) {
@@ -1007,34 +970,44 @@ void shell_main_loop(shell_context_t* ctx) {
                 break;
             }
 
-            // Backspace
+            // Backspace (delete before cursor)
             if (c == 0x08 || c == 127) {
                 if (cursor > 0) {
+                    int old_len = len;
+                    // Visual: move left one
+                    putc('\b');
+                    // Data: remove char before cursor
                     for (int i = cursor-1; i < len-1; i++) buf[i] = buf[i+1];
                     len--; cursor--;
                     buf[len] = '\0';
-                    redraw_line(ctx, buf, len, cursor);
+                    // Print tail and erase leftover
+                    int tail_len = len - cursor;
+                    print_substr(buf, cursor, cursor + tail_len);
+                    if (old_len > len) putc(' ');
+                    // Move caret back
+                    move_left_n(tail_len + (old_len > len ? 1 : 0));
                 }
                 continue;
             }
 
             // Ctrl+A (home), Ctrl+E (end), Ctrl+B (left), Ctrl+F (right)
             if (c == 0x01) { // Home
-                ansi_move_left(cursor);
+                move_left_n(cursor);
                 cursor = 0; 
                 continue;
             }
             if (c == 0x05) { // End
-                ansi_move_right(len - cursor);
+                // Print tail to move right visually
+                print_substr(buf, cursor, len);
                 cursor = len;
                 continue;
             }
             if (c == 0x02) { // Left
-                if (cursor > 0) { ansi_move_left(1); cursor--; }
+                if (cursor > 0) { putc('\b'); cursor--; }
                 continue;
             }
             if (c == 0x06) { // Right
-                if (cursor < len) { ansi_move_right(1); cursor++; }
+                if (cursor < len) { putc(buf[cursor]); cursor++; }
                 continue;
             }
 
@@ -1043,8 +1016,8 @@ void shell_main_loop(shell_context_t* ctx) {
                 int c1 = sys_getchar(); if (c1 == 0) { yield(); continue; }
                 if (c1 == '[') {
                     int c2 = sys_getchar(); if (c2 == 0) { yield(); continue; }
-                    if (c2 == 'D') { if (cursor > 0) { ansi_move_left(1); cursor--; } }
-                    else if (c2 == 'C') { if (cursor < len) { ansi_move_right(1); cursor++; } }
+                    if (c2 == 'D') { if (cursor > 0) { putc('\b'); cursor--; } }
+                    else if (c2 == 'C') { if (cursor < len) { putc(buf[cursor]); cursor++; } }
                 }
                 continue;
             }
@@ -1052,12 +1025,19 @@ void shell_main_loop(shell_context_t* ctx) {
             // ASCII imprimable
             if (c >= 32 && c <= 126) {
                 if (len < (int)sizeof(buf) - 1) {
-                    // Inserer au curseur
+                    int old_len = len;
+                    // Insert into buffer
                     for (int i = len; i > cursor; i--) buf[i] = buf[i-1];
                     buf[cursor] = (char)c;
                     len++; cursor++;
                     buf[len] = '\0';
-                    redraw_line(ctx, buf, len, cursor);
+                    // Print from inserted char to end
+                    int to_print = len - (cursor - 1);
+                    print_substr(buf, cursor - 1, cursor - 1 + to_print);
+                    // Move back over tail
+                    int tail_len = len - cursor;
+                    move_left_n(tail_len);
+                    // If buffer shrank (not in insert), we would erase, not needed here
                 }
                 continue;
             }
