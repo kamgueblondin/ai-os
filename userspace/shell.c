@@ -174,7 +174,6 @@ void print_colored(const char* str, const char* color) {
 }
 
 // === Minimal terminal helpers (no ANSI CSI) ===
-static void move_left_n(int n) { while (n-- > 0) putc('\b'); }
 static void print_substr(const char* s, int start, int end) {
     for (int i = start; i < end && s[i] != '\0'; i++) putc(s[i]);
 }
@@ -948,6 +947,7 @@ void shell_main_loop(shell_context_t* ctx) {
     char buf[MAX_COMMAND_LENGTH];
     int len;
     int cursor;
+    int last_render_len;
     
     while (1) {
         display_prompt(ctx);
@@ -955,8 +955,24 @@ void shell_main_loop(shell_context_t* ctx) {
         len = 0;
         cursor = 0;
 
-        // Redessine la ligne (prompt deja affiche)
-        // Rien a faire pour le premier affichage
+        last_render_len = 0;
+
+        // Redraw helper: CR, prompt, buffer, pad spaces to clear, then position caret by reprinting prefix
+        auto void full_redraw() {
+            // Go to line start
+            print_string("\r");
+            // Reprint prompt and full buffer
+            display_prompt(ctx);
+            print_string(buf);
+            // Clear residual chars from previous render
+            int pad = (last_render_len > len) ? (last_render_len - len) : 0;
+            for (int i = 0; i < pad; i++) putc(' ');
+            // Return to line start and advance to cursor position
+            print_string("\r");
+            display_prompt(ctx);
+            if (cursor > 0) print_substr(buf, 0, cursor);
+            last_render_len = len;
+        }
 
         for(;;){
             int c = sys_getchar();
@@ -973,41 +989,31 @@ void shell_main_loop(shell_context_t* ctx) {
             // Backspace (delete before cursor)
             if (c == 0x08 || c == 127) {
                 if (cursor > 0) {
-                    int old_len = len;
-                    // Visual: move left one
-                    putc('\b');
-                    // Data: remove char before cursor
                     for (int i = cursor-1; i < len-1; i++) buf[i] = buf[i+1];
                     len--; cursor--;
                     buf[len] = '\0';
-                    // Print tail and erase leftover
-                    int tail_len = len - cursor;
-                    print_substr(buf, cursor, cursor + tail_len);
-                    if (old_len > len) putc(' ');
-                    // Move caret back
-                    move_left_n(tail_len + (old_len > len ? 1 : 0));
+                    full_redraw();
                 }
                 continue;
             }
 
             // Ctrl+A (home), Ctrl+E (end), Ctrl+B (left), Ctrl+F (right)
             if (c == 0x01) { // Home
-                move_left_n(cursor);
                 cursor = 0; 
+                full_redraw();
                 continue;
             }
             if (c == 0x05) { // End
-                // Print tail to move right visually
-                print_substr(buf, cursor, len);
                 cursor = len;
+                full_redraw();
                 continue;
             }
             if (c == 0x02) { // Left
-                if (cursor > 0) { putc('\b'); cursor--; }
+                if (cursor > 0) { cursor--; full_redraw(); }
                 continue;
             }
             if (c == 0x06) { // Right
-                if (cursor < len) { putc(buf[cursor]); cursor++; }
+                if (cursor < len) { cursor++; full_redraw(); }
                 continue;
             }
 
@@ -1018,8 +1024,8 @@ void shell_main_loop(shell_context_t* ctx) {
                 if (lead == '[' || lead == 'O') {
                     int code = 0;
                     do { code = sys_getchar(); if (code == 0) yield(); } while (code == 0);
-                    if (code == 'D') { if (cursor > 0) { putc('\b'); cursor--; } }
-                    else if (code == 'C') { if (cursor < len) { putc(buf[cursor]); cursor++; } }
+                    if (code == 'D') { if (cursor > 0) { cursor--; full_redraw(); } }
+                    else if (code == 'C') { if (cursor < len) { cursor++; full_redraw(); } }
                 }
                 continue;
             }
@@ -1027,19 +1033,12 @@ void shell_main_loop(shell_context_t* ctx) {
             // ASCII imprimable
             if (c >= 32 && c <= 126) {
                 if (len < (int)sizeof(buf) - 1) {
-                    int old_len = len;
                     // Insert into buffer
                     for (int i = len; i > cursor; i--) buf[i] = buf[i-1];
                     buf[cursor] = (char)c;
                     len++; cursor++;
                     buf[len] = '\0';
-                    // Print from inserted char to end
-                    int to_print = len - (cursor - 1);
-                    print_substr(buf, cursor - 1, cursor - 1 + to_print);
-                    // Move back over tail
-                    int tail_len = len - cursor;
-                    move_left_n(tail_len);
-                    // If buffer shrank (not in insert), we would erase, not needed here
+                    full_redraw();
                 }
                 continue;
             }
