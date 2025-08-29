@@ -82,6 +82,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_EXEC:
             cpu->eax = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
             break;
+        case SYS_SPAWN:
+            cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
+            break;
             
         default:
             // Syscall inconnu
@@ -115,6 +118,16 @@ int sys_exec(const char* path, char* argv[]) {
     }
 
     return 0; // Succès
+}
+
+// Non-bloquant: cree la tache et retourne immediatement 0 si ok, -1 sinon
+int sys_spawn(const char* path, char* argv[]) {
+    (void)argv;
+    task_t* new_task = create_task_from_initrd_file(path);
+    if (!new_task) {
+        return -1;
+    }
+    return 0;
 }
 
 

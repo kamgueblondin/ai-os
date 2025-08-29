@@ -87,6 +87,12 @@ int exec(const char* path, char* argv[]) {
     return result;
 }
 
+int spawn(const char* path, char* argv[]) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(7), "b"(path), "c"(argv));
+    return result;
+}
+
 void yield() {
     asm volatile("int $0x80" : : "a"(4));
 }
@@ -666,11 +672,21 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 // ==============================================================================
 
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
-    print_colored("\n[IA] ", COLOR_MAGENTA);
-    print_string("AI READY - ");
-    print_string("question: ");
-    print_string(query);
-    print_string("\n");
+    (void)ctx;
+    // Lancer le vrai binaire IA en tache non-bloquante
+    char* argv[3];
+    argv[0] = "ai_assistant";
+    argv[1] = (char*)query;
+    argv[2] = 0;
+    // Essayer d'abord dans bin/
+    int rc = spawn("bin/ai_assistant", argv);
+    if (rc != 0) {
+        // Fallback au nom brut si necessaire
+        rc = spawn("ai_assistant", argv);
+    }
+    if (rc != 0) {
+        print_colored("\n[IA] indisponible\n", COLOR_YELLOW);
+    }
 }
 
 void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -883,7 +899,7 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
         return;
     }
 
-    // Si pas de commande builtin, essayer d'exécuter un programme externe
+    // Si pas de commande builtin, essayer d'exécuter un programme externe (non-bloquant)
     char* exec_args[MAX_ARGS + 2];
     exec_args[0] = command;
     for (int i = 0; i < arg_count; i++) {
@@ -892,12 +908,12 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     exec_args[arg_count + 1] = NULL;
 
     // Résolution simple PATH: essayer tel quel, puis bin/<cmd>
-    int result = exec(command, exec_args);
+    int result = spawn(command, exec_args);
     if (result != 0) {
         char alt[MAX_PATH_LENGTH];
         strcpy(alt, "bin/");
         strcat(alt, command);
-        result = exec(alt, exec_args);
+        result = spawn(alt, exec_args);
     }
 
     if (result != 0) {

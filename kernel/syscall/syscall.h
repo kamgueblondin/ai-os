@@ -11,10 +11,11 @@
 #define SYS_PUTS    3
 #define SYS_YIELD   4
 #define SYS_GETS    5  // Nouveau: Lire une ligne depuis le clavier
-#define SYS_EXEC    6  // Nouveau: Exécuter un programme
+#define SYS_EXEC    6  // Nouveau: Exécuter un programme (bloquant)
+#define SYS_SPAWN   7  // Nouveau: Lancer un programme (non-bloquant)
 
 // Nombre total d'appels système
-#define MAX_SYSCALLS 7
+#define MAX_SYSCALLS 8
 
 // Structure pour passer les paramètres des syscalls
 typedef struct {
@@ -35,6 +36,7 @@ void sys_yield();
 // Nouveaux appels système
 void sys_gets(char* buffer, uint32_t size);
 int sys_exec(const char* path, char* argv[]);
+int sys_spawn(const char* path, char* argv[]);
 
 // Ajoute un caractère au buffer d'entrée global du clavier.
 void keyboard_add_char_to_buffer(char c);
