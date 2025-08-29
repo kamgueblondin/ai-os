@@ -28,6 +28,7 @@ static volatile int initialization_phase = 0;
 // Modifieurs
 static volatile int g_shift_pressed = 0;
 static volatile int g_caps_lock = 0;
+static volatile int g_ext_e0_pending = 0; // Pour scancodes etendus (0xE0)
 
 // Délai optimisé pour QEMU
 void qemu_delay() {
@@ -163,6 +164,9 @@ void keyboard_poll_check() {
                 print_string_serial(" (mode console)\n");
             }
             
+            // Gérer scancodes étendus (0xE0)
+            if (scancode == 0xE0) { g_ext_e0_pending = 1; return; }
+
             // Gérer press/release pour maintenir correctement l'état SHIFT en mode polling
             if (scancode & 0x80) {
                 // Key release
@@ -170,6 +174,16 @@ void keyboard_poll_check() {
                 if (rel == 0xAA || rel == 0xB6) { g_shift_pressed = 0; return; } // LSHIFT/RSHIFT release
                 return; // ignorer autres releases
             } else {
+                // Si scancode etendu en attente: mapper fleches
+                if (g_ext_e0_pending) {
+                    g_ext_e0_pending = 0;
+                    // Fleches: E0 4B (Left), E0 4D (Right), E0 48 (Up), E0 50 (Down)
+                    if (scancode == 0x4B) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('D'); return; }
+                    if (scancode == 0x4D) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('C'); return; }
+                    if (scancode == 0x48) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('A'); return; }
+                    if (scancode == 0x50) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('B'); return; }
+                    // Autres etendus ignores
+                }
                 // Modifieurs
                 if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }
                 if (scancode == 0x3A) { g_caps_lock = !g_caps_lock; return; }
@@ -213,6 +227,9 @@ void keyboard_interrupt_handler() {
         return;
     }
     
+    // Scancodes étendus
+    if (scancode == 0xE0) { g_ext_e0_pending = 1; return; }
+
     // Modifieurs (press/release)
     if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }     // LSHIFT/RSHIFT press
     if (scancode == 0xAA || scancode == 0xB6) { g_shift_pressed = 0; return; }     // LSHIFT/RSHIFT release
@@ -220,6 +237,14 @@ void keyboard_interrupt_handler() {
     
     // Traiter seulement les key press
     if (!(scancode & 0x80)) {
+        if (g_ext_e0_pending) {
+            g_ext_e0_pending = 0;
+            if (scancode == 0x4B) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('D'); return; }
+            if (scancode == 0x4D) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('C'); return; }
+            if (scancode == 0x48) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('A'); return; }
+            if (scancode == 0x50) { kbd_put_char('\x1b'); kbd_put_char('['); kbd_put_char('B'); return; }
+            // autres etendus ignores
+        }
         char c = map_scancode(scancode);
         if (c != 0) {
             kbd_put_char(c);
