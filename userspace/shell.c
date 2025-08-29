@@ -1011,13 +1011,15 @@ void shell_main_loop(shell_context_t* ctx) {
                 continue;
             }
 
-            // Sequences ANSI des fleches: ESC [ D (left), ESC [ C (right)
+            // Sequences des fleches: ESC [ D/C ou ESC O D/C
             if (c == 27) { // ESC
-                int c1 = sys_getchar(); if (c1 == 0) { yield(); continue; }
-                if (c1 == '[') {
-                    int c2 = sys_getchar(); if (c2 == 0) { yield(); continue; }
-                    if (c2 == 'D') { if (cursor > 0) { putc('\b'); cursor--; } }
-                    else if (c2 == 'C') { if (cursor < len) { putc(buf[cursor]); cursor++; } }
+                int lead = 0;
+                do { lead = sys_getchar(); if (lead == 0) yield(); } while (lead == 0);
+                if (lead == '[' || lead == 'O') {
+                    int code = 0;
+                    do { code = sys_getchar(); if (code == 0) yield(); } while (code == 0);
+                    if (code == 'D') { if (cursor > 0) { putc('\b'); cursor--; } }
+                    else if (code == 'C') { if (cursor < len) { putc(buf[cursor]); cursor++; } }
                 }
                 continue;
             }
