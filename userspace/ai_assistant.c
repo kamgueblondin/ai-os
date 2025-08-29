@@ -21,12 +21,14 @@ void print_string(const char* s) {
 }
 
 void main(int argc, char* argv[]) {
+    print_string("[AI] start\n");
     const char* q = 0;
     if (argc >= 2 && argv[1]) q = argv[1];
     if (q && q[0] != '\0') {
         // Healthcheck explicit
         if (q[0]=='h' && q[1]=='e' && q[2]=='a' && q[3]=='l' && q[4]=='t' && q[5]=='h') {
             print_string("AI HEALTH: OK\n");
+            print_string("[AI] end\n");
             exit_program(0);
         }
         // Minimal keyword handling (ASCII-only)
@@ -42,12 +44,15 @@ void main(int argc, char* argv[]) {
         }
         if (has_bonjour || has_hello) {
             print_string("AI: bonjour\n");
+            print_string("[AI] end\n");
             exit_program(0);
         }
         print_string("AI: received\n");
+        print_string("[AI] end\n");
         exit_program(0);
     }
     print_string("AI: received\n");
+    print_string("[AI] end\n");
     // Quitter proprement
     exit_program(0);
 }

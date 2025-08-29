@@ -29,6 +29,7 @@ void syscall_handler(cpu_state_t* cpu) {
     switch (cpu->eax) {
         case SYS_EXIT:
             current_task->state = TASK_TERMINATED;
+            print_string_serial("[EXIT] task terminated, scheduling...\n");
             asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
             break;
         
@@ -86,10 +87,14 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
             
         case SYS_EXEC:
+            print_string_serial("[EXEC] starting child\n");
             cpu->eax = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
+            print_string_serial("[EXEC] child finished\n");
             break;
         case SYS_SPAWN:
+            print_string_serial("[SPAWN] starting child\n");
             cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
+            print_string_serial("[SPAWN] child created\n");
             break;
             
         default:

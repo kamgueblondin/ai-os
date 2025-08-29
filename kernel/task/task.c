@@ -96,6 +96,9 @@ void schedule(cpu_state_t* cpu) {
         }
     }
 
+    print_string_serial("[SCHED] switching to task ");
+    write_serial('0' + (next_task->id % 10));
+    print_string_serial("\n");
     current_task = next_task;
     current_task->state = TASK_RUNNING;
 
