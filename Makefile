@@ -165,6 +165,7 @@ pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program
 	@echo "Base de connaissances IA - Version simulation" > $(INITRD_DIR)/ai_knowledge.txt
 	@cp -f $(USER_SHELL) $(BIN_DEST_DIR)/shell
 	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/fake_ai
+	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/ai_assistant
 	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
