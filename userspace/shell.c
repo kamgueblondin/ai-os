@@ -754,7 +754,7 @@ static void cmd_ai_test(shell_context_t* ctx) {
     argv[0] = "ai_assistant";
     argv[1] = "healthcheck";
     argv[2] = 0;
-    int result = exec("ai_assistant", argv);
+    int result = exec("bin/ai_assistant", argv);
     if (result == 0) {
         print_colored("[AI-TEST] OK\n", COLOR_GREEN);
     } else {
