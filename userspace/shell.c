@@ -758,7 +758,7 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
 // Test IA: lance l'IA avec une requete de sante et verifie le code retour
 static void cmd_ai_test(shell_context_t* ctx) {
     print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
-    char* argv[2]; argv[0] = 0; argv[1] = 0;
+    char* argv[2]; argv[0] = "healthcheck"; argv[1] = 0;
     int rc = spawn("bin/ai_assistant", argv);
     if (rc == 0) {
         print_string("AI HEALTH: OK\n");
