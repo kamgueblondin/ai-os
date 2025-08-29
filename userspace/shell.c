@@ -956,6 +956,11 @@ void shell_main_loop(shell_context_t* ctx) {
                 }
                 continue;
             }
+            if (c == 0) {
+                // Aucun caractere dispo: ceder le CPU pour laisser traiter les IRQ clavier
+                yield();
+                continue;
+            }
             // N'accepter que les caractères ASCII imprimables (espace inclus)
             if (c >= 32 && c <= 126) {
                 if (idx < (int)sizeof(buf) - 1){
