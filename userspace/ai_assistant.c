@@ -41,6 +41,6 @@ void main(int argc, char* argv[]) {
         print_string("AI: received\n");
         exit_program(0);
     }
-    print_string("AI HEALTH: OK\n");
+    print_string("AI: received\n");
     exit_program(0);
 }

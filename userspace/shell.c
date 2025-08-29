@@ -674,10 +674,9 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
     (void)ctx;
     // Lancer le vrai binaire IA en tache non-bloquante
-    char* argv[3];
-    argv[0] = "ai_assistant";
-    argv[1] = (char*)query;
-    argv[2] = 0;
+    char* argv[2];
+    argv[0] = (char*)query; // passer uniquement la question (argv wiring minimal)
+    argv[1] = 0;
     // Essayer d'abord dans bin/
     int rc = spawn("bin/ai_assistant", argv);
     if (rc != 0) {
@@ -759,9 +758,14 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
 // Test IA: lance l'IA avec une requete de sante et verifie le code retour
 static void cmd_ai_test(shell_context_t* ctx) {
     print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
-    // Mode non-bloquant: impression directe tant que l'exec bloque l'interface
-    print_string("AI HEALTH: OK\n");
-    print_colored("[AI-TEST] OK\n", COLOR_GREEN);
+    char* argv[2]; argv[0] = 0; argv[1] = 0;
+    int rc = spawn("bin/ai_assistant", argv);
+    if (rc == 0) {
+        print_string("AI HEALTH: OK\n");
+        print_colored("[AI-TEST] OK\n", COLOR_GREEN);
+    } else {
+        print_colored("[AI-TEST] FAIL\n", COLOR_RED);
+    }
 }
 
 // ==============================================================================
