@@ -110,13 +110,37 @@ void syscall_init() {
 
 // Nouveau: SYS_EXEC - Exécuter un programme
 int sys_exec(const char* path, char* argv[]) {
-    (void)argv; // argv non utilisé pour le moment
-
     task_t* new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
         return -1; // Echec
     }
+
+    // Passer premier argument (question) comme pour spawn
+    if (argv) {
+        char** argv_list = (char**)argv;
+        const char* src = 0;
+        if (argv_list[1]) src = argv_list[1];
+        else if (argv_list[0]) src = argv_list[0];
+        if (src) {
+            char kbuf[256];
+            int n = 0;
+            while (n < 255 && src[n] != '\0') { kbuf[n] = src[n]; n++; }
+            kbuf[n] = '\0';
+            extern vmm_directory_t* current_directory;
+            vmm_directory_t* old_dir = current_directory;
+            vmm_switch_page_directory(new_task->vmm_dir->physical_addr);
+            current_directory = new_task->vmm_dir;
+            char* dst = (char*)(0xB0000000 - 512);
+            for (int i = 0; i <= n; i++) dst[i] = kbuf[i];
+            vmm_switch_page_directory(old_dir->physical_addr);
+            current_directory = old_dir;
+            new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
+        }
+    }
+    // Demander un reschedule immediat
+    extern volatile int g_reschedule_needed;
+    g_reschedule_needed = 1;
 
     // L'exec actuel est bloquant. On attend la fin de la tâche.
     while (new_task->state != TASK_TERMINATED) {

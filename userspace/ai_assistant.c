@@ -48,5 +48,6 @@ void main(int argc, char* argv[]) {
         exit_program(0);
     }
     print_string("AI: received\n");
+    // Quitter proprement
     exit_program(0);
 }
