@@ -756,8 +756,11 @@ static void cmd_ai_test(shell_context_t* ctx) {
     int result = exec("bin/ai_assistant", argv);
     if (result == 0) {
         print_colored("[AI-TEST] OK\n", COLOR_GREEN);
+        // Ré-afficher immédiatement le prompt pour éviter toute impression de gel
+        display_prompt(ctx);
     } else {
         print_colored("[AI-TEST] FAIL (ai_assistant not available)\n", COLOR_RED);
+        display_prompt(ctx);
     }
 }
 
