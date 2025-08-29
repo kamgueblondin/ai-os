@@ -69,6 +69,8 @@ void syscall_handler(cpu_state_t* cpu) {
                             print_char(ch, -1, -1, 0x0F);
                         }
                     }
+                    // Garantir un flush visuel minimal
+                    print_char('\n', -1, -1, 0x0F);
                 }
             }
             break;

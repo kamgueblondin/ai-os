@@ -686,6 +686,8 @@ void call_ai_assistant(shell_context_t* ctx, const char* query) {
     if (rc != 0) {
         print_colored("\n[IA] indisponible\n", COLOR_YELLOW);
     }
+    // Assurer un retour de ligne apres la reponse IA
+    print_string("\n");
 }
 
 void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
