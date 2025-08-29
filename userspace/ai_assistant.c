@@ -21,8 +21,26 @@ void print_string(const char* s) {
 }
 
 void main(int argc, char* argv[]) {
-    (void)argc; (void)argv;
-    // Always succeed fast without reading argv (exec doesn't wire args yet)
+    if (argc >= 2 && argv[1] && argv[1][0] != '\0') {
+        const char* q = argv[1];
+        // Minimal keyword handling (ASCII-only)
+        // Recognize greetings
+        int i = 0; int has_bonjour = 0; int has_hello = 0;
+        while (q[i] != '\0') {
+            char c = q[i];
+            if (c >= 'A' && c <= 'Z') c = c + 32; // lowercase
+            // naive substring checks
+            if (c == 'b' && q[i+1]=='o' && q[i+2]=='n') { has_bonjour = 1; }
+            if (c == 'h' && q[i+1]=='e' && q[i+2]=='l' && q[i+3]=='l' && q[i+4]=='o') { has_hello = 1; }
+            i++;
+        }
+        if (has_bonjour || has_hello) {
+            print_string("AI: bonjour\n");
+            exit_program(0);
+        }
+        print_string("AI: received\n");
+        exit_program(0);
+    }
     print_string("AI HEALTH: OK\n");
     exit_program(0);
 }

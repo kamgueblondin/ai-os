@@ -701,7 +701,11 @@ void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
         strcat(full_query, args[i]);
         if (i < arg_count - 1) strcat(full_query, " ");
     }
-    
+    // Echo immediate for visibility
+    print_colored("[IA] ", COLOR_MAGENTA);
+    print_string("question: ");
+    print_string(full_query);
+    print_string("\n");
     call_ai_assistant(ctx, full_query);
 }
 
