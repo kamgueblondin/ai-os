@@ -121,6 +121,7 @@ void task_exit() {
     if (!current_task) return;
 
     current_task->state = TASK_TERMINATED;
+    print_string_serial("[TASK_EXIT] terminating, scheduling now\n");
 
     // Utiliser l'appel système pour quitter proprement
     // Cela déclenchera le scheduler sans sauvegarder l'état de cette tâche

@@ -30,7 +30,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_EXIT:
             current_task->state = TASK_TERMINATED;
             print_string_serial("[EXIT] task terminated, scheduling...\n");
-            asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
+            // Basculer directement via l'ordonnanceur en utilisant l'état CPU courant
+            schedule(cpu);
+            // Ne devrait jamais revenir
             break;
         
         case SYS_PUTC:
