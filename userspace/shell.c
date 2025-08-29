@@ -173,6 +173,34 @@ void print_colored(const char* str, const char* color) {
     print_string(COLOR_RESET);
 }
 
+// === Helpers ANSI (cursor + effacement) ===
+static void ansi_move_left(int n) {
+    if (n <= 0) return;
+    print_string("\x1b[");
+    // n en decimales (max 3 chiffres suffisants ici)
+    char buf[8]; int i=0; int t=n; char tmp[8]; int j=0;
+    if (t==0){ buf[i++]='0'; }
+    while(t>0){ tmp[j++] = (char)('0'+(t%10)); t/=10; }
+    while(j>0){ buf[i++] = tmp[--j]; }
+    buf[i] = '\0';
+    print_string(buf);
+    print_string("D");
+}
+static void ansi_move_right(int n) {
+    if (n <= 0) return;
+    print_string("\x1b[");
+    char buf[8]; int i=0; int t=n; char tmp[8]; int j=0;
+    if (t==0){ buf[i++]='0'; }
+    while(t>0){ tmp[j++] = (char)('0'+(t%10)); t/=10; }
+    while(j>0){ buf[i++] = tmp[--j]; }
+    buf[i] = '\0';
+    print_string(buf);
+    print_string("C");
+}
+static void ansi_clear_eol() {
+    print_string("\x1b[K");
+}
+
 void print_info(const char* str) {
     print_colored("[INFO] ", COLOR_BLUE);
     print_string(str);
@@ -940,13 +968,97 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
 
 void shell_main_loop(shell_context_t* ctx) {
     char buf[MAX_COMMAND_LENGTH];
-
+    int len;
+    int cursor;
+    
     while (1) {
         display_prompt(ctx);
         buf[0] = '\0';
-        // Lecture bloquante et stable de la ligne par le noyau
-        gets(buf, (int)sizeof(buf));
-        handle_line(ctx, buf);
+        len = 0;
+        cursor = 0;
+
+        // Redessine la ligne (prompt deja affiche)
+        // Rien a faire pour le premier affichage
+
+        for(;;){
+            int c = sys_getchar();
+            if (c == 0) { yield(); continue; }
+
+            // Fin de ligne
+            if (c == '\r' || c == '\n'){
+                putc('\n');
+                buf[len] = '\0';
+                handle_line(ctx, buf);
+                break;
+            }
+
+            // Backspace
+            if (c == 0x08 || c == 127) {
+                if (cursor > 0) {
+                    // Supprime avant le curseur
+                    for (int i = cursor-1; i < len-1; i++) buf[i] = buf[i+1];
+                    len--; cursor--;
+                    buf[len] = '\0';
+                    // Redraw: retour debut ligne, reimprimer prompt+buf, effacer fin, replacer curseur
+                    print_string("\r");
+                    display_prompt(ctx);
+                    print_string(buf);
+                    ansi_clear_eol();
+                    ansi_move_left(len - cursor);
+                }
+                continue;
+            }
+
+            // Ctrl+A (home), Ctrl+E (end), Ctrl+B (left), Ctrl+F (right)
+            if (c == 0x01) { // Home
+                ansi_move_left(cursor);
+                cursor = 0; 
+                continue;
+            }
+            if (c == 0x05) { // End
+                ansi_move_right(len - cursor);
+                cursor = len;
+                continue;
+            }
+            if (c == 0x02) { // Left
+                if (cursor > 0) { ansi_move_left(1); cursor--; }
+                continue;
+            }
+            if (c == 0x06) { // Right
+                if (cursor < len) { ansi_move_right(1); cursor++; }
+                continue;
+            }
+
+            // Sequences ANSI des fleches: ESC [ D (left), ESC [ C (right)
+            if (c == 27) { // ESC
+                int c1 = sys_getchar(); if (c1 == 0) { yield(); continue; }
+                if (c1 == '[') {
+                    int c2 = sys_getchar(); if (c2 == 0) { yield(); continue; }
+                    if (c2 == 'D') { if (cursor > 0) { ansi_move_left(1); cursor--; } }
+                    else if (c2 == 'C') { if (cursor < len) { ansi_move_right(1); cursor++; } }
+                }
+                continue;
+            }
+
+            // ASCII imprimable
+            if (c >= 32 && c <= 126) {
+                if (len < (int)sizeof(buf) - 1) {
+                    // Inserer au curseur
+                    for (int i = len; i > cursor; i--) buf[i] = buf[i-1];
+                    buf[cursor] = (char)c;
+                    len++; cursor++;
+                    buf[len] = '\0';
+                    // Redraw incremental: imprimer depuis position cursor-1 jusqu'a fin
+                    print_string("\r");
+                    display_prompt(ctx);
+                    print_string(buf);
+                    ansi_clear_eol();
+                    // Replacer curseur
+                    ansi_move_left(len - cursor);
+                }
+                continue;
+            }
+        }
     }
 }
 
