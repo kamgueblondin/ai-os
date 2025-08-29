@@ -21,8 +21,15 @@ void print_string(const char* s) {
 }
 
 void main(int argc, char* argv[]) {
+    // Fallback: si le noyau a passe la chaine via EBX (argv wiring minimal)
+    const char* q = 0;
     if (argc >= 2 && argv[1] && argv[1][0] != '\0') {
-        const char* q = argv[1];
+        q = argv[1];
+    } else {
+        // Lire EBX comme pointeur utilisateur (convention locale)
+        asm volatile("": "=b"(q));
+    }
+    if (q && q[0] != '\0') {
         // Minimal keyword handling (ASCII-only)
         // Recognize greetings
         int i = 0; int has_bonjour = 0; int has_hello = 0;

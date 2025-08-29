@@ -6,6 +6,10 @@
 #include "../elf.h"
 #include "../../fs/initrd.h"
 #include "../mem/string.h"
+#include "../mem/vmm.h"
+// Externs VMM
+extern vmm_directory_t* current_directory;
+extern void vmm_switch_page_directory(uint32_t phys_addr);
 
 // Fonctions externes
 extern void print_string_serial(const char* str);
@@ -122,10 +126,32 @@ int sys_exec(const char* path, char* argv[]) {
 
 // Non-bloquant: cree la tache et retourne immediatement 0 si ok, -1 sinon
 int sys_spawn(const char* path, char* argv[]) {
-    (void)argv;
     task_t* new_task = create_task_from_initrd_file(path);
     if (!new_task) {
         return -1;
+    }
+    // Passer au moins le premier argument texte via EBX (copie dans l'espace user de la nouvelle tache)
+    if (argv) {
+        char** argv_list = (char**)argv;
+        const char* src = argv_list[0];
+        if (src) {
+            // Copier jusqu'a 255 octets
+            char kbuf[256];
+            int n = 0;
+            while (n < 255 && src[n] != '\0') { kbuf[n] = src[n]; n++; }
+            kbuf[n] = '\0';
+            // Ecrire dans la pile utilisateur de la nouvelle tache (en haut - 512)
+            vmm_directory_t* old_dir = current_directory;
+            vmm_switch_page_directory(new_task->vmm_dir->physical_addr);
+            current_directory = new_task->vmm_dir;
+            char* dst = (char*)(0xB0000000 - 512);
+            for (int i = 0; i <= n; i++) dst[i] = kbuf[i];
+            // Restaurer
+            vmm_switch_page_directory(old_dir->physical_addr);
+            current_directory = old_dir;
+            // Placer le pointeur dans EBX
+            new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
+        }
     }
     return 0;
 }
