@@ -666,21 +666,10 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 // ==============================================================================
 
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
-    print_colored("\n🧠 [IA] ", COLOR_MAGENTA);
-    
-    // Préparer les arguments pour l'IA
-    char* argv[3];
-    argv[0] = "ai_assistant";
-    argv[1] = (char*)query;
-    argv[2] = NULL;
-    
-    // Exécuter le programme IA amélioré
-    int result = exec("ai_assistant", argv);
-    
-    if (result != 0) {
-        print_warning("Assistant IA temporairement indisponible");
-        print_string("   Réponse automatique : Je travaille sur cette question...\n");
-    }
+    print_colored("\n[IA] ", COLOR_MAGENTA);
+    print_string("AI READY - ");
+    print_string("question: ");
+    print_string(query);
     print_string("\n");
 }
 
