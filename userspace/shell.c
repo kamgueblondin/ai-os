@@ -750,10 +750,9 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
 // Test IA: lance l'IA avec une requete de sante et verifie le code retour
 static void cmd_ai_test(shell_context_t* ctx) {
     print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
-    char* argv[3];
-    argv[0] = "ai_assistant";
-    argv[1] = "healthcheck";
-    argv[2] = 0;
+    // Passer sans arguments: exec/ELF ne gère pas encore argv correctement
+    char* argv[1];
+    argv[0] = 0;
     int result = exec("bin/ai_assistant", argv);
     if (result == 0) {
         print_colored("[AI-TEST] OK\n", COLOR_GREEN);

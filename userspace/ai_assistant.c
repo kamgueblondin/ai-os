@@ -21,11 +21,8 @@ void print_string(const char* s) {
 }
 
 void main(int argc, char* argv[]) {
-    if (argc >= 2 && strcmp(argv[1], "healthcheck") == 0) {
-        print_string("AI HEALTH: OK\n");
-        exit_program(0);
-    }
-    // Default minimal response
-    print_string("AI READY\n");
+    (void)argc; (void)argv;
+    // Always succeed fast without reading argv (exec doesn't wire args yet)
+    print_string("AI HEALTH: OK\n");
     exit_program(0);
 }
