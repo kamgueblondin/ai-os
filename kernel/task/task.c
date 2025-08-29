@@ -57,15 +57,34 @@ extern void jump_to_task(cpu_state_t* next_state);
 static void unlink_task(task_t* task) {
     if (!task_queue || !task) return;
     if (task->next == task) {
-        // Single element in queue
-        task_queue = NULL;
-        current_task = NULL;
+        // Single element: keep kernel alive, don't null the queue
+        if (task->id != 0) {
+            // Replace with kernel task placeholder (should not happen in normal flow)
+            task_queue = task;
+        }
         return;
     }
     task->prev->next = task->next;
     task->next->prev = task->prev;
     if (task_queue == task) task_queue = task->next;
     if (current_task == task) current_task = task->next;
+}
+
+static void remove_terminated_tasks() {
+    if (!task_queue) return;
+    task_t* t = task_queue;
+    task_t* start = t;
+    do {
+        task_t* next = t->next;
+        if (t->state == TASK_TERMINATED) {
+            print_string_serial("[SCHED] gc terminated task\n");
+            unlink_task(t);
+        }
+        t = next;
+        if (!task_queue) break;
+    } while (t != start && t != NULL);
+    // Ensure current_task points to a valid task
+    if (!current_task && task_queue) current_task = task_queue;
 }
 
 void schedule(cpu_state_t* cpu) {
@@ -75,17 +94,19 @@ void schedule(cpu_state_t* cpu) {
         return;
     }
 
-    // Si la tache courante est terminee, ne pas sauver l'etat; retirer de la file
-    if (current_task->state != TASK_TERMINATED) {
+    // Nettoyer les taches terminees d'abord
+    remove_terminated_tasks();
+
+    if (current_task && current_task->state != TASK_TERMINATED) {
         // Sauvegarder l'état de la tâche actuelle
         memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
     } else {
-        print_string_serial("[SCHED] removing terminated task\n");
-        unlink_task(current_task);
+        print_string_serial("[SCHED] current task terminated, switching\n");
         if (!task_queue) {
             asm volatile("sti");
             while(1) asm volatile("hlt");
         }
+        current_task = task_queue;
     }
 
     // Si la tâche tournait, elle est maintenant prête à être replanifiée plus tard
