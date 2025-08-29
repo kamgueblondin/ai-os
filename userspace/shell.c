@@ -201,6 +201,21 @@ static void ansi_clear_eol() {
     print_string("\x1b[K");
 }
 
+static void ansi_home_clearline() {
+    print_string("\x1b[2K"); // clear entire line
+    print_string("\r");     // carriage return to column 0
+}
+
+static void redraw_line(shell_context_t* ctx, const char* buf, int len, int cursor) {
+    ansi_home_clearline();
+    display_prompt(ctx);
+    print_string(buf);
+    ansi_clear_eol();
+    if (cursor < len) {
+        ansi_move_left(len - cursor);
+    }
+}
+
 void print_info(const char* str) {
     print_colored("[INFO] ", COLOR_BLUE);
     print_string(str);
@@ -995,16 +1010,10 @@ void shell_main_loop(shell_context_t* ctx) {
             // Backspace
             if (c == 0x08 || c == 127) {
                 if (cursor > 0) {
-                    // Supprime avant le curseur
                     for (int i = cursor-1; i < len-1; i++) buf[i] = buf[i+1];
                     len--; cursor--;
                     buf[len] = '\0';
-                    // Redraw: retour debut ligne, reimprimer prompt+buf, effacer fin, replacer curseur
-                    print_string("\r");
-                    display_prompt(ctx);
-                    print_string(buf);
-                    ansi_clear_eol();
-                    ansi_move_left(len - cursor);
+                    redraw_line(ctx, buf, len, cursor);
                 }
                 continue;
             }
@@ -1048,13 +1057,7 @@ void shell_main_loop(shell_context_t* ctx) {
                     buf[cursor] = (char)c;
                     len++; cursor++;
                     buf[len] = '\0';
-                    // Redraw incremental: imprimer depuis position cursor-1 jusqu'a fin
-                    print_string("\r");
-                    display_prompt(ctx);
-                    print_string(buf);
-                    ansi_clear_eol();
-                    // Replacer curseur
-                    ansi_move_left(len - cursor);
+                    redraw_line(ctx, buf, len, cursor);
                 }
                 continue;
             }
