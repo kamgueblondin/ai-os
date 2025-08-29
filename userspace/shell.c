@@ -747,6 +747,21 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  • L'IA apprend de vos interactions\n\n");
 }
 
+// Test IA: lance l'IA avec une requete de sante et verifie le code retour
+static void cmd_ai_test(shell_context_t* ctx) {
+    print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
+    char* argv[3];
+    argv[0] = "ai_assistant";
+    argv[1] = "healthcheck";
+    argv[2] = 0;
+    int result = exec("ai_assistant", argv);
+    if (result == 0) {
+        print_colored("[AI-TEST] OK\n", COLOR_GREEN);
+    } else {
+        print_colored("[AI-TEST] FAIL (ai_assistant not available)\n", COLOR_RED);
+    }
+}
+
 // ==============================================================================
 // GESTIONNAIRE DE COMMANDES PRINCIPAL
 // ==============================================================================
@@ -807,6 +822,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-help") == 0) {
         cmd_ai_help(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-test") == 0) {
+        cmd_ai_test(ctx);
         return 1;
     }
     
