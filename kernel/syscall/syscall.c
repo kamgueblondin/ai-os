@@ -6,6 +6,10 @@
 #include "../elf.h"
 #include "../../fs/initrd.h"
 #include "../mem/string.h"
+#include "../mem/vmm.h"
+// Externs VMM
+extern vmm_directory_t* current_directory;
+extern void vmm_switch_page_directory(uint32_t phys_addr);
 
 // Fonctions externes
 extern void print_string_serial(const char* str);
@@ -25,7 +29,10 @@ void syscall_handler(cpu_state_t* cpu) {
     switch (cpu->eax) {
         case SYS_EXIT:
             current_task->state = TASK_TERMINATED;
-            asm volatile("int $0x30"); // On ne reviendra jamais à cette tâche
+            print_string_serial("[EXIT] task terminated, scheduling...\n");
+            // Basculer directement via l'ordonnanceur en utilisant l'état CPU courant
+            schedule(cpu);
+            // Ne devrait jamais revenir
             break;
         
         case SYS_PUTC:
@@ -65,6 +72,8 @@ void syscall_handler(cpu_state_t* cpu) {
                             print_char(ch, -1, -1, 0x0F);
                         }
                     }
+                    // Garantir un flush visuel minimal
+                    print_char('\n', -1, -1, 0x0F);
                 }
             }
             break;
@@ -80,7 +89,14 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
             
         case SYS_EXEC:
+            print_string_serial("[EXEC] starting child\n");
             cpu->eax = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
+            print_string_serial("[EXEC] child finished\n");
+            break;
+        case SYS_SPAWN:
+            print_string_serial("[SPAWN] starting child\n");
+            cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
+            print_string_serial("[SPAWN] child created\n");
             break;
             
         default:
@@ -101,13 +117,37 @@ void syscall_init() {
 
 // Nouveau: SYS_EXEC - Exécuter un programme
 int sys_exec(const char* path, char* argv[]) {
-    (void)argv; // argv non utilisé pour le moment
-
     task_t* new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
         return -1; // Echec
     }
+
+    // Passer premier argument (question) comme pour spawn
+    if (argv) {
+        char** argv_list = (char**)argv;
+        const char* src = 0;
+        if (argv_list[1]) src = argv_list[1];
+        else if (argv_list[0]) src = argv_list[0];
+        if (src) {
+            char kbuf[256];
+            int n = 0;
+            while (n < 255 && src[n] != '\0') { kbuf[n] = src[n]; n++; }
+            kbuf[n] = '\0';
+            extern vmm_directory_t* current_directory;
+            vmm_directory_t* old_dir = current_directory;
+            vmm_switch_page_directory(new_task->vmm_dir->physical_addr);
+            current_directory = new_task->vmm_dir;
+            char* dst = (char*)(0xB0000000 - 512);
+            for (int i = 0; i <= n; i++) dst[i] = kbuf[i];
+            vmm_switch_page_directory(old_dir->physical_addr);
+            current_directory = old_dir;
+            new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
+        }
+    }
+    // Demander un reschedule immediat
+    extern volatile int g_reschedule_needed;
+    g_reschedule_needed = 1;
 
     // L'exec actuel est bloquant. On attend la fin de la tâche.
     while (new_task->state != TASK_TERMINATED) {
@@ -115,6 +155,43 @@ int sys_exec(const char* path, char* argv[]) {
     }
 
     return 0; // Succès
+}
+
+// Non-bloquant: cree la tache et retourne immediatement 0 si ok, -1 sinon
+int sys_spawn(const char* path, char* argv[]) {
+    task_t* new_task = create_task_from_initrd_file(path);
+    if (!new_task) {
+        return -1;
+    }
+    // Passer au moins un argument texte (preferer argv[1] si present)
+    if (argv) {
+        char** argv_list = (char**)argv;
+        const char* src = 0;
+        if (argv_list[1]) src = argv_list[1];
+        else if (argv_list[0]) src = argv_list[0];
+        if (src) {
+            // Copier jusqu'a 255 octets
+            char kbuf[256];
+            int n = 0;
+            while (n < 255 && src[n] != '\0') { kbuf[n] = src[n]; n++; }
+            kbuf[n] = '\0';
+            // Ecrire dans la pile utilisateur de la nouvelle tache (en haut - 512)
+            vmm_directory_t* old_dir = current_directory;
+            vmm_switch_page_directory(new_task->vmm_dir->physical_addr);
+            current_directory = new_task->vmm_dir;
+            char* dst = (char*)(0xB0000000 - 512);
+            for (int i = 0; i <= n; i++) dst[i] = kbuf[i];
+            // Restaurer
+            vmm_switch_page_directory(old_dir->physical_addr);
+            current_directory = old_dir;
+            // Placer le pointeur dans EBX
+            new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
+        }
+    }
+    // Demander un reschedule immediat pour afficher rapidement la sortie
+    extern volatile int g_reschedule_needed;
+    g_reschedule_needed = 1;
+    return 0;
 }
 
 

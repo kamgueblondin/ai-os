@@ -54,6 +54,20 @@ void add_task_to_queue(task_t* task) {
 // Déclaration de la fonction assembleur pour le changement de contexte
 extern void jump_to_task(cpu_state_t* next_state);
 
+static void unlink_task(task_t* task) {
+    if (!task_queue || !task) return;
+    if (task->next == task) {
+        // Single element in queue
+        task_queue = NULL;
+        current_task = NULL;
+        return;
+    }
+    task->prev->next = task->next;
+    task->next->prev = task->prev;
+    if (task_queue == task) task_queue = task->next;
+    if (current_task == task) current_task = task->next;
+}
+
 void schedule(cpu_state_t* cpu) {
     asm volatile("cli"); // Désactiver les interruptions pour la planification
     if (!current_task) {
@@ -61,8 +75,18 @@ void schedule(cpu_state_t* cpu) {
         return;
     }
 
-    // Sauvegarder l'état de la tâche actuelle
-    memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
+    // Si la tache courante est terminee, ne pas sauver l'etat; retirer de la file
+    if (current_task->state != TASK_TERMINATED) {
+        // Sauvegarder l'état de la tâche actuelle
+        memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
+    } else {
+        print_string_serial("[SCHED] removing terminated task\n");
+        unlink_task(current_task);
+        if (!task_queue) {
+            asm volatile("sti");
+            while(1) asm volatile("hlt");
+        }
+    }
 
     // Si la tâche tournait, elle est maintenant prête à être replanifiée plus tard
     if (current_task->state == TASK_RUNNING) {
@@ -71,7 +95,7 @@ void schedule(cpu_state_t* cpu) {
 
     // Chercher la prochaine tâche prête.
     // C'est un simple ordonnanceur round-robin qui ignore les tâches en attente.
-    task_t* next_task = current_task;
+    task_t* next_task = current_task ? current_task : task_queue;
     while (1) {
         next_task = next_task->next;
 
@@ -96,6 +120,9 @@ void schedule(cpu_state_t* cpu) {
         }
     }
 
+    print_string_serial("[SCHED] switching to task ");
+    write_serial('0' + (next_task->id % 10));
+    print_string_serial("\n");
     current_task = next_task;
     current_task->state = TASK_RUNNING;
 
@@ -118,6 +145,7 @@ void task_exit() {
     if (!current_task) return;
 
     current_task->state = TASK_TERMINATED;
+    print_string_serial("[TASK_EXIT] terminating, scheduling now\n");
 
     // Utiliser l'appel système pour quitter proprement
     // Cela déclenchera le scheduler sans sauvegarder l'état de cette tâche

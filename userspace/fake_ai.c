@@ -1,8 +1,8 @@
 // fake_ai.c - Simulateur d'Intelligence Artificielle pour AI-OS
-// Ce programme simule un moteur d'IA en analysant les mots-clés
-// et en retournant des réponses préprogrammées.
+// Ce programme simule un moteur d'IA en analysant les mots-cles
+// et en retournant des reponses preprogrammees.
 
-// Wrappers pour les appels système
+// Wrappers pour les appels systeme
 void putc(char c) { 
     asm volatile("int $0x80" : : "a"(1), "b"(c)); 
 }
@@ -53,7 +53,7 @@ void to_lowercase(char* str) {
     }
 }
 
-// Fonction pour afficher une chaîne de caractères
+// Fonction pour afficher une chaine de caracteres
 void print_string(const char* str) {
     for (int i = 0; str[i] != '\0'; i++) {
         putc(str[i]);
@@ -72,7 +72,13 @@ void process_query(const char* query) {
     query_lower[i] = '\0';
     to_lowercase(query_lower);
     
-    // Analyse des mots-clés et génération de réponses
+    // Healthcheck explicite
+    if (strcmp(query_lower, "healthcheck") == 0) {
+        print_string("AI HEALTH: OK\n");
+        return;
+    }
+    
+    // Analyse des mots-cles et generation de reponses (ASCII only)
     if (strstr(query_lower, "bonjour") || strstr(query_lower, "salut") || strstr(query_lower, "hello")) {
         print_string("Bonjour ! Je suis l'IA d'AI-OS. Comment puis-je vous aider aujourd'hui ?\n");
     }
@@ -101,7 +107,7 @@ void process_query(const char* query) {
     }
     else if (strstr(query_lower, "systeme") || strstr(query_lower, "os") || strstr(query_lower, "ai-os")) {
         print_string("AI-OS est un systeme d'exploitation experimental concu pour l'IA.\n");
-        print_string("Version actuelle : 4.0 avec shell interactif et simulation IA.\n");
+        print_string("Version actuelle : 6.0 avec shell interactif et simulation IA.\n");
         print_string("Fonctionnalites : multitache, gestion memoire, systeme de fichiers.\n");
     }
     else if (strstr(query_lower, "merci") || strstr(query_lower, "thank")) {
@@ -120,16 +126,17 @@ void process_query(const char* query) {
     }
 }
 
-// Point d'entrée principal
+// Point d'entree principal
 // Note: argc et argv seront fournis par le noyau via SYS_EXEC
 void main(int argc, char* argv[]) {
     if (argc < 2) {
-        print_string("Erreur: Aucune question fournie.\n");
+        // Pas d'arguments: repondre directement pour tester l'executable
+        print_string("AI: received\n");
         exit_program();
+    } else {
+        // Traiter la question fournie en argument (argv non garanti par le noyau)
+        process_query(argv[1]);
     }
-    
-    // Traiter la question fournie en argument
-    process_query(argv[1]);
     
     // Terminer proprement
     exit_program();

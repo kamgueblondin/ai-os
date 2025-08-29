@@ -87,6 +87,12 @@ int exec(const char* path, char* argv[]) {
     return result;
 }
 
+int spawn(const char* path, char* argv[]) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(7), "b"(path), "c"(argv));
+    return result;
+}
+
 void yield() {
     asm volatile("int $0x80" : : "a"(4));
 }
@@ -203,7 +209,7 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->env_count = 0;
     ctx->alias_count = 0;
     ctx->show_colors = 1;
-    ctx->ai_mode = 1;
+    ctx->ai_mode = 0;
     ctx->debug_mode = 0;
     
     // Initialiser quelques variables d'environnement par défaut
@@ -666,21 +672,21 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 // ==============================================================================
 
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
-    print_colored("\n🧠 [IA] ", COLOR_MAGENTA);
-    
-    // Préparer les arguments pour l'IA
+    (void)ctx;
+    // Lancer le vrai binaire IA en tache non-bloquante
     char* argv[3];
     argv[0] = "ai_assistant";
     argv[1] = (char*)query;
-    argv[2] = NULL;
-    
-    // Exécuter le programme IA amélioré
-    int result = exec("ai_assistant", argv);
-    
-    if (result != 0) {
-        print_warning("Assistant IA temporairement indisponible");
-        print_string("   Réponse automatique : Je travaille sur cette question...\n");
+    argv[2] = 0;
+    // Essayer d'abord dans bin/ en mode bloquant pour garantir l'affichage
+    int rc = exec("bin/ai_assistant", argv);
+    if (rc != 0) {
+        rc = exec("ai_assistant", argv);
     }
+    if (rc != 0) {
+        print_colored("\n[IA] indisponible\n", COLOR_YELLOW);
+    }
+    // Assurer un retour de ligne apres la reponse IA
     print_string("\n");
 }
 
@@ -696,7 +702,11 @@ void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
         strcat(full_query, args[i]);
         if (i < arg_count - 1) strcat(full_query, " ");
     }
-    
+    // Echo immediate for visibility
+    print_colored("[IA] ", COLOR_MAGENTA);
+    print_string("question: ");
+    print_string(full_query);
+    print_string("\n");
     call_ai_assistant(ctx, full_query);
 }
 
@@ -745,6 +755,19 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  • Soyez précis dans vos questions\n");
     print_string("  • Mentionnez le contexte si nécessaire\n");
     print_string("  • L'IA apprend de vos interactions\n\n");
+}
+
+// Test IA: lance l'IA avec une requete de sante et verifie le code retour
+static void cmd_ai_test(shell_context_t* ctx) {
+    print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
+    char* argv[2]; argv[0] = "healthcheck"; argv[1] = 0;
+    int rc = spawn("bin/ai_assistant", argv);
+    if (rc == 0) {
+        print_string("AI HEALTH: OK\n");
+        print_colored("[AI-TEST] OK\n", COLOR_GREEN);
+    } else {
+        print_colored("[AI-TEST] FAIL\n", COLOR_RED);
+    }
 }
 
 // ==============================================================================
@@ -807,6 +830,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-help") == 0) {
         cmd_ai_help(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-test") == 0) {
+        cmd_ai_test(ctx);
         return 1;
     }
     
@@ -891,7 +917,7 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     }
     exec_args[arg_count + 1] = NULL;
 
-    // Résolution simple PATH: essayer tel quel, puis bin/<cmd>
+    // Résolution simple PATH: essayer tel quel (bloquant), puis bin/<cmd>
     int result = exec(command, exec_args);
     if (result != 0) {
         char alt[MAX_PATH_LENGTH];
@@ -914,37 +940,13 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
 
 void shell_main_loop(shell_context_t* ctx) {
     char buf[MAX_COMMAND_LENGTH];
-    int idx;
 
     while (1) {
         display_prompt(ctx);
-        idx = 0;
         buf[0] = '\0';
-
-        for(;;){
-            int c = sys_getchar();
-            if (c == '\r' || c == '\n'){
-                putc('\n');
-                handle_line(ctx, buf);
-                break; // sort de la boucle for(;;) pour ré-afficher le prompt
-            }
-            if (c == 0x08 || c == 127){ // Backspace
-                if (idx > 0){
-                    idx--;
-                    buf[idx] = '\0';
-                    backspace();
-                }
-                continue;
-            }
-            // N'accepter que les caractères ASCII imprimables (espace inclus)
-            if (c >= 32 && c <= 126) {
-                if (idx < (int)sizeof(buf) - 1){
-                    buf[idx++] = (char)c;
-                    buf[idx] = '\0';
-                    putc((char)c);
-                }
-            }
-        }
+        // Lecture bloquante et stable de la ligne par le noyau
+        gets(buf, (int)sizeof(buf));
+        handle_line(ctx, buf);
     }
 }
 

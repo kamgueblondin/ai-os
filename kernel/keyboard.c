@@ -163,8 +163,13 @@ void keyboard_poll_check() {
                 print_string_serial(" (mode console)\n");
             }
             
-            // Traiter seulement les key press (pas les releases)
-            if (!(scancode & 0x80)) {
+            // Gérer press/release pour maintenir correctement l'état SHIFT en mode polling
+            if (scancode & 0x80) {
+                // Key release
+                uint8_t rel = scancode;
+                if (rel == 0xAA || rel == 0xB6) { g_shift_pressed = 0; return; } // LSHIFT/RSHIFT release
+                return; // ignorer autres releases
+            } else {
                 // Modifieurs
                 if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }
                 if (scancode == 0x3A) { g_caps_lock = !g_caps_lock; return; }
