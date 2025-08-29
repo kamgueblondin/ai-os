@@ -203,7 +203,7 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->env_count = 0;
     ctx->alias_count = 0;
     ctx->show_colors = 1;
-    ctx->ai_mode = 1;
+    ctx->ai_mode = 0;
     ctx->debug_mode = 0;
     
     // Initialiser quelques variables d'environnement par défaut
