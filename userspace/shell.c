@@ -674,14 +674,14 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
     (void)ctx;
     // Lancer le vrai binaire IA en tache non-bloquante
-    char* argv[2];
-    argv[0] = (char*)query; // passer uniquement la question (argv wiring minimal)
-    argv[1] = 0;
-    // Essayer d'abord dans bin/
-    int rc = spawn("bin/ai_assistant", argv);
+    char* argv[3];
+    argv[0] = "ai_assistant";
+    argv[1] = (char*)query;
+    argv[2] = 0;
+    // Essayer d'abord dans bin/ en mode bloquant pour garantir l'affichage
+    int rc = exec("bin/ai_assistant", argv);
     if (rc != 0) {
-        // Fallback au nom brut si necessaire
-        rc = spawn("ai_assistant", argv);
+        rc = exec("ai_assistant", argv);
     }
     if (rc != 0) {
         print_colored("\n[IA] indisponible\n", COLOR_YELLOW);
@@ -907,7 +907,7 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
         return;
     }
 
-    // Si pas de commande builtin, essayer d'exécuter un programme externe (non-bloquant)
+    // Si pas de commande builtin, essayer d'exécuter un programme externe
     char* exec_args[MAX_ARGS + 2];
     exec_args[0] = command;
     for (int i = 0; i < arg_count; i++) {
@@ -915,13 +915,13 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     }
     exec_args[arg_count + 1] = NULL;
 
-    // Résolution simple PATH: essayer tel quel, puis bin/<cmd>
-    int result = spawn(command, exec_args);
+    // Résolution simple PATH: essayer tel quel (bloquant), puis bin/<cmd>
+    int result = exec(command, exec_args);
     if (result != 0) {
         char alt[MAX_PATH_LENGTH];
         strcpy(alt, "bin/");
         strcat(alt, command);
-        result = spawn(alt, exec_args);
+        result = exec(alt, exec_args);
     }
 
     if (result != 0) {
