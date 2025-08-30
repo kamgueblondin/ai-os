@@ -948,6 +948,7 @@ void shell_main_loop(shell_context_t* ctx) {
     int len;
     int cursor;
     int last_render_len;
+    int last_cursor;
     
     while (1) {
         display_prompt(ctx);
@@ -956,22 +957,25 @@ void shell_main_loop(shell_context_t* ctx) {
         cursor = 0;
 
         last_render_len = 0;
+        last_cursor = 0;
 
-        // Redraw helper: CR, prompt, buffer, pad spaces to clear, then position caret by reprinting prefix
+        // Redraw helper: move back to start-of-buffer (right after prompt), rewrite buffer, pad, then move back to caret
         auto void full_redraw() {
-            // Go to line start
-            print_string("\r");
-            // Reprint prompt and full buffer
-            display_prompt(ctx);
+            // Move caret back to start-of-buffer (after prompt)
+            for (int i = 0; i < last_cursor; i++) putc('\b');
+            // Write full buffer
             print_string(buf);
-            // Clear residual chars from previous render
-            int pad = (last_render_len > len) ? (last_render_len - len) : 0;
-            for (int i = 0; i < pad; i++) putc(' ');
-            // Return to line start and advance to cursor position
-            print_string("\r");
-            display_prompt(ctx);
-            if (cursor > 0) print_substr(buf, 0, cursor);
+            // If line shrank, erase trailing chars from previous render
+            if (last_render_len > len) {
+                int pad = last_render_len - len;
+                for (int i = 0; i < pad; i++) putc(' ');
+                // Move back over the spaces appended so caret ends at end of new buffer
+                for (int i = 0; i < pad; i++) putc('\b');
+            }
+            // Move caret back from end to desired cursor position
+            for (int i = 0; i < (len - cursor); i++) putc('\b');
             last_render_len = len;
+            last_cursor = cursor;
         }
 
         for(;;){
