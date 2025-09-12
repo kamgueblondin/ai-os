@@ -27,7 +27,7 @@ typedef struct {
     test_ring_mode_t ring_mode;
     uint32_t kernel_stack;
     uint32_t user_stack;
-    uint64_t original_cr3;  // 64-bit pour compatibilité
+    uint32_t original_cr3;
     int interrupts_enabled;
     char test_heap[4096];
     size_t heap_used;

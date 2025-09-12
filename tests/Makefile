@@ -2,7 +2,7 @@
 
 # Configuration de base
 CC = gcc
-CFLAGS_BASE = -Wall -Wextra -std=c99 -I. -I.. -I../kernel -I../include
+CFLAGS_BASE = -Wall -Wextra -std=c99 -I. -I.. -I../kernel -I../include -m32
 CFLAGS_KERNEL = $(CFLAGS_BASE) -DUSE_INLINE_ASM -g
 CFLAGS_USER = $(CFLAGS_BASE) -g
 
@@ -174,7 +174,7 @@ install-deps:
 # Nettoyage
 clean:
 	@echo "Cleaning test binaries and logs..."
-	@rm -rf $(BUILD_DIR)/$(TEST_DIR)
+	@rm -rf $(BUILD_DIR)/unit $(BUILD_DIR)/integration $(BUILD_DIR)/system $(BUILD_DIR)/performance $(BUILD_DIR)/robustness
 	@rm -f $(LOG_DIR)/test_results_*.log
 	@echo "Clean completed"
 

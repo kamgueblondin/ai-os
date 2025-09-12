@@ -6,9 +6,9 @@
 set -e  # Exit on any error
 
 # Configuration
-TEST_DIR="/workspace/ai-os/tests"
-BUILD_DIR="/workspace/ai-os/build"
-LOG_DIR="/workspace/ai-os/test_logs"
+TEST_DIR="."
+BUILD_DIR="../build"
+LOG_DIR="../test_logs"
 RESULTS_FILE="$LOG_DIR/test_results_$(date +%Y%m%d_%H%M%S).log"
 
 # Couleurs pour l'affichage
@@ -50,51 +50,29 @@ print_warning() {
     echo -e "${YELLOW}⚠ $1${NC}"
 }
 
-# Fonction pour compiler et exécuter un test
+# Fonction pour exécuter un test
 run_test() {
-    local test_file=$1
+    local test_binary=$1
     local test_name=$2
-    local test_type=$3
     
     echo -n "Running $test_name... "
     
-    # Compiler le test
-    local test_binary="$BUILD_DIR/$(basename $test_file .c)"
-    
-    # Flags de compilation spécialisés selon le type de test
-    local cflags="-I$TEST_DIR -Wall -Wextra -std=c99"
-    
-    if [ "$test_type" == "kernel" ]; then
-        cflags="$cflags -m32 -ffreestanding -nostdlib -fno-pie"
+    local test_output
+    if test_output=$("$test_binary" 2>&1); then
+        echo -e "${GREEN}PASS${NC}"
+        echo "--- Test: $test_name ---" >> "$RESULTS_FILE"
+        echo "$test_output" >> "$RESULTS_FILE"
+        ((PASSED_TESTS++))
+        return 0
     else
-        cflags="$cflags -m32"
+        echo -e "${RED}FAIL${NC}"
+        echo "--- Test: $test_name ---" >> "$RESULTS_FILE"
+        echo "FAILED" >> "$RESULTS_FILE"
+        echo "$test_output" >> "$RESULTS_FILE"
+        echo "---" >> "$RESULTS_FILE"
+        ((FAILED_TESTS++))
+        return 1
     fi
-    
-    # Compiler
-    if gcc $cflags -o "$test_binary" "$test_file" "$TEST_DIR/framework/unity.c" "$TEST_DIR/framework/test_kernel.c" 2>/dev/null; then
-        # Exécuter le test
-        local test_output
-        if test_output=$("$test_binary" 2>&1); then
-            echo -e "${GREEN}PASS${NC}"
-            echo "$test_output" >> "$RESULTS_FILE"
-            ((PASSED_TESTS++))
-            return 0
-        else
-            echo -e "${RED}FAIL${NC}"
-            echo "Test: $test_name" >> "$RESULTS_FILE"
-            echo "$test_output" >> "$RESULTS_FILE"
-            echo "---" >> "$RESULTS_FILE"
-            ((FAILED_TESTS++))
-            return 1
-        fi
-    else
-        echo -e "${YELLOW}COMPILATION_ERROR${NC}"
-        echo "Compilation failed for $test_name" >> "$RESULTS_FILE"
-        ((SKIPPED_TESTS++))
-        return 2
-    fi
-    
-    ((TOTAL_TESTS++))
 }
 
 # Fonction pour exécuter une catégorie de tests
@@ -109,13 +87,20 @@ run_test_category() {
     local category_total=0
     
     # Trouver tous les fichiers de test dans la catégorie
-    for test_file in "$TEST_DIR/$category"/*.c; do
-        if [ -f "$test_file" ]; then
-            local test_name=$(basename "$test_file" .c)
+    local test_bin_dir="$BUILD_DIR/$category"
+    if [ ! -d "$test_bin_dir" ]; then
+        print_warning "No tests found for category '$category' (directory not found: $test_bin_dir)"
+        echo ""
+        return
+    fi
+
+    for test_binary in "$test_bin_dir"/test_*; do
+        if [ -f "$test_binary" ] && [ -x "$test_binary" ]; then
+            local test_name=$(basename "$test_binary")
             ((category_total++))
             ((TOTAL_TESTS++))
             
-            if run_test "$test_file" "$test_name" "$category"; then
+            if run_test "$test_binary" "$test_name"; then
                 ((category_passed++))
             else
                 ((category_failed++))
