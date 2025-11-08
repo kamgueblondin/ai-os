@@ -234,7 +234,6 @@ run-nographic: $(OS_IMAGE) pack-initrd
 	@echo "Utilisez 'make run' pour le mode console optimal"
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-nographic \
-		-chardev stdio,id=serial0 \
 		-m 128M \
 		-no-reboot -no-shutdown
 
