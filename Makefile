@@ -153,7 +153,7 @@ build/userspace_switch.o: boot/userspace_switch.s
 	$(AS) $(ASFLAGS) $< -o $@
 
 # Règle pour empaqueter l'initrd automatiquement
-pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program userspace/ai_assistant
+pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/stress_test
 	@echo "[mkinitrd] Création de l'initrd AI-OS v5.0..."
 	@mkdir -p $(BIN_DEST_DIR)
 	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
@@ -167,6 +167,7 @@ pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program userspace/ai
 	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/fake_ai
 	@cp -f userspace/ai_assistant $(BIN_DEST_DIR)/ai_assistant
 	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
+	@cp -f userspace/stress_test $(BIN_DEST_DIR)/stress_test
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
 
@@ -210,7 +211,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-userspace/shell userspace/fake_ai userspace/test_program:
+userspace/shell userspace/fake_ai userspace/test_program userspace/stress_test:
 	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
 	@$(MAKE) -C userspace all
 
@@ -233,7 +234,7 @@ run-nographic: $(OS_IMAGE) pack-initrd
 	@echo "=== Mode NOGRAPHIC - Clavier peut être limité ==="
 	@echo "Utilisez 'make run' pour le mode console optimal"
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-nographic \
+		-display none -serial stdio -monitor none \
 		-m 128M \
 		-no-reboot -no-shutdown
 
