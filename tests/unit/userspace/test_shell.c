@@ -11,8 +11,8 @@ static int mock_input_pos = 0;
 static int mock_input_len = 0;
 
 // Mock syscall implementations
-void putc(char c) {
-    if (mock_output_pos < sizeof(mock_output_buffer) - 1) {
+void unity_putc_redirect(char c) {
+    if (mock_output_pos < (int)sizeof(mock_output_buffer) - 1) {
         mock_output_buffer[mock_output_pos++] = c;
         mock_output_buffer[mock_output_pos] = '\0';
     }
@@ -367,7 +367,12 @@ void test_shell_clear_command(void) {
 // === TESTS DE L'HISTORIQUE ===
 
 void test_history_add_command(void) {
-    test_command_history_t history = {{0}, 0, 0};
+    test_command_history_t history;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<MAX_COMMAND_LENGTH; j++) history.commands[i][j] = 0;
+    }
+    history.count = 0;
+    history.current = 0;
     
     strcpy(history.commands[history.count], "test command");
     history.count++;
@@ -377,7 +382,12 @@ void test_history_add_command(void) {
 }
 
 void test_history_multiple_commands(void) {
-    test_command_history_t history = {{0}, 0, 0};
+    test_command_history_t history;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<MAX_COMMAND_LENGTH; j++) history.commands[i][j] = 0;
+    }
+    history.count = 0;
+    history.current = 0;
     
     const char* test_commands[] = {"ls", "help", "echo hello"};
     const int num_commands = 3;
@@ -394,14 +404,17 @@ void test_history_multiple_commands(void) {
 }
 
 void test_history_overflow(void) {
-    test_command_history_t history = {{0}, 0, 0};
+    test_command_history_t history;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<MAX_COMMAND_LENGTH; j++) history.commands[i][j] = 0;
+    }
+    history.count = 0;
+    history.current = 0;
     
     // Remplir l'historique au maximum
     for (int i = 0; i < 10; i++) {
         // Créer des noms de commande manuellement
         strcpy(history.commands[i], "command_");
-        char num_str[8];
-        // Conversion simple int vers string
         if (i == 0) strcat(history.commands[i], "0");
         else if (i == 1) strcat(history.commands[i], "1");
         else if (i == 2) strcat(history.commands[i], "2");
@@ -416,7 +429,18 @@ void test_history_overflow(void) {
 // === TESTS DES VARIABLES D'ENVIRONNEMENT ===
 
 void test_env_var_set(void) {
-    test_shell_context_t context = {{0}, {{0}, 0, 0}, {{0}}, 0};
+    test_shell_context_t context;
+    for(int i=0; i<128; i++) context.current_dir[i] = 0;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<MAX_COMMAND_LENGTH; j++) context.history.commands[i][j] = 0;
+    }
+    context.history.count = 0;
+    context.history.current = 0;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<32; j++) context.env_vars[i].name[j] = 0;
+        for(int j=0; j<128; j++) context.env_vars[i].value[j] = 0;
+    }
+    context.env_count = 0;
     
     strcpy(context.env_vars[0].name, "PATH");
     strcpy(context.env_vars[0].value, "/bin:/usr/bin");
@@ -428,7 +452,18 @@ void test_env_var_set(void) {
 }
 
 void test_env_var_get(void) {
-    test_shell_context_t context = {{0}, {{0}, 0, 0}, {{0}}, 0};
+    test_shell_context_t context;
+    for(int i=0; i<128; i++) context.current_dir[i] = 0;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<MAX_COMMAND_LENGTH; j++) context.history.commands[i][j] = 0;
+    }
+    context.history.count = 0;
+    context.history.current = 0;
+    for(int i=0; i<10; i++) {
+        for(int j=0; j<32; j++) context.env_vars[i].name[j] = 0;
+        for(int j=0; j<128; j++) context.env_vars[i].value[j] = 0;
+    }
+    context.env_count = 0;
     
     strcpy(context.env_vars[0].name, "HOME");
     strcpy(context.env_vars[0].value, "/home/user");

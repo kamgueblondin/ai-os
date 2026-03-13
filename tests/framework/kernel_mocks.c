@@ -1,6 +1,7 @@
 /* kernel_mocks.c - Mocks simples pour les fonctions kernel manquantes */
 
 #include <stdint.h>
+#include <stddef.h>
 
 // Mock pour syscall_handler
 typedef struct {

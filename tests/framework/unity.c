@@ -6,7 +6,9 @@
 unity_stats_t unity_stats;
 
 // Fonctions externes pour l'output (définies dans le kernel ou stubs)
-extern void putc(char c);
+void __attribute__((weak)) unity_putc_redirect(char c) {
+    putchar(c);
+}
 extern void print_string(const char* str);
 
 // Initialization du framework

@@ -45,20 +45,13 @@ void test_kernel_cleanup(void) {
 }
 
 void test_kernel_save_state(void) {
-    // Sauvegarder CR3 (page directory) - 64-bit version
-    __asm__ volatile("mov %%cr3, %0" : "=r"(test_context.original_cr3));
-    
-    // Sauvegarder l'état des interruptions - 64-bit version
-    uint64_t rflags;
-    __asm__ volatile("pushfq; pop %0" : "=r"(rflags));
-    test_context.interrupts_enabled = (rflags & 0x200) != 0;
+    // Mock save state - skip privileged instructions in unit tests
+    test_context.original_cr3 = 0;
+    test_context.interrupts_enabled = 0;
 }
 
 void test_kernel_restore_state(void) {
-    // Restaurer CR3 - 64-bit version
-    if (test_context.original_cr3 != 0) {
-        __asm__ volatile("mov %0, %%cr3" :: "r"(test_context.original_cr3));
-    }
+    // Mock restore state - skip privileged instructions in unit tests
     
     // Restaurer l'état des interruptions
     if (test_context.interrupts_enabled) {

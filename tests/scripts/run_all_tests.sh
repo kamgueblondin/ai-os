@@ -6,9 +6,11 @@
 set -e  # Exit on any error
 
 # Configuration
-TEST_DIR="/workspace/ai-os/tests"
-BUILD_DIR="/workspace/ai-os/build"
-LOG_DIR="/workspace/ai-os/test_logs"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TEST_DIR="$BASE_DIR/tests"
+BUILD_DIR="$BASE_DIR/build"
+LOG_DIR="$BASE_DIR/test_logs"
 RESULTS_FILE="$LOG_DIR/test_results_$(date +%Y%m%d_%H%M%S).log"
 
 # Couleurs pour l'affichage
@@ -56,6 +58,7 @@ run_test() {
     local test_name=$2
     local test_type=$3
     
+    echo "DEBUG: run_test $test_name" >> "$RESULTS_FILE"
     echo -n "Running $test_name... "
     
     # Compiler le test
@@ -71,7 +74,8 @@ run_test() {
     fi
     
     # Compiler
-    if gcc $cflags -o "$test_binary" "$test_file" "$TEST_DIR/framework/unity.c" "$TEST_DIR/framework/test_kernel.c" 2>/dev/null; then
+    echo "gcc $cflags -o \"$test_binary\" \"$test_file\" \"$TEST_DIR/framework/unity.c\" \"$TEST_DIR/framework/test_kernel.c\" \"$TEST_DIR/framework/kernel_mocks.c\"" >> "$RESULTS_FILE"
+    if gcc $cflags -o "$test_binary" "$test_file" "$TEST_DIR/framework/unity.c" "$TEST_DIR/framework/test_kernel.c" "$TEST_DIR/framework/kernel_mocks.c" 2>> "$RESULTS_FILE"; then
         # Exécuter le test
         local test_output
         if test_output=$("$test_binary" 2>&1); then
@@ -113,7 +117,6 @@ run_test_category() {
         if [ -f "$test_file" ]; then
             local test_name=$(basename "$test_file" .c)
             ((category_total++))
-            ((TOTAL_TESTS++))
             
             if run_test "$test_file" "$test_name" "$category"; then
                 ((category_passed++))

@@ -1,10 +1,16 @@
 /* test_pmm.c - Tests unitaires pour le Physical Memory Manager */
 
+#include <stdio.h>
 #include "../../framework/unity.h"
 #include "../../framework/test_kernel.h"
 
 // Include du module à tester
 #include "../../../kernel/mem/pmm.h"
+
+// Redefine end symbol for testing
+uint32_t end;
+uint8_t test_memory_pool[1024 * 1024 * 2]; // 2MB pool for testing
+
 #include "../../../kernel/mem/pmm.c"
 
 // === SETUP ET TEARDOWN ===
@@ -19,13 +25,21 @@ void tearDown(void) {
     test_kernel_cleanup();
 }
 
+// Helper to init for other tests
+void init_pmm_for_test(uint32_t size) {
+    printf("init_pmm_for_test size=%u\n", size);
+    end = (uint32_t)test_memory_pool;
+    multiboot_info_t mbi;
+    mbi.flags = 0;
+    printf("Calling pmm_init...\n");
+    pmm_init(size, (uint32_t)&mbi);
+    printf("pmm_init done\n");
+}
+
 // === TESTS D'INITIALISATION ===
 
 void test_pmm_init_basic(void) {
-    uint32_t memory_size = 128 * 1024 * 1024; // 128 MB
-    uint32_t multiboot_addr = 0x100000; // 1MB
-    
-    pmm_init(memory_size, multiboot_addr);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     // Vérifier que l'initialisation s'est bien passée
     TEST_ASSERT_GREATER_THAN(0, pmm_get_total_pages());
@@ -35,16 +49,16 @@ void test_pmm_init_basic(void) {
 
 void test_pmm_init_boundary_conditions(void) {
     // Test avec mémoire minimale
-    pmm_init(4 * 1024 * 1024, 0x100000); // 4MB minimum
+    init_pmm_for_test(4 * 1024 * 1024); // 4MB minimum
     TEST_ASSERT_GREATER_THAN(0, pmm_get_free_pages());
     
     // Reset pour test suivant
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
 }
 
 void test_pmm_bitmap_integrity(void) {
-    uint32_t memory_size = 128 * 1024 * 1024;
-    pmm_init(memory_size, 0x100000);
+    uint32_t memory_size = 1 * 1024 * 1024;
+    init_pmm_for_test(memory_size);
     
     // Vérifier que le bitmap est correctement initialisé
     uint32_t total_pages = pmm_get_total_pages();
@@ -61,7 +75,7 @@ void test_pmm_bitmap_integrity(void) {
 // === TESTS D'ALLOCATION ===
 
 void test_pmm_alloc_single_page(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     uint32_t free_pages_before = pmm_get_free_pages();
     
@@ -75,7 +89,7 @@ void test_pmm_alloc_single_page(void) {
 }
 
 void test_pmm_alloc_multiple_pages(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     const int num_allocs = 10;
     void* pages[num_allocs];
@@ -99,7 +113,7 @@ void test_pmm_alloc_multiple_pages(void) {
 
 void test_pmm_alloc_until_exhaustion(void) {
     // Test avec une petite quantité de mémoire pour épuiser rapidement
-    pmm_init(8 * 1024 * 1024, 0x100000); // 8MB
+    init_pmm_for_test(512 * 1024); // 512KB
     
     int allocated_count = 0;
     void* page;
@@ -127,7 +141,7 @@ void test_pmm_alloc_until_exhaustion(void) {
 // === TESTS DE LIBÉRATION ===
 
 void test_pmm_free_single_page(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     void* page = pmm_alloc_page();
     TEST_ASSERT_NOT_NULL(page);
@@ -141,7 +155,7 @@ void test_pmm_free_single_page(void) {
 }
 
 void test_pmm_free_multiple_pages(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     const int num_pages = 5;
     void* pages[num_pages];
@@ -164,7 +178,7 @@ void test_pmm_free_multiple_pages(void) {
 }
 
 void test_pmm_free_null_pointer(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     uint32_t free_pages_before = pmm_get_free_pages();
     
@@ -176,7 +190,7 @@ void test_pmm_free_null_pointer(void) {
 }
 
 void test_pmm_free_invalid_address(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     uint32_t free_pages_before __attribute__((unused)) = pmm_get_free_pages();
     
@@ -192,7 +206,7 @@ void test_pmm_free_invalid_address(void) {
 // === TESTS D'ALLOCATION/LIBÉRATION CYCLIQUE ===
 
 void test_pmm_alloc_free_cycle(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     uint32_t initial_free = pmm_get_free_pages();
     
@@ -210,7 +224,7 @@ void test_pmm_alloc_free_cycle(void) {
 }
 
 void test_pmm_fragmentation_resistance(void) {
-    pmm_init(64 * 1024 * 1024, 0x100000); // 64MB
+    init_pmm_for_test(1 * 1024 * 1024);
     
     const int num_pages = 20;
     void* pages[num_pages];
@@ -244,7 +258,7 @@ void test_pmm_fragmentation_resistance(void) {
 // === TESTS DE PERFORMANCE ===
 
 void test_pmm_allocation_performance(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     test_benchmark_t bench;
     test_benchmark_start(&bench, "PMM Single Page Allocation");
@@ -260,7 +274,7 @@ void test_pmm_allocation_performance(void) {
 }
 
 void test_pmm_batch_allocation_performance(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     const uint32_t batch_size = 100;
     void* pages[batch_size];
@@ -286,7 +300,7 @@ void test_pmm_batch_allocation_performance(void) {
 // === TESTS DE ROBUSTESSE ===
 
 void test_pmm_double_free_detection(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     void* page = pmm_alloc_page();
     TEST_ASSERT_NOT_NULL(page);
@@ -304,7 +318,7 @@ void test_pmm_double_free_detection(void) {
 }
 
 void test_pmm_memory_corruption_detection(void) {
-    pmm_init(128 * 1024 * 1024, 0x100000);
+    init_pmm_for_test(1 * 1024 * 1024);
     
     void* page = pmm_alloc_page();
     TEST_ASSERT_NOT_NULL(page);
@@ -328,15 +342,14 @@ void test_pmm_memory_corruption_detection(void) {
 
 void test_pmm_integration_with_multiboot(void) {
     // Simuler différents layouts mémoire multiboot
-    uint32_t memory_configs[][2] = {
-        {16 * 1024 * 1024, 0x100000},  // 16MB
-        {32 * 1024 * 1024, 0x100000},  // 32MB
-        {64 * 1024 * 1024, 0x100000},  // 64MB
-        {128 * 1024 * 1024, 0x100000}, // 128MB
+    uint32_t memory_configs[] = {
+        256 * 1024,
+        512 * 1024,
+        1024 * 1024,
     };
     
-    for (int i = 0; i < 4; i++) {
-        pmm_init(memory_configs[i][0], memory_configs[i][1]);
+    for (int i = 0; i < 3; i++) {
+        init_pmm_for_test(memory_configs[i]);
         
         TEST_ASSERT_GREATER_THAN(0, pmm_get_total_pages());
         TEST_ASSERT_GREATER_THAN(0, pmm_get_free_pages());
@@ -351,7 +364,9 @@ void test_pmm_integration_with_multiboot(void) {
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
+    printf("Starting main\n");
     unity_init();
+    printf("unity_init done\n");
     
     // Tests d'initialisation
     RUN_TEST(test_pmm_init_basic);
