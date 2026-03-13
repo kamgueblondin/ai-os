@@ -53,6 +53,7 @@ void unity_test_ignore(const char* message);
 
 // Fonctions utilitaires
 void unity_print_char(char c);
+#define putc unity_putc_redirect
 void unity_print_string(const char* str);
 void unity_print_number(uint32_t number);
 void unity_print_hex(uint32_t number);
