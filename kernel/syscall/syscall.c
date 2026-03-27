@@ -7,6 +7,7 @@
 #include "../../fs/initrd.h"
 #include "../mem/string.h"
 #include "../mem/vmm.h"
+#include "../mem/heap.h"
 // Externs VMM
 extern vmm_directory_t* current_directory;
 extern void vmm_switch_page_directory(uint32_t phys_addr);
@@ -70,10 +71,12 @@ void syscall_handler(cpu_state_t* cpu) {
                         // Filtrer les non-imprimables (sauf \n, \r, \t)
                         if ((ch >= 32 && ch <= 126) || ch == '\n' || ch == '\r' || ch == '\t') {
                             print_char(ch, -1, -1, 0x0F);
+                            write_serial(ch);
                         }
                     }
                     // Garantir un flush visuel minimal
                     print_char('\n', -1, -1, 0x0F);
+                    write_serial('\n');
                 }
             }
             break;
@@ -97,6 +100,14 @@ void syscall_handler(cpu_state_t* cpu) {
             print_string_serial("[SPAWN] starting child\n");
             cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
             print_string_serial("[SPAWN] child created\n");
+            break;
+
+        case SYS_MALLOC:
+            cpu->eax = (uint32_t)kmalloc(cpu->ebx);
+            break;
+
+        case SYS_FREE:
+            kfree((void*)cpu->ebx);
             break;
             
         default:

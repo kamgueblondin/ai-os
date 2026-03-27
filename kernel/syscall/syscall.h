@@ -13,9 +13,11 @@
 #define SYS_GETS    5  // Nouveau: Lire une ligne depuis le clavier
 #define SYS_EXEC    6  // Nouveau: Exécuter un programme (bloquant)
 #define SYS_SPAWN   7  // Nouveau: Lancer un programme (non-bloquant)
+#define SYS_MALLOC  8  // Allouer de la mémoire
+#define SYS_FREE    9  // Libérer de la mémoire
 
 // Nombre total d'appels système
-#define MAX_SYSCALLS 8
+#define MAX_SYSCALLS 10
 
 // Structure pour passer les paramètres des syscalls
 typedef struct {
