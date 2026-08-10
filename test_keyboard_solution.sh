@@ -13,7 +13,8 @@ echo ""
 read -p "Appuyez sur Entrée pour lancer le test graphique..."
 
 # Lancer avec interface graphique pour test interactif
-cd /workspace/ai-os
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar \
     -m 256M -vga std \
     -machine type=pc,accel=tcg \

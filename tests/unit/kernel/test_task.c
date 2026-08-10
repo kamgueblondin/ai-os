@@ -7,7 +7,7 @@
 #include "../../../kernel/task/task.h"
 
 // Mock des dépendances
-static int mock_task_switch_called = 0;
+extern int mock_task_switch_called;
 static task_t* mock_current_task = NULL;
 static task_t* mock_task_queue = NULL;
 

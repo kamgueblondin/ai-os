@@ -6,7 +6,9 @@ echo "Date: $(date)"
 echo "Objectif: Identifier l'exact point de blocage du clavier"
 echo ""
 
-cd /workspace/ai-os
+# Déterminer le dossier du script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Créer un fichier de log pour capturer tous les debug
 LOG_FILE="debug_temps_reel_$(date +%s).log"

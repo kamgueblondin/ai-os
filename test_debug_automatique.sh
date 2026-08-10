@@ -5,7 +5,9 @@ echo "========================================"
 echo "Date: $(date)"
 echo ""
 
-cd /workspace/ai-os
+# Déterminer le dossier du script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Créer un fichier de log unique
 LOG_FILE="debug_auto_$(date +%s).log"

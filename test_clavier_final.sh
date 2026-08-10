@@ -3,7 +3,9 @@
 echo "=== TEST INTERACTIF DU CLAVIER AI-OS ==="
 echo "Lancement d'AI-OS avec test automatique..."
 
-cd /workspace/ai-os
+# Déterminer le dossier du script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Test avec commandes simulées
 {

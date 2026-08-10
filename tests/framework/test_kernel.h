@@ -29,7 +29,7 @@ typedef struct {
     uint32_t user_stack;
     uint64_t original_cr3;  // 64-bit pour compatibilité
     int interrupts_enabled;
-    char test_heap[4096];
+    char test_heap[256 * 1024]; // Increased heap size for performance and stress testing
     size_t heap_used;
 } test_kernel_context_t;
 

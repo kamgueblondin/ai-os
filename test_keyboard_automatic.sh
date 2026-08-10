@@ -4,7 +4,9 @@ echo "=== Test Automatique du Clavier AI-OS ==="
 echo "Test des corrections appliquées au système de clavier"
 echo ""
 
-cd /workspace/ai-os
+# Déterminer le dossier du script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # Test 1: Vérifier que le système démarre sans erreurs
 echo "[TEST 1] Compilation et démarrage système..."
@@ -35,10 +37,10 @@ echo ""
 echo "=== ANALYSE DES RÉSULTATS ==="
 
 # Vérifications
-INIT_OK=$(grep -c "CLAVIER PS/2 INITIALISE" test_output.log)
-IRQ_ACTIVE=$(grep -c "IRQ1 (clavier): ACTIVE" test_output.log)
+INIT_OK=$(grep -c "KEYBOARD INIT COMPLETE" test_output.log)
+IRQ_ACTIVE=$(grep -c "IRQ1 (keyboard): OK" test_output.log)
 SHELL_READY=$(grep -c "Shell trouve" test_output.log)
-INTERRUPTS=$(grep -c "v=21" test_output.log)
+INTERRUPTS=$(grep -c "KBD_IRQ" test_output.log)
 
 echo "📊 Statistiques du système :"
 echo "   - Initialisation clavier : $INIT_OK/1"

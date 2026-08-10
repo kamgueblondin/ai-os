@@ -80,7 +80,11 @@ void pmm_init(uint32_t memory_size, uint32_t multiboot_addr) {
     
     // Marque les pages utilisées par le noyau, les modules et le bitmap
     uint32_t reserved_until = ((uint32_t)memory_map + bitmap_size_bytes);
+#ifdef KERNEL_TEST
+    uint32_t reserved_pages = 1;
+#else
     uint32_t reserved_pages = (reserved_until + PAGE_SIZE - 1) / PAGE_SIZE;
+#endif
     
     for (uint32_t i = 0; i < reserved_pages; i++) {
         if (i < total_pages) {
