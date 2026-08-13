@@ -138,7 +138,7 @@ make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : overlay (identique à #73) puis extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Séparer les boots évite les touches fantômes (`cd ..` → `ccd ..`) quand la liste initiale s’allonge. `[` est branché, non tapé. `aitest` / `head` / `tail` / `sort` hors smoke. Timeouts : 180 s overlay + 90 s extras.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : overlay (identique à #73) puis extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Séparer les boots évite les touches fantômes (`cd ..` → `ccd ..`) quand la liste initiale s’allonge. `[` est branché, non tapé. `aitest` / `head` / `tail` / `sort` hors smoke. Timeouts : 210 s overlay (sendkey 0.20 s) + 90 s extras.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

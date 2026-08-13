@@ -101,7 +101,7 @@ def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
         drain_monitor(mon)
-        time.sleep(0.16)
+        time.sleep(0.20)
 
 
 def dump_logs():

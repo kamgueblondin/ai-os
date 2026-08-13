@@ -11,7 +11,7 @@ cd "$ROOT"
 
 KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
-OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-180}"
+OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-210}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
