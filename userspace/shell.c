@@ -1533,8 +1533,14 @@ static void cmd_export(shell_context_t* ctx, char args[][128], int arg_count) {
             for (i = 0; i < nlen; i++) name[i] = args[0][i];
             name[nlen] = 0;
             set_env_var(ctx, name, eq + 1);
+            print_string("export ok ");
+            print_string(name);
+            print_string("\n");
         } else if (arg_count >= 2) {
             set_env_var(ctx, args[0], args[1]);
+            print_string("export ok ");
+            print_string(args[0]);
+            print_string("\n");
         } else {
             print_error("export: usage export VAR=valeur");
         }
