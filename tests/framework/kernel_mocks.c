@@ -6,6 +6,7 @@
 #include "kernel/mem/vmm.h"
 #include "kernel/task/task.h"
 #include "kernel/syscall/syscall.h"
+#include "kernel/ata.h"
 #include "fs/overlay.h"
 
 // === GESTION MÉMOIRE MOCKS ===
@@ -586,4 +587,26 @@ void syscall_handler(cpu_state_t* state) {
         default:
             break;
     }
+}
+
+int ata_init(void) {
+    return -1;
+}
+
+int ata_present(void) {
+    return 0;
+}
+
+int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
+    (void)lba;
+    (void)count;
+    (void)buf;
+    return -1;
+}
+
+int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
+    (void)lba;
+    (void)count;
+    (void)buf;
+    return -1;
 }

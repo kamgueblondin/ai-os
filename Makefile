@@ -15,6 +15,9 @@ ASFLAGS = -f elf32
 OS_IMAGE = build/ai_os.bin
 ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
+DISK_IMAGE ?= build/overlay.img
+DISK_SECTORS ?= 64
+QEMU_DISK_OPTS = -drive file=$(DISK_IMAGE),format=raw,if=ide,cache=writethrough
 MODEL_DIR ?= models
 GPT2_MODEL ?= $(MODEL_DIR)/gpt2_124M.bin
 # GPT-2 124M charge ses 475 Mio de poids depuis l'initrd; 1 Gio est le minimum valide.
@@ -28,11 +31,11 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
-# Cible par défaut : construire le système complet (noyau + initrd)
-all: $(OS_IMAGE) pack-initrd
+# Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
+all: $(OS_IMAGE) pack-initrd disk
 	@echo "=== AI-OS v7 - Système avec GPT-2 local construit ==="
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
@@ -143,7 +146,11 @@ build/initrd.o: fs/initrd.c fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/overlay.o: fs/overlay.c fs/overlay.h fs/initrd.h
+build/overlay.o: fs/overlay.c fs/overlay.h fs/initrd.h kernel/ata.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/ata.o: kernel/ata.c kernel/ata.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -261,8 +268,8 @@ iso: check-iso-deps $(OS_IMAGE) pack-initrd
 	@echo "ISO générée: $(ISO_IMAGE)"
 
 # Lancer l'ISO avec QEMU (boot CD)
-run-iso: iso
-	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m $(GPT2_RAM) -cpu pentium3 -no-reboot -no-shutdown
+run-iso: iso disk
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m $(GPT2_RAM) -cpu pentium3 -no-reboot -no-shutdown $(QEMU_DISK_OPTS)
 
 iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
@@ -271,28 +278,28 @@ iso-clean:
 user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
-run: $(OS_IMAGE) pack-initrd
+run: $(OS_IMAGE) pack-initrd disk
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
 		-m $(GPT2_RAM) -cpu pentium3 \
-		-no-reboot -no-shutdown
+		-no-reboot -no-shutdown $(QEMU_DISK_OPTS)
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
-run-gui: $(OS_IMAGE) pack-initrd
+run-gui: $(OS_IMAGE) pack-initrd disk
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-m $(GPT2_RAM) -cpu pentium3 -vga std \
 		-display gtk \
-		-no-reboot -no-shutdown
+		-no-reboot -no-shutdown $(QEMU_DISK_OPTS)
 
 # Alternative nographic (si curses ne fonctionne pas)
-run-nographic: $(OS_IMAGE) pack-initrd
+run-nographic: $(OS_IMAGE) pack-initrd disk
 	@echo "=== Mode NOGRAPHIC - Clavier peut être limité ==="
 	@echo "Utilisez 'make run' pour le mode console optimal"
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-nographic \
 		-chardev stdio,id=serial0 \
 		-m $(GPT2_RAM) -cpu pentium3 \
-		-no-reboot -no-shutdown
+		-no-reboot -no-shutdown $(QEMU_DISK_OPTS)
 
 # Cible pour tester le clavier avec GUI et capture des logs série
 run-kbd-gui-test: $(OS_IMAGE) pack-initrd
@@ -409,8 +416,16 @@ ci-tests: $(OS_IMAGE) pack-initrd
 	@echo "=== Tests d'intégration continue ==="
 	@$(MAKE) -C tests ci-test
 
+# Image disque IDE brute (snapshot overlay). Recréee seulement si absente.
+$(DISK_IMAGE):
+	@mkdir -p $(dir $@)
+	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+
+.PHONY: disk
+disk: $(DISK_IMAGE)
+
 # Boot QEMU headless, tape ls/cat/ps/uptime (sendkey), exige l'initrd et le noyau.
-qemu-smoke: $(OS_IMAGE) pack-initrd
+qemu-smoke: $(OS_IMAGE) pack-initrd disk
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
 
@@ -435,7 +450,7 @@ help:
 	@echo ""
 	@echo "Cibles principales:"
 	@echo "  deps         - Installe les paquets hôte (scripts/bootstrap-dev.sh)"
-	@echo "  all          - Compile le système complet (noyau + initrd + programmes)"
+	@echo "  all          - Compile le système complet (noyau + initrd + disque overlay)"
 	@echo "  kernel-only  - Compile seulement le noyau"
 	@echo "  run          - Compile et exécute avec QEMU (mode texte)"
 	@echo "  run-gui      - Compile et exécute avec QEMU (mode graphique)"
@@ -453,7 +468,8 @@ help:
 	@echo "  test-kernel     - Tests des modules kernel uniquement"
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
-	@echo "  qemu-smoke      - Boot QEMU headless, vérifie le shell (log série)"
+	@echo "  qemu-smoke      - Boots QEMU : overlay, extras shell, persist disque"
+	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"
 	@echo "  gpt2-tests      - Modèle requis : recovery + benchmark GPT-2"
@@ -479,7 +495,7 @@ help:
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # 134 tests Unity avant push"
+	@echo "  make test-all             # 140 tests Unity avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk
 

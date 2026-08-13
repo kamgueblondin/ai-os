@@ -5,7 +5,7 @@
 [![CI](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml/badge.svg)](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-AI-OS est un **prototype de hobby OS i386 32-bit** (Multiboot). Il boote sous QEMU, isole Ring 0/3 et lance un shell ELF. Le noyau charge un initrd TAR, fournit un overlay RAM non persistant et expose une ABI de syscalls (`include/os_syscalls.h`).
+AI-OS est un **prototype de hobby OS i386 32-bit** (Multiboot). Il boote sous QEMU, isole Ring 0/3 et lance un shell ELF. Le noyau charge un initrd TAR, fournit un overlay RAM persisté sur un disque IDE QEMU et expose une ABI de syscalls (`include/os_syscalls.h`).
 
 Un moteur **GPT-2 124M freestanding** est optionnel : si les poids sont présents dans `models/` au moment du `make all` / `make iso`, ils sont empaquetés dans l'initrd et `ai <texte>` appelle `SYS_GPT2_GENERATE`. Sans ces fichiers, le shell et les tests unitaires restent utilisables.
 
@@ -15,12 +15,12 @@ La branche par défaut est **`master`**.
 
 ## Fonctionnalités
 
-- **Shell Ring 3** - prompt `/ (-.-) :`. `ls`/`cat` lisent initrd + overlay ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write`/`append` mutent l'overlay (pas de disque persistant). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
+- **Shell Ring 3** - prompt `/ (-.-) :`. `ls`/`cat` lisent initrd + overlay ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write`/`append` mutent l'overlay (snapshot ATA PIO si un disque IDE est présent). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
 - **GPT-2 local optionnel** - `ai <texte>` -> `[GPT-2 local]` si le checkpoint est dans l'initrd ; sinon message d'indisponibilité. Le binaire historique `bin/ai_assistant` reste empaqueté.
 - **Isolation** - GDT/IDT, Ring 0/3, chargeur ELF, syscalls (0-22, `MAX_SYSCALLS` = 23).
 - **Tâches** - passage kernel -> shell via `jump_to_task()` ; le round-robin à chaque tick PIT n'est pas le mode actuel.
-- **Fichiers** - initrd TAR en lecture seule + overlay RAM 32 nœuds. Pas de FS persistant.
-- **Matériel QEMU** - PIC, clavier PS/2, PIT 100 Hz. Historique clavier (EOI IRQ0) : [docs/ETAT_REEL.md](docs/ETAT_REEL.md).
+- **Fichiers** - initrd TAR en lecture seule + overlay RAM 32 nœuds (fichiers <= 256 octets). Snapshot persisté sur le disque IDE QEMU (`build/overlay.img`) en ATA PIO LBA28, sans IRQ14.
+- **Matériel QEMU** - PIC, clavier PS/2, PIT 100 Hz, IDE primaire (maître). Historique clavier (EOI IRQ0) : [docs/ETAT_REEL.md](docs/ETAT_REEL.md).
 
 Ce n'est **pas** un OS du quotidien : pas de réseau, pas de TLS/OpenAI effectif, pas d'interface graphique native.
 
@@ -33,7 +33,7 @@ git clone https://github.com/kamgueblondin/ai-os.git
 cd ai-os
 make deps          # ou : bash scripts/bootstrap-dev.sh
 make all
-make test-all      # 134 tests Unity, sans poids GPT-2
+make test-all      # 140 tests Unity, sans poids GPT-2
 make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port série
 ```
 
@@ -41,9 +41,9 @@ make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port sé
 
 | Cible | Rôle |
 |---|---|
-| `make all` | Noyau + initrd |
-| `make test-all` | Unity 32-bit (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_shell` 25, `test_ramfs` 10) |
-| `make qemu-smoke` | Deux boots QEMU (overlay + extras shell), sans modèle |
+| `make all` | Noyau + initrd + `build/overlay.img` (disque IDE 32 Kio) |
+| `make test-all` | Unity 32-bit (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10) |
+| `make qemu-smoke` | Trois boots QEMU (overlay + extras shell + persist disque), sans modèle |
 | `make ci` | `all` + `test-all` + `qemu-smoke` (gate PR) |
 | `make run` / `make run-gui` | Session interactive (voir [docs/GUIDE_EXECUTION.md](docs/GUIDE_EXECUTION.md)) |
 
@@ -94,7 +94,7 @@ make qemu-smoke    # smoke QEMU (CI)
 make ci            # même gate que GitHub Actions
 ```
 
-Unity 32-bit : **134** tests (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10). Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affiches par d'anciens scripts ne sont pas mesures par gcov.
+Unity 32-bit : **140** tests (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10). Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affiches par d'anciens scripts ne sont pas mesures par gcov.
 
 GitHub Actions (`.github/workflows/ci.yml`) : à chaque push/PR vers `master` (et `main` si la branche est renommée) - `make all`, `make test-all`, `make qemu-smoke`.
 
@@ -111,7 +111,7 @@ ai-os/
 │   ├── syscall/
 │   ├── input/            # buffer clavier
 │   └── llm/              # GPT-2 freestanding
-├── fs/                   # initrd TAR + overlay RAM
+├── fs/                   # initrd TAR + overlay RAM (snapshot IDE)
 ├── userspace/            # shell, idle, fake_ai, ai_assistant
 ├── include/              # ABI syscalls
 ├── initrd_content/       # contenu empaqueté dans my_initrd.tar
@@ -129,9 +129,10 @@ Le dossier [`US/`](US/README.md) décrit la vision MOHHOS (spécifications, pas 
 
 - [x] Inférence GPT-2 locale + cache KV / SSE2
 - [x] Tokenizer BPE GPT-2 (entree et sortie)
+- [x] Overlay persisté (snapshot ATA PIO sur disque IDE QEMU)
 - [ ] Quantification, chargeur GGUF, latence &lt; 1 s
 - [ ] Réseau, DNS, TLS, fournisseur OpenAI effectif
-- [ ] Système de fichiers persistant
+- [ ] Système de fichiers disque général (ext2/FAT)
 
 ## Documentation
 
@@ -152,4 +153,4 @@ Code commenté en français. Une PR = une tranche visible par la CI (`make ci`),
 
 **Dépôt :** [github.com/kamgueblondin/ai-os](https://github.com/kamgueblondin/ai-os)
 
-*Prototype i386 + shell userspace + GPT-2 local optionnel sous QEMU. Dernière mise à jour documentation : 2026-08-13, alignée sur `master` (`8006019`).*
+*Prototype i386 + shell userspace + GPT-2 local optionnel sous QEMU. Dernière mise à jour documentation : 2026-08-13, overlay persisté sur IDE.*

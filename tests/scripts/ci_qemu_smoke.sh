@@ -3,6 +3,7 @@
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
 # Core smoke and shell extras are separate boots so extra sendkeys do not ghost the shell.
+# Overlay disk is zeroed before core and extras; persist uses its own image across two boots.
 
 set -euo pipefail
 
@@ -13,6 +14,16 @@ KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
 CORE_TIMEOUT="${CORE_TIMEOUT:-120}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
+PERSIST_TIMEOUT="${PERSIST_TIMEOUT:-180}"
+OVERLAY_DISK="${OVERLAY_DISK:-$ROOT/build/overlay.img}"
+PERSIST_DISK="${PERSIST_DISK:-$ROOT/build/overlay-persist.img}"
+export OVERLAY_DISK PERSIST_DISK
+
+reset_overlay_disk() {
+    local img="$1"
+    mkdir -p "$(dirname "$img")"
+    dd if=/dev/zero of="$img" bs=512 count=64 status=none
+}
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
     echo "ERROR: missing $KERNEL or $INITRD - run 'make all' first"
@@ -49,5 +60,8 @@ run_python() {
     return "$rc"
 }
 
+reset_overlay_disk "$OVERLAY_DISK"
 run_python core "$CORE_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_core_smoke.py"
+reset_overlay_disk "$OVERLAY_DISK"
 run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py"
+run_python persist "$PERSIST_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_persist.py"

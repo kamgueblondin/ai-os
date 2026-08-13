@@ -10,6 +10,7 @@
 #include "elf.h"
 #include "../fs/initrd.h"
 #include "../fs/overlay.h"
+#include "ata.h"
 #include "llm/gpt2_model.h"
 #include "llm/gpt2_infer.h"
 #include "llm/gpt2_tokenizer.h"
@@ -539,7 +540,15 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     }
 
     overlay_init();
-    print_string("Overlay FS initialise (mkdir/rm en RAM).\n");
+    if (ata_init() == 0) {
+        if (overlay_load_disk() == 0) {
+            print_string("Overlay FS charge depuis le disque IDE.\n");
+        } else {
+            print_string("Overlay FS initialise (disque IDE vide).\n");
+        }
+    } else {
+        print_string("Overlay FS initialise (mkdir/rm en RAM).\n");
+    }
 
     // NOUVEAU: Initialisation du système de tâches
     print_string("Initialisation du systeme de taches...\n");
