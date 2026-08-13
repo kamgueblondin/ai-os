@@ -164,7 +164,31 @@ void task_exit() {
 }
 
 task_t* create_task_from_initrd_file(const char* filename) {
-    uint8_t* file_data = (uint8_t*)initrd_read_file(filename);
+    uint8_t* file_data;
+    const char* name_src;
+    char alt[256];
+
+    file_data = (uint8_t*)initrd_read_file(filename);
+    name_src = filename;
+    if (!file_data && filename && filename[0] && filename[0] != '/') {
+        int slash = 0;
+        int i = 0;
+        while (filename[i]) {
+            if (filename[i] == '/') slash = 1;
+            i++;
+        }
+        if (!slash) {
+            alt[0] = 'b'; alt[1] = 'i'; alt[2] = 'n'; alt[3] = '/';
+            i = 0;
+            while (filename[i] && i < 250) {
+                alt[4 + i] = filename[i];
+                i++;
+            }
+            alt[4 + i] = '\0';
+            file_data = (uint8_t*)initrd_read_file(alt);
+            if (file_data) name_src = alt;
+        }
+    }
     if (!file_data) {
         print_string_serial("ERREUR: Fichier non trouve dans l'initrd\n");
         return NULL;
@@ -209,7 +233,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->vmm_dir = vmm_dir;
     {
         int i = 0;
-        const char* n = filename ? filename : "user";
+        const char* n = name_src ? name_src : "user";
         const char* base = n;
         while (*n) {
             if (*n == '/') base = n + 1;

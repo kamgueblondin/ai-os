@@ -21,7 +21,7 @@ export KERNEL INITRD
 export LOG="${LOG:-test_logs/ci-qemu-serial.log}"
 export PYTHONUNBUFFERED=1
 
-if ! strings userspace/shell | grep -q "Initrd / VFS"; then
+if ! grep -a -qF "Initrd / VFS" userspace/shell; then
     echo "ERROR: userspace/shell is stale (no syscall ls). Expected 'make -C userspace all'."
     file userspace/shell || true
     exit 1

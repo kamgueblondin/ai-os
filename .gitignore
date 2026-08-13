@@ -3,6 +3,7 @@ userspace/shell
 userspace/fake_ai
 userspace/test_program
 userspace/ai_assistant
+userspace/idle
 userspace/*.o
 userspace/*.bin
 

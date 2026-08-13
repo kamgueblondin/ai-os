@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (syscalls initrd + processus ; CI sendkey ls/cat/ps/uptime)  
+**Code de référence :** `master` (syscalls initrd + spawn/kill ; CI sendkey ls/cat/ps/spawn/kill/uptime)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -56,7 +56,7 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | Binaire | Tests unitaires |
 |---|---|
 | `test_pmm` | 17/17 |
-| `test_syscall` | 36/36 |
+| `test_syscall` | 37/37 |
 | `test_task` | 21/21 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
@@ -77,7 +77,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture **initrd** (`SYS_READFILE`) puis VFS RAM |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans le VFS RAM |
 | `cd` / `pwd` | Chemin shell ; `cd` accepte un dossier VFS RAM **ou** un préfixe initrd (`cd bin`) |
-| `ps` / `jobs` / `top` / `kill` | Table des tâches **noyau** (`SYS_PS` / `SYS_KILL`). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
+| `ps` / `jobs` / `top` / `kill` / `spawn` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
 | `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut) |
@@ -124,13 +124,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/uptime (initrd + noyau)
+make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/spawn/kill/uptime
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape `ls`, `cat hello.txt`, `ls bin`, `ps` et `uptime` via `sendkey` et exige les marqueurs initrd/noyau dans le log série.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape `ls`, `cat hello.txt`, `ls bin`, `ps`, `spawn idle`, `kill 2` et `uptime` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
