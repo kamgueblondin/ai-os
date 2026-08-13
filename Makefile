@@ -479,7 +479,7 @@ help:
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # 121 tests Unity avant push"
+	@echo "  make test-all             # 134 tests Unity avant push"
 
 .PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps
 

@@ -59,10 +59,11 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_pmm` | 17/17 |
 | `test_syscall` | 48/48 |
 | `test_task` | 21/21 |
+| `test_tokenizer` | 13/13 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**121** = 17+48+21+25+10).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des six binaires (**134** = 17+48+21+13+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
@@ -99,9 +100,9 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 
 ## Intelligence artificielle locale
 
-Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l'initrd. L'inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position, un échantillonnage top-k avec pénalité de répétition et un état pseudo-aléatoire. Le noyau est compilé avec `-O3`, SSE2 et `-mstackrealign`, puis active SSE au démarrage.
+Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l'initrd. L'inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position. L'entrée est tokenisée en **BPE GPT-2** (fusions par plus petit identifiant de vocabulaire, découpage type regex). La sortie décode les octets bruts tiktoken (espaces, sauts de ligne, UTF-8) sans les remplacer par des espaces. La génération est **greedy**, jusqu'à 12 jetons ou le premier saut de ligne / EOT.
 
-La démonstration limite le prompt à 64 jetons et génère jusqu'à 4 jetons. L'encodeur de prompt est ASCII glouton : il ne couvre pas encore le BPE complet. Les poids et le tokenizer ne sont pas distribués dans Git ; sans ces deux fichiers, le moteur local est signalé comme indisponible. `userspace/ai_assistant.c` et `userspace/fake_ai.c` sont conservés comme programmes historiques de compatibilité. `initrd_content/ai_knowledge.txt` et `ai_data.txt` restent de simples fichiers texte, sans base vectorielle.
+La démonstration limite le prompt à 64 jetons et génère jusqu'à 12 jetons (arrêt sur newline ou EOT). L'encodeur BPE couvre le vocabulaire llm.c ; le regex unicode `\p{L}` complet n'est pas reproduit (ASCII + séquences UTF-8). Les poids et le tokenizer ne sont pas distribués dans Git ; sans ces deux fichiers, le moteur local est signalé comme indisponible. `userspace/ai_assistant.c` et `userspace/fake_ai.c` sont conservés comme programmes historiques de compatibilité.
 
 La configuration mesurée avec QEMU sans KVM est de 7,693 s pour `ai hello` et quatre jetons, contre 88,835 s avant l'optimisation SSE2. Le réalignement de pile évite également un défaut de protection générale qui pouvait survenir dans la copie récursive de l'overlay lorsque le compilateur produisait des instructions SSE alignées. Le détail figure dans [kv_cache_performance_report.md](kv_cache_performance_report.md).
 

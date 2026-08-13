@@ -99,6 +99,9 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/userspace/ramfs.c $BASE_DIR/userspace/procsim.c"
         cflags="$cflags -I$BASE_DIR/userspace"
     fi
+    if [ "$(basename "$test_file")" = "test_tokenizer.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/llm/gpt2_tokenizer.c"
+    fi
     
     # Compiler
     echo "gcc $cflags -o \"$test_binary\" \"$test_file\" $extra_src \"$TEST_DIR/framework/unity.c\" \"$TEST_DIR/framework/test_kernel.c\" \"$TEST_DIR/framework/kernel_mocks.c\"" >> "$RESULTS_FILE"
