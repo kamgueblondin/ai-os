@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** branche `cursor/shell-missing-builtins-6f7a` (builtins shell + VFS RAM)  
+**Code de référence :** branche `cursor/kernel-syscalls-fs-ps-6f7a` (syscalls initrd + processus)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -30,7 +30,7 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - Initrd format TAR POSIX (`fs/initrd.c`)
 - Chargeur ELF 32-bit
 - Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3)
-- Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`
+- Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO` (ABI : `include/os_syscalls.h`)
 
 ### Espace utilisateur
 
@@ -56,7 +56,7 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | Binaire | Tests unitaires |
 |---|---|
 | `test_pmm` | 17/17 |
-| `test_syscall` | 30/30 |
+| `test_syscall` | 36/36 |
 | `test_task` | 21/21 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
@@ -67,19 +67,19 @@ Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en
 
 ## Shell : commandes réelles vs affichées
 
-Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. Ce n’est **pas** un vrai disque ni le scheduler du noyau : fichiers et processus vivent dans le processus shell (`userspace/ramfs.c`, `userspace/procsim.c`).
+Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `ps` / `kill` / `mem` / `uptime` parlent au **noyau**. `mkdir` / `rm` / `echo >` restent un VFS RAM dans le processus shell (`userspace/ramfs.c`). `procsim.c` n’est plus utilisé par `ps`/`kill`.
 
 | Commande | Comportement réel |
 |---|---|
 | `help` | Aide |
-| `ls` / `dir` | Listing du **VFS RAM** (répertoire courant ou argument) |
-| `mkdir` / `rmdir` / `rm` / `cp` / `mv` | Mutation du VFS RAM |
-| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture du VFS RAM |
+| `ls` / `dir` | Listing **initrd** (syscall `SYS_LISTDIR`) + fichiers extra du VFS RAM |
+| `mkdir` / `rmdir` / `rm` / `cp` / `mv` | Mutation du VFS RAM (pas d’écriture initrd) |
+| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture **initrd** (`SYS_READFILE`) puis VFS RAM |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans le VFS RAM |
 | `cd` / `pwd` | Chemin en RAM, `cd` refuse un dossier absent du VFS |
-| `ps` / `jobs` / `top` / `kill` | Table de processus **simulée** (`kill` ne touche pas le noyau ; pid 0/1 protégés) |
-| `sysinfo` / `info` / `mem` / `memory` | Texte fixe (128 MB, etc.) |
-| `uptime` / `date` | Horloge pédagogique (compteur de commandes, pas de RTC) |
+| `ps` / `jobs` / `top` / `kill` | Table des tâches **noyau** (`SYS_PS` / `SYS_KILL`). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
+| `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT |
+| `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
 | `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut) |
 | `alias` / `unalias` | Table d’alias, expansion avant exécution |
 | `history` | Historique en mémoire |

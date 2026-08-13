@@ -7,6 +7,8 @@
 #include "../../fs/initrd.h"
 #include "../mem/string.h"
 #include "../mem/vmm.h"
+#include "../mem/pmm.h"
+#include "../timer.h"
 // Externs VMM
 extern vmm_directory_t* current_directory;
 extern void vmm_switch_page_directory(uint32_t phys_addr);
@@ -97,6 +99,27 @@ void syscall_handler(cpu_state_t* cpu) {
             print_string_serial("[SPAWN] starting child\n");
             cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
             print_string_serial("[SPAWN] child created\n");
+            break;
+        case SYS_LISTDIR:
+            cpu->eax = (uint32_t)sys_listdir((const char*)cpu->ebx, (os_dirent_t*)cpu->ecx, (int)cpu->edx);
+            break;
+        case SYS_READFILE:
+            cpu->eax = (uint32_t)sys_readfile((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_GETPID:
+            cpu->eax = (uint32_t)sys_getpid();
+            break;
+        case SYS_PS:
+            cpu->eax = (uint32_t)sys_ps((os_proc_t*)cpu->ebx, (int)cpu->ecx);
+            break;
+        case SYS_KILL:
+            cpu->eax = (uint32_t)sys_kill((int)cpu->ebx);
+            break;
+        case SYS_TICKS:
+            cpu->eax = sys_ticks();
+            break;
+        case SYS_MEMINFO:
+            cpu->eax = (uint32_t)sys_meminfo((os_meminfo_t*)cpu->ebx);
             break;
             
         default:
@@ -239,5 +262,41 @@ void sys_gets(char* buffer, uint32_t size) {
     print_string_serial("SYS_GETS: buffer plein, ligne lue: ");
     print_string_serial(buffer);
     print_string_serial("\n");
+}
+
+int sys_listdir(const char* path, os_dirent_t* out, int max_n) {
+    if (!path || !out || max_n <= 0) return -1;
+    return initrd_listdir(path, out, max_n);
+}
+
+int sys_readfile(const char* path, char* buf, uint32_t max) {
+    if (!path || !buf || max == 0) return -1;
+    return initrd_read_into(path, buf, max);
+}
+
+int sys_getpid(void) {
+    if (!current_task) return -1;
+    return current_task->id;
+}
+
+int sys_ps(os_proc_t* out, int max_n) {
+    if (!out || max_n <= 0) return -1;
+    return task_fill_ps(out, max_n);
+}
+
+int sys_kill(int pid) {
+    return task_kill(pid);
+}
+
+uint32_t sys_ticks(void) {
+    return timer_get_ticks();
+}
+
+int sys_meminfo(os_meminfo_t* info) {
+    if (!info) return -1;
+    info->total_pages = pmm_get_total_pages();
+    info->used_pages = pmm_get_used_pages();
+    info->free_pages = pmm_get_free_pages();
+    return 0;
 }
 

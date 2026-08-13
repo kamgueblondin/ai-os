@@ -50,8 +50,8 @@
 
 ### Reste ouvert (hors périmètre « shell qui démarre »)
 - [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (VFS RAM + table processus simulée)
-- [ ] `ls` / `ps` / `sysinfo` : remplacer VFS RAM / table simulée par de vrais syscalls noyau
-- [ ] API FS userspace vers l’initrd / un disque (le VFS RAM n’est pas persistant)
+- [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + `task.c` + PIT + PMM)
+- [ ] API FS userspace en écriture vers l’initrd / un disque (le VFS RAM n’est pas persistant)
 - [ ] Préemption round-robin continue (aujourd’hui limitée pour la stabilité)
 - [ ] FS persistant, réseau, vrai moteur IA — voir roadmap README / dossier `US/`
 

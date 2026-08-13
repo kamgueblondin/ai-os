@@ -32,6 +32,14 @@ void tasking_init() {
     current_task->state = TASK_RUNNING;
     current_task->type = TASK_TYPE_KERNEL;
     current_task->vmm_dir = kernel_directory;
+    current_task->kernel_stack_p = 0;
+    current_task->name[0] = 'k';
+    current_task->name[1] = 'e';
+    current_task->name[2] = 'r';
+    current_task->name[3] = 'n';
+    current_task->name[4] = 'e';
+    current_task->name[5] = 'l';
+    current_task->name[6] = '\0';
     current_task->next = current_task;
     current_task->prev = current_task;
     task_queue = current_task;
@@ -199,6 +207,21 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
     new_task->vmm_dir = vmm_dir;
+    {
+        int i = 0;
+        const char* n = filename ? filename : "user";
+        const char* base = n;
+        while (*n) {
+            if (*n == '/') base = n + 1;
+            n++;
+        }
+        if (!base[0]) base = "user";
+        while (base[i] && i < 31) {
+            new_task->name[i] = base[i];
+            i++;
+        }
+        new_task->name[i] = '\0';
+    }
 
     // Allouer une pile noyau pour cette tâche
     new_task->kernel_stack_p = (uint32_t)kmalloc(4096) + 4096;
@@ -319,4 +342,72 @@ task_t* find_task_waiting_for_input() {
     } while (temp != task_queue);
 
     return NULL;
+}
+
+task_t* get_task_by_id(int id) {
+    task_t* t;
+    if (!task_queue) return NULL;
+    t = task_queue;
+    do {
+        if (t->id == id) return t;
+        t = t->next;
+    } while (t && t != task_queue);
+    return NULL;
+}
+
+int get_task_count(void) {
+    int n = 0;
+    task_t* t;
+    if (!task_queue) return 0;
+    t = task_queue;
+    do {
+        n++;
+        t = t->next;
+    } while (t && t != task_queue);
+    return n;
+}
+
+int task_kill(int pid) {
+    task_t* t;
+    if (pid == 0) return -2;
+    t = get_task_by_id(pid);
+    if (!t) return -1;
+    if (current_task && t->id == current_task->id) return -3;
+    t->state = TASK_TERMINATED;
+    unlink_task(t);
+    return 0;
+}
+
+static int32_t map_task_state(task_state_t s) {
+    if (s == TASK_RUNNING) return OS_TASK_RUNNING;
+    if (s == TASK_READY) return OS_TASK_READY;
+    if (s == TASK_TERMINATED) return OS_TASK_TERMINATED;
+    return OS_TASK_WAITING;
+}
+
+int task_fill_ps(os_proc_t* out, int max_n) {
+    int count = 0;
+    task_t* t;
+    if (!out || max_n <= 0 || !task_queue) return 0;
+    t = task_queue;
+    do {
+        int i;
+        if (count >= max_n) break;
+        out[count].pid = t->id;
+        out[count].state = map_task_state(t->state);
+        out[count].type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+        i = 0;
+        while (t->name[i] && i < OS_PROC_NAME_MAX - 1) {
+            out[count].name[i] = t->name[i];
+            i++;
+        }
+        out[count].name[i] = '\0';
+        if (out[count].name[0] == '\0') {
+            out[count].name[0] = '?';
+            out[count].name[1] = '\0';
+        }
+        count++;
+        t = t->next;
+    } while (t && t != task_queue);
+    return count;
 }

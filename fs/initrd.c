@@ -288,3 +288,118 @@ void initrd_print_file_info(const char* filename) {
     print_string_serial("\n");
 }
 
+static void ird_copy_name(char* dest, const char* src, int max) {
+    int i = 0;
+    if (!src) src = "";
+    while (src[i] && i < max - 1) {
+        dest[i] = src[i];
+        i++;
+    }
+    dest[i] = '\0';
+}
+
+static void ird_normalize(const char* in, char* out, int max) {
+    if (!in) {
+        out[0] = '\0';
+        return;
+    }
+    if (in[0] == '.' && in[1] == '/') in += 2;
+    while (*in == '/') in++;
+    ird_copy_name(out, in, max);
+    {
+        int n = 0;
+        while (out[n]) n++;
+        while (n > 0 && out[n - 1] == '/') {
+            out[n - 1] = '\0';
+            n--;
+        }
+    }
+}
+
+static const initrd_file_t* ird_find(const char* filename) {
+    char want[256];
+    char have[256];
+    if (!current_initrd || !filename) return 0;
+    ird_normalize(filename, want, 256);
+    for (uint32_t i = 0; i < current_initrd->file_count; i++) {
+        ird_normalize(current_initrd->files[i].name, have, 256);
+        if (strcmp(have, want) == 0) {
+            return &current_initrd->files[i];
+        }
+    }
+    return 0;
+}
+
+int initrd_read_into(const char* path, char* buf, uint32_t max) {
+    const initrd_file_t* f = ird_find(path);
+    uint32_t n;
+    if (!f || !buf || max == 0) return -1;
+    n = f->size;
+    if (n > max) n = max;
+    memcpy(buf, f->data, n);
+    return (int)n;
+}
+
+int initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
+    char prefix[256];
+    int plen;
+    int count = 0;
+    if (!current_initrd || !out || max_n <= 0) return -1;
+    ird_normalize(path ? path : "/", prefix, 256);
+    plen = 0;
+    while (prefix[plen]) plen++;
+
+    for (uint32_t i = 0; i < current_initrd->file_count && count < max_n; i++) {
+        char have[256];
+        const char* rest;
+        ird_normalize(current_initrd->files[i].name, have, 256);
+        if (plen == 0) {
+            rest = have;
+        } else {
+            int j = 0;
+            while (j < plen && have[j] == prefix[j]) j++;
+            if (j != plen || have[j] != '/') continue;
+            rest = have + plen + 1;
+        }
+        if (rest[0] == '\0') continue;
+
+        {
+            int slash = -1;
+            int k = 0;
+            while (rest[k]) {
+                if (rest[k] == '/') {
+                    slash = k;
+                    break;
+                }
+                k++;
+            }
+            if (slash >= 0) {
+                char dname[OS_NAME_MAX];
+                int dup = 0;
+                int nlen = slash;
+                if (nlen >= OS_NAME_MAX) nlen = OS_NAME_MAX - 1;
+                for (int t = 0; t < nlen; t++) dname[t] = rest[t];
+                dname[nlen] = '\0';
+                for (int e = 0; e < count; e++) {
+                    if (out[e].flags == OS_DIRENT_DIR && strcmp(out[e].name, dname) == 0) {
+                        dup = 1;
+                        break;
+                    }
+                }
+                if (!dup) {
+                    ird_copy_name(out[count].name, dname, OS_NAME_MAX);
+                    out[count].size = 0;
+                    out[count].flags = OS_DIRENT_DIR;
+                    count++;
+                }
+            } else {
+                ird_copy_name(out[count].name, rest, OS_NAME_MAX);
+                out[count].size = current_initrd->files[i].size;
+                out[count].flags = OS_DIRENT_FILE;
+                count++;
+            }
+        }
+    }
+    return count;
+}
+

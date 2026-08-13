@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "kernel/mem/vmm.h" // Inclure pour vmm_directory_t
+#include "os_syscalls.h"
 
 // États possibles d'une tâche
 typedef enum {
@@ -40,6 +41,7 @@ typedef struct task {
     task_type_t type;          // Type de tâche (kernel/user)
     vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
+    char name[32];
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
 } task_t;
@@ -66,6 +68,8 @@ void remove_task(task_t* task);
 void add_task_to_queue(task_t* task);
 int get_task_count();
 task_t* find_task_waiting_for_input();
+int task_kill(int pid);
+int task_fill_ps(os_proc_t* out, int max_n);
 
 #endif
 
