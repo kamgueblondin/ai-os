@@ -362,21 +362,29 @@ def main():
         sendkeys(mon, ["l", "s", "spc", "n", "e", "w", "d", "ret"])
         wait_needle_from("hello.txt", CMD_TIMEOUT, proc, mark)
 
-        say("typing cat newd/hello.txt ...")
+        say("typing cd newd ...")
+        mark = len(log_text())
+        sendkeys(mon, ["c", "d", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("cd ok newd", CMD_TIMEOUT, proc, mark)
+
+        say("typing cat hello.txt (in newd) ...")
         mark = len(log_text())
         sendkeys(mon, [
-            "c", "a", "t", "spc", "n", "e", "w", "d", "slash",
-            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+            "c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("demonstration", CMD_TIMEOUT, proc, mark)
 
-        say("typing rm newd/hello.txt ...")
+        say("typing rm hello.txt (in newd) ...")
         mark = len(log_text())
         sendkeys(mon, [
-            "r", "m", "spc", "n", "e", "w", "d", "slash",
-            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+            "r", "m", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("rm ok hello.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing cd .. (after mv dir) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
+        wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
 
         say("typing rmdir newd ...")
         mark = len(log_text())
