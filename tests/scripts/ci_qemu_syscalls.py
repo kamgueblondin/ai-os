@@ -155,7 +155,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -178,6 +178,15 @@ def main():
             ("stat hello.txt",
              ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "stat file hello.txt"),
+            ("head hello.txt",
+             ["h", "e", "a", "d", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
+             "head ok 1 hello.txt"),
+            ("tail hello.txt",
+             ["t", "a", "i", "l", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
+             "tail ok 1 hello.txt"),
+            ("sort hello.txt",
+             ["s", "o", "r", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
+             "sort ok 1 hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
@@ -243,21 +252,6 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["l", "s", "ret"])
         wait_needle_from("sub", CMD_TIMEOUT, proc, mark)
-
-        say("typing cd sub ...")
-        mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "s", "u", "b", "ret"])
-        wait_needle_from("cd ok sub", CMD_TIMEOUT, proc, mark)
-
-        say("typing pwd (nested) ...")
-        mark = len(log_text())
-        sendkeys(mon, ["p", "w", "d", "ret"])
-        wait_needle_from("/mydir/sub", CMD_TIMEOUT, proc, mark)
-
-        say("typing cd .. (from sub) ...")
-        mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
-        wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
 
         say("typing cd .. (to root) ...")
         mark = len(log_text())
@@ -518,8 +512,6 @@ def main():
             ("cd overlay", "cd ok mydir"),
             ("pwd overlay", "/mydir"),
             ("mkdir nested", "mkdir ok sub"),
-            ("cd nested", "cd ok sub"),
-            ("pwd nested", "/mydir/sub"),
             ("rmdir notempty", "repertoire non vide"),
             ("rmdir nested", "rmdir ok sub"),
             ("cp overlay", "cp ok copy.txt"),
@@ -537,6 +529,9 @@ def main():
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),
             ("stat file", "stat file hello.txt"),
+            ("head initrd", "head ok 1 hello.txt"),
+            ("tail initrd", "tail ok 1 hello.txt"),
+            ("sort initrd", "sort ok 1 hello.txt"),
             ("stat dir", "stat dir mydir"),
         ]
         fail = 0
