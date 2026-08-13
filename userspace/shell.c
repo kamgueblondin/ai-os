@@ -477,7 +477,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ls [path]          - Lister initrd + overlay noyau\n");
     print_string("  cat <file>         - Afficher un fichier (overlay puis initrd)\n");
     print_string("  stat <path>        - Type et taille (syscall SYS_STAT)\n");
-    print_string("  test -f|-d|-e <p>  - Tester fichier/dossier (SYS_STAT)\n");
+    print_string("  test f|d|e <path>  - Tester fichier/dossier (SYS_STAT)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
@@ -946,22 +946,22 @@ static void cmd_test(shell_context_t* ctx, char args[][128], int arg_count) {
     const char* flag;
     const char* name;
     if (arg_count < 2) {
-        print_error("test: usage test -f|-d|-e <chemin>");
+        print_error("test: usage test f|d|e <chemin>");
         return;
     }
     flag = args[0];
     name = args[1];
     found = lookup_path_kind(ctx, name, &is_dir);
-    if (strcmp(flag, "-f") == 0) ok = found && !is_dir;
-    else if (strcmp(flag, "-d") == 0) ok = found && is_dir;
-    else if (strcmp(flag, "-e") == 0) ok = found;
+    if (strcmp(flag, "-f") == 0 || strcmp(flag, "f") == 0) ok = found && !is_dir;
+    else if (strcmp(flag, "-d") == 0 || strcmp(flag, "d") == 0) ok = found && is_dir;
+    else if (strcmp(flag, "-e") == 0 || strcmp(flag, "e") == 0) ok = found;
     else {
         print_error("test: flag inconnu");
         return;
     }
     if (ok) {
-        if (strcmp(flag, "-f") == 0) print_string("test ok file ");
-        else if (strcmp(flag, "-d") == 0) print_string("test ok dir ");
+        if (strcmp(flag, "-f") == 0 || strcmp(flag, "f") == 0) print_string("test ok file ");
+        else if (strcmp(flag, "-d") == 0 || strcmp(flag, "d") == 0) print_string("test ok dir ");
         else print_string("test ok ");
         print_string(name);
         print_string("\n");

@@ -78,7 +78,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `cp` / `mv` | `cp` fichier : `SYS_READFILE` + `SYS_WRITEFILE` (y compris initrd → overlay, et `cp fichier dossier/` joint le nom). `cp` dossier overlay : `SYS_COPY` (enfants dupliqués, source conservée). `mv` : `SYS_RENAME`. L’initrd reste `PROTECTED`. |
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` ; `head`/`tail`/`sort` affichent `head ok N fichier` / `tail ok N fichier` / `sort ok N fichier` |
 | `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
-| `test` | `test -f`/`-d`/`-e <chemin>` (`SYS_STAT`) : `test ok file hello.txt` / `test ok dir mydir` / `test no zzz` |
+| `test` | `test f`/`d`/`e <chemin>` (`SYS_STAT`, aussi `-f`/`-d`/`-e`) : `test ok file hello.txt` / `test ok dir mydir` / `test no zzz` |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
 | `append` | `append <fichier> <texte>` → concatène (`SYS_APPEND`) ; crée le fichier s’il n’existe pas ; un fichier initrd est recopié dans l’overlay (copie sur écriture). Succès : `append ok <fichier>` |
@@ -137,7 +137,7 @@ make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test -f`/`test -d`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test f`/`test d`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
