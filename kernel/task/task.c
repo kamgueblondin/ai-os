@@ -101,37 +101,46 @@ void schedule(cpu_state_t* cpu) {
         current_task->state = TASK_READY;
     }
 
-    // Chercher la prochaine tâche prête.
-    // C'est un simple ordonnanceur round-robin qui ignore les tâches en attente.
-    task_t* next_task = current_task ? current_task : task_queue;
-    while (1) {
-        next_task = next_task->next;
+    /* Prefer a user TASK_READY. The kernel task stays READY after the first
+     * jump_to_task() to the shell; picking it on SYS_YIELD would iret into a
+     * stale boot frame. Round-robin on IRQ0 stays off (nested kernel IRQ). */
+    {
+        task_t* start = current_task ? current_task : task_queue;
+        task_t* t = start;
+        task_t* next_task = start;
+        int found_user = 0;
 
-        // Si la tâche est prête à s'exécuter, on la choisit.
-        if (next_task->state == TASK_READY) {
-            break;
-        }
-
-        // Si on a fait un tour complet et que personne n'est prêt,
-        // et que la tâche actuelle ne peut plus tourner, on choisit la tâche kernel (idle).
-        // Cela evite un blocage si toutes les taches sont en attente.
-        if (next_task == current_task) {
-            // Si la tache courante est en attente, on doit trouver une autre tache.
-            if (current_task->state != TASK_READY && current_task->state != TASK_RUNNING) {
-                 // On cherche la tache kernel (ID 0) comme dernier recours.
-                task_t* kernel_task = task_queue;
-                while(kernel_task->id != 0) kernel_task = kernel_task->next;
-                next_task = kernel_task;
+        do {
+            t = t->next;
+            if (t->state == TASK_READY && t->type == TASK_TYPE_USER) {
+                next_task = t;
+                found_user = 1;
+                break;
             }
-            // Si la tache courante est encore prete, on la laisse tourner.
-            break;
+        } while (t != start);
+
+        if (!found_user && start->state == TASK_READY && start->type == TASK_TYPE_USER) {
+            next_task = start;
+            found_user = 1;
         }
+
+        if (!found_user) {
+            t = start;
+            do {
+                t = t->next;
+                if (t->state == TASK_READY) {
+                    next_task = t;
+                    break;
+                }
+            } while (t != start);
+        }
+
+        current_task = next_task;
     }
 
     print_string_serial("[SCHED] switching to task ");
-    write_serial('0' + (next_task->id % 10));
+    write_serial('0' + (current_task->id % 10));
     print_string_serial("\n");
-    current_task = next_task;
     current_task->state = TASK_RUNNING;
 
     // Mettre à jour le TSS avec la pile noyau de la nouvelle tâche

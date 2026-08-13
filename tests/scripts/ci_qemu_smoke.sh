@@ -3,7 +3,7 @@
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
 # Core smoke and shell extras are separate boots so extra sendkeys do not ghost the shell.
-# Overlay disk is zeroed before core and extras; persist uses its own image across two boots.
+# Overlay disk is zeroed before core, extras and spawn; persist uses its own image.
 
 set -euo pipefail
 
@@ -15,6 +15,7 @@ INITRD="${INITRD:-my_initrd.tar}"
 CORE_TIMEOUT="${CORE_TIMEOUT:-120}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 PERSIST_TIMEOUT="${PERSIST_TIMEOUT:-180}"
+SPAWN_TIMEOUT="${SPAWN_TIMEOUT:-90}"
 OVERLAY_DISK="${OVERLAY_DISK:-$ROOT/build/overlay.img}"
 PERSIST_DISK="${PERSIST_DISK:-$ROOT/build/overlay-persist.img}"
 export OVERLAY_DISK PERSIST_DISK
@@ -39,8 +40,8 @@ if ! grep -a -qF "Initrd / VFS" userspace/shell; then
     file userspace/shell || true
     exit 1
 fi
-if ! grep -a -qF "env ok" userspace/shell; then
-    echo "ERROR: userspace/shell is stale (no env ok needle)."
+if ! grep -a -qF "yield ok" userspace/shell; then
+    echo "ERROR: userspace/shell is stale (no yield ok needle)."
     exit 1
 fi
 
@@ -65,3 +66,5 @@ run_python core "$CORE_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_core_smoke.py"
 reset_overlay_disk "$OVERLAY_DISK"
 run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py"
 run_python persist "$PERSIST_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_persist.py"
+reset_overlay_disk "$OVERLAY_DISK"
+run_python spawn "$SPAWN_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_spawn.py"

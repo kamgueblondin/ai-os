@@ -57,8 +57,8 @@ void timer_handler(cpu_state_t* cpu) {
     }
     
     // Un seul changement de contexte quand il est demandé (lancement du shell,
-    // exec/spawn). Planifier à chaque tick après EOI provoque un page fault :
-    // jump_to_task() ne revient pas, et l'état IRQ du kernel devient invalide.
+    // exec bloquant). spawn/yield basculent depuis int 0x80, pas depuis IRQ0 :
+    // un schedule() pendant un syscall (cadre noyau sans SS/ESP user) page-fault.
     if (g_reschedule_needed) {
         g_reschedule_needed = 0;
         schedule(cpu);
