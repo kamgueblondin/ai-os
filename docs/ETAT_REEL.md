@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (overlay SYS_COPY : cp de dossiers ; CI sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc)  
+**Code de référence :** `master` (head/tail/sort ok ; overlay SYS_COPY/RENAME ; CI sendkey ls/cat/stat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -76,7 +76,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `ls` / `dir` | Listing **initrd + overlay** (syscall `SYS_LISTDIR`) + fichiers extra du VFS RAM |
 | `mkdir` / `rmdir` / `rm` | Overlay noyau (`SYS_MKDIR` / `SYS_UNLINK`) ; l’initrd ne peut pas être modifié (`PROTECTED`) ; `rmdir` d’un dossier non vide échoue (`NOTEMPTY`) |
 | `cp` / `mv` | `cp` fichier : `SYS_READFILE` + `SYS_WRITEFILE` (y compris initrd → overlay, et `cp fichier dossier/` joint le nom). `cp` dossier overlay : `SYS_COPY` (enfants dupliqués, source conservée). `mv` : `SYS_RENAME`. L’initrd reste `PROTECTED`. |
-| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` |
+| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` ; `head`/`tail`/`sort` affichent `head ok N fichier` / `tail ok N fichier` / `sort ok N fichier` |
 | `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
@@ -128,13 +128,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime
+make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `grep`, `wc`, `cp mydir cpd` (copie d’arborescence) et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

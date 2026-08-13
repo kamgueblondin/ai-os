@@ -513,9 +513,9 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  write <file> <txt> - Ecrire un fichier overlay (sans >)\n");
     print_string("  grep <pattern>     - Rechercher dans un texte\n");
     print_string("  wc <file>          - Compter lignes/mots/caractères\n");
-    print_string("  sort <file>        - Trier les lignes\n");
-    print_string("  head <file>        - Afficher le début d'un fichier\n");
-    print_string("  tail <file>        - Afficher la fin d'un fichier\n");
+    print_string("  sort <file>        - Trier les lignes (sort ok N fichier)\n");
+    print_string("  head <file>        - Debut du fichier (head ok N fichier)\n");
+    print_string("  tail <file>        - Fin du fichier (tail ok N fichier)\n");
     
     print_colored("\nCONTRÔLE :\n", COLOR_YELLOW);
     print_string("  exit [code]        - Quitter le shell\n");
@@ -1527,6 +1527,11 @@ static void cmd_sort(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(lines[i]);
         print_string("\n");
     }
+    print_string("sort ok ");
+    print_int(n);
+    print_string(" ");
+    print_string(args[0]);
+    print_string("\n");
 }
 
 static int parse_line_count(char args[][128], int arg_count, int* file_idx) {
@@ -1568,6 +1573,11 @@ static void cmd_head(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(lines[i]);
         print_string("\n");
     }
+    print_string("head ok ");
+    print_int(want);
+    print_string(" ");
+    print_string(args[file_idx]);
+    print_string("\n");
 }
 
 static void cmd_tail(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1596,6 +1606,11 @@ static void cmd_tail(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(lines[i]);
         print_string("\n");
     }
+    print_string("tail ok ");
+    print_int(want);
+    print_string(" ");
+    print_string(args[file_idx]);
+    print_string("\n");
 }
 
 static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) {
