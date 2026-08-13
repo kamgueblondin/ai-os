@@ -421,9 +421,25 @@ void clear_screen() {
     vga_y = 0;
 }
 
+/* Active le coprocesseur et SSE2 avant toute operation flottante du moteur GPT-2. */
+static void cpu_enable_sse(void) {
+    asm volatile(
+        "mov %%cr0, %%eax\n\t"
+        "andl $0xfffffffb, %%eax\n\t" /* clear CR0.EM */
+        "orl $0x00000002, %%eax\n\t"  /* set CR0.MP */
+        "mov %%eax, %%cr0\n\t"
+        "mov %%cr4, %%eax\n\t"
+        "orl $0x00000600, %%eax\n\t"  /* CR4.OSFXSR + CR4.OSXMMEXCPT */
+        "mov %%eax, %%cr4\n\t"
+        "fninit\n\t"
+        : : : "eax", "memory");
+}
+
 // La fonction principale de notre noyau - MISE À JOUR pour le multitâche
 void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     char color = 0x1F;
+
+    cpu_enable_sse();
 
     // Initialisation du port série
     serial_init();

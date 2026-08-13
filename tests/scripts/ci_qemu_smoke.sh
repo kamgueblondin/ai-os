@@ -2,7 +2,7 @@
 # ci_qemu_smoke.sh — Boot QEMU headless, type ls/cat/ps/uptime, require serial markers.
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
-# Overlay smoke and shell extras are separate boots so extra sendkeys do not ghost overlay.
+# Core smoke and shell extras are separate boots so extra sendkeys do not ghost the shell.
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ cd "$ROOT"
 
 KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
-OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-180}"
+CORE_TIMEOUT="${CORE_TIMEOUT:-120}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
@@ -49,8 +49,5 @@ run_python() {
     return "$rc"
 }
 
-if ! run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"; then
-    echo "=== overlay smoke retry (sendkey ghosts) ==="
-    run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"
-fi
+run_python core "$CORE_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_core_smoke.py"
 run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py"

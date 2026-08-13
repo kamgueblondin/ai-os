@@ -1893,7 +1893,7 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
     print_string("\nModele declare     : ");
     print_string(ai_model_name(ctx));
     print_string("\nLocal              : GPT-2 124M .bin + tokenizer .bin, generation top-k\n");
-    print_string("Limite locale      : 64 jetons de contexte, 4 jetons generes, cache KV a activer\n");
+    print_string("Limite locale      : 64 jetons de contexte, 4 jetons generes, cache KV actif\n");
     print_string("En ligne           : pilote Ethernet, TCP/IP, DNS et TLS a integrer\n");
     print_string("Secrets OpenAI     : jamais integres a l'image de boot\n\n");
 }

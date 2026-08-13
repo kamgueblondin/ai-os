@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Short deterministic QEMU smoke test for boot, shell, GPT-2 runtime and RAM overlay."""
+from __future__ import print_function
+
+import os
+import socket
+import subprocess
+import sys
+import time
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "ai_os.bin"))
+INITRD = os.environ.get("INITRD", os.path.join(ROOT, "my_initrd.tar"))
+LOG_DIR = os.path.join(ROOT, "test_logs")
+LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
+QEMU_ERR = os.environ.get("QEMU_ERR", os.path.join(LOG_DIR, "ci-qemu-stderr.log"))
+MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-monitor.sock"))
+BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
+CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
+
+
+def say(message):
+    sys.stdout.write(message + "\n")
+    sys.stdout.flush()
+
+
+def log_text():
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            return handle.read()
+    except OSError:
+        return ""
+
+
+def wait_for(proc, needle, timeout, start=0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("QEMU stopped unexpectedly; log tail:\n%s" % log_text()[-2000:])
+        if needle in log_text()[start:]:
+            # Let the shell reach the next SYS_GETS before the next command.
+            time.sleep(0.35)
+            return
+        time.sleep(0.15)
+    raise RuntimeError("timeout waiting for %r; log tail:\n%s" % (needle, log_text()[-2000:]))
+
+
+def monitor_connect():
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if os.path.exists(MON_SOCK):
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                client.connect(MON_SOCK)
+                client.settimeout(0.1)
+                try:
+                    client.recv(4096)
+                except socket.timeout:
+                    pass
+                return client
+            except OSError:
+                client.close()
+        time.sleep(0.1)
+    raise RuntimeError("QEMU monitor unavailable")
+
+
+def send_command(client, command):
+    aliases = {" ": "spc", "-": "minus", ".": "dot"}
+    for char in command:
+        client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
+        time.sleep(0.25)
+    client.sendall(b"sendkey ret\n")
+
+
+def terminate(proc):
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=4)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
+def main():
+    if not os.path.isfile(KERNEL) or not os.path.isfile(INITRD):
+        raise RuntimeError("missing build artefacts; run make all first")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    for path in (LOG, QEMU_ERR, MON_SOCK):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    proc = None
+    monitor = None
+    try:
+        with open(QEMU_ERR, "wb") as err:
+            proc = subprocess.Popen([
+                "qemu-system-i386", "-cpu", "pentium3", "-kernel", KERNEL,
+                "-initrd", INITRD, "-m", "1024M", "-display", "none", "-vga", "none",
+                "-serial", "file:" + LOG, "-monitor", "unix:%s,server,nowait" % MON_SOCK,
+                "-machine", "type=pc,accel=tcg", "-no-reboot", "-no-shutdown",
+            ], cwd=ROOT, stdout=err, stderr=err)
+            wait_for(proc, "(-.-)", BOOT_TIMEOUT)
+            wait_for(proc, "SYS_GETS: Debut", BOOT_TIMEOUT)
+            monitor = monitor_connect()
+
+            commands = (
+                ("ls", "Initrd / VFS"),
+                ("ai-runtime", "cache KV actif"),
+                ("mkdir qd", "mkdir ok qd"),
+                ("cp hello.txt qd", "cp ok hello.txt"),
+                ("cp qd qc", "cp ok qc"),
+                ("ls qc", "hello.txt"),
+                ("append q.txt ok", "append ok q.txt"),
+                ("cat q.txt", "ok"),
+                ("rc", "rc ok 0"),
+            )
+            for command, marker in commands:
+                say("typing %s ..." % command)
+                start = len(log_text())
+                send_command(monitor, command)
+                wait_for(proc, marker, CMD_TIMEOUT, start)
+        say("QEMU core smoke passed.")
+        return 0
+    finally:
+        if monitor is not None:
+            monitor.close()
+        terminate(proc)
+        try:
+            os.remove(MON_SOCK)
+        except OSError:
+            pass
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        print("QEMU core smoke failed: %s" % error, file=sys.stderr)
+        raise SystemExit(1)

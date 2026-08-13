@@ -101,7 +101,7 @@ def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
         drain_monitor(mon)
-        time.sleep(0.16)
+        time.sleep(0.25)
 
 
 def dump_logs():
@@ -145,7 +145,8 @@ def main():
         "qemu-system-i386",
         "-kernel", KERNEL,
         "-initrd", INITRD,
-        "-m", "128M",
+        "-m", "1024M",
+        "-cpu", "pentium3",
         "-display", "none",
         "-vga", "none",
         "-serial", "file:" + LOG,
@@ -185,7 +186,7 @@ def main():
              "test no zz"),
             ("rc after test no", ["r", "c", "ret"], "rc ok 1"),
             ("aistats", ["a", "i", "s", "t", "a", "t", "s", "ret"], "aistats ok"),
-            ("aimode", ["a", "i", "m", "o", "d", "e", "ret"], "aimode ok off"),
+            ("aimode", ["a", "i", "m", "o", "d", "e", "ret"], "aimode ok on"),
             ("aihelp", ["a", "i", "h", "e", "l", "p", "ret"], "aihelp ok"),
         ]
         for name, keys, needle in commands:
@@ -207,7 +208,7 @@ def main():
             ("test missing", "test no zz"),
             ("rc fail", "rc ok 1"),
             ("aistats", "aistats ok"),
-            ("aimode", "aimode ok off"),
+            ("aimode", "aimode ok on"),
             ("aihelp", "aihelp ok"),
         ]
         fail = 0

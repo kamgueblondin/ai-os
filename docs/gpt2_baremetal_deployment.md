@@ -5,16 +5,16 @@
 
 ## Résumé du livrable
 
-Cette version d’AI-OS contient un premier chemin d’inférence **réellement local**. Le média de démarrage inclut les poids GPT-2 124M et le tokenizer binaires ; le noyau les valide puis les lit directement depuis l’initrd. Aucune installation de Linux, d’Ollama, de Python ou de service réseau n’est nécessaire une fois l’ISO construite.
+Cette version d’AI-OS contient un premier chemin d’inférence **réellement local**. Lorsque les poids GPT-2 124M et le tokenizer binaires sont placés dans `models/` avant la construction, le média de démarrage les inclut et le noyau les valide puis les lit directement depuis l’initrd. Aucune installation de Linux, d’Ollama, de Python ou de service réseau n’est nécessaire une fois cette ISO construite.
 
 > L’ISO démarre donc sur une machine sans système d’exploitation préinstallé, à condition que la machine sache démarrer un média BIOS/legacy ou qu’un mode de compatibilité BIOS soit activable. Cette version n’est pas encore une image UEFI native.
 
 | Élément | État dans ce livrable |
 |---|---|
-| Amorçage autonome | **Oui**, ISO GRUB Multiboot avec noyau, shell, tokenizer et poids locaux |
+| Amorçage autonome | **Oui**, ISO GRUB Multiboot avec noyau, shell, tokenizer et poids locaux lorsque les artefacts sont fournis au build |
 | Modèle local | **GPT-2 124M**, checkpoint `llm.c` v3, chargé en lecture seule depuis l’initrd |
 | Tokenizer | Vocabulaire GPT-2 binaire chargé depuis l’initrd ; pont d’encodage ASCII par appariement glouton |
-| Inférence | CPU freestanding : embeddings, normalisation, attention causale, MLP GELU et sélection gloutonne |
+| Inférence | CPU freestanding : embeddings, normalisation, attention causale, MLP GELU, cache KV et échantillonnage top-k |
 | Commande utilisateur | `ai <question>` ; par exemple `ai hello` |
 | Mémoire | 1 Gio validé dans QEMU ; 2 Gio conseillés pour une machine réelle |
 | Réseau / OpenAI | **Non intégré** : il faut encore un pilote Ethernet, TCP/IP, DNS, TLS et une gestion sûre des secrets |
@@ -56,30 +56,31 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 | Vérification | Résultat |
 |---|---|
 | Compilation complète d’AI-OS | Réussie |
-| Suite de non-régression | **118/118 tests réussis** |
+| Suite de non-régression | **121/121 tests réussis** |
 | Chargeur de checkpoint et tokenizer avec actifs structurels | Réussi sous QEMU |
 | Chemin shell → syscall → tokenizer → moteur local | Réussi sous QEMU |
-| Requête avec les vrais poids GPT-2 | `ai hello` a produit `the the the the` localement |
-| Durée du test réel complet | 174 secondes dans QEMU, CPU émulé |
+| Requête avec les vrais poids GPT-2 | Sortie locale produite sous le préfixe `[GPT-2 local]` |
+| Reprise après une réponse | `rc` accepté par le shell dans un test QEMU dédié |
+| Latence observée | **7,693 s** pour `ai hello` et quatre jetons, QEMU Pentium III SSE2 sans KVM |
 | ISO GRUB GPT-2 | Générée ; taille approximative 481 Mio |
 | Amorçage ISO sous QEMU | Le noyau, le checkpoint, le tokenizer et le shell sont atteints |
 
-> La réponse répétitive observée est cohérente avec les limites techniques du premier moteur et avec le décodage simplifié. Elle constitue une preuve de calcul sur les vrais poids, pas un niveau de qualité conversationnelle comparable à un LLM conversationnel moderne.
+> La qualité conversationnelle reste limitée par le modèle GPT-2 124M, la longueur de sortie volontairement courte et l’encodage ASCII simplifié. Une sortie générée localement confirme le chemin de calcul, sans prétendre atteindre le niveau d’un LLM instructionnel moderne.
 
 ## Limites connues et prochaines améliorations
 
-Le moteur conserve une limite de **64 jetons de contexte** et génère jusqu’à **4 jetons** à la fois. Il n’emploie ni cache KV ni échantillonnage probabiliste ; il choisit toujours le jeton de logit maximal. Sans cache KV, chaque nouveau jeton recalcule l’attention sur le contexte, ce qui explique la latence élevée sur le CPU QEMU. Les poids sont au format de checkpoint GPT-2 `llm.c` v3 : des fichiers GGUF ou des modèles d’une autre famille ne sont pas encore exécutables automatiquement.
+Le moteur conserve une limite de **64 jetons de contexte** et génère jusqu’à **4 jetons** à la fois. Il utilise un cache KV et un échantillonnage top-k avec pénalité de répétition, ce qui évite de recalculer le préfixe pour chaque jeton. La compilation SSE2 emploie aussi `-mstackrealign`, nécessaire pour garantir l’alignement des opérations vectorielles dans les chemins noyau. Cependant, chaque nouveau jeton exécute encore les projections d’attention, le MLP et la projection de vocabulaire complète en FP32 ; l’émulation QEMU sans KVM reste donc coûteuse. Les poids sont au format de checkpoint GPT-2 `llm.c` v3 : des fichiers GGUF ou des modèles d’une autre famille ne sont pas encore exécutables automatiquement.
 
 L’ajout d’un vrai OpenAI ou d’un fournisseur en ligne exige encore une pile réseau bare-metal complète. La clé API ne doit jamais être placée dans l’ISO ; elle devra être injectée depuis une configuration locale protégée lorsque le réseau sera disponible.
 
-Les évolutions prioritaires sont l’implémentation complète du BPE byte-level/Unicode, un cache KV, le sampling (température, top-k), la quantification des poids, un amorçage UEFI natif et un chargeur pour d’autres architectures de modèles. Ces travaux amélioreraient à la fois la compatibilité et le temps de réponse.
+Les évolutions prioritaires sont l’implémentation complète du BPE byte-level/Unicode, la quantification INT8 ou INT4 des poids, des kernels SIMD supplémentaires, un amorçage UEFI natif et un chargeur pour d’autres architectures de modèles. Ces travaux amélioreraient à la fois la compatibilité et le temps de réponse.
 
 ## Intégrité de l’ISO
 
-La somme SHA-256 de l’image construite est :
+L’ISO dépend des artefacts GPT-2 fournis localement et n’a donc pas de somme SHA-256 universelle dans le dépôt. Après construction, calculez et archivez la somme correspondant à vos fichiers de modèle :
 
-```text
-eea75e299ba921c7780c4971078eef411096f0a69ae04211f987323c7a354fec  build/ai_os.iso
+```bash
+sha256sum build/ai_os.iso
 ```
 
 ## Références

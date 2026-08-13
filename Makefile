@@ -8,7 +8,7 @@ LD = ld
 # -ffreestanding : Ne pas utiliser la bibliothèque standard C
 # -nostdlib : Ne pas lier avec la bibliothèque standard C
 # -fno-pie : Produire du code indépendant de la position
-CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -DCONFIG_UTF8_VGA=1
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -O3 -msse2 -mfpmath=sse -mstackrealign -fomit-frame-pointer -I. -Iinclude -DCONFIG_UTF8_VGA=1
 ASFLAGS = -f elf32
 
 # Nom du fichier final de notre OS
@@ -33,7 +33,7 @@ OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) pack-initrd
-	@echo "=== AI-OS v5.0 - Système Complet Construit ==="
+	@echo "=== AI-OS v7 - Système avec GPT-2 local construit ==="
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
@@ -182,21 +182,21 @@ userspace-all:
 
 # Règle pour empaqueter l'initrd automatiquement
 pack-initrd: userspace-all
-	@echo "[mkinitrd] Création de l'initrd AI-OS v5.0..."
+	@echo "[mkinitrd] Création de l'initrd AI-OS v7..."
 	@mkdir -p $(BIN_DEST_DIR) $(INITRD_DIR)/models
 	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
 	@echo "Un autre fichier de demonstration." > $(INITRD_DIR)/hello.txt
-	@echo "Configuration du systeme AI-OS v5.0" > $(INITRD_DIR)/config.cfg
+	@echo "Configuration du systeme AI-OS v7" > $(INITRD_DIR)/config.cfg
 	@echo "#!/bin/sh" > $(INITRD_DIR)/startup.sh
-	@echo "echo 'Script de demarrage AI-OS v5.0'" >> $(INITRD_DIR)/startup.sh
-	@echo "Donnees pour l'intelligence artificielle simulee" > $(INITRD_DIR)/ai_data.txt
-	@echo "Base de connaissances IA - Version simulation" > $(INITRD_DIR)/ai_knowledge.txt
+	@echo "echo 'Script de demarrage AI-OS v7'" >> $(INITRD_DIR)/startup.sh
+	@echo "Donnees de demonstration pour l'intelligence artificielle locale" > $(INITRD_DIR)/ai_data.txt
+	@echo "Base de connaissances statique — pas de base vectorielle" > $(INITRD_DIR)/ai_knowledge.txt
 	@echo "# AI-OS bare-metal LLM manifest" > $(INITRD_DIR)/models/models.manifest
-	@echo "format=gguf" >> $(INITRD_DIR)/models/models.manifest
-	@echo "default=qwen2.5-1.5b-instruct-q4_0.gguf" >> $(INITRD_DIR)/models/models.manifest
-	@echo "qwen2.5-1.5b-instruct-q4_0.gguf|qwen2.5|1.5B|Q4_0|local" >> $(INITRD_DIR)/models/models.manifest
-	@echo "# Place the selected GGUF weight file in /models on the boot medium." > $(INITRD_DIR)/models/README.txt
-	@echo "# Add a compatible GPT-2 checkpoint at $(GPT2_MODEL) before build to embed it." >> $(INITRD_DIR)/models/README.txt
+	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
+	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest
+	@echo "gpt2_124M.bin|gpt2|124M|FP32|local" >> $(INITRD_DIR)/models/models.manifest
+	@echo "# Provide gpt2_124M.bin and gpt2_tokenizer.bin in models/ before build." > $(INITRD_DIR)/models/README.txt
+	@echo "# GGUF profiles are declared by the shell but are not executable yet." >> $(INITRD_DIR)/models/README.txt
 	@if [ -f "$(GPT2_MODEL)" ] && [ -f "$(MODEL_DIR)/gpt2_tokenizer.bin" ]; then \
 		echo "[mkinitrd] Inclusion du checkpoint et du tokenizer GPT-2 locaux..."; \
 		cp -f "$(GPT2_MODEL)" "$(INITRD_DIR)/models/gpt2_124M.bin"; \
@@ -246,7 +246,7 @@ iso: check-iso-deps $(OS_IMAGE) pack-initrd
 
 # Lancer l'ISO avec QEMU (boot CD)
 run-iso: iso
-	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m $(GPT2_RAM) -no-reboot -no-shutdown
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m $(GPT2_RAM) -cpu pentium3 -no-reboot -no-shutdown
 
 iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
@@ -258,13 +258,13 @@ user-program userspace/shell userspace/fake_ai userspace/test_program userspace/
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
-		-m $(GPT2_RAM) \
+		-m $(GPT2_RAM) -cpu pentium3 \
 		-no-reboot -no-shutdown
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-m $(GPT2_RAM) -vga std \
+		-m $(GPT2_RAM) -cpu pentium3 -vga std \
 		-display gtk \
 		-no-reboot -no-shutdown
 
@@ -275,7 +275,7 @@ run-nographic: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-nographic \
 		-chardev stdio,id=serial0 \
-		-m $(GPT2_RAM) \
+		-m $(GPT2_RAM) -cpu pentium3 \
 		-no-reboot -no-shutdown
 
 # Cible pour tester le clavier avec GUI et capture des logs série
@@ -398,6 +398,17 @@ qemu-smoke: $(OS_IMAGE) pack-initrd
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
 
+# Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
+.PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
+gpt2-recovery: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/test_gpt2_shell_recovery.py
+
+gpt2-benchmark: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/benchmark_gpt2_kv_latency.py
+
+gpt2-tests: gpt2-recovery gpt2-benchmark
+	@echo "=== Vérifications GPT-2 QEMU terminées ==="
+
 # Gate CI local : image + tests unitaires + smoke QEMU
 ci: all test-all qemu-smoke
 	@echo "=== CI locale OK (build + tests + QEMU smoke) ==="
@@ -425,6 +436,9 @@ help:
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
 	@echo "  qemu-smoke      - Boot QEMU headless, vérifie le shell (log série)"
+	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
+	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"
+	@echo "  gpt2-tests      - Modèle requis : recovery + benchmark GPT-2"
 	@echo "  ci              - make all + test-all + qemu-smoke (gate PR)"
 	@echo "  test-performance - Benchmarks et tests de performance"
 	@echo "  test-valgrind   - Tests avec détection fuites mémoire"
@@ -447,5 +461,5 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # Tests complets avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke ci
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci
 

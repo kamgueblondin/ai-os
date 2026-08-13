@@ -1,20 +1,20 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI shell extras : `env`/`history`/`jobs`/`top`/`date`/`echo`/`rc`/`which idle`/`test no`/`aistats`)  
+**Code de référence :** branche `manus/gpt2-kv-cache`, rebasée sur `origin/master` au commit `41e902c`
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
 
 ## Synthèse
 
-AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU, charge un initrd TAR, passe en espace utilisateur (Ring 3) et exécute un shell ELF interactif. L’« IA » est un **simulateur par mots-clés** (`userspace/ai_assistant.c`), pas un moteur d’inférence.
+AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU, charge un initrd TAR, passe en espace utilisateur (Ring 3) et exécute un shell ELF interactif. Lorsqu’un checkpoint GPT-2 124M `llm.c v3` et son tokenizer binaire sont inclus dans l’initrd, le noyau exécute une **inférence locale freestanding** sans dépendance réseau au démarrage.
 
 | Périmètre | Avancement réel |
 |---|---|
 | Hobby OS minimal (boot → shell sous QEMU) | ~60–70 % |
-| Produit « OS pour l’IA » décrit dans d’anciens README | ~15–25 % |
-| Vision MOHHOS (120 US, 8 phases) | ~1–2 % (spécifications + simulateur) |
+| Inference GPT-2 locale de démonstration | Fonctionnelle avec checkpoint externe, contexte et sortie bornés |
+| Vision MOHHOS (120 US, 8 phases) | ~1–2 % (spécifications ; ne décrit pas le moteur GPT-2 actuel) |
 
 Ce n’est **pas** un système d’exploitation utilisable au quotidien (pas de FS persistant, pas de réseau, pas d’interface graphique native, pas de vrais pilotes hors QEMU/i8042).
 
@@ -30,14 +30,14 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - Initrd format TAR POSIX (`fs/initrd.c`)
 - Chargeur ELF 32-bit
 - Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3)
-- Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY`, `SYS_APPEND` (ABI : `include/os_syscalls.h`)
+- Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY`, `SYS_APPEND` et `SYS_GPT2_GENERATE` (ABI : `include/os_syscalls.h`)
 - Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`, concatène sans écraser) / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l’initrd reste en lecture seule ; `rmdir` d’un dossier non vide échoue
 
 ### Espace utilisateur
 
 - `userspace/shell.c` s’exécute vraiment en Ring 3 (plus de boucle shell simulée dans le kernel)
-- Programmes empaquetés dans l’initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`
-- Commande `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC`
+- Programmes empaquetés dans l’initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`, `idle`, ainsi que les fichiers de modèle lorsqu’ils sont fournis au build
+- Commande `ai <texte>` appelle `SYS_GPT2_GENERATE` pour le profil local GPT-2 et produit une sortie `[GPT-2 local]` ; le binaire historique `ai_assistant` reste disponible comme compatibilité
 
 ### Clavier (août 2026)
 
@@ -93,21 +93,23 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `which` | `which ok builtin <cmd>` ou `which ok bin/<cmd>` |
 | `rc` / `$?` | Dernier code de retour. `rc` affiche `rc ok N` (sendkey sans `$`/`?`). `echo $?` expand `$?` |
 | `clear`/`cls` | Séquence ANSI + bannière |
-| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC` (bloquant). Variantes sans tiret pour sendkey : `aimode` / `aihelp` / `aitest` / `aistats`. `aimode ok off` / `aihelp ok` / `aistats ok N` / `aitest ok` |
+| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats`, `ai-provider`, `ai-model`, `ai-runtime` | `ai <texte>` appelle le moteur GPT-2 local si le modèle est chargé ; la génération est synchrone et bornée. `ai-provider local` est opérationnel ; `ai-provider openai` sélectionne seulement un profil futur. `ai-model list` décrit GPT-2 opérationnel et GGUF futur. Variantes sans tiret pour sendkey : `aimode` / `aihelp` / `aitest` / `aistats`. |
 | `exit` / `quit` / `logout` | Sortie du programme |
 | `reboot` / `shutdown` | Message simulé (QEMU n’est pas arrêté) |
 
-## « Intelligence artificielle »
+## Intelligence artificielle locale
 
-`userspace/ai_assistant.c` (lancé par `ai <texte>` via `SYS_EXEC`) compare la question à quelques mots-clés ASCII (`hello`/`bonjour` → `AI: bonjour`, `healthcheck` → `AI HEALTH: OK`). `userspace/fake_ai.c` est un second binaire dans l’initrd (réponses plus longues) ; le shell n’appelle pas ce fichier. Il n’y a pas de TensorFlow Lite, pas de NLP, pas de modèle, pas d’apprentissage.
+Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l’initrd. L’inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position, un échantillonnage top-k avec pénalité de répétition et un état pseudo-aléatoire. Le noyau est compilé avec `-O3`, SSE2 et `-mstackrealign`, puis active SSE au démarrage.
 
-`initrd_content/ai_knowledge.txt` et `ai_data.txt` sont des fichiers texte d’accompagnement, pas une base vectorielle.
+La démonstration limite le prompt à 64 jetons et génère jusqu’à 4 jetons. L’encodeur de prompt est ASCII glouton : il ne couvre pas encore le BPE complet. Les poids et le tokenizer ne sont pas distribués dans Git ; sans ces deux fichiers, le moteur local est signalé comme indisponible. `userspace/ai_assistant.c` et `userspace/fake_ai.c` sont conservés comme programmes historiques de compatibilité. `initrd_content/ai_knowledge.txt` et `ai_data.txt` restent de simples fichiers texte, sans base vectorielle.
+
+La configuration mesurée avec QEMU sans KVM est de 7,693 s pour `ai hello` et quatre jetons, contre 88,835 s avant l’optimisation SSE2. Le réalignement de pile évite également un défaut de protection générale qui pouvait survenir dans la copie récursive de l’overlay lorsque le compilateur produisait des instructions SSE alignées. Le détail figure dans [kv_cache_performance_report.md](kv_cache_performance_report.md).
 
 ## Ce qui n’existe pas dans le code
 
 Malgré la roadmap README v7/v8 et le dossier `US/` :
 
-- Moteur d’IA réel, apprentissage fédéré, cloud-edge
+- Apprentissage fédéré, cloud-edge et les autres services IA décrits par les anciennes spécifications MOHHOS
 - Système de fichiers persistant (disque)
 - Pile TCP/IP, services réseau
 - Interface graphique du OS (seul QEMU affiche du VGA texte)
@@ -132,13 +134,16 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # deux boots QEMU : overlay (#73) + extras env/history/jobs/top/rc/which
-make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
-make run          # console curses (recommandé en local)
-make run-gui      # fenêtre GTK
+make qemu-smoke       # deux boots QEMU : overlay (#73) + extras env/history/jobs/top/rc/which
+make gpt2-recovery    # modèle requis : réponse GPT-2, puis validation de `rc`
+make gpt2-benchmark   # modèle requis : mesure avec CPU QEMU Pentium III SSE2
+make gpt2-tests       # modèle requis : reprise shell + benchmark
+make ci               # all + test-all + qemu-smoke (même gate que GitHub Actions)
+make run              # console curses (recommandé en local)
+make run-gui          # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : overlay (identique à #73) puis extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Séparer les boots évite les touches fantômes (`cd ..` → `ccd ..`) quand la liste initiale s’allonge. `[` est branché, non tapé. `aitest` / `head` / `tail` / `sort` hors smoke. Timeouts : 180 s overlay (un retry si touches fantômes) + 90 s extras.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d’un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Le scénario cœur attend le retour du shell après chaque commande afin d’éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
