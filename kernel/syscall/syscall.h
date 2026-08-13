@@ -33,6 +33,7 @@ int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);
 int sys_stat(const char* path, os_dirent_t* out);
+int sys_rename(const char* oldpath, const char* newpath);
 
 void keyboard_add_char_to_buffer(char c);
 

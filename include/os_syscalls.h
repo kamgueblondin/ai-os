@@ -24,8 +24,9 @@
 #define SYS_UNLINK   16
 #define SYS_WRITEFILE 17
 #define SYS_STAT     18
+#define SYS_RENAME   19
 
-#define MAX_SYSCALLS 19
+#define MAX_SYSCALLS 20
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

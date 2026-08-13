@@ -86,10 +86,23 @@ def monitor_connect(retries=50):
     raise RuntimeError("cannot connect to QEMU monitor: %s" % last)
 
 
+def drain_monitor(mon):
+    """Read HMP replies until the socket is quiet so sendkey commands do not pile up."""
+    mon.settimeout(0.05)
+    while True:
+        try:
+            data = mon.recv(8192)
+            if not data:
+                break
+        except socket.timeout:
+            break
+
+
 def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
-        time.sleep(0.12)
+        drain_monitor(mon)
+        time.sleep(0.16)
 
 
 def dump_logs():
@@ -142,7 +155,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/write/uptime) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/mv/write/grep/wc/rename-dir) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -162,6 +175,9 @@ def main():
             ("cat hello.txt",
              ["c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "demonstration"),
+            ("stat hello.txt",
+             ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
+             "stat file hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
@@ -184,6 +200,7 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["k", "i", "l", "l", "spc", "2", "ret"])
         wait_needle_from("Processus 2 termine", CMD_TIMEOUT, proc, mark)
+        time.sleep(0.3)
 
         say("typing ps (after kill) ...")
         mark = len(log_text())
@@ -201,6 +218,11 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["m", "k", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("mkdir ok mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing stat mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, ["s", "t", "a", "t", "spc", "m", "y", "d", "i", "r", "ret"])
+        wait_needle_from("stat dir mydir", CMD_TIMEOUT, proc, mark)
 
         say("typing cd mydir ...")
         mark = len(log_text())
@@ -326,34 +348,57 @@ def main():
         sendkeys(mon, ["l", "s", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("hello.txt", CMD_TIMEOUT, proc, mark)
 
-        say("typing cd mydir (copied file) ...")
+        say("typing mv mydir newd ...")
         mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "m", "y", "d", "i", "r", "ret"])
-        wait_needle_from("cd ok mydir", CMD_TIMEOUT, proc, mark)
+        sendkeys(mon, [
+            "m", "v", "spc", "m", "y", "d", "i", "r", "spc", "n", "e", "w", "d", "ret",
+        ])
+        wait_needle_from("mv ok newd", CMD_TIMEOUT, proc, mark)
 
-        say("typing cat hello.txt (in mydir) ...")
+        say("typing ls (after mv dir) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "ret"])
+        wait_needle_from("Initrd / VFS", CMD_TIMEOUT, proc, mark)
+        wait_needle_from("Total:", CMD_TIMEOUT, proc, mark)
+        after_mv_dir = log_text()[mark:]
+        if "mydir" in after_mv_dir:
+            raise RuntimeError("mydir still listed after mv mydir newd")
+        if "newd" not in after_mv_dir:
+            raise RuntimeError("ls after mv dir missing newd")
+
+        say("typing ls newd ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("hello.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing cd newd ...")
+        mark = len(log_text())
+        sendkeys(mon, ["c", "d", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("cd ok newd", CMD_TIMEOUT, proc, mark)
+
+        say("typing cat hello.txt (in newd) ...")
         mark = len(log_text())
         sendkeys(mon, [
             "c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("demonstration", CMD_TIMEOUT, proc, mark)
 
-        say("typing rm hello.txt (in mydir) ...")
+        say("typing rm hello.txt (in newd) ...")
         mark = len(log_text())
         sendkeys(mon, [
             "r", "m", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("rm ok hello.txt", CMD_TIMEOUT, proc, mark)
 
-        say("typing cd .. (after cp into dir) ...")
+        say("typing cd .. (after mv dir) ...")
         mark = len(log_text())
         sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
         wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
 
-        say("typing rmdir mydir ...")
+        say("typing rmdir newd ...")
         mark = len(log_text())
-        sendkeys(mon, ["r", "m", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
-        wait_needle_from("rmdir ok mydir", CMD_TIMEOUT, proc, mark)
+        sendkeys(mon, ["r", "m", "d", "i", "r", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("rmdir ok newd", CMD_TIMEOUT, proc, mark)
 
         say("typing ls (after rmdir) ...")
         mark = len(log_text())
@@ -363,6 +408,8 @@ def main():
         after_rmdir_ls = log_text()[mark:]
         if "mydir" in after_rmdir_ls:
             raise RuntimeError("mydir still listed in ls after rmdir")
+        if "newd" in after_rmdir_ls:
+            raise RuntimeError("newd still listed in ls after rmdir")
 
         say("typing write hi.txt ping ...")
         mark = len(log_text())
@@ -376,6 +423,19 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["c", "a", "t", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
         wait_needle_from("ping", CMD_TIMEOUT, proc, mark)
+
+        say("typing grep ping hi.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "g", "r", "e", "p", "spc", "p", "i", "n", "g", "spc",
+            "h", "i", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("grep hits 1", CMD_TIMEOUT, proc, mark)
+
+        say("typing wc hi.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, ["w", "c", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
+        wait_needle_from("wc ok 1 1 5 hi.txt", CMD_TIMEOUT, proc, mark)
 
         say("typing rm hi.txt ...")
         mark = len(log_text())
@@ -417,9 +477,15 @@ def main():
             ("mv overlay", "mv ok notes.txt"),
             ("rm overlay", "rm ok notes.txt"),
             ("cp into dir", "cp ok hello.txt"),
-            ("rmdir overlay", "rmdir ok mydir"),
+            ("mv overlay dir", "mv ok newd"),
+            ("cd renamed dir", "cd ok newd"),
+            ("rmdir overlay", "rmdir ok newd"),
             ("write overlay", "write ok hi.txt"),
+            ("grep overlay", "grep hits 1"),
+            ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),
+            ("stat file", "stat file hello.txt"),
+            ("stat dir", "stat dir mydir"),
         ]
         fail = 0
         for label, needle in checks:

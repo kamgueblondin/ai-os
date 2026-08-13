@@ -134,6 +134,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_STAT:
             cpu->eax = (uint32_t)sys_stat((const char*)cpu->ebx, (os_dirent_t*)cpu->ecx);
             break;
+        case SYS_RENAME:
+            cpu->eax = (uint32_t)sys_rename((const char*)cpu->ebx, (const char*)cpu->ecx);
+            break;
             
         default:
             // Syscall inconnu
@@ -312,6 +315,11 @@ int sys_stat(const char* path, os_dirent_t* out) {
     if (!path || !out) return -1;
     if (overlay_stat(path, out) == OV_OK) return 0;
     return initrd_stat(path, out);
+}
+
+int sys_rename(const char* oldpath, const char* newpath) {
+    if (!oldpath || !newpath) return -1;
+    return overlay_rename(oldpath, newpath);
 }
 
 int sys_getpid(void) {

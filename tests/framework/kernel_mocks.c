@@ -443,6 +443,11 @@ int sys_stat(const char* path, os_dirent_t* out) {
     return initrd_stat(path, out);
 }
 
+int sys_rename(const char* oldpath, const char* newpath) {
+    if (!oldpath || !newpath) return -1;
+    return overlay_rename(oldpath, newpath);
+}
+
 int sys_getpid(void) {
     return current_task ? current_task->id : 0;
 }
@@ -542,6 +547,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_STAT:
             state->eax = (uint32_t)sys_stat((const char*)state->ebx, (os_dirent_t*)state->ecx);
+            break;
+        case SYS_RENAME:
+            state->eax = (uint32_t)sys_rename((const char*)state->ebx, (const char*)state->ecx);
             break;
         default:
             break;

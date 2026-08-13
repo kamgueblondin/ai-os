@@ -168,6 +168,12 @@ int sys_stat(const char* path, os_dirent_t* out) {
     return result;
 }
 
+int sys_rename(const char* oldpath, const char* newpath) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_RENAME), "b"(oldpath), "c"(newpath));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -458,12 +464,13 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  ls [path]          - Lister initrd + overlay noyau\n");
     print_string("  cat <file>         - Afficher un fichier (overlay puis initrd)\n");
+    print_string("  stat <path>        - Type et taille (syscall SYS_STAT)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
     print_string("  rmdir <dir>        - Supprimer un répertoire vide\n");
     print_string("  cp <src> <dest>    - Copier un fichier (overlay noyau)\n");
-    print_string("  mv <src> <dest>    - Déplacer un fichier overlay\n");
+    print_string("  mv <src> <dest>    - Deplacer fichier ou dossier overlay\n");
     print_string("  rm <file>          - Supprimer un fichier\n");
     
     print_colored("\nCOMMANDES PROCESSUS :\n", COLOR_YELLOW);
@@ -804,6 +811,36 @@ void cmd_write(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+static void cmd_stat(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    os_dirent_t st;
+    int size = 0;
+    int is_dir = 0;
+    if (arg_count == 0) {
+        print_error("stat: chemin manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    if (sys_stat(path, &st) == 0) {
+        is_dir = (st.flags == OS_DIRENT_DIR);
+        size = (int)st.size;
+    } else if (ramfs_is_dir(path)) {
+        is_dir = 1;
+        size = 0;
+    } else if (ramfs_is_file(path)) {
+        if (!ramfs_read(path, &size)) size = 0;
+        is_dir = 0;
+    } else {
+        print_error("stat: introuvable");
+        return;
+    }
+    print_string(is_dir ? "stat dir " : "stat file ");
+    print_string(args[0]);
+    print_string(" ");
+    print_int(size);
+    print_string("\n");
+}
+
 void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     // Séquence ANSI pour effacer l'écran
     print_string("\x1b[2J\x1b[H");
@@ -887,7 +924,7 @@ static int is_builtin(const char* cmd) {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
-        "cd", "pwd", "cat", "mkdir", "rmdir", "cp", "mv", "rm",
+        "cd", "pwd", "cat", "stat", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "jobs", "top", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which",
         "grep", "wc", "sort", "head", "tail",
@@ -1074,21 +1111,12 @@ static void cmd_mv(shell_context_t* ctx, char args[][128], int arg_count) {
     resolve_arg(ctx, args[0], src);
     resolve_arg(ctx, args[1], dst);
     if (sys_stat(src, &st) == 0) {
-        if (st.flags == OS_DIRENT_DIR) {
-            print_error("mv: repertoire non supporte");
-            return;
+        if (sys_stat(dst, &st) == 0 && st.flags == OS_DIRENT_DIR) {
+            char joined[RAMFS_PATH_MAX];
+            fs_join(joined, RAMFS_PATH_MAX, dst, fs_basename(src));
+            strcpy(dst, joined);
         }
-        rc = kernel_copy_file(src, dst, RAMFS_PATH_MAX);
-        if (rc != 0) {
-            print_fs_err("mv", rc);
-            return;
-        }
-        rc = sys_unlink(src);
-        if (rc == -8) {
-            sys_unlink(dst);
-            print_fs_err("mv", rc);
-            return;
-        }
+        rc = sys_rename(src, dst);
         if (rc != 0) {
             print_fs_err("mv", rc);
             return;
@@ -1407,7 +1435,11 @@ static void cmd_grep(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     if (hits == 0) {
         print_string("(aucune correspondance)\n");
+        return;
     }
+    print_string("grep hits ");
+    print_int(hits);
+    print_string("\n");
 }
 
 static void cmd_wc(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1444,13 +1476,14 @@ static void cmd_wc(shell_context_t* ctx, char args[][128], int arg_count) {
             words++;
         }
     }
+    print_string("wc ok ");
     print_int(lines);
     print_string(" ");
     print_int(words);
     print_string(" ");
     print_int(chars);
     print_string(" ");
-    print_string(path);
+    print_string(args[0]);
     print_string("\n");
 }
 
@@ -1740,6 +1773,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "cat") == 0) {
         cmd_cat(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "stat") == 0) {
+        cmd_stat(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "which") == 0) {
         if (arg_count == 0) {
