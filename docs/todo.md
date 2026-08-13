@@ -49,14 +49,14 @@
 - [x] Optimiser la communication kernel/userspace (syscalls GETS/EXEC fonctionnels)
 
 ### Reste ouvert (hors périmètre « shell qui démarre »)
-- [ ] `ls` / `ps` / `sysinfo` : remplacer les affichages simulés par de vrais syscalls
-- [ ] API FS userspace (`cat` est un stub)
-- [ ] Commandes listées dans `help` mais absentes du gestionnaire (`mkdir`, `kill`, `top`, …)
+- [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (VFS RAM + table processus simulée)
+- [ ] `ls` / `ps` / `sysinfo` : remplacer VFS RAM / table simulée par de vrais syscalls noyau
+- [ ] API FS userspace vers l’initrd / un disque (le VFS RAM n’est pas persistant)
 - [ ] Préemption round-robin continue (aujourd’hui limitée pour la stabilité)
 - [ ] FS persistant, réseau, vrai moteur IA — voir roadmap README / dossier `US/`
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 93 tests unitaires)
+- [x] Tests complets du système corrigé (`make test-all` : tests unitaires kernel + shell + ramfs)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

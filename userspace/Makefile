@@ -12,7 +12,7 @@ PROGRAMS = shell fake_ai test_program ai_assistant
 
 all: $(PROGRAMS)
 
-shell: shell.o start.o
+shell: shell.o ramfs.o procsim.o start.o
 	@echo "Linking shell..."
 	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
 

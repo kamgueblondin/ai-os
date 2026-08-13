@@ -23,11 +23,15 @@ L'étape 7 représente l'aboutissement du projet AI-OS avec l'implémentation d'
 - Gestion des erreurs et mode de secours
 
 **Commandes internes réellement gérées par `execute_builtin_command()` (août 2026) :**
-- `help`, `ls`/`dir`, `ps`, `sysinfo`/`info`, `mem`/`memory`
-- `history`, `env`, `echo`, `clear`/`cls`, `pwd`, `cd`, `cat` (stub FS), `which`
-- `exit`/`quit`, `ai`, `ai-mode`, `ai-help`, `ai-test`
+- Fichiers (VFS RAM) : `ls`/`dir`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `cat`, `cd`, `pwd`
+- Texte : `echo` (`>` vers le VFS), `grep`, `wc`, `sort`, `head`, `tail`
+- Processus simulés : `ps`, `kill`, `jobs`, `top`
+- Système pédagogique : `sysinfo`/`info`, `mem`/`memory`, `uptime`, `date`, `whoami`
+- Shell : `help`, `history`, `env`, `export`, `alias`, `unalias`, `which`, `clear`/`cls`
+- IA : `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats`
+- Contrôle : `exit`/`quit`/`logout` ; `reboot`/`shutdown` (messages simulés)
 
-`help` affiche aussi mkdir/rm/kill/top/… : **non implémentées** dans le gestionnaire. `ls` et `ps` affichent des données simulées.
+`ls`/`cat`/`mkdir` opèrent sur un VFS en mémoire, pas sur l’initrd ni un disque. `ps`/`kill` ne parlent pas au scheduler. Détail : [ETAT_REEL.md](ETAT_REEL.md).
 
 **Commandes internes supportées (liste d’origine du document, v5) :**
 - `exit/quit` : Quitter le shell

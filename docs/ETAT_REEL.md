@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** branche `cursor/fix-keyboard-eoi-6f7a` (correctif EOI IRQ0 + tests)  
+**Code de référence :** branche `cursor/shell-missing-builtins-6f7a` (builtins shell + VFS RAM)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -59,6 +59,7 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_syscall` | 30/30 |
 | `test_task` | 21/21 |
 | `test_shell` | 25/25 |
+| `test_ramfs` | 10/10 |
 
 Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le compteur « Total Tests » du script `run_all_tests.sh` reste à 0 (incrément placé après `return`) : bug d’affichage, pas d’échec des binaires.
 
@@ -66,26 +67,27 @@ Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en
 
 ## Shell : commandes réelles vs affichées
 
-`help` liste beaucoup plus de commandes que `execute_builtin_command()` n’en implémente.
-
-**Branchées dans le code :**
+Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. Ce n’est **pas** un vrai disque ni le scheduler du noyau : fichiers et processus vivent dans le processus shell (`userspace/ramfs.c`, `userspace/procsim.c`).
 
 | Commande | Comportement réel |
 |---|---|
-| `help` | Aide (liste plus large que le code) |
-| `ls` / `dir` | Liste **codée en dur**, pas un listing initrd |
-| `ps` | Table de processus **simulée** |
-| `sysinfo` / `info` | Texte fixe (128 MB, etc.) |
-| `mem` / `memory` | Affichage simulé |
-| `history`, `env`, `echo`, `clear`/`cls` | Fonctionnels en mémoire processus |
-| `pwd`, `cd` | Chemin en RAM seulement (pas de FS) |
-| `cat` | Stub : « pas d’API FS » |
-| `which` | Builtin ou `bin/<cmd> (non vérifié)` |
-| `exit` / `quit` | Sortie du programme |
-| `ai`, `ai-mode`, `ai-help`, `ai-test` | Pont vers le simulateur |
-
-**Annoncées dans `help` mais absentes du gestionnaire :**  
-`mkdir`, `rmdir`, `cp`, `mv`, `rm`, `kill`, `jobs`, `top`, `uptime`, `date`, `whoami`, `alias`, `unalias`, `export`, `grep`, `wc`, `sort`, `head`, `ai-stats`, etc.
+| `help` | Aide |
+| `ls` / `dir` | Listing du **VFS RAM** (répertoire courant ou argument) |
+| `mkdir` / `rmdir` / `rm` / `cp` / `mv` | Mutation du VFS RAM |
+| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture du VFS RAM |
+| `echo` | Affichage ; `echo texte > fichier` écrit dans le VFS RAM |
+| `cd` / `pwd` | Chemin en RAM, `cd` refuse un dossier absent du VFS |
+| `ps` / `jobs` / `top` / `kill` | Table de processus **simulée** (`kill` ne touche pas le noyau ; pid 0/1 protégés) |
+| `sysinfo` / `info` / `mem` / `memory` | Texte fixe (128 MB, etc.) |
+| `uptime` / `date` | Horloge pédagogique (compteur de commandes, pas de RTC) |
+| `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut) |
+| `alias` / `unalias` | Table d’alias, expansion avant exécution |
+| `history` | Historique en mémoire |
+| `which` | `builtin` ou `bin/<cmd> (non verifie)` |
+| `clear`/`cls` | Séquence ANSI + bannière |
+| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | Pont vers le simulateur + compteur de requêtes |
+| `exit` / `quit` / `logout` | Sortie du programme |
+| `reboot` / `shutdown` | Message simulé (QEMU n’est pas arrêté) |
 
 ## « Intelligence artificielle »
 

@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "ramfs.h"
+#include "procsim.h"
 
 // ==============================================================================
 // STRUCTURES ET DÉFINITIONS
@@ -56,6 +58,8 @@ typedef struct {
     int show_colors;
     int ai_mode;
     int debug_mode;
+    int ai_query_count;
+    int cmd_ticks;
 } shell_context_t;
 
 // ==============================================================================
@@ -197,6 +201,61 @@ void print_error(const char* str) {
     print_string("\n");
 }
 
+static int parse_int(const char* s) {
+    int n = 0;
+    int sign = 1;
+    int i = 0;
+    if (!s || s[0] == '\0') return 0;
+    if (s[0] == '-') { sign = -1; i++; }
+    for (; s[i] != '\0'; i++) {
+        if (s[i] < '0' || s[i] > '9') break;
+        n = n * 10 + (s[i] - '0');
+    }
+    return sign * n;
+}
+
+static void print_int(int n) {
+    char buf[16];
+    int i = 0;
+    unsigned int v;
+    if (n < 0) {
+        putc('-');
+        v = (unsigned int)(-n);
+    } else {
+        v = (unsigned int)n;
+    }
+    if (v == 0) {
+        putc('0');
+        return;
+    }
+    while (v > 0 && i < 15) {
+        buf[i++] = (char)('0' + (v % 10));
+        v /= 10;
+    }
+    while (i--) putc(buf[i]);
+}
+
+static char* find_char(const char* s, char c) {
+    if (!s) return 0;
+    while (*s) {
+        if (*s == c) return (char*)s;
+        s++;
+    }
+    return 0;
+}
+
+static void print_ramfs_err(const char* cmd, int err) {
+    print_colored("[ERROR] ", COLOR_RED);
+    print_string(cmd);
+    print_string(": ");
+    print_string(ramfs_strerror(err));
+    print_string("\n");
+}
+
+static void resolve_arg(shell_context_t* ctx, const char* arg, char* out) {
+    ramfs_resolve(ctx->current_dir, arg ? arg : ".", out, RAMFS_PATH_MAX);
+}
+
 // ==============================================================================
 // GESTION DE L'HISTORIQUE ET DE L'ENVIRONNEMENT
 // ==============================================================================
@@ -211,6 +270,8 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->show_colors = 1;
     ctx->ai_mode = 0;
     ctx->debug_mode = 0;
+    ctx->ai_query_count = 0;
+    ctx->cmd_ticks = 0;
     
     // Initialiser quelques variables d'environnement par défaut
     strcpy(ctx->env_vars[0].name, "PATH");
@@ -221,7 +282,12 @@ void init_shell_context(shell_context_t* ctx) {
     strcpy(ctx->env_vars[2].value, "ai-shell");
     strcpy(ctx->env_vars[3].name, "AI_OS_VERSION");
     strcpy(ctx->env_vars[3].value, "6.0");
-    ctx->env_count = 4;
+    strcpy(ctx->env_vars[4].name, "USER");
+    strcpy(ctx->env_vars[4].value, "root");
+    ctx->env_count = 5;
+
+    ramfs_init();
+    procsim_init();
 }
 
 void add_to_history(shell_context_t* ctx, const char* command) {
@@ -322,7 +388,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  ls [path]          - Lister les fichiers et dossiers\n");
-    print_string("  cat <file>         - Afficher le contenu d'un fichier (stub)\n");
+    print_string("  cat <file>         - Afficher le contenu d'un fichier (VFS RAM)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire\n");
@@ -373,61 +439,77 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  reboot             - Redémarrer le système\n");
     print_string("  shutdown           - Arrêter le système\n");
     
-    print_colored("\n💡 TIP: Si le mode IA est activé, vous pouvez poser des questions\n", COLOR_GREEN);
-    print_colored("    directement sans utiliser 'ai'. Ex: 'comment ça marche ?'\n\n", COLOR_GREEN);
+    print_colored("\n💡 TIP: mkdir/rm/cat/grep opèrent sur un VFS RAM (pas un disque).\n", COLOR_GREEN);
+    print_colored("    Si le mode IA est activé, posez des questions sans 'ai'.\n\n", COLOR_GREEN);
 }
 
 void cmd_ls(shell_context_t* ctx, char args[][128], int arg_count) {
-    print_colored("\n=== Fichiers dans l'initrd ===\n", COLOR_CYAN);
-    
-    // Liste des fichiers simulée (sera remplacée par un vrai appel système)
-    const char* files[] = {
-        "test.txt", "hello.txt", "config.cfg", "startup.sh",
-        "ai_data.txt", "ai_knowledge.txt", "shell", "fake_ai",
-        "user_program", "docs/", "bin/", "home/"
-    };
-    
-    print_colored("drwxr-xr-x", COLOR_BLUE);
-    print_string(" 2 root root 4096 Aug 21 04:15 ");
-    print_colored("docs/\n", COLOR_BLUE);
-    
-    print_colored("drwxr-xr-x", COLOR_BLUE);
-    print_string(" 2 root root 4096 Aug 21 04:15 ");
-    print_colored("bin/\n", COLOR_BLUE);
-    
-    print_colored("drwxr-xr-x", COLOR_BLUE);
-    print_string(" 2 root root 4096 Aug 21 04:15 ");
-    print_colored("home/\n", COLOR_BLUE);
-    
-    for (int i = 0; i < 9; i++) {
-        if (strstr(files[i], "/") == NULL) {
-            if (strstr(files[i], ".") != NULL) {
-                print_colored("-rw-r--r--", COLOR_WHITE);
-                print_string(" 1 root root  1024 Aug 21 04:15 ");
-                print_string(files[i]);
-                print_string("\n");
-            } else {
-                print_colored("-rwxr-xr-x", COLOR_GREEN);
-                print_string(" 1 root root  8192 Aug 21 04:15 ");
-                print_colored(files[i], COLOR_GREEN);
-                print_string("\n");
-            }
+    char path[RAMFS_PATH_MAX];
+    ramfs_dirent_t ents[RAMFS_MAX_LIST];
+    int n;
+
+    if (arg_count > 0) resolve_arg(ctx, args[0], path);
+    else resolve_arg(ctx, ".", path);
+
+    print_colored("\n=== VFS RAM ===\n", COLOR_CYAN);
+    print_string("chemin: ");
+    print_string(path);
+    print_string("\n");
+
+    if (ramfs_is_file(path)) {
+        print_string("-rw-r--r--  ");
+        print_string(path);
+        print_string("\n\n");
+        return;
+    }
+
+    n = ramfs_list(path, ents, RAMFS_MAX_LIST);
+    if (n < 0) {
+        print_ramfs_err("ls", n);
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        if (ents[i].is_dir) {
+            print_colored("drwxr-xr-x  ", COLOR_BLUE);
+            print_colored(ents[i].name, COLOR_BLUE);
+            print_string("/\n");
+        } else {
+            print_string("-rw-r--r--  ");
+            print_int(ents[i].size);
+            print_string("  ");
+            print_string(ents[i].name);
+            print_string("\n");
         }
     }
-    
-    print_string("\nTotal: 12 éléments\n\n");
+    print_string("Total: ");
+    print_int(n);
+    print_string(" elements\n\n");
+}
+
+static void print_proc_row(const procsim_entry_t* p) {
+    print_string("  ");
+    print_int(p->pid);
+    print_string("    ");
+    print_int(p->ppid);
+    print_string("    ");
+    putc(p->state);
+    print_string("    ");
+    print_string(p->name);
+    if (!p->alive) print_string(" (zombie)");
+    print_string("\n");
 }
 
 void cmd_ps(shell_context_t* ctx, char args[][128], int arg_count) {
-    print_colored("\n=== Processus Actifs ===\n", COLOR_CYAN);
-    print_colored("  PID  PPID  CPU%  MEM%   TIME  STAT  COMMAND\n", COLOR_YELLOW);
-    print_string("    0     0   0.1   2.1  00:15     R  [kernel]\n");
-    print_string("    1     0   0.0   1.5  00:01     S  init\n");
-    print_string("    2     1   0.2   3.2  00:03     R  ai-shell\n");
-    print_string("    3     2   0.0   0.8  00:00     S  ai-assistant\n");
-    print_string("    4     1   0.0   0.5  00:00     S  memory-manager\n");
-    print_string("\nTotal: 5 processus actifs\n");
-    print_string("Charge moyenne: 0.15, 0.10, 0.08\n\n");
+    (void)ctx; (void)args; (void)arg_count;
+    print_colored("\n=== Processus (table simulee) ===\n", COLOR_CYAN);
+    print_colored("  PID  PPID  STAT  COMMAND\n", COLOR_YELLOW);
+    for (int i = 0; i < procsim_count(); i++) {
+        const procsim_entry_t* p = procsim_get_by_index(i);
+        if (p) print_proc_row(p);
+    }
+    print_string("Actifs: ");
+    print_int(procsim_alive_count());
+    print_string("\n\n");
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -540,6 +622,34 @@ void cmd_env(shell_context_t* ctx, char args[][128], int arg_count) {
 }
 
 void cmd_echo(shell_context_t* ctx, char args[][128], int arg_count) {
+    int redir = -1;
+    for (int i = 0; i < arg_count; i++) {
+        if (strcmp(args[i], ">") == 0) {
+            redir = i;
+            break;
+        }
+    }
+    if (redir >= 0) {
+        char path[RAMFS_PATH_MAX];
+        char buf[RAMFS_CONTENT_MAX];
+        int pos = 0;
+        int rc;
+        if (redir + 1 >= arg_count) {
+            print_error("echo: fichier manquant apres >");
+            return;
+        }
+        for (int i = 0; i < redir; i++) {
+            int j = 0;
+            if (i > 0 && pos < RAMFS_CONTENT_MAX - 2) buf[pos++] = ' ';
+            while (args[i][j] && pos < RAMFS_CONTENT_MAX - 2) buf[pos++] = args[i][j++];
+        }
+        buf[pos++] = '\n';
+        buf[pos] = '\0';
+        resolve_arg(ctx, args[redir + 1], path);
+        rc = ramfs_write(path, buf, pos);
+        if (rc != RAMFS_OK) print_ramfs_err("echo", rc);
+        return;
+    }
     for (int i = 0; i < arg_count; i++) {
         print_string(args[i]);
         if (i < arg_count - 1) print_string(" ");
@@ -572,78 +682,554 @@ static void cmd_pwd(shell_context_t* ctx) {
     print_string("\n");
 }
 
-static int is_absolute_path(const char* path) {
-    return path && path[0] == '/';
-}
-
-static void normalize_path(char* out, const char* base, const char* add) {
-    // Très simple: si add est absolu, le copier; sinon concaténer base + '/' + add
-    if (is_absolute_path(add)) {
-        strcpy(out, add);
-    } else {
-        strcpy(out, base);
-        int len = strlen(out);
-        if (len > 1 && out[len-1] == '/') out[len-1] = '\0';
-        if (!(len == 1 && out[0] == '/')) strcat(out, "/");
-        strcat(out, add);
-    }
-    // Retirer les doubles slash basiques
-    char tmp[MAX_PATH_LENGTH];
-    int j = 0;
-    for (int i = 0; out[i] != '\0' && j < MAX_PATH_LENGTH-1; i++) {
-        if (out[i] == '/' && out[i+1] == '/') continue;
-        tmp[j++] = out[i];
-    }
-    tmp[j] = '\0';
-    strcpy(out, tmp);
-}
-
 static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
+    char newdir[RAMFS_PATH_MAX];
     if (arg_count == 0) {
-        // Aller à HOME
         const char* home = get_env_var(ctx, "HOME");
         if (!home) home = "/";
-        strcpy(ctx->current_dir, home);
-        return;
+        ramfs_resolve("/", home, newdir, RAMFS_PATH_MAX);
+    } else {
+        ramfs_resolve(ctx->current_dir, args[0], newdir, RAMFS_PATH_MAX);
     }
-    char newdir[MAX_PATH_LENGTH];
-    normalize_path(newdir, ctx->current_dir, args[0]);
-    // Pas de FS réel: accepter tout chemin "raisonnable"
-    if (strlen(newdir) == 0) {
-        print_error("cd: chemin invalide");
+    if (!ramfs_is_dir(newdir)) {
+        print_error("cd: repertoire introuvable");
         return;
     }
     strcpy(ctx->current_dir, newdir);
 }
 
 static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    const char* data;
+    int size = 0;
     if (arg_count == 0) {
         print_error("cat: fichier manquant");
         return;
     }
-    // Pas d'accès FS direct en userspace: placeholder
-    print_error("cat: non disponible en userspace (pas d'API FS) ");
+    resolve_arg(ctx, args[0], path);
+    if (ramfs_is_dir(path)) {
+        print_error("cat: est un repertoire");
+        return;
+    }
+    data = ramfs_read(path, &size);
+    if (!data) {
+        print_error("cat: fichier introuvable");
+        return;
+    }
+    for (int i = 0; i < size; i++) putc(data[i]);
+    if (size == 0 || data[size - 1] != '\n') print_string("\n");
 }
 
 static int is_builtin(const char* cmd) {
-    return strcmp(cmd, "help")==0 || strcmp(cmd, "ls")==0 || strcmp(cmd, "dir")==0 ||
-           strcmp(cmd, "ps")==0 || strcmp(cmd, "sysinfo")==0 || strcmp(cmd, "info")==0 ||
-           strcmp(cmd, "mem")==0 || strcmp(cmd, "memory")==0 || strcmp(cmd, "history")==0 ||
-           strcmp(cmd, "env")==0 || strcmp(cmd, "echo")==0 || strcmp(cmd, "clear")==0 ||
-           strcmp(cmd, "cls")==0 || strcmp(cmd, "exit")==0 || strcmp(cmd, "quit")==0 ||
-           strcmp(cmd, "ai")==0 || strcmp(cmd, "ai-mode")==0 || strcmp(cmd, "ai-help")==0 ||
-           strcmp(cmd, "cd")==0 || strcmp(cmd, "pwd")==0 || strcmp(cmd, "cat")==0;
+    static const char* names[] = {
+        "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
+        "history", "env", "echo", "clear", "cls", "exit", "quit",
+        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
+        "cd", "pwd", "cat", "mkdir", "rmdir", "cp", "mv", "rm",
+        "kill", "jobs", "top", "uptime", "date", "whoami",
+        "alias", "unalias", "export", "which",
+        "grep", "wc", "sort", "head", "tail",
+        "logout", "reboot", "shutdown",
+        0
+    };
+    for (int i = 0; names[i]; i++) {
+        if (strcmp(cmd, names[i]) == 0) return 1;
+    }
+    return 0;
 }
 
 static void cmd_which(shell_context_t* ctx, const char* cmd) {
+    (void)ctx;
     if (is_builtin(cmd)) {
         print_string("builtin\n");
         return;
     }
-    // Sans API FS: indiquer l'emplacement probable
     print_string("bin/");
     print_string(cmd);
-    print_string(" (non vérifié)\n");
+    print_string(" (non verifie)\n");
+}
+
+static void cmd_mkdir(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    int rc;
+    if (arg_count == 0) {
+        print_error("mkdir: repertoire manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    rc = ramfs_mkdir(path);
+    if (rc != RAMFS_OK) print_ramfs_err("mkdir", rc);
+    else print_success(path);
+}
+
+static void cmd_rmdir(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    int rc;
+    if (arg_count == 0) {
+        print_error("rmdir: repertoire manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    rc = ramfs_rmdir(path);
+    if (rc != RAMFS_OK) print_ramfs_err("rmdir", rc);
+}
+
+static void cmd_rm(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    int rc;
+    if (arg_count == 0) {
+        print_error("rm: fichier manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    rc = ramfs_rm(path);
+    if (rc != RAMFS_OK) print_ramfs_err("rm", rc);
+}
+
+static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
+    char src[RAMFS_PATH_MAX];
+    char dst[RAMFS_PATH_MAX];
+    int rc;
+    if (arg_count < 2) {
+        print_error("cp: usage cp <src> <dest>");
+        return;
+    }
+    resolve_arg(ctx, args[0], src);
+    resolve_arg(ctx, args[1], dst);
+    rc = ramfs_cp(src, dst);
+    if (rc != RAMFS_OK) print_ramfs_err("cp", rc);
+}
+
+static void cmd_mv(shell_context_t* ctx, char args[][128], int arg_count) {
+    char src[RAMFS_PATH_MAX];
+    char dst[RAMFS_PATH_MAX];
+    int rc;
+    if (arg_count < 2) {
+        print_error("mv: usage mv <src> <dest>");
+        return;
+    }
+    resolve_arg(ctx, args[0], src);
+    resolve_arg(ctx, args[1], dst);
+    rc = ramfs_mv(src, dst);
+    if (rc != RAMFS_OK) print_ramfs_err("mv", rc);
+}
+
+static void cmd_kill(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count == 0) {
+        print_error("kill: pid manquant");
+        return;
+    }
+    pid = parse_int(args[0]);
+    rc = procsim_kill(pid);
+    if (rc == -2) print_error("kill: processus protege (kernel/init)");
+    else if (rc != 0) print_error("kill: pid introuvable");
+    else {
+        print_string("Processus ");
+        print_int(pid);
+        print_string(" termine (simule)\n");
+    }
+}
+
+static void cmd_jobs(shell_context_t* ctx, char args[][128], int arg_count) {
+    int n = 0;
+    (void)ctx; (void)args; (void)arg_count;
+    print_colored("\n=== Jobs (table simulee) ===\n", COLOR_CYAN);
+    for (int i = 0; i < procsim_count(); i++) {
+        const procsim_entry_t* p = procsim_get_by_index(i);
+        if (!p || !p->alive || p->pid < 2) continue;
+        print_string("[");
+        print_int(p->pid);
+        print_string("]  Running  ");
+        print_string(p->name);
+        print_string("\n");
+        n++;
+    }
+    if (n == 0) print_string("Aucun job.\n");
+    print_string("\n");
+}
+
+static void cmd_top(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)args; (void)arg_count;
+    print_colored("\n=== top (VFS RAM / processus simules) ===\n", COLOR_CYAN);
+    print_string("uptime ticks: ");
+    print_int(ctx->cmd_ticks);
+    print_string("  tasks: ");
+    print_int(procsim_alive_count());
+    print_string("\n");
+    print_colored("  PID  PPID  STAT  CPU  MEM  COMMAND\n", COLOR_YELLOW);
+    for (int i = 0; i < procsim_count(); i++) {
+        const procsim_entry_t* p = procsim_get_by_index(i);
+        if (!p || !p->alive) continue;
+        print_string("  ");
+        print_int(p->pid);
+        print_string("    ");
+        print_int(p->ppid);
+        print_string("    ");
+        putc(p->state);
+        print_string("     ");
+        print_int(p->cpu);
+        print_string("    ");
+        print_int(p->mem);
+        print_string("   ");
+        print_string(p->name);
+        print_string("\n");
+    }
+    print_string("\n");
+}
+
+static void cmd_uptime(shell_context_t* ctx, char args[][128], int arg_count) {
+    int sec = ctx->cmd_ticks;
+    int h, m, s;
+    (void)args; (void)arg_count;
+    if (sec < 0) sec = 0;
+    h = sec / 3600;
+    m = (sec % 3600) / 60;
+    s = sec % 60;
+    print_string("up ");
+    print_int(h);
+    print_string(":");
+    if (m < 10) putc('0');
+    print_int(m);
+    print_string(":");
+    if (s < 10) putc('0');
+    print_int(s);
+    print_string("  (ticks commandes: ");
+    print_int(ctx->cmd_ticks);
+    print_string(")\n");
+}
+
+static void cmd_date(shell_context_t* ctx, char args[][128], int arg_count) {
+    int sec = ctx->cmd_ticks % 86400;
+    int h = 5 + (sec / 3600);
+    int m = (sec % 3600) / 60;
+    int s = sec % 60;
+    (void)args; (void)arg_count;
+    if (h >= 24) h %= 24;
+    print_string("Thu Aug 13 ");
+    if (h < 10) putc('0');
+    print_int(h);
+    print_string(":");
+    if (m < 10) putc('0');
+    print_int(m);
+    print_string(":");
+    if (s < 10) putc('0');
+    print_int(s);
+    print_string(" UTC 2026\n");
+}
+
+static void cmd_whoami(shell_context_t* ctx, char args[][128], int arg_count) {
+    const char* user = get_env_var(ctx, "USER");
+    (void)args; (void)arg_count;
+    print_string(user ? user : "root");
+    print_string("\n");
+}
+
+static void cmd_alias(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        if (ctx->alias_count == 0) {
+            print_string("Aucun alias.\n");
+            return;
+        }
+        for (int i = 0; i < ctx->alias_count; i++) {
+            print_string("alias ");
+            print_string(ctx->aliases[i].alias);
+            print_string("='");
+            print_string(ctx->aliases[i].command);
+            print_string("'\n");
+        }
+        return;
+    }
+    {
+        char name[64];
+        char value[256];
+        char* eq = find_char(args[0], '=');
+        name[0] = 0;
+        value[0] = 0;
+        if (eq) {
+            int nlen = (int)(eq - args[0]);
+            int i;
+            if (nlen <= 0 || nlen >= 63) {
+                print_error("alias: nom invalide");
+                return;
+            }
+            for (i = 0; i < nlen; i++) name[i] = args[0][i];
+            name[nlen] = 0;
+            strcpy(value, eq + 1);
+            for (int a = 1; a < arg_count; a++) {
+                strcat(value, " ");
+                strcat(value, args[a]);
+            }
+        } else if (arg_count >= 2) {
+            strcpy(name, args[0]);
+            strcpy(value, args[1]);
+            for (int a = 2; a < arg_count; a++) {
+                strcat(value, " ");
+                strcat(value, args[a]);
+            }
+        } else {
+            print_error("alias: usage alias nom=commande");
+            return;
+        }
+        for (int i = 0; i < ctx->alias_count; i++) {
+            if (strcmp(ctx->aliases[i].alias, name) == 0) {
+                strcpy(ctx->aliases[i].command, value);
+                return;
+            }
+        }
+        if (ctx->alias_count >= MAX_ENV_VARS) {
+            print_error("alias: table pleine");
+            return;
+        }
+        strcpy(ctx->aliases[ctx->alias_count].alias, name);
+        strcpy(ctx->aliases[ctx->alias_count].command, value);
+        ctx->alias_count++;
+    }
+}
+
+static void cmd_unalias(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        print_error("unalias: nom manquant");
+        return;
+    }
+    for (int i = 0; i < ctx->alias_count; i++) {
+        if (strcmp(ctx->aliases[i].alias, args[0]) == 0) {
+            for (int j = i; j < ctx->alias_count - 1; j++) {
+                ctx->aliases[j] = ctx->aliases[j + 1];
+            }
+            ctx->alias_count--;
+            return;
+        }
+    }
+    print_error("unalias: alias introuvable");
+}
+
+static void cmd_export(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        cmd_env(ctx, args, arg_count);
+        return;
+    }
+    {
+        char* eq = find_char(args[0], '=');
+        if (eq) {
+            char name[64];
+            int nlen = (int)(eq - args[0]);
+            int i;
+            if (nlen <= 0 || nlen >= 63) {
+                print_error("export: nom invalide");
+                return;
+            }
+            for (i = 0; i < nlen; i++) name[i] = args[0][i];
+            name[nlen] = 0;
+            set_env_var(ctx, name, eq + 1);
+        } else if (arg_count >= 2) {
+            set_env_var(ctx, args[0], args[1]);
+        } else {
+            print_error("export: usage export VAR=valeur");
+        }
+    }
+}
+
+static int load_file_lines(shell_context_t* ctx, const char* filearg,
+                           char lines[][128], int max_lines) {
+    char path[RAMFS_PATH_MAX];
+    const char* data;
+    int size = 0;
+    int pos = 0;
+    int n = 0;
+    resolve_arg(ctx, filearg, path);
+    data = ramfs_read(path, &size);
+    if (!data) return -1;
+    while (pos < size && n < max_lines) {
+        int len = 0;
+        while (pos < size && data[pos] != '\n' && len < 127) {
+            lines[n][len++] = data[pos++];
+        }
+        lines[n][len] = 0;
+        if (pos < size && data[pos] == '\n') pos++;
+        n++;
+    }
+    return n;
+}
+
+static void cmd_grep(shell_context_t* ctx, char args[][128], int arg_count) {
+    char lines[32][128];
+    int n;
+    int hits = 0;
+    if (arg_count < 2) {
+        print_error("grep: usage grep <motif> <fichier>");
+        return;
+    }
+    n = load_file_lines(ctx, args[1], lines, 32);
+    if (n < 0) {
+        print_error("grep: fichier introuvable");
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        if (strstr(lines[i], args[0])) {
+            print_string(lines[i]);
+            print_string("\n");
+            hits++;
+        }
+    }
+    if (hits == 0) {
+        print_string("(aucune correspondance)\n");
+    }
+}
+
+static void cmd_wc(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    const char* data;
+    int size = 0;
+    int lines = 0, words = 0, chars = 0;
+    int in_word = 0;
+    if (arg_count == 0) {
+        print_error("wc: fichier manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    data = ramfs_read(path, &size);
+    if (!data) {
+        print_error("wc: fichier introuvable");
+        return;
+    }
+    chars = size;
+    for (int i = 0; i < size; i++) {
+        char c = data[i];
+        if (c == '\n') lines++;
+        if (c == ' ' || c == '\t' || c == '\n') in_word = 0;
+        else if (!in_word) {
+            in_word = 1;
+            words++;
+        }
+    }
+    print_int(lines);
+    print_string(" ");
+    print_int(words);
+    print_string(" ");
+    print_int(chars);
+    print_string(" ");
+    print_string(path);
+    print_string("\n");
+}
+
+static void cmd_sort(shell_context_t* ctx, char args[][128], int arg_count) {
+    char lines[32][128];
+    int n;
+    if (arg_count == 0) {
+        print_error("sort: fichier manquant");
+        return;
+    }
+    n = load_file_lines(ctx, args[0], lines, 32);
+    if (n < 0) {
+        print_error("sort: fichier introuvable");
+        return;
+    }
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - 1 - i; j++) {
+            if (strcmp(lines[j], lines[j + 1]) > 0) {
+                char tmp[128];
+                strcpy(tmp, lines[j]);
+                strcpy(lines[j], lines[j + 1]);
+                strcpy(lines[j + 1], tmp);
+            }
+        }
+    }
+    for (int i = 0; i < n; i++) {
+        print_string(lines[i]);
+        print_string("\n");
+    }
+}
+
+static int parse_line_count(char args[][128], int arg_count, int* file_idx) {
+    int n = 10;
+    *file_idx = 0;
+    if (arg_count >= 2 && strcmp(args[0], "-n") == 0) {
+        n = parse_int(args[1]);
+        *file_idx = 2;
+    } else if (arg_count >= 1 && args[0][0] == '-' && args[0][1] >= '0' && args[0][1] <= '9') {
+        n = parse_int(args[0] + 1);
+        *file_idx = 1;
+    }
+    if (n < 0) n = 0;
+    if (n > 32) n = 32;
+    return n;
+}
+
+static void cmd_head(shell_context_t* ctx, char args[][128], int arg_count) {
+    char lines[32][128];
+    int file_idx = 0;
+    int want;
+    int n;
+    if (arg_count == 0) {
+        print_error("head: fichier manquant");
+        return;
+    }
+    want = parse_line_count(args, arg_count, &file_idx);
+    if (file_idx >= arg_count) {
+        print_error("head: fichier manquant");
+        return;
+    }
+    n = load_file_lines(ctx, args[file_idx], lines, 32);
+    if (n < 0) {
+        print_error("head: fichier introuvable");
+        return;
+    }
+    if (want > n) want = n;
+    for (int i = 0; i < want; i++) {
+        print_string(lines[i]);
+        print_string("\n");
+    }
+}
+
+static void cmd_tail(shell_context_t* ctx, char args[][128], int arg_count) {
+    char lines[32][128];
+    int file_idx = 0;
+    int want;
+    int n;
+    int start;
+    if (arg_count == 0) {
+        print_error("tail: fichier manquant");
+        return;
+    }
+    want = parse_line_count(args, arg_count, &file_idx);
+    if (file_idx >= arg_count) {
+        print_error("tail: fichier manquant");
+        return;
+    }
+    n = load_file_lines(ctx, args[file_idx], lines, 32);
+    if (n < 0) {
+        print_error("tail: fichier introuvable");
+        return;
+    }
+    if (want > n) want = n;
+    start = n - want;
+    for (int i = start; i < n; i++) {
+        print_string(lines[i]);
+        print_string("\n");
+    }
+}
+
+static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)args; (void)arg_count;
+    print_colored("\n=== Statistiques IA ===\n", COLOR_CYAN);
+    print_string("Requêtes ai : ");
+    print_int(ctx->ai_query_count);
+    print_string("\nMode IA     : ");
+    print_string(ctx->ai_mode ? "active" : "desactive");
+    print_string("\nMoteur      : simulateur mots-cles (fake_ai)\n\n");
+}
+
+static void cmd_reboot(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)ctx; (void)args; (void)arg_count;
+    print_warning("reboot: simule (QEMU reste actif, tapez exit pour quitter le shell)");
+}
+
+static void cmd_shutdown(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)ctx; (void)args; (void)arg_count;
+    print_warning("shutdown: simule (QEMU reste actif, tapez exit pour quitter le shell)");
 }
 
 void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -707,6 +1293,7 @@ void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("question: ");
     print_string(full_query);
     print_string("\n");
+    ctx->ai_query_count++;
     call_ai_assistant(ctx, full_query);
 }
 
@@ -834,6 +1421,75 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "ai-test") == 0) {
         cmd_ai_test(ctx);
         return 1;
+    } else if (strcmp(command, "mkdir") == 0) {
+        cmd_mkdir(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "rmdir") == 0) {
+        cmd_rmdir(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "rm") == 0) {
+        cmd_rm(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "cp") == 0) {
+        cmd_cp(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "mv") == 0) {
+        cmd_mv(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "kill") == 0) {
+        cmd_kill(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "jobs") == 0) {
+        cmd_jobs(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "top") == 0) {
+        cmd_top(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "uptime") == 0) {
+        cmd_uptime(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "date") == 0) {
+        cmd_date(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "whoami") == 0) {
+        cmd_whoami(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "alias") == 0) {
+        cmd_alias(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "unalias") == 0) {
+        cmd_unalias(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "export") == 0) {
+        cmd_export(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "grep") == 0) {
+        cmd_grep(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "wc") == 0) {
+        cmd_wc(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "sort") == 0) {
+        cmd_sort(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "head") == 0) {
+        cmd_head(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "tail") == 0) {
+        cmd_tail(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-stats") == 0) {
+        cmd_ai_stats(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "logout") == 0) {
+        cmd_exit(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "reboot") == 0) {
+        cmd_reboot(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "shutdown") == 0) {
+        cmd_shutdown(ctx, args, arg_count);
+        return 1;
     }
     
     return 0; // Commande non trouvée
@@ -902,6 +1558,27 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     // Parser la commande
     if (!parse_command(input_buffer, command, args, &arg_count)) {
         return;
+    }
+
+    ctx->cmd_ticks++;
+
+    // Expansion d'alias (une seule fois)
+    for (int i = 0; i < ctx->alias_count; i++) {
+        if (strcmp(command, ctx->aliases[i].alias) == 0) {
+            char rebuilt[MAX_COMMAND_LENGTH];
+            int pos = 0;
+            const char* ac = ctx->aliases[i].command;
+            int j = 0;
+            while (ac[j] && pos < MAX_COMMAND_LENGTH - 2) rebuilt[pos++] = ac[j++];
+            for (int a = 0; a < arg_count; a++) {
+                if (pos < MAX_COMMAND_LENGTH - 2) rebuilt[pos++] = ' ';
+                j = 0;
+                while (args[a][j] && pos < MAX_COMMAND_LENGTH - 2) rebuilt[pos++] = args[a][j++];
+            }
+            rebuilt[pos] = '\0';
+            parse_command(rebuilt, command, args, &arg_count);
+            break;
+        }
     }
 
     // Exécuter la commande builtin

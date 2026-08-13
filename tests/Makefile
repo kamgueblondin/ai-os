@@ -88,6 +88,11 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_%: $(UNIT_DIR)/kernel/test_%.c $(FRAMEWORK_
 	@echo "Compiled kernel test: $(notdir $@)"
 
 # Compilation des tests userspace
+$(BUILD_DIR)/$(UNIT_DIR)/userspace/test_ramfs: $(UNIT_DIR)/userspace/test_ramfs.c ../userspace/ramfs.c ../userspace/procsim.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_USER) -I../userspace -o $@ $< ../userspace/ramfs.c ../userspace/procsim.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled userspace test: $(notdir $@)"
+
 $(BUILD_DIR)/$(UNIT_DIR)/userspace/test_%: $(UNIT_DIR)/userspace/test_%.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_USER) -o $@ $< $(FRAMEWORK_SOURCES)
