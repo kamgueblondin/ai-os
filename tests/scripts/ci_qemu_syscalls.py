@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/head/alias/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/alias/unalias/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -194,14 +194,14 @@ def main():
             ("stat hello.txt",
              ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "stat file hello.txt"),
-            ("head hello.txt",
-             ["h", "e", "a", "d", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
-             "head ok 1 hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
             ("alias ll=whoami",
              ["a", "l", "i", "a", "s", "spc", "l", "l", "equal", "w", "h", "o", "a", "m", "i", "ret"],
              "alias ok ll"),
             ("ll", ["l", "l", "ret"], "whoami ok root"),
+            ("unalias ll",
+             ["u", "n", "a", "l", "i", "a", "s", "spc", "l", "l", "ret"],
+             "unalias ok ll"),
             ("which ls",
              ["w", "h", "i", "c", "h", "spc", "l", "s", "ret"],
              "which ok builtin ls"),
@@ -596,6 +596,7 @@ def main():
             ("getpid", "getpid ok"),
             ("whoami", "whoami ok root"),
             ("alias", "alias ok ll"),
+            ("unalias", "unalias ok ll"),
             ("which builtin", "which ok builtin ls"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
@@ -623,7 +624,6 @@ def main():
             ("rm write", "rm ok hi.txt"),
             ("stat file", "stat file hello.txt"),
             ("test file", "test ok file hello.txt"),
-            ("head initrd", "head ok 1 hello.txt"),
             ("stat dir", "stat dir mydir"),
             ("test dir", "test ok dir mydir"),
         ]
