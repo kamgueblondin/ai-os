@@ -477,6 +477,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ls [path]          - Lister initrd + overlay noyau\n");
     print_string("  cat <file>         - Afficher un fichier (overlay puis initrd)\n");
     print_string("  stat <path>        - Type et taille (syscall SYS_STAT)\n");
+    print_string("  test f|d|e <path>  - Tester fichier/dossier (SYS_STAT)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
@@ -919,6 +920,58 @@ static void cmd_stat(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+static int lookup_path_kind(shell_context_t* ctx, const char* arg, int* is_dir) {
+    char path[RAMFS_PATH_MAX];
+    os_dirent_t st;
+    resolve_arg(ctx, arg, path);
+    if (sys_stat(path, &st) == 0) {
+        *is_dir = (st.flags == OS_DIRENT_DIR);
+        return 1;
+    }
+    if (ramfs_is_dir(path)) {
+        *is_dir = 1;
+        return 1;
+    }
+    if (ramfs_is_file(path)) {
+        *is_dir = 0;
+        return 1;
+    }
+    return 0;
+}
+
+static void cmd_test(shell_context_t* ctx, char args[][128], int arg_count) {
+    int is_dir = 0;
+    int found;
+    int ok = 0;
+    const char* flag;
+    const char* name;
+    if (arg_count < 2) {
+        print_error("test: usage test f|d|e <chemin>");
+        return;
+    }
+    flag = args[0];
+    name = args[1];
+    found = lookup_path_kind(ctx, name, &is_dir);
+    if (strcmp(flag, "-f") == 0 || strcmp(flag, "f") == 0) ok = found && !is_dir;
+    else if (strcmp(flag, "-d") == 0 || strcmp(flag, "d") == 0) ok = found && is_dir;
+    else if (strcmp(flag, "-e") == 0 || strcmp(flag, "e") == 0) ok = found;
+    else {
+        print_error("test: flag inconnu");
+        return;
+    }
+    if (ok) {
+        if (strcmp(flag, "-f") == 0 || strcmp(flag, "f") == 0) print_string("test ok file ");
+        else if (strcmp(flag, "-d") == 0 || strcmp(flag, "d") == 0) print_string("test ok dir ");
+        else print_string("test ok ");
+        print_string(name);
+        print_string("\n");
+    } else {
+        print_string("test no ");
+        print_string(name);
+        print_string("\n");
+    }
+}
+
 void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     // Séquence ANSI pour effacer l'écran
     print_string("\x1b[2J\x1b[H");
@@ -1002,7 +1055,7 @@ static int is_builtin(const char* cmd) {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
-        "cd", "pwd", "cat", "stat", "mkdir", "rmdir", "cp", "mv", "rm",
+        "cd", "pwd", "cat", "stat", "test", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which",
         "grep", "wc", "sort", "head", "tail",
@@ -1890,6 +1943,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "stat") == 0) {
         cmd_stat(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "test") == 0) {
+        cmd_test(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "which") == 0) {
         if (arg_count == 0) {

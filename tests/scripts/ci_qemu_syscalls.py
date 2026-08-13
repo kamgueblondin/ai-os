@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -255,6 +255,14 @@ def main():
         sendkeys(mon, ["g", "e", "t", "p", "i", "d", "ret"])
         wait_needle_from("getpid ok", CMD_TIMEOUT, proc, mark)
 
+        say("typing test f hello.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "e", "s", "t", "spc", "f", "spc",
+            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("test ok file hello.txt", CMD_TIMEOUT, proc, mark)
+
         say("typing mkdir mydir ...")
         mark = len(log_text())
         sendkeys(mon, ["m", "k", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
@@ -264,6 +272,13 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["s", "t", "a", "t", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("stat dir mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing test d mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "e", "s", "t", "spc", "d", "spc", "m", "y", "d", "i", "r", "ret",
+        ])
+        wait_needle_from("test ok dir mydir", CMD_TIMEOUT, proc, mark)
 
         say("typing cd mydir ...")
         mark = len(log_text())
@@ -603,10 +618,12 @@ def main():
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),
             ("stat file", "stat file hello.txt"),
+            ("test file", "test ok file hello.txt"),
             ("head initrd", "head ok 1 hello.txt"),
             ("tail initrd", "tail ok 1 hello.txt"),
             ("sort initrd", "sort ok 1 hello.txt"),
             ("stat dir", "stat dir mydir"),
+            ("test dir", "test ok dir mydir"),
         ]
         fail = 0
         for label, needle in checks:

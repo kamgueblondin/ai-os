@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `append` / `SYS_APPEND` ; `getpid` / `touch` ; `mem` / `SYS_MEMINFO` ; `ai hello` via SYS_EXEC ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI `test -f`/`test -d` / `SYS_STAT` ; `append` / `SYS_APPEND` ; `getpid` / `touch` ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -57,18 +57,18 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | Binaire | Tests unitaires |
 |---|---|
 | `test_pmm` | 17/17 |
-| `test_syscall` | 47/47 |
+| `test_syscall` | 48/48 |
 | `test_task` | 21/21 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**120** = 17+47+21+25+10).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**121** = 17+48+21+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
 ## Shell : commandes réelles vs affichées
 
-Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `stat` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `append` / `touch` / `grep` / `wc` / `ps` / `kill` / `getpid` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write`/`append`/`touch` écrivent dans l’overlay noyau. `procsim.c` n’est plus utilisé par `ps`/`kill`.
+Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `stat` / `test` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `append` / `touch` / `grep` / `wc` / `ps` / `kill` / `getpid` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write`/`append`/`touch` écrivent dans l’overlay noyau. `procsim.c` n’est plus utilisé par `ps`/`kill`.
 
 | Commande | Comportement réel |
 |---|---|
@@ -78,6 +78,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `cp` / `mv` | `cp` fichier : `SYS_READFILE` + `SYS_WRITEFILE` (y compris initrd → overlay, et `cp fichier dossier/` joint le nom). `cp` dossier overlay : `SYS_COPY` (enfants dupliqués, source conservée). `mv` : `SYS_RENAME`. L’initrd reste `PROTECTED`. |
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` ; `head`/`tail`/`sort` affichent `head ok N fichier` / `tail ok N fichier` / `sort ok N fichier` |
 | `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
+| `test` | `test f`/`d`/`e <chemin>` (`SYS_STAT`, aussi `-f`/`-d`/`-e`) : `test ok file hello.txt` / `test ok dir mydir` / `test no zzz` |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
 | `append` | `append <fichier> <texte>` → concatène (`SYS_APPEND`) ; crée le fichier s’il n’existe pas ; un fichier initrd est recopié dans l’overlay (copie sur écriture). Succès : `append ok <fichier>` |
@@ -130,13 +131,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid
+make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test f`/`test d`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

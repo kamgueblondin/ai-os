@@ -886,6 +886,19 @@ void test_sys_stat_initrd_file_and_overlay_dir(void) {
     TEST_ASSERT_EQUAL(OS_DIRENT_DIR, (int)st.flags);
 }
 
+void test_sys_stat_missing(void) {
+    os_dirent_t st;
+    cpu_state_t cpu = {0};
+
+    overlay_init();
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"nosuch";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT((int)cpu.eax != 0);
+}
+
 void test_sys_overlay_copy_from_initrd(void) {
     char src[64];
     char dst[64];
@@ -1310,6 +1323,7 @@ int main(void) {
     RUN_TEST(test_sys_overlay_append);
     RUN_TEST(test_sys_overlay_protects_initrd);
     RUN_TEST(test_sys_stat_initrd_file_and_overlay_dir);
+    RUN_TEST(test_sys_stat_missing);
     RUN_TEST(test_sys_overlay_copy_from_initrd);
     RUN_TEST(test_sys_overlay_nested_mkdir_notempty);
     RUN_TEST(test_sys_overlay_rename_file_and_dir);

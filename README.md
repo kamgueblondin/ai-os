@@ -80,7 +80,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **120 tests** répartis dans `test_pmm` (17), `test_syscall` (47), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **121 tests** répartis dans `test_pmm` (17), `test_syscall` (48), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
 
 ### Configuration Initiale
 ```bash
