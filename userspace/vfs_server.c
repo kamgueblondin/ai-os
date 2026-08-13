@@ -63,6 +63,12 @@ static int backend_write(const char* path, const uint8_t* data, uint32_t size) {
     return result;
 }
 
+static int backend_remove(const char* path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_UNLINK), "b"(path));
+    return result;
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -138,6 +144,17 @@ static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int remove_mounted_backend(const char* path) {
+    uint32_t i;
+    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+        const char* relative = 0;
+        if (os_vfs_match_mount(path, vfs_write_mounts[i], &relative)) {
+            return backend_remove(relative);
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 void main(void) {
     os_ipc_message_t message;
     os_ipc_payload_t reply_payload;
@@ -185,6 +202,19 @@ void main(void) {
                 }
             }
             if (os_vfs_make_write_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_REMOVE) {
+            int status;
+            puts("vfsserver remove request\n");
+            status = os_vfs_parse_remove_request(&message, path);
+            if (status == 0) {
+                status = remove_mounted_backend(path);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) {
+                    puts("vfsserver remove outside mounts\n");
+                }
+            }
+            if (os_vfs_make_remove_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

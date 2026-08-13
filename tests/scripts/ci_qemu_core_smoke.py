@@ -18,7 +18,7 @@ MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-moni
 TEST_DISK = os.environ.get("OVERLAY_DISK", os.path.join(LOG_DIR, "qemu-core-overlay.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.40"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.55"))
 
 
 def say(message):

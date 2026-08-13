@@ -59,7 +59,7 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.20)
+        time.sleep(0.40)
     client.sendall(b"sendkey ret\n")
 
 
@@ -103,6 +103,9 @@ def main():
             before_direct_write = len(log_text())
             send_command(monitor, "vfs-backend-write-probe note.txt denied")
             wait_for("vfs-backend-write-probe denied", proc, before_direct_write)
+            before_direct_remove = len(log_text())
+            send_command(monitor, "vfs-backend-remove-probe note.txt")
+            wait_for("vfs-backend-remove-probe denied", proc, before_direct_remove)
             before_mounts = len(log_text())
             send_command(monitor, "vfs-read vfs-mounts")
             wait_for("vfsserver virtual vfs-mounts", proc, before_mounts)
@@ -132,6 +135,10 @@ def main():
             send_command(monitor, "vfs-write initrd/no.txt denied")
             wait_for("vfsserver write outside mounts", proc, before_readonly_write)
             wait_for("vfs-write: chemin hors montage ecriture", proc, before_readonly_write)
+            before_readonly_remove = len(log_text())
+            send_command(monitor, "vfs-remove initrd/no.txt")
+            wait_for("vfsserver remove outside mounts", proc, before_readonly_remove)
+            wait_for("vfs-remove: chemin hors montage ecriture", proc, before_readonly_remove)
             before_write = len(log_text())
             send_command(monitor, "vfs-write overlay/note.txt vfsok")
             wait_for("vfsserver write request", proc, before_write)
@@ -140,6 +147,13 @@ def main():
             send_command(monitor, "vfs-read overlay/note.txt")
             wait_for("vfs-read ok", proc, before_written_read)
             wait_for("vfsok", proc, before_written_read)
+            before_remove = len(log_text())
+            send_command(monitor, "vfs-remove overlay/note.txt")
+            wait_for("vfsserver remove request", proc, before_remove)
+            wait_for("vfs-remove ok request", proc, before_remove)
+            before_removed_read = len(log_text())
+            send_command(monitor, "vfs-read overlay/note.txt")
+            wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_removed_read)
             before_claim = len(log_text())
             send_command(monitor, "spawn vfsclaim")
             wait_for("spawn ok pid", proc, before_claim)

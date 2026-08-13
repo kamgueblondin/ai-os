@@ -48,6 +48,7 @@ int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_backend_write(const char* path, const char* data, uint32_t size);
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max);
+int sys_vfs_overlay_unlink(const char* path);
 
 void keyboard_add_char_to_buffer(char c);
 
