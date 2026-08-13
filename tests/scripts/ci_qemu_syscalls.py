@@ -15,10 +15,17 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "ai_os.bin"))
 INITRD = os.environ.get("INITRD", os.path.join(ROOT, "my_initrd.tar"))
-LOG = os.environ.get("LOG", os.path.join(ROOT, "test_logs", "ci-qemu-serial.log"))
-MON_PORT = int(os.environ.get("QEMU_MON_PORT", "45454"))
+LOG_DIR = os.path.join(ROOT, "test_logs")
+LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
+QEMU_ERR = os.environ.get("QEMU_ERR", os.path.join(LOG_DIR, "ci-qemu-stderr.log"))
+MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "18"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "8"))
+
+
+def say(msg):
+    sys.stdout.write(msg + "\n")
+    sys.stdout.flush()
 
 
 def log_text():
@@ -28,23 +35,37 @@ def log_text():
         return f.read()
 
 
+def err_text():
+    if not os.path.isfile(QEMU_ERR):
+        return ""
+    with open(QEMU_ERR, "r", errors="replace") as f:
+        return f.read()
+
+
 def wait_needle(needle, timeout, proc):
     t0 = time.time()
     while time.time() - t0 < timeout:
         if proc.poll() is not None:
-            raise RuntimeError("QEMU exited early with code %s" % proc.returncode)
+            raise RuntimeError(
+                "QEMU exited early with code %s\nstderr: %s"
+                % (proc.returncode, err_text()[-1500:])
+            )
         if needle in log_text():
             return
         time.sleep(0.15)
     raise RuntimeError("timeout waiting for %r in serial log" % needle)
 
 
-def monitor_connect(retries=40):
+def monitor_connect(retries=50):
     last = None
     for _ in range(retries):
+        if not os.path.exists(MON_SOCK):
+            time.sleep(0.1)
+            continue
         try:
-            s = socket.create_connection(("127.0.0.1", MON_PORT), timeout=1)
-            s.settimeout(0.4)
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect(MON_SOCK)
             try:
                 s.recv(4096)
             except socket.timeout:
@@ -52,7 +73,11 @@ def monitor_connect(retries=40):
             return s
         except (socket.error, OSError) as e:
             last = e
-            time.sleep(0.15)
+            try:
+                s.close()
+            except Exception:
+                pass
+            time.sleep(0.1)
     raise RuntimeError("cannot connect to QEMU monitor: %s" % last)
 
 
@@ -62,14 +87,42 @@ def sendkeys(mon, keys):
         time.sleep(0.12)
 
 
+def dump_logs():
+    text = log_text()
+    if text:
+        say("=== serial log (tail) ===")
+        say("\n".join(text.splitlines()[-80:]))
+    err = err_text()
+    if err:
+        say("=== qemu stderr (tail) ===")
+        say(err[-2000:])
+
+
+def kill_qemu(proc):
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=2)
+    except Exception:
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except Exception:
+            pass
+
+
 def main():
     if not os.path.isfile(KERNEL) or not os.path.isfile(INITRD):
-        print("ERROR: missing %s or %s — run 'make all' first" % (KERNEL, INITRD))
+        say("ERROR: missing %s or %s — run 'make all' first" % (KERNEL, INITRD))
         return 1
 
-    os.makedirs(os.path.dirname(LOG), exist_ok=True)
-    if os.path.isfile(LOG):
-        os.remove(LOG)
+    os.makedirs(os.path.dirname(os.path.abspath(LOG)) or ".", exist_ok=True)
+    for path in (LOG, QEMU_ERR, MON_SOCK):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
     cmd = [
         "qemu-system-i386",
@@ -77,15 +130,21 @@ def main():
         "-initrd", INITRD,
         "-m", "128M",
         "-display", "none",
+        "-vga", "none",
         "-serial", "file:" + LOG,
-        "-monitor", "tcp:127.0.0.1:%d,server,nowait" % MON_PORT,
+        "-monitor", "unix:%s,server,nowait" % MON_SOCK,
         "-machine", "type=pc,accel=tcg",
         "-no-reboot",
         "-no-shutdown",
     ]
-    print("=== QEMU syscall smoke (sendkey ls/cat/ps/uptime) ===")
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    rc = 1
+    say("=== QEMU syscall smoke (sendkey ls/cat/ps/uptime) ===")
+    err_f = open(QEMU_ERR, "wb")
+    proc = subprocess.Popen(
+        cmd,
+        stdout=err_f,
+        stderr=err_f,
+        start_new_session=True,
+    )
     mon = None
     try:
         wait_needle("(-.-)", BOOT_TIMEOUT, proc)
@@ -103,7 +162,7 @@ def main():
             ("uptime", ["u", "p", "t", "i", "m", "e", "ret"], "PIT ticks"),
         ]
         for name, keys, needle in commands:
-            print("typing %s ..." % name)
+            say("typing %s ..." % name)
             sendkeys(mon, keys)
             wait_needle(needle, CMD_TIMEOUT, proc)
 
@@ -120,27 +179,18 @@ def main():
         fail = 0
         for label, needle in checks:
             if needle in text:
-                print("OK: %s (%r)" % (label, needle))
+                say("OK: %s (%r)" % (label, needle))
             else:
-                print("FAIL: %s missing %r" % (label, needle))
+                say("FAIL: %s missing %r" % (label, needle))
                 fail = 1
         if fail:
-            print("=== serial log (tail) ===")
-            print("\n".join(text.splitlines()[-80:]))
+            dump_logs()
             return 1
-        print("QEMU syscall smoke passed.")
-        rc = 0
+        say("QEMU syscall smoke passed.")
         return 0
     except Exception as e:
-        print("FAIL: %s" % e)
-        text = log_text()
-        if text:
-            print("=== serial log (tail) ===")
-            print("\n".join(text.splitlines()[-80:]))
-        err = proc.stderr.read().decode("utf-8", "replace") if proc.stderr else ""
-        if err:
-            print("=== qemu stderr ===")
-            print(err[-2000:])
+        say("FAIL: %s" % e)
+        dump_logs()
         return 1
     finally:
         if mon is not None:
@@ -148,15 +198,12 @@ def main():
                 mon.close()
             except Exception:
                 pass
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=3)
-            except Exception:
-                proc.kill()
-        # preserve rc from return — finally cannot change returned value in a
-        # useful way here; callers use sys.exit(main()).
-        _ = rc
+        kill_qemu(proc)
+        err_f.close()
+        try:
+            os.remove(MON_SOCK)
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":
