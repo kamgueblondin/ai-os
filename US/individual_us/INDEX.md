@@ -1,306 +1,127 @@
-# Index des User Stories MOHHOS - Fichiers Détaillés
+# Index MOHHOS — fichiers de spécification
 
 > **Légende (août 2026)**  
-> - ✅ dans cet index = **spécification rédigée** (fichier présent), **pas** « implémenté dans le noyau ».  
-> - Dans le code AI-OS actuel : **aucune US MOHHOS n’est livrée** en tant que telle. Recouvrement partiel non revendiqué : PMM/VMM (voisinage US-002), tests unitaires Unity (voisinage US-008), isolation Ring 0/3.  
-> - État du dépôt : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
+> - **Spec** = fichier rédigé, **pas** livré dans le noyau.  
+> - **Chevauchement** = le prototype AI-OS a un voisinage technique (souvent une fraction du besoin).  
+> - Backlog du code réel : [../ai_os_us.md](../ai_os_us.md). Runtime : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
 
-## Vue d'Ensemble
+Les titres du [document maître](../mohhos_user_stories_master.md) **ne correspondent pas toujours** aux noms de fichiers ci-dessous (ex. maître US-008 = « mise à jour automatique », fichier = tests automatisés). **Le fichier individuel fait foi** pour le texte de la spec. Les IDs **US-023, US-024 et US-025 existent en double**.
 
-Ce dossier contient les spécifications détaillées de chaque User Story du projet MOHHOS. Chaque fichier fournit une analyse technique approfondie, des spécifications complètes, et des critères d'acceptation précis pour guider l'implémentation.
+Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décrites seulement dans les documents `mohhos_*.md`.
 
-## Structure des Fichiers US
+## Chevauchement avec AI-OS
 
-Chaque fichier User Story suit une structure standardisée :
+| US fichier | Spec MOHHOS | Dans le prototype |
+|---|---|---|
+| US-001 | Microkernel + IPC | Non. Noyau monolithique `kernel/kernel.c` |
+| US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
+| US-003 | Sécurité adaptative IA | Isolation Ring 0/3, pas de détection de menaces |
+| US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
+| US-008 | Framework de tests IA | Unity 144 + `make qemu-smoke` + GitHub Actions ; dossiers integration/system/performance/robustness vides |
+| US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (23 syscalls) |
+| US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
+| US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
+| US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |
+| US-066 | Gestion mémoire avancée | Même voisinage que US-002 (PMM/VMM) |
+| Autres | — | **Spec uniquement** |
 
-### 📋 **Informations Générales**
-- ID, Titre, Phase, Priorité
-- Complexité, Effort, Risque
+## Fichiers présents (`individual_us/`)
 
-### 👤 **Description Utilisateur**
-- Format "En tant que... Je veux... Afin de..."
-- Contexte métier et technique
+Chaque entrée : `US-XXX` + nom de fichier. Statut implicite **Spec**, sauf mention dans le tableau ci-dessus.
 
-### 🔧 **Spécifications Techniques**
-- Architecture détaillée
-- APIs et structures de données
-- Algorithmes et implémentations
+### Phase 1 — Foundation (fichiers)
 
-### ✅ **Critères d'Acceptation**
-- Critères fonctionnels
-- Critères de performance
-- Critères de qualité
+- US-001 `US-001_Architecture_Microkernel.md`
+- US-002 `US-002_Gestionnaire_Ressources_Intelligent.md` (chevauchement mémoire)
+- US-003 `US-003_Systeme_Securite_Adaptatif.md`
+- US-004 `US-004_Framework_Plugins_Modulaires.md`
+- US-005 `US-005_Systeme_Logging_Distribue.md`
+- US-006 `US-006_Gestionnaire_Configuration_Dynamique.md`
+- US-007 `US-007_Systeme_Monitoring_Temps_Reel.md` (chevauchement `ps`/`mem`/`uptime`)
+- US-008 `US-008_Framework_Tests_Automatises.md` (chevauchement Unity + CI)
+- US-009 `US-009_Systeme_Mise_A_Jour_Incrementale.md`
+- US-010 `US-010_Gestionnaire_Pilotes_Modulaires.md` (chevauchement pilotes QEMU)
+- US-011 `US-011_Systeme_Virtualisation_Leger.md`
+- US-012 `US-012_Framework_APIs_Unifiees.md` (chevauchement ABI syscalls)
+- US-013 `US-013_Communication_Inter_Services.md`
+- US-014 `US-014_Gestionnaire_Performance_Metriques.md`
+- US-015 `US-015_Framework_Deploiement_Orchestration.md`
 
-### 🧪 **Tests et Validation**
-- Tests d'acceptation
-- Métriques de succès
-- Benchmarks
+### Phase 2 — AI Core (fichiers)
 
-## User Stories Disponibles
+- US-016 `US-016_Moteur_IA_Local.md` (chevauchement GPT-2, **pas** TFLite)
+- US-017 `US-017_Systeme_Comprehension_Langage_Naturel.md`
+- US-018 `US-018_Gestionnaire_Modeles_IA_Distribues.md`
+- US-019 `US-019_Systeme_Apprentissage_Federe.md`
+- US-020 `US-020_Orchestrateur_Cloud_Edge.md`
+- US-021 `US-021_Assistant_IA_Integre.md` (chevauchement commande `ai`)
+- US-022 `US-022_Systeme_Personnalisation_IA.md`
+- US-023 **doublon** `US-023_Systeme_Apprentissage_Machine_Adaptatif.md` et `US-023_Moteur_Recommandations_Intelligent.md`
+- US-024 **doublon** `US-024_Systeme_Optimisation_Automatique.md` et `US-024_Framework_Integration_IA_Tiers.md`
+- US-025 **doublon** `US-025_Systeme_Prediction_Maintenance.md` et `US-025_Framework_Explicabilite_IA.md`
+- US-026 `US-026_Orchestrateur_Workflows_IA.md`
+- US-027 `US-027_Systeme_Analyse_Comportementale.md`
+- US-028 `US-028_Module_Intelligence_Conversationnelle.md`
+- US-029 `US-029_Framework_Optimisation_Automatique.md`
+- US-030 `US-030_Plateforme_IA_Ethique_Explicable.md`
 
-### 🏗️ Phase 1 - Foundation
+### Phases 3+ (fichiers, IDs ≠ découpage maître 031=navigateur)
 
-#### ✅ **US-001 : Architecture Microkernel**
-**Fichier** : `US-001_Architecture_Microkernel.md`  
-**Complexité** : Très Élevée | **Effort** : 25 j-h | **Risque** : Très Élevé
+Les numéros 031-075 des **fichiers** parlent surtout écosystème, sécurité et performance (marketplace, RGPD, zero-trust, etc.). Ce n'est **pas** la liste « navigateur-OS / PromptMessage / P2P » du document maître. Les phases 4-8 du maître (US-046 à US-120 : PromptMessage, P2P, mobile, points, production) n'ont **pas** de fichier individuel homonyme.
 
-Migration complète vers une architecture microkernel modulaire avec :
-- Gestionnaire IPC haute performance
-- Isolation complète des services
-- Sécurité renforcée par design
-- Support pour l'intégration IA
+- US-031 `US-031_Centre_Distribution_Applications.md`
+- US-032 `US-032_SDK_Developpeur_Multi_Plateforme.md`
+- US-033 `US-033_Marketplace_Ecosysteme_Communautaire.md`
+- US-034 `US-034_Connecteurs_Systemes_Entreprise.md`
+- US-035 `US-035_Plateforme_Integration_Cloud_Hybride.md`
+- US-036 `US-036_Systeme_Federation_Identites.md`
+- US-037 `US-037_Hub_Collaboration_Etendue.md`
+- US-038 `US-038_Passerelle_IoT_Edge_Computing.md`
+- US-039 `US-039_Ecosysteme_Plugins_Modulaires.md`
+- US-040 `US-040_Interface_Programmation_Universelle.md`
+- US-041 `US-041_Reseau_Partenaires_Certifies.md`
+- US-042 `US-042_Plateforme_Innovation_Ouverte.md`
+- US-043 `US-043_Systeme_Metriques_Analytics_Ecosysteme.md`
+- US-044 `US-044_Programme_Gouvernance_Ecosysteme.md`
+- US-045 `US-045_Initiatives_Durabilite_Impact_Social.md`
+- US-046 `US-046_Systeme_Securite_Multi_Couches.md`
+- US-047 `US-047_Gestion_Avancee_Identites_Acces.md`
+- US-048 `US-048_Conformite_RGPD_Protection_Donnees.md`
+- US-049 `US-049_Audit_Compliance_Automatiques.md`
+- US-050 `US-050_Systeme_Gestion_Incidents_Securite.md`
+- US-051 `US-051_Chiffrement_Avance_Gestion_Cles.md`
+- US-052 `US-052_Tests_Penetration_Vulnerabilites.md`
+- US-053 `US-053_Surveillance_Comportementale_Avancee.md`
+- US-054 `US-054_Backup_Disaster_Recovery_Securises.md`
+- US-055 `US-055_Securite_Chaines_Approvisionnement.md`
+- US-056 `US-056_Formation_Sensibilisation_Securite.md`
+- US-057 `US-057_Gestion_Menaces_Threat_Intelligence.md`
+- US-058 `US-058_Zero_Trust_Architecture.md`
+- US-059 `US-059_Securite_DevSecOps_Integree.md`
+- US-060 `US-060_Resilience_Continuite_Securite.md`
+- US-061 `US-061_Optimisation_Performance_Multi_Niveaux.md`
+- US-062 `US-062_Auto_Scaling_Intelligent_Adapte.md`
+- US-063 `US-063_Optimisation_Base_Donnees_Avancee.md`
+- US-064 `US-064_Gestionnaire_Charge_Avance.md`
+- US-065 `US-065_Optimisation_Reseau_Latence.md`
+- US-066 `US-066_Gestion_Memoire_Ressources.md` (chevauchement PMM/VMM)
+- US-067 `US-067_Systeme_Cache_Distribue_Intelligent.md`
+- US-068 `US-068_Optimisation_Algorithmes_Traitements.md`
+- US-069 `US-069_Monitoring_Performance_Temps_Reel.md`
+- US-070 `US-070_Optimisation_Stockage_IO.md`
+- US-071 `US-071_Test_Charge_Stress_Automatise.md`
+- US-072 `US-072_Optimisation_Energetique_Green_IT.md`
+- US-073 `US-073_Orchestration_Workload_Intelligente.md`
+- US-074 `US-074_Optimisation_Continue_Adaptee.md`
+- US-075 `US-075_Benchmark_Comparaison_Performance.md`
 
-**Technologies** : C, Assembleur x86, IPC, Microkernel  
-**Dépendances** : Aucune (fondamentale)
+Pas de fichiers `US-076` … `US-120`.
 
-#### ✅ **US-002 : Gestionnaire de Ressources Intelligent**
-**Fichier** : `US-002_Gestionnaire_Ressources_Intelligent.md`  
-**Complexité** : Élevée | **Effort** : 20 j-h | **Risque** : Moyen
+## Structure d'un fichier US
 
-Gestionnaire de ressources basé sur l'IA avec :
-- Prédiction des besoins en ressources
-- Optimisation automatique des allocations
-- Apprentissage des patterns d'usage
-- Efficacité énergétique intelligente
+Métadonnées (id, phase, effort) → « En tant que / Je veux / Afin de » → spec technique → critères d'acceptation → tests imaginés. Les critères (NLU 90 %, 1000 nœuds P2P, TFLite, etc.) **ne s'appliquent pas** au prototype.
 
-**Technologies** : IA/ML, Algorithmes d'optimisation, Gestion mémoire  
-**Dépendances** : US-001
+## Ancienne légende (obsolète)
 
-#### ✅ **US-003 : Système de Sécurité Adaptatif**
-**Fichier** : `US-003_Systeme_Securite_Adaptatif.md`  
-**Complexité** : Très Élevée | **Effort** : 22 j-h | **Risque** : Élevé
-
-Système de sécurité intelligent avec :
-- Détection de menaces basée sur l'IA
-- Réponse automatique aux attaques
-- Apprentissage continu des nouvelles menaces
-- Forensique automatisée
-
-**Technologies** : Cybersécurité, IA/ML, Détection d'anomalies  
-**Dépendances** : US-001, US-002
-
-### 🧠 Phase 2 - AI Core
-
-#### ✅ **US-016 : Moteur IA Local TensorFlow Lite**
-**Fichier** : `US-016_Moteur_IA_Local.md`  
-**Complexité** : Très Élevée | **Effort** : 22 j-h | **Risque** : Élevé
-
-Intégration native de TensorFlow Lite avec :
-- Moteur d'inférence optimisé
-- Support des accélérateurs hardware
-- Cache intelligent des résultats
-- Sécurité et isolation des modèles
-
-**Technologies** : TensorFlow Lite, Optimisation hardware, Cache intelligent  
-**Dépendances** : US-001, US-002
-
-## User Stories à Développer
-
-### 🏗️ Phase 1 - Foundation (Restantes)
-
-#### ✅ **US-004 : Framework de plugins modulaires**
-**Fichier** : `US-004_Framework_Plugins_Modulaires.md`  
-**Complexité** : Élevée | **Effort** : 20 j-h | **Risque** : Moyen
-
-#### ✅ **US-005 : Système de logging distribué**
-**Fichier** : `US-005_Systeme_Logging_Distribue.md`  
-**Complexité** : Élevée | **Effort** : 18 j-h | **Risque** : Moyen
-
-#### ✅ **US-006 : Gestionnaire de configuration dynamique**
-**Fichier** : `US-006_Gestionnaire_Configuration_Dynamique.md`  
-**Complexité** : Moyenne | **Effort** : 15 j-h | **Risque** : Faible
-- **US-007** : Système de monitoring temps réel
-- **US-008** : Framework de tests automatisés
-- **US-009** : Système de mise à jour incrémentale
-- **US-010** : Gestionnaire de pilotes modulaires
-- **US-011** : Système de virtualisation léger
-- **US-012** : Framework d'APIs unifiées
-- **US-013** : Système de backup intelligent
-- **US-014** : Gestionnaire de performance adaptatif
-- **US-015** : Système de documentation automatique
-
-### 🧠 Phase 2 - AI Core (Restantes)
-
-- **US-017** : Système de compréhension du langage naturel
-- **US-018** : Gestionnaire de modèles IA distribués
-- **US-019** : Système d'apprentissage fédéré
-- **US-020** : Orchestrateur cloud-edge
-- **US-021** : Moteur de recommandations intelligent
-- **US-022** : Système de personnalisation adaptatif
-- **US-023** : Analyseur de sentiment en temps réel
-- **US-024** : Générateur de contenu automatique
-- **US-025** : Système de traduction universelle
-- **US-026** : Reconnaissance vocale avancée
-- **US-027** : Synthèse vocale naturelle
-- **US-028** : Vision par ordinateur intégrée
-- **US-029** : Prédicteur de pannes intelligent
-- **US-030** : Optimiseur de workflow automatique
-
-### 🌐 Phase 3 - Web Runtime
-
-- **US-031** : Navigateur-OS intégré
-- **US-032** : Gestionnaire d'applications web natives
-- **US-033** : Système de fichiers web
-- **US-034** : Moteur de rendu optimisé
-- **US-035** : Support PWA avancé
-- **US-036** : Synchronisation cloud intelligente
-- **US-037** : Gestionnaire d'extensions web
-- **US-038** : Système de notifications unifiées
-- **US-039** : Intégration APIs web modernes
-- **US-040** : Optimiseur de performance web
-- **US-041** : Système de cache web intelligent
-- **US-042** : Gestionnaire de sessions web
-- **US-043** : Système de sécurité web avancé
-- **US-044** : Intégration WebAssembly
-- **US-045** : Système de développement web intégré
-
-### 💬 Phase 4 - PromptMessage
-
-- **US-046** : Conception du langage PromptMessage
-- **US-047** : Compilateur PromptMessage
-- **US-048** : Interpréteur PromptMessage
-- **US-049** : Débogueur PromptMessage
-- **US-050** : IDE PromptMessage intégré
-- **US-051** : Système de packages PromptMessage
-- **US-052** : Optimiseur de code PromptMessage
-- **US-053** : Système de versioning PromptMessage
-- **US-054** : Documentation automatique PromptMessage
-- **US-055** : Tests automatisés PromptMessage
-- **US-056** : Intégration IA PromptMessage
-- **US-057** : Marketplace PromptMessage
-- **US-058** : Système de collaboration PromptMessage
-- **US-059** : Analyseur de performance PromptMessage
-- **US-060** : Convertisseur de langages PromptMessage
-
-### 🔗 Phase 5 - P2P Network
-
-- **US-061** : Protocole P2P MOHHOS
-- **US-062** : Découverte de nœuds intelligente
-- **US-063** : Routage adaptatif
-- **US-064** : Consensus distribué
-- **US-065** : Réplication de données
-- **US-066** : Chiffrement P2P
-- **US-067** : Équilibrage de charge P2P
-- **US-068** : Tolérance aux pannes P2P
-- **US-069** : Monitoring réseau P2P
-- **US-070** : Cache distribué
-- **US-071** : Système de réputation P2P
-- **US-072** : Optimisation bande passante
-- **US-073** : Gestion de la latence P2P
-- **US-074** : Sécurité réseau P2P
-- **US-075** : Analytics réseau P2P
-
-### 📱 Phase 6 - Multi-Platform
-
-- **US-076** : Adaptation noyau ARM
-- **US-077** : Interface mobile native
-- **US-078** : Gestionnaire tactile avancé
-- **US-079** : Optimisation batterie mobile
-- **US-080** : Support IoT intégré
-- **US-081** : Adaptation écrans variables
-- **US-082** : Gestionnaire capteurs
-- **US-083** : Synchronisation multi-appareils
-- **US-084** : Continuité cross-platform
-- **US-085** : Optimisation performance mobile
-- **US-086** : Gestion connectivité adaptative
-- **US-087** : Interface TV/Console
-- **US-088** : Support réalité augmentée
-- **US-089** : Administration unifiée
-- **US-090** : Déploiement multi-platform
-
-### 🤝 Phase 7 - Collaborative
-
-- **US-091** : Système de points MOHHOS
-- **US-092** : Marketplace de ressources
-- **US-093** : Système de réputation
-- **US-094** : Partage de ressources P2P
-- **US-095** : Économie collaborative
-- **US-096** : Système de contrats intelligents
-- **US-097** : Gouvernance communautaire
-- **US-098** : Système de vote distribué
-- **US-099** : Audit transparent
-- **US-100** : Mécanismes d'incitation
-- **US-101** : Protection anti-fraude
-- **US-102** : Système de dispute
-- **US-103** : Confidentialité avancée
-- **US-104** : Analytics économiques
-- **US-105** : Intégration monétaire
-
-### 🚀 Phase 8 - Production
-
-- **US-106** : Optimisation performances globales
-- **US-107** : Système de monitoring production
-- **US-108** : Déploiement continu
-- **US-109** : Gestion des versions production
-- **US-110** : Système de rollback automatique
-- **US-111** : Analytics d'usage
-- **US-112** : Optimisation énergétique
-- **US-113** : Système d'alertes intelligent
-- **US-114** : Backup et recovery
-- **US-115** : Maintenance prédictive
-- **US-116** : Support utilisateur automatisé
-- **US-117** : Système de feedback
-- **US-118** : Optimisation continue
-- **US-119** : Certification et compliance
-- **US-120** : Roadmap évolutive
-
-## Guide d'Utilisation
-
-### Pour les Développeurs
-
-1. **Lecture Séquentielle** : Commencer par les US de la Phase 1
-2. **Respect des Dépendances** : Vérifier les prérequis avant implémentation
-3. **Tests d'Acceptation** : Implémenter tous les tests spécifiés
-4. **Documentation** : Maintenir la documentation à jour
-
-### Pour les Chefs de Projet
-
-1. **Planification** : Utiliser les estimations pour le planning
-2. **Suivi des Risques** : Monitorer les risques identifiés
-3. **Validation** : Vérifier les critères d'acceptation
-4. **Coordination** : Gérer les dépendances entre équipes
-
-### Pour les Architectes
-
-1. **Cohérence** : Vérifier la cohérence des APIs
-2. **Performance** : Valider les objectifs de performance
-3. **Sécurité** : Réviser les aspects sécurité
-4. **Évolutivité** : Assurer la compatibilité future
-
-## Conventions de Nommage
-
-### Fichiers
-- Format : `US-XXX_Titre_Sans_Espaces.md`
-- Numérotation : 001-120 selon l'ordre des phases
-- Titre : Descriptif et concis
-
-### Sections
-- **Informations Générales** : Métadonnées de l'US
-- **Description Utilisateur** : Besoin métier
-- **Contexte Technique** : Analyse technique
-- **Spécifications** : Détails d'implémentation
-- **Critères d'Acceptation** : Conditions de validation
-- **Tests** : Procédures de test
-- **Métriques** : Indicateurs de succès
-
-## Contribution
-
-Pour contribuer aux spécifications :
-
-1. **Format** : Respecter la structure standardisée
-2. **Détail** : Fournir des spécifications complètes
-3. **Cohérence** : Maintenir la cohérence avec l'architecture globale
-4. **Validation** : Faire réviser par l'équipe architecture
-
-## Statut des Fichiers
-
-- ✅ **Complété** : Spécifications détaillées disponibles
-- 🚧 **En Cours** : Développement en cours
-- 📋 **Planifié** : À développer selon la roadmap
-
----
-
-**Total** : 120 User Stories | **Complétées** : 4 | **Restantes** : 116  
-**Effort Total Estimé** : 1,640 jours-homme  
-**Durée Projet** : ~6.5 ans avec équipe de 10 développeurs
-
+« Complétées : 4 / Restantes : 116 » comptait mal les fichiers et prenait ✅ pour « implémenté ». Remplacé par le tableau de chevauchement et l'inventaire ci-dessus.

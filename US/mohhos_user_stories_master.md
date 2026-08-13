@@ -1,6 +1,7 @@
 # MOHHOS - Plan de Développement par User Stories
 
-> **État réel (août 2026).** Document de **planification**. AI-OS n’a pas encore migré vers MOHHOS (pas de microkernel, pas de TensorFlow Lite, pas de P2P). Les US ci-dessous restent valides comme backlog. Code actuel : [docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Document de **vision / planification MOHHOS**, pas le backlog du prototype. Le code i386 (shell Ring 3, overlay ATA, GPT-2 optionnel) est décrit dans [ai_os_us.md](ai_os_us.md) et [docs/ETAT_REEL.md](../docs/ETAT_REEL.md).  
+> Les titres US-001…US-120 ci-dessous **divergent** souvent des fichiers `individual_us/` (numéros 023-025 en double ; US-031+ des fichiers ≠ navigateur-OS du maître). Ne pas traiter cette liste comme un sprint board.
 
 ## Vue d'Ensemble du Projet
 

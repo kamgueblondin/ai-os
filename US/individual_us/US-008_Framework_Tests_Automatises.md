@@ -1,5 +1,7 @@
 # US-008 : Framework de Tests Automatisés
 
+> **AI-OS :** chevauchement Unity 144 + `make qemu-smoke` + GitHub Actions. Pas de tests integration/system/performance/robustness, pas de framework « intelligent ». Voir AOS-012 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-008  

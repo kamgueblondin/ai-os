@@ -1,5 +1,7 @@
 # US-021 : Assistant IA Intégré au Système
 
+> **AI-OS :** builtin shell `ai <texte>` synchrone et borné, pas un assistant proactif système. Voir AOS-010 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-021  

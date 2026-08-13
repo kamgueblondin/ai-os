@@ -7,10 +7,11 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 ## Lire en premier
 
 1. [ETAT_REEL.md](ETAT_REEL.md) - **état actuel du code**, y compris GPT-2 local et limites vérifiées
-2. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-3. [kv_cache_performance_report.md](kv_cache_performance_report.md) - cache KV, reprise du shell et mesures de latence
-4. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
-5. [../README.md](../README.md) - compilation, tests, architecture des sources
+2. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite)
+3. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
+4. [kv_cache_performance_report.md](kv_cache_performance_report.md) - cache KV, reprise du shell et mesures de latence
+5. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+6. [../README.md](../README.md) - compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -19,6 +20,7 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 | Fichier | Contenu |
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
+| [../US/ai_os_us.md](../US/ai_os_us.md) | User stories du prototype (AOS-001…012 faits, suite AOS-020…025) |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
 | [kv_cache_performance_report.md](kv_cache_performance_report.md) | Cache KV, SSE2, test de reprise du shell et mesures de latence |
 | [baremetal_llm_architecture.md](baremetal_llm_architecture.md) | Architecture de référence et évolutions envisagées pour un LLM bare-metal |
@@ -76,6 +78,10 @@ Le blocage restant (EOI IRQ0 après `schedule()` / PIC qui masque IRQ1) est docu
 
 Les captures QEMU et les exports Word ont été retirés du dépôt (la source reste les fichiers `.md`). Les scripts `tests/scripts/test_gpt2_shell_recovery.py` et `tests/scripts/benchmark_gpt2_kv_latency.py` sont les contrôles QEMU correspondants ; ils requièrent les poids locaux sous `models/`.
 
-## Vision MOHHOS (hors code actuel)
+## User stories
 
-Dossier [../US/](../US/README.md) : 120 user stories et phases Foundation -> Production. Ce sont des **spécifications cibles**, pas l'état du dépôt. Légende dans [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md).
+- [../US/ai_os_us.md](../US/ai_os_us.md) — backlog du **prototype** (fait + suite proche)
+- [../US/README.md](../US/README.md) — deux couches : AI-OS vs vision MOHHOS
+- [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
+
+Les 8 phases MOHHOS restent des **spécifications**. Elles ne décrivent pas GPT-2, l'overlay ATA ni `spawn`/`exec`.

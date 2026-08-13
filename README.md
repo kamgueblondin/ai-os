@@ -119,26 +119,29 @@ ai-os/
 ├── tests/                # Unity + scripts QEMU
 ├── scripts/              # bootstrap-dev.sh
 ├── docs/
+├── US/                   # AOS-* (prototype) + archives MOHHOS
 ├── .cursor/environment.json
 └── .github/workflows/ci.yml
 ```
 
 ## Roadmap (extrait)
 
-Le dossier [`US/`](US/README.md) décrit la vision MOHHOS (spécifications, pas l'état du dépôt).
+Backlog du prototype : [`US/ai_os_us.md`](US/ai_os_us.md). Vision MOHHOS (hors code) : [`US/README.md`](US/README.md).
 
-- [x] Inférence GPT-2 locale + cache KV / SSE2
+- [x] Inférence GPT-2 locale + cache KV / SSE2 (top-k borné, pénalité sur jetons émis)
 - [x] Tokenizer BPE GPT-2 (entree et sortie)
 - [x] Overlay persisté (snapshot ATA PIO sur disque IDE QEMU)
 - [x] `spawn` / `yield` coopératifs (l'enfant tourne vraiment)
 - [x] `exec` bloquant coopératif (parent TASK_WAITING, enfant SYS_EXIT)
 - [ ] Quantification, chargeur GGUF, latence &lt; 1 s
+- [ ] BPE unicode `\p{L}` ; tests d'intégration non vides
 - [ ] Réseau, DNS, TLS, fournisseur OpenAI effectif
 - [ ] Système de fichiers disque général (ext2/FAT)
 
 ## Documentation
 
 - [docs/ETAT_REEL.md](docs/ETAT_REEL.md) - ce qui tourne vraiment
+- [US/ai_os_us.md](US/ai_os_us.md) - user stories du prototype
 - [docs/README.md](docs/README.md) - index (actuel vs historique)
 - [docs/GUIDE_EXECUTION.md](docs/GUIDE_EXECUTION.md) - modes QEMU
 - [docs/gpt2_baremetal_deployment.md](docs/gpt2_baremetal_deployment.md) - ISO autonome avec modèle
@@ -155,4 +158,4 @@ Code commenté en français. Une PR = une tranche visible par la CI (`make ci`),
 
 **Dépôt :** [github.com/kamgueblondin/ai-os](https://github.com/kamgueblondin/ai-os)
 
-*Prototype i386 + shell userspace + GPT-2 local optionnel sous QEMU. Dernière mise à jour documentation : 2026-08-13, overlay persisté sur IDE.*
+*Prototype i386 + shell userspace + GPT-2 local optionnel sous QEMU. Dernière mise à jour documentation : 2026-08-13.*
