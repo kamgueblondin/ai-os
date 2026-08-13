@@ -39,8 +39,10 @@
 #define SYS_SERVICE_LOOKUP   26
 /* EBX = nom de service ; seul son propriétaire peut le retirer. */
 #define SYS_SERVICE_UNREGISTER 27
+/* EBX = nom de service, ECX = PID bénéficiaire ; transfert par le propriétaire. */
+#define SYS_SERVICE_GRANT 28
 
-#define MAX_SYSCALLS 28
+#define MAX_SYSCALLS 29
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -55,6 +57,8 @@
 #define OS_SERVICE_FULL      (-51)
 #define OS_SERVICE_TAKEN     (-52)
 #define OS_SERVICE_NOT_FOUND (-53)
+#define OS_SERVICE_NOT_OWNER (-54)
+#define OS_SERVICE_BAD_GRANTEE (-55)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

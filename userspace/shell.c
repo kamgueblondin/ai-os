@@ -215,9 +215,21 @@ int sys_ipc_receive(os_ipc_message_t* message) {
     return result;
 }
 
+int sys_service_register(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_REGISTER), "b"(name));
+    return result;
+}
+
 int sys_service_lookup(const char* name) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_LOOKUP), "b"(name));
+    return result;
+}
+
+int sys_service_grant(const char* name, int target_pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_GRANT), "b"(name), "c"(target_pid));
     return result;
 }
 
@@ -539,6 +551,9 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  yield              - Ceder le CPU (SYS_YIELD, cooperatif)\n");
     print_string("  ipc-send <pid> <txt> - Envoyer un message IPC borne\n");
     print_string("  ipc-recv           - Lire un message IPC non bloquant\n");
+    print_string("  service-publish <nom> - Publier un nom de service detenue par ce shell\n");
+    print_string("  service-grant <nom> <pid> - Transferer un nom possede a une tache utilisateur\n");
+    print_string("  service-find <nom> - Resoudre un service nomme\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
@@ -1123,7 +1138,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1404,6 +1419,7 @@ static void cmd_ipc_send(shell_context_t* ctx, char args[][128], int arg_count) 
         return;
     }
     payload.type = 0U;
+    payload.request_id = 0U;
     while (args[1][i] != '\0' && i < OS_IPC_MAX_DATA) {
         payload.data[i] = (uint8_t)args[1][i];
         i++;
@@ -1451,6 +1467,73 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
     print_string(" data ");
     for (i = 0U; i < message.size; i++) putc((char)message.data[i]);
     print_string("\n");
+}
+
+static void cmd_service_publish(shell_context_t* ctx, char args[][128], int arg_count) {
+    int rc;
+    if (arg_count != 1) {
+        print_error("Usage: service-publish <nom>");
+        return;
+    }
+    rc = sys_service_register(args[0]);
+    ctx->last_rc = rc;
+    if (rc == 0) {
+        print_string("service-publish ok ");
+        print_string(args[0]);
+        print_string("\n");
+    } else if (rc == OS_SERVICE_TAKEN) {
+        print_error("service-publish: nom deja reserve");
+    } else {
+        print_error("service-publish: nom invalide ou registre plein");
+    }
+}
+
+static void cmd_service_grant(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int rc;
+    if (arg_count != 2) {
+        print_error("Usage: service-grant <nom> <pid>");
+        return;
+    }
+    pid = parse_int(args[1]);
+    if (pid <= 0) {
+        print_error("service-grant: pid invalide");
+        return;
+    }
+    rc = sys_service_grant(args[0], pid);
+    ctx->last_rc = rc;
+    if (rc == 0) {
+        print_string("service-grant ok ");
+        print_string(args[0]);
+        print_string(" ");
+        print_int(pid);
+        print_string("\n");
+    } else if (rc == OS_SERVICE_NOT_OWNER) {
+        print_error("service-grant: nom non detenue par ce shell");
+    } else if (rc == OS_SERVICE_BAD_GRANTEE) {
+        print_error("service-grant: beneficiaire utilisateur introuvable");
+    } else {
+        print_error("service-grant: nom invalide ou indisponible");
+    }
+}
+
+static void cmd_service_find(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    if (arg_count != 1) {
+        print_error("Usage: service-find <nom>");
+        return;
+    }
+    pid = sys_service_lookup(args[0]);
+    ctx->last_rc = pid < 0 ? pid : 0;
+    if (pid > 0) {
+        print_string("service-find ok ");
+        print_string(args[0]);
+        print_string(" ");
+        print_int(pid);
+        print_string("\n");
+    } else {
+        print_error("service-find: service indisponible");
+    }
 }
 
 static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2339,6 +2422,15 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ipc-recv") == 0) {
         cmd_ipc_recv(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "service-publish") == 0) {
+        cmd_service_publish(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "service-grant") == 0) {
+        cmd_service_grant(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "service-find") == 0) {
+        cmd_service_find(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);

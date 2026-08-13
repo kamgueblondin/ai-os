@@ -18,6 +18,7 @@ MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-moni
 TEST_DISK = os.environ.get("OVERLAY_DISK", os.path.join(LOG_DIR, "qemu-core-overlay.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.40"))
 
 
 def say(message):
@@ -81,7 +82,8 @@ def send_command(client, command):
     aliases = {" ": "spc", "-": "minus", ".": "dot"}
     for char in command:
         client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.25)
+        time.sleep(KEY_DELAY)
+    time.sleep(KEY_DELAY)
     client.sendall(b"sendkey ret\n")
 
 
@@ -119,6 +121,8 @@ def main():
             wait_for(proc, "(-.-)", BOOT_TIMEOUT)
             wait_for(proc, "SYS_GETS: Debut", BOOT_TIMEOUT)
             monitor = monitor_connect()
+            # Laisser l'attente clavier atteindre un état stable sur les runners CI lents.
+            time.sleep(0.6)
 
             commands = (
                 ("ls", "Initrd / VFS"),

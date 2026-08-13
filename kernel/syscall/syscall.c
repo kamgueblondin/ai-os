@@ -185,8 +185,12 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_SERVICE_UNREGISTER:
             cpu->eax = (uint32_t)sys_service_unregister((const char*)cpu->ebx);
             break;
-            
+        case SYS_SERVICE_GRANT:
+            cpu->eax = (uint32_t)sys_service_grant((const char*)cpu->ebx, (int)cpu->ecx);
+            if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
+            break;
         default:
+
             // Syscall inconnu
             break;
     }
@@ -240,6 +244,16 @@ int sys_service_lookup(const char* name) {
 int sys_service_unregister(const char* name) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
     return service_registry_remove(name, current_task->id);
+}
+
+int sys_service_grant(const char* name, int target_pid) {
+    task_t* target;
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) {
+        return OS_SERVICE_BAD_GRANTEE;
+    }
+    return service_registry_grant(name, current_task->id, target_pid);
 }
 
 /*

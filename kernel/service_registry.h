@@ -15,6 +15,7 @@ void service_registry_init(void);
 int service_registry_register(const char* name, int32_t pid);
 int service_registry_lookup(const char* name);
 int service_registry_remove(const char* name, int32_t pid);
+int service_registry_grant(const char* name, int32_t owner_pid, int32_t grantee_pid);
 int service_registry_remove_pid(int32_t pid);
 int service_registry_name_valid(const char* name);
 

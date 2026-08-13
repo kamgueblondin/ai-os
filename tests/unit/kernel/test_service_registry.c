@@ -51,6 +51,31 @@ static void test_registry_refuses_removal_by_other_owner(void) {
     TEST_ASSERT_EQUAL(0, service_registry_remove("vfs", 4));
 }
 
+static void test_owner_can_grant_name_to_another_pid(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 4));
+    TEST_ASSERT_EQUAL(0, service_registry_grant("demo", 4, 9));
+    TEST_ASSERT_EQUAL(9, service_registry_lookup("demo"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_TAKEN, service_registry_register("demo", 4));
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 9));
+}
+
+static void test_registry_refuses_grant_by_non_owner(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 4));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_OWNER, service_registry_grant("demo", 5, 9));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_GRANTEE, service_registry_grant("demo", 4, 0));
+    TEST_ASSERT_EQUAL(4, service_registry_lookup("demo"));
+}
+
+static void test_transferred_name_is_removed_with_grantee(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 4));
+    TEST_ASSERT_EQUAL(0, service_registry_grant("demo", 4, 9));
+    TEST_ASSERT_EQUAL(0, service_registry_remove_pid(9));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_lookup("demo"));
+}
+
 static void test_remove_pid_clears_all_services_owned_by_task(void) {
     service_registry_init();
     TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
@@ -67,6 +92,9 @@ int main(void) {
     RUN_TEST(test_registry_handles_capacity);
     RUN_TEST(test_registry_removal_allows_reuse);
     RUN_TEST(test_registry_refuses_removal_by_other_owner);
+    RUN_TEST(test_owner_can_grant_name_to_another_pid);
+    RUN_TEST(test_registry_refuses_grant_by_non_owner);
+    RUN_TEST(test_transferred_name_is_removed_with_grantee);
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     unity_print_results();
     unity_cleanup();

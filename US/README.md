@@ -21,7 +21,7 @@ Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). Cinq incréments de **Foundation** sont maintenant livrés : une boîte aux lettres IPC locale, un médiateur VFS Ring 3 de lecture, un registre nommé, son cycle de vie à la terminaison et une corrélation requête-réponse locale. Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni backend VFS, ni pilotes, ni réseau vers un espace d’adressage séparé ; le noyau reste monolithique.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). Six incréments de **Foundation** sont maintenant livrés : une boîte aux lettres IPC locale, un médiateur VFS Ring 3 de lecture, un registre nommé, son cycle de vie à la terminaison, une corrélation requête-réponse locale et un transfert limité de publication. Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni backend VFS, ni pilotes, ni réseau vers un espace d’adressage séparé ; le noyau reste monolithique.
 
 Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant, IPC local, médiateur VFS et découverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
 
@@ -31,12 +31,13 @@ Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec
 |---|---|
 | [mohhos_user_stories_master.md](mohhos_user_stories_master.md) | Index historique des 120 titres (numérotation parfois **différente** des fichiers) |
 | [recherche_technologies_mohhos.md](recherche_technologies_mohhos.md) | Veille (P2P, federated learning, navigateur-OS) |
-| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée : IPC, VFS, découverte, cycle de vie et corrélation livrés ; microkernel/services séparés non commencés |
+| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée : IPC, VFS, découverte, cycle de vie, corrélation et transfert de nom livrés ; microkernel/services séparés non commencés |
 | [../docs/mohhos_foundation_increment_01_ipc.md](../docs/mohhos_foundation_increment_01_ipc.md) | Conception et contrat de l’incrément IPC Foundation livré |
 | [../docs/mohhos_foundation_increment_02_vfs_service.md](../docs/mohhos_foundation_increment_02_vfs_service.md) | Médiateur VFS Ring 3 et contrat de lecture IPC livré |
 | [../docs/mohhos_foundation_increment_03_service_registry.md](../docs/mohhos_foundation_increment_03_service_registry.md) | Registre nommé, découverte `vfs` et limites de sécurité |
 | [../docs/mohhos_foundation_increment_04_service_lifecycle.md](../docs/mohhos_foundation_increment_04_service_lifecycle.md) | Retrait propriétaire et nettoyage des services terminés |
 | [../docs/mohhos_foundation_increment_05_ipc_correlation.md](../docs/mohhos_foundation_increment_05_ipc_correlation.md) | Corrélation IPC locale et filtrage VFS borné |
+| [../docs/mohhos_foundation_increment_06_service_grant.md](../docs/mohhos_foundation_increment_06_service_grant.md) | Transfert limité de publication et nettoyage du bénéficiaire |
 | [mohhos_us_phase2_ai_core.md](mohhos_us_phase2_ai_core.md) | Phase 2 (TensorFlow Lite, NLU, fédéré) — non livrée ; l'IA réelle est GPT-2 freestanding |
 | [mohhos_us_phase3_web_runtime.md](mohhos_us_phase3_web_runtime.md) | Phase 3 navigateur-OS — absente |
 | [mohhos_us_phases_4_8_synthese.md](mohhos_us_phases_4_8_synthese.md) | Phases 4-8 (PromptMessage, P2P, etc.) — absentes |
@@ -53,7 +54,7 @@ Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec
 7. Collaborative (points)  
 8. Production  
 
-La migration complète de US-001 reste une refonte à haut risque : les incréments actuels fournissent IPC, médiateur VFS de lecture, découverte de nom, nettoyage de cycle de vie et corrélation locale. La suite doit introduire des droits de publication/découverte, conserver ou dispatcher les réponses non corrélées, externaliser le backend VFS lui-même, puis déplacer pilotes ou réseau derrière ces droits, sans affirmer prématurément que ces composants sont déjà hors du noyau.
+La migration complète de US-001 reste une refonte à haut risque : les incréments actuels fournissent IPC, médiateur VFS de lecture, découverte de nom, nettoyage de cycle de vie, corrélation locale et transfert limité de propriété d’un nom. La suite doit introduire une révocation et une identité vérifiée, conserver ou dispatcher les réponses non corrélées, externaliser le backend VFS lui-même, puis déplacer pilotes ou réseau derrière ces droits, sans affirmer prématurément que ces composants sont déjà hors du noyau.
 
 ## Contribution
 
