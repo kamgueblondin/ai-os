@@ -1,5 +1,7 @@
 # Analyse de l'Architecture AI-OS
 
+> **État réel (août 2026).** Le passage au shell Ring 3 fonctionne (`create_task_from_initrd_file` + `jump_to_task`). Les sections « Problèmes identifiés » et « Flux actuel (problématique) » ci-dessous sont un **diagnostic historique** conservé. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Vue d'ensemble du système
 
 AI-OS est un système d'exploitation expérimental en 32-bit avec les composants suivants :
@@ -24,7 +26,7 @@ AI-OS est un système d'exploitation expérimental en 32-bit avec les composants
 
 4. **Appels système (kernel/syscall/)**
    - `syscall.c/h` : Interface kernel/userspace
-   - 7 appels système définis (exit, putc, getc, puts, yield, gets, exec)
+   - 8 appels système : exit, putc, getc, puts, yield, gets, exec, spawn
 
 5. **Chargeur ELF (kernel/)**
    - `elf.c/h` : Chargement d'exécutables ELF
@@ -39,11 +41,22 @@ AI-OS est un système d'exploitation expérimental en 32-bit avec les composants
    - `paging.s` : Support pagination mémoire
 
 8. **Programmes utilisateur (userspace/)**
-   - `shell.c` : Shell interactif avancé avec IA intégrée
-   - `fake_ai.c` : Simulateur d'intelligence artificielle
+   - `shell.c` : Shell interactif (sous-ensemble de commandes réellement branché ; `ls`/`ps` encore simulés)
+   - `fake_ai.c` : Simulateur d'intelligence artificielle (mots-clés)
+   - `ai_assistant.c` : Assistant empaqueté dans l’initrd
    - `test_program.c` : Programme de test
 
-## Problèmes identifiés
+## État actuel du passage au mode utilisateur (août 2026)
+
+1. `kmain()` initialise IDT/PIC/clavier/mémoire/initrd/tâches/syscalls
+2. Charge `bin/shell` depuis l’initrd (`create_task_from_initrd_file`)
+3. `timer_init(100)` puis `g_reschedule_needed = 1`
+4. IRQ0 : EOI immédiat, puis `schedule()` → `jump_to_task()` (iret Ring 3)
+5. Le shell ELF s’exécute ; le clavier IRQ1 n’est plus masqué par un EOI manquant
+
+Le changement de contexte n’utilise plus le `switch_task` commenté cité plus bas : `schedule()` appelle `jump_to_task()`. Un répertoire de pages utilisateur est créé (`create_user_vmm_directory`).
+
+## Problèmes identifiés (diagnostic historique)
 
 ### 1. Problème principal : Changement de contexte désactivé
 

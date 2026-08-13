@@ -1,5 +1,9 @@
 # Guide d'Exécution AI-OS - Modes Console et GUI
 
+Prérequis : `build-essential`, `gcc-multilib`, `nasm`, `qemu-system-i386` (ajouter `qemu-system-gui` pour GTK). État du système : [ETAT_REEL.md](ETAT_REEL.md).
+
+Le shell lit le **clavier emulé PS/2**, pas le port série. En nographic, la saisie du terminal hôte n’atteint souvent pas le guest ; préférer `make run` (curses) ou `make run-gui`.
+
 ## 🚀 Options de Lancement
 
 ### 1. Mode Console Optimal (Recommandé)

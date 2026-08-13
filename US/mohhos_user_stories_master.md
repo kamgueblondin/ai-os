@@ -1,5 +1,7 @@
 # MOHHOS - Plan de Développement par User Stories
 
+> **État réel (août 2026).** Document de **planification**. AI-OS n’a pas encore migré vers MOHHOS (pas de microkernel, pas de TensorFlow Lite, pas de P2P). Les US ci-dessous restent valides comme backlog. Code actuel : [docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble du Projet
 
 **MOHHOS** (Manus Operating Hybrid Hosted OS) représente l'évolution révolutionnaire d'AI-OS vers un système d'exploitation intelligent, distribué et basé sur l'IA. Ce document présente un plan de développement structuré en User Stories (US) pour transformer le système d'exploitation actuel AI-OS v5.0 en MOHHOS, un OS révolutionnaire qui supprime toutes les barrières des systèmes d'exploitation actuels.

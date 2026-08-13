@@ -1,5 +1,7 @@
 # MOHHOS - Phase 1 Foundation - User Stories Détaillées
 
+> **État réel (août 2026).** Phase **non commencée dans le code** : le noyau reste monolithique (`kernel/kernel.c`). Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble de la Phase 1
 
 La Phase Foundation constitue la base technique fondamentale pour transformer AI-OS v5.0 en MOHHOS. Cette phase se concentre sur la modernisation de l'architecture existante, l'implémentation d'un microkernel modulaire, et la mise en place des infrastructures nécessaires pour supporter les fonctionnalités avancées des phases suivantes.

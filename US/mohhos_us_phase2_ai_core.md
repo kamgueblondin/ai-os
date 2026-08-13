@@ -1,5 +1,7 @@
 # MOHHOS - Phase 2 AI Core - User Stories Détaillées
 
+> **État réel (août 2026).** Phase **non implémentée**. L’IA actuelle est `userspace/fake_ai.c` (mots-clés), pas TensorFlow Lite. Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble de la Phase 2
 
 La Phase AI Core constitue le cœur révolutionnaire de MOHHOS, transformant un système d'exploitation traditionnel en une plateforme intelligente où l'intelligence artificielle est intégrée nativement à tous les niveaux du système. Cette phase implémente la vision fondamentale de MOHHOS : un OS où l'IA n'est pas une application, mais le système nerveux central qui comprend, apprend et s'adapte.

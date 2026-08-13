@@ -1,5 +1,10 @@
 # Index des User Stories MOHHOS - Fichiers Détaillés
 
+> **Légende (août 2026)**  
+> - ✅ dans cet index = **spécification rédigée** (fichier présent), **pas** « implémenté dans le noyau ».  
+> - Dans le code AI-OS actuel : **aucune US MOHHOS n’est livrée** en tant que telle. Recouvrement partiel non revendiqué : PMM/VMM (voisinage US-002), tests unitaires Unity (voisinage US-008), isolation Ring 0/3.  
+> - État du dépôt : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble
 
 Ce dossier contient les spécifications détaillées de chaque User Story du projet MOHHOS. Chaque fichier fournit une analyse technique approfondie, des spécifications complètes, et des critères d'acceptation précis pour guider l'implémentation.

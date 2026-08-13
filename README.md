@@ -1,17 +1,21 @@
 # AI-OS - Système d'Exploitation pour Intelligence Artificielle
 
 [![Version](https://img.shields.io/badge/version-6.1-blue.svg)](https://github.com/kamgueblondin/ai-os)
-[![Status](https://img.shields.io/badge/status-stable-green.svg)](https://github.com/kamgueblondin/ai-os)
+[![Status](https://img.shields.io/badge/status-prototype-yellow.svg)](https://github.com/kamgueblondin/ai-os)
 [![Keyboard](https://img.shields.io/badge/keyboard-FIXED-brightgreen.svg)](https://github.com/kamgueblondin/ai-os)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 🎯 Description
 
-AI-OS est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle. Il offre une architecture modulaire optimisée pour les charges de travail IA avec un environnement sécurisé et performant.
+AI-OS est un **prototype de noyau pédagogique i386 32-bit** (hobby OS) qui boote sous QEMU, isole Ring 0/3 et lance un shell utilisateur ELF. L’orientation « OS pour l’IA » est réelle au niveau architecture (userspace, syscalls, initrd), mais l’IA embarquée est un **simulateur par mots-clés** (`userspace/fake_ai.c`), pas un moteur d’inférence.
+
+**État réel du code (août 2026) :** [docs/ETAT_REEL.md](docs/ETAT_REEL.md) — ce qui marche, les stubs du shell, ce qui n’est pas encore codé (FS persistant, réseau, vision MOHHOS). Index de toute la doc : [docs/README.md](docs/README.md).
 
 ## 🔥 MISE À JOUR v6.1 - Clavier Définitivement Corrigé (27 août 2025)
 
 **🎉 PROBLÈME RÉSOLU !** Le clavier est maintenant **entièrement fonctionnel** après corrections expertes !
+
+*Complément août 2026 :* l’init PS/2 et le buffer clavier de v6.1 ne suffisaient pas. IRQ0 restait in-service si `schedule()` ne revenait pas dans le stub PIC, ce qui bloquait IRQ1. Correctif : EOI timer *avant* le changement de contexte, et `schedule()` uniquement sur `g_reschedule_needed`. Détail : [docs/ETAT_REEL.md](docs/ETAT_REEL.md).
 
 ### Corrections Appliquées :
 - ✅ **Handler d'interruption optimisé** - Suppression du logging excessif
@@ -32,19 +36,19 @@ make run-gui
 
 ## ⭐ Fonctionnalités Principales
 
-- **🖥️ Shell Interactif Complet** - Interface utilisateur entièrement fonctionnelle
-- **🤖 Simulateur d'IA Intégré** - Intelligence artificielle simulée avec base de connaissances
-- **🛡️ Espace Utilisateur Sécurisé** - Isolation complète Ring 0/3 avec protection mémoire
-- **⚡ Multitâche Préemptif** - Ordonnanceur Round-Robin avec changement de contexte optimisé
-- **💾 Système de Fichiers** - Support Initrd avec parser TAR POSIX
-- **🧠 Gestion Mémoire Avancée** - VMM/PMM avec paging complet (support ~128MB RAM)
-- **🔌 Gestion Interruptions** - PIC, clavier, timer avec handlers optimisés
+- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3 ; un sous-ensemble de commandes est réellement branché (`help`, `ls`, `sysinfo`, `ai`, …). `help` en liste davantage (stubs / non implémentées).
+- **🤖 Simulateur d'IA Intégré** - Réponses préprogrammées par mots-clés (`fake_ai.c`), pas un modèle ML
+- **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
+- **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
+- **💾 Système de Fichiers** - Initrd TAR en RAM uniquement (pas de disque persistant). `ls` du shell est encore une liste figée.
+- **🧠 Gestion Mémoire** - VMM/PMM avec paging (cible ~128 MB RAM sous QEMU)
+- **🔌 Gestion Interruptions** - PIC, clavier PS/2, timer PIT
 
 ## 🚀 Démarrage Rapide
 
 ### Prérequis
 ```bash
-sudo apt-get install build-essential nasm qemu-system-i386
+sudo apt-get install build-essential gcc-multilib nasm qemu-system-i386
 ```
 
 ### Compilation et Exécution
@@ -76,7 +80,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS v6.1 inclut maintenant une suite complète de tests automatisés pour garantir la qualité du code.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **93 tests** répartis dans `test_pmm` (17), `test_syscall` (30), `test_task` (21), `test_shell` (25). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
 
 ### Configuration Initiale
 ```bash
@@ -220,8 +224,8 @@ make clean && make all && make run
 - **Interactivité** : ✅ Clavier entièrement fonctionnel
 
 ### Métriques de Test (NOUVEAU)
-- **Tests implémentés** : 156 tests automatisés
-- **Couverture de code** : 85% kernel, 72% userspace
+- **Tests implémentés** : 93 tests unitaires automatisés (chiffre 156 : ancien objectif / simulation du script de couverture, non un décompte des `RUN_TEST`)
+- **Couverture de code** : 85% kernel, 72% userspace (valeurs affichées par `run_all_tests.sh`, non mesurées par gcov)
 - **Temps d'exécution** : <5 minutes suite complète
 - **Performance** : Aucune régression détectée
 - **Qualité** : 0 test flaky, 100% déterministe
@@ -229,16 +233,21 @@ make clean && make all && make run
 ## 📚 Documentation
 
 ### Guides Techniques
-- [`docs/README.md`](docs/README.md) - Documentation complète du projet
-- [`docs/etape_7_shell_ia.md`](docs/etape_7_shell_ia.md) - Documentation Shell & IA
-- [`CORRECTION_CLAVIER_FINALE.md`](CORRECTION_CLAVIER_FINALE.md) - Détail des corrections v6.0
+- [`docs/ETAT_REEL.md`](docs/ETAT_REEL.md) - **État actuel du code** (à lire en premier)
+- [`docs/README.md`](docs/README.md) - Index de toute la documentation (actuel vs historique)
+- [`docs/GUIDE_EXECUTION.md`](docs/GUIDE_EXECUTION.md) - Lancement QEMU
+- [`docs/etape_7_shell_ia.md`](docs/etape_7_shell_ia.md) - Documentation Shell & IA simulée
+- [`docs/CORRECTION_CLAVIER_FINALE.md`](docs/CORRECTION_CLAVIER_FINALE.md) - Détail des corrections clavier v6.0 (historique)
 
 ### Rapports de Développement
-- [`RAPPORT_CORRECTION_FINALE.md`](RAPPORT_CORRECTION_FINALE.md) - Rapport final des corrections
-- [`ANALYSE_ARCHITECTURE.md`](ANALYSE_ARCHITECTURE.md) - Analyse architecture système
-- [`DIAGNOSTIC_COMPLET.md`](DIAGNOSTIC_COMPLET.md) - Diagnostic technique complet
+- [`docs/RAPPORT_CORRECTION_FINALE.md`](docs/RAPPORT_CORRECTION_FINALE.md) - Rapport final des corrections
+- [`docs/ANALYSE_ARCHITECTURE.md`](docs/ANALYSE_ARCHITECTURE.md) - Analyse architecture (dont diagnostic historique)
+- [`docs/DIAGNOSTIC_COMPLET.md`](docs/DIAGNOSTIC_COMPLET.md) - Diagnostic technique complet
+- [`US/README.md`](US/README.md) - Vision MOHHOS (spécifications, non implémenté)
 
 ## 🛣️ Roadmap
+
+Cibles **non implémentées** à ce jour (le code actuel s’arrête au prototype QEMU + shell + simulateur). Le dossier [`US/`](US/README.md) détaille une vision plus large (MOHHOS, 8 phases) : spécifications uniquement.
 
 ### Version 7.0 - IA Véritable (Prochaine)
 - [ ] Moteur d'inférence intégré
@@ -270,6 +279,12 @@ Le projet suit une architecture modulaire facilitant l'ajout de nouvelles foncti
 
 ## 🛠️ Mises à Jour Récentes
 
+### v6.1.1 - EOI timer / clavier shell (Août 2026) ✅
+- **Problème résolu** : prompt visible mais aucune touche reçue (`SYS_GETS` timeout)
+- **Cause** : EOI PIC IRQ0 après `schedule()` qui ne revient jamais (`jump_to_task` / iret)
+- **Solution** : EOI dans le stub IRQ0 avant le handler C ; `schedule()` seulement si `g_reschedule_needed`
+- **Résultat** : IRQ1 livrée, commandes `help` / `ls` / `sysinfo` / `ai` saisissables
+
 ### v6.0.1 - Correction Clavier (Août 2025) ✅
 - **Problème résolu** : Affichage clavier non fonctionnel dans le shell
 - **Cause** : Incohérence entre systèmes de buffer clavier (ASCII vs scancodes)
@@ -290,9 +305,9 @@ Le projet suit une architecture modulaire facilitant l'ajout de nouvelles foncti
 
 ---
 
-**AI-OS v6.0** - *Système d'exploitation multitâche avec shell interactif fonctionnel*  
-*Prêt pour l'hébergement d'intelligence artificielle* 🤖
+**AI-OS v6.1** - *Prototype de noyau i386 avec shell userspace sous QEMU*  
+*Simulateur d’IA par mots-clés — pas un moteur d’inférence*
 
 **Développé avec ❤️ pour l'avenir de l'IA**
 
-*Dernière mise à jour : 2025-01-27 - CLAVIER ENTIÈREMENT FONCTIONNEL* 🎉
+*Dernière mise à jour : 2026-08-13 — documentation alignée sur l’état réel du code*

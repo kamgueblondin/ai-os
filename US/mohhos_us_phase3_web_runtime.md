@@ -1,5 +1,7 @@
 # MOHHOS - Phase 3 Web Runtime - User Stories Détaillées
 
+> **État réel (août 2026).** Phase **non implémentée** (pas de navigateur-OS). Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble de la Phase 3
 
 La Phase Web Runtime transforme MOHHOS en un système d'exploitation basé sur un navigateur amélioré, réalisant la vision d'un OS où toutes les applications sont des applications web et où le navigateur devient le système de fichiers et l'explorateur principal. Cette phase implémente l'idée révolutionnaire que "le web c'est l'avenir" et que MOHHOS doit exploiter l'écosystème existant d'applications web.
