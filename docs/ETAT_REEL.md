@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (head/tail/sort ok ; overlay SYS_COPY/RENAME ; CI sendkey ls/cat/stat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc)  
+**Code de référence :** `master` (CI `ai hello` via SYS_EXEC ; head/tail/sort ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -89,13 +89,13 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `history` | Historique en mémoire |
 | `which` | `builtin` ou `bin/<cmd> (non verifie)` |
 | `clear`/`cls` | Séquence ANSI + bannière |
-| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | Pont vers le simulateur + compteur de requêtes |
+| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC` (bloquant). `hello`/`bonjour` → `AI: bonjour` puis `ai ok`. Compteur de requêtes dans le shell. |
 | `exit` / `quit` / `logout` | Sortie du programme |
 | `reboot` / `shutdown` | Message simulé (QEMU n’est pas arrêté) |
 
 ## « Intelligence artificielle »
 
-`userspace/fake_ai.c` compare la question (minuscules) à des mots-clés et imprime une réponse préprogrammée (`bonjour` → `AI: bonjour`, `healthcheck` → `AI HEALTH: OK`, …). Il n’y a pas de TensorFlow Lite, pas de NLP, pas de modèle, pas d’apprentissage.
+`userspace/ai_assistant.c` (lancé par `ai <texte>` via `SYS_EXEC`) compare la question à quelques mots-clés ASCII (`hello`/`bonjour` → `AI: bonjour`, `healthcheck` → `AI HEALTH: OK`). `userspace/fake_ai.c` est un second binaire dans l’initrd (réponses plus longues) ; le shell n’appelle pas ce fichier. Il n’y a pas de TensorFlow Lite, pas de NLP, pas de modèle, pas d’apprentissage.
 
 `initrd_content/ai_knowledge.txt` et `ai_data.txt` sont des fichiers texte d’accompagnement, pas une base vectorielle.
 
@@ -128,13 +128,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime
+make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

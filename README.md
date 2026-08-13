@@ -7,7 +7,7 @@
 
 ## 🎯 Description
 
-AI-OS est un **prototype de noyau pédagogique i386 32-bit** (hobby OS) qui boote sous QEMU, isole Ring 0/3 et lance un shell utilisateur ELF. L’orientation « OS pour l’IA » est réelle au niveau architecture (userspace, syscalls, initrd), mais l’IA embarquée est un **simulateur par mots-clés** (`userspace/fake_ai.c`), pas un moteur d’inférence.
+AI-OS est un **prototype de noyau pédagogique i386 32-bit** (hobby OS) qui boote sous QEMU, isole Ring 0/3 et lance un shell utilisateur ELF. L’orientation « OS pour l’IA » est réelle au niveau architecture (userspace, syscalls, initrd), mais l’IA embarquée est un **simulateur par mots-clés** (`ai_assistant.c` via `ai <texte>`), pas un moteur d’inférence.
 
 **État réel du code (août 2026) :** [docs/ETAT_REEL.md](docs/ETAT_REEL.md) — ce qui marche, les stubs du shell, ce qui n’est pas encore codé (FS persistant, réseau, vision MOHHOS). Index de toute la doc : [docs/README.md](docs/README.md).
 
@@ -37,7 +37,7 @@ make run-gui
 ## ⭐ Fonctionnalités Principales
 
 - **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd + overlay noyau ; `mkdir`/`rm`/`cp`/`mv` mutent l’overlay (pas de disque persistant). `ps`/`kill`/`mem`/`uptime` interrogent le noyau.
-- **🤖 Simulateur d'IA Intégré** - Réponses préprogrammées par mots-clés (`fake_ai.c`), pas un modèle ML
+- **🤖 Simulateur d'IA Intégré** - `ai hello` lance `bin/ai_assistant` (`SYS_EXEC`) ; réponses préprogrammées, pas un modèle ML
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
 - **💾 Système de Fichiers** - Initrd TAR en lecture seule + overlay RAM (`mkdir`/`rm`/`cp`/`mv` fichier et dossier). Pas de disque persistant. `ls` fusionne les deux via `SYS_LISTDIR`.

@@ -61,6 +61,22 @@ def wait_needle(needle, timeout, proc):
     wait_needle_from(needle, timeout, proc, 0)
 
 
+def parse_spawn_pid(text):
+    key = "spawn ok pid "
+    i = text.find(key)
+    if i < 0:
+        raise RuntimeError("spawn ok pid not in log")
+    digits = []
+    for ch in text[i + len(key):]:
+        if ch.isdigit():
+            digits.append(ch)
+        elif digits:
+            break
+    if not digits:
+        raise RuntimeError("no pid after spawn ok pid")
+    return "".join(digits)
+
+
 def monitor_connect(retries=50):
     last = None
     for _ in range(retries):
@@ -155,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -188,6 +204,9 @@ def main():
              ["s", "o", "r", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "sort ok 1 hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
+            ("ai hello",
+             ["a", "i", "spc", "h", "e", "l", "l", "o", "ret"],
+             "ai ok"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
         for name, keys, needle in commands:
@@ -199,16 +218,19 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["s", "p", "a", "w", "n", "spc", "i", "d", "l", "e", "ret"])
         wait_needle_from("spawn ok pid", CMD_TIMEOUT, proc, mark)
+        idle_pid = parse_spawn_pid(log_text()[mark:])
+        say("spawned idle pid %s" % idle_pid)
 
         say("typing ps (after spawn) ...")
         mark = len(log_text())
         sendkeys(mon, ["p", "s", "ret"])
         wait_needle_from("user  idle", CMD_TIMEOUT, proc, mark)
 
-        say("typing kill 2 ...")
+        say("typing kill %s ..." % idle_pid)
         mark = len(log_text())
-        sendkeys(mon, ["k", "i", "l", "l", "spc", "2", "ret"])
-        wait_needle_from("Processus 2 termine", CMD_TIMEOUT, proc, mark)
+        sendkeys(mon, ["k", "i", "l", "l", "spc"] + list(idle_pid) + ["ret"])
+        kill_needle = "Processus %s termine" % idle_pid
+        wait_needle_from(kill_needle, CMD_TIMEOUT, proc, mark)
         time.sleep(0.3)
 
         say("typing ps (after kill) ...")
@@ -217,7 +239,7 @@ def main():
         wait_needle_from("Processus (noyau)", CMD_TIMEOUT, proc, mark)
         after_kill_ps = log_text()[mark:]
         if "user  idle" in after_kill_ps:
-            raise RuntimeError("idle still listed in ps after kill 2")
+            raise RuntimeError("idle still listed in ps after kill %s" % idle_pid)
 
         say("typing uptime ...")
         sendkeys(mon, ["u", "p", "t", "i", "m", "e", "ret"])
@@ -501,12 +523,14 @@ def main():
             ("initrd ls", "startup.sh"),
             ("cat hello.txt", "Un autre fichier de demonstration"),
             ("ls bin", "fake_ai"),
+            ("ai exec", "AI: bonjour"),
+            ("ai exec returned", "ai ok"),
             ("ps kernel table", "Processus (noyau)"),
             ("ps kernel", "kern"),
             ("ps shell", "shell"),
             ("spawn idle", "spawn ok pid"),
             ("ps shows idle", "user  idle"),
-            ("kill 2", "Processus 2 termine"),
+            ("kill idle", "Processus %s termine" % idle_pid),
             ("uptime", "PIT ticks"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
