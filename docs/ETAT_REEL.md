@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `whoami` / `which` ; `test f`/`d` ; `append` / `SYS_APPEND` ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI `alias ok` / expansion ; `whoami` / `which` ; `test f`/`d` ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -88,7 +88,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
 | `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` |
-| `alias` / `unalias` | Table d’alias, expansion avant exécution |
+| `alias` / `unalias` | Table d’alias, expansion avant exécution. Succès : `alias ok <name>` |
 | `history` | Historique en mémoire |
 | `which` | `which ok builtin <cmd>` ou `which ok bin/<cmd>` |
 | `clear`/`cls` | Séquence ANSI + bannière |
@@ -131,13 +131,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/head/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid/whoami/which
+make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/head/alias/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid/whoami/which
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test f`/`test d`, `head`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `whoami`, `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `tail` reste une commande shell, hors smoke (budget sendkey).
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test f`/`test d`, `head`, `alias ll=whoami` puis `ll` (`alias ok ll` / `whoami ok root`), `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey).
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

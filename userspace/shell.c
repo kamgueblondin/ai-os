@@ -1476,6 +1476,9 @@ static void cmd_alias(shell_context_t* ctx, char args[][128], int arg_count) {
         for (int i = 0; i < ctx->alias_count; i++) {
             if (strcmp(ctx->aliases[i].alias, name) == 0) {
                 strcpy(ctx->aliases[i].command, value);
+                print_string("alias ok ");
+                print_string(name);
+                print_string("\n");
                 return;
             }
         }
@@ -1486,6 +1489,9 @@ static void cmd_alias(shell_context_t* ctx, char args[][128], int arg_count) {
         strcpy(ctx->aliases[ctx->alias_count].alias, name);
         strcpy(ctx->aliases[ctx->alias_count].command, value);
         ctx->alias_count++;
+        print_string("alias ok ");
+        print_string(name);
+        print_string("\n");
     }
 }
 
