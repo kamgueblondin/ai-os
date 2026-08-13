@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `unalias ok` ; `alias` / expansion ; `whoami` / `which` ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI `export ok` ; `unalias` / `alias` ; `whoami` / `which` ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -87,7 +87,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `ps` / `jobs` / `top` / `kill` / `spawn` / `getpid` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`). `getpid` affiche `getpid ok <pid>` (`SYS_GETPID`) |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
-| `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` |
+| `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` ; `export VAR=val` affiche `export ok VAR` |
 | `alias` / `unalias` | Table d’alias, expansion avant exécution. Succès : `alias ok <name>` / `unalias ok <name>` |
 | `history` | Historique en mémoire |
 | `which` | `which ok builtin <cmd>` ou `which ok bin/<cmd>` |
@@ -131,13 +131,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/alias/unalias/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid/whoami/which
+make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/alias/unalias/export/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid/whoami/which
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `test f`/`test d`, `alias ll=whoami` puis `ll` puis `unalias ll` (`alias ok ll` / `whoami ok root` / `unalias ok ll`), `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `head`, `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey ; `cat` couvre encore `SYS_READFILE` sur l’initrd).
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat` overlay, `test f`/`test d`, `export tag=ok` (`export ok tag`), `alias ll=whoami` puis `ll` puis `unalias ll`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `head`, `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey ; `cat` couvre encore `SYS_READFILE` sur l’initrd). `stat hello.txt` n’est plus tapé en smoke (`test f hello.txt` et `stat` overlay couvrent `SYS_STAT`).
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

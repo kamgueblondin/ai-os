@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/alias/unalias/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/alias/unalias/export/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -191,10 +191,10 @@ def main():
             ("cat hello.txt",
              ["c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "demonstration"),
-            ("stat hello.txt",
-             ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
-             "stat file hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
+            ("export tag=ok",
+             ["e", "x", "p", "o", "r", "t", "spc", "t", "a", "g", "equal", "o", "k", "ret"],
+             "export ok tag"),
             ("alias ll=whoami",
              ["a", "l", "i", "a", "s", "spc", "l", "l", "equal", "w", "h", "o", "a", "m", "i", "ret"],
              "alias ok ll"),
@@ -597,6 +597,7 @@ def main():
             ("whoami", "whoami ok root"),
             ("alias", "alias ok ll"),
             ("unalias", "unalias ok ll"),
+            ("export", "export ok tag"),
             ("which builtin", "which ok builtin ls"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
@@ -622,7 +623,6 @@ def main():
             ("grep overlay", "grep hits 1"),
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),
-            ("stat file", "stat file hello.txt"),
             ("test file", "test ok file hello.txt"),
             ("stat dir", "stat dir mydir"),
             ("test dir", "test ok dir mydir"),
