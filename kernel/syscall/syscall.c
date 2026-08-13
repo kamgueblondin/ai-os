@@ -228,6 +228,14 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_backend_write((const char*)cpu->ebx,
                                                         (const char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_VFS_INITRD_READ:
+            cpu->eax = (uint32_t)sys_vfs_initrd_read((const char*)cpu->ebx,
+                                                      (char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_VFS_OVERLAY_READ:
+            cpu->eax = (uint32_t)sys_vfs_overlay_read((const char*)cpu->ebx,
+                                                       (char*)cpu->ecx, cpu->edx);
+            break;
         default:
 
             // Syscall inconnu
@@ -328,6 +336,24 @@ int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_writefile(path, data, size);
+}
+
+int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !buffer || max == 0U) return -1;
+    return initrd_read_into(path, buffer, max);
+}
+
+int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !buffer || max == 0U) return -1;
+    return overlay_read(path, buffer, max);
 }
 
 /*

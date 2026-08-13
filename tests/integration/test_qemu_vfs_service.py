@@ -59,7 +59,7 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.06)
+        time.sleep(0.20)
     client.sendall(b"sendkey ret\n")
 
 
@@ -137,7 +137,8 @@ def main():
             wait_for("vfsserver write request", proc, before_write)
             wait_for("vfs-write ok request", proc, before_write)
             before_written_read = len(log_text())
-            send_command(monitor, "cat note.txt")
+            send_command(monitor, "vfs-read overlay/note.txt")
+            wait_for("vfs-read ok", proc, before_written_read)
             wait_for("vfsok", proc, before_written_read)
             before_claim = len(log_text())
             send_command(monitor, "spawn vfsclaim")
@@ -150,6 +151,9 @@ def main():
             before_grant = len(log_text())
             send_command(monitor, "vfs-grant %s" % claim_pid)
             wait_for("vfs-grant sent %s" % claim_pid, proc, before_grant)
+            before_handoff = len(log_text())
+            send_command(monitor, "yield")
+            wait_for("yield ok", proc, before_handoff)
             wait_for("vfsserver grant vfs %s" % claim_pid, proc, before_grant)
             wait_for("vfsclaim backend granted", proc, before_grant)
             before_old_kill = len(log_text())

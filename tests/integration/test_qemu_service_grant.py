@@ -58,7 +58,7 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.06)
+        time.sleep(0.20)
     client.sendall(b"sendkey ret\n")
 
 

@@ -14,10 +14,10 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Domaine | Fonction réellement disponible |
 |---|---|
 | Démarrage | Multiboot BIOS, VGA/série, GDT, IDT, PIC, PIT et clavier PS/2 |
-| Utilisateur | Shell ELF Ring 3, syscalls 0–31, `spawn`, `yield`, `exec`, `ps`, `kill` |
+| Utilisateur | Shell ELF Ring 3, syscalls 0–33, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets, `request_id` opaque et événements de service best-effort ; pas de capabilities |
-| VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`, montages `initrd/ ro` et `overlay/ rw`, transfert contrôlé de `vfs` et backend lecture-écriture réservé au propriétaire publié courant ; initrd/overlay encore noyau |
+| VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`, montages `initrd/ ro` et `overlay/ rw`, lectures source-spécifiques, transfert contrôlé de `vfs` et backend lecture-écriture réservé au propriétaire publié courant ; initrd/overlay encore noyau |
 | Découverte Foundation | Registre volatile de 8 services et 8 abonnements ; retrait, transfert par propriétaire, notifications et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
@@ -25,7 +25,7 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Réseau | `net-status` et profil OpenAI explicitement bloqué ; aucune pile réseau noyau |
 
 Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `service-watch`, `vfs-backend-probe <fichier>`, `vfs-backend-write-probe <fichier> <texte>`, `vfs-grant <pid>`, `vfs-read <chemin>`, `vfs-write <chemin> <texte>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`.
- `service-watch <nom>` abonne le shell à un service et `ipc-recv` affiche les transitions avec l’ancien PID, le nouveau PID et la raison ; la livraison est best-effort si la boîte IPC est pleine. `vfs-read` résout le service `vfs` au lieu d’accepter un PID ; le médiateur expose `vfs-read vfs-mounts`, autorise les fichiers sous `initrd/` en lecture, et autorise `vfs-write overlay/note.txt texte` vers le seul montage écrivable. Les chemins globaux ou une écriture sous `initrd/` sont refusés par la politique de montage ; une requête d’écriture est bornée à 44 octets.
+ `service-watch <nom>` abonne le shell à un service et `ipc-recv` affiche les transitions avec l’ancien PID, le nouveau PID et la raison ; la livraison est best-effort si la boîte IPC est pleine. `vfs-read` résout le service `vfs` au lieu d’accepter un PID ; le médiateur expose `vfs-read vfs-mounts`, sert `initrd/` depuis l’archive initrd exclusivement et `overlay/` depuis l’overlay ATA exclusivement, puis autorise `vfs-write overlay/note.txt texte` vers le seul montage écrivable. Les chemins globaux ou une écriture sous `initrd/` sont refusés par la politique de montage ; une requête d’écriture est bornée à 44 octets.
  Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `vfsclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
 ## Démarrage rapide
@@ -93,7 +93,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **194/194** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (10), registre de services (13), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé avec conservation locale, montages `initrd/ ro` et `overlay/ rw`, sources virtuelles, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`.
+`make test-all` a validé **194/194** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (10), registre de services (13), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé avec conservation locale, montages `initrd/ ro` et `overlay/ rw` lus par sources distinctes, sources virtuelles, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -120,6 +120,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Politique de montage VFS bornée : `initrd/` déclaré, sources virtuelles et refus hors préfixe
 - [x] Notifications de service best-effort : abonnement borné, événements IPC de publication, transfert, retrait et purge
 - [x] Écriture VFS médiée : montage `overlay/ rw`, requête IPC corrélée et backend réservé au propriétaire de `vfs`
+- [x] Lectures VFS source-spécifiques : `initrd/` et `overlay/` ne partagent plus de repli backend implicite
 - [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
