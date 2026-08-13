@@ -34,11 +34,13 @@ static inline int os_vfs_path_is_safe(const char* path) {
     return 0;
 }
 
-static inline int os_vfs_make_read_request(os_ipc_payload_t* payload, const char* path) {
+static inline int os_vfs_make_read_request(os_ipc_payload_t* payload, const char* path,
+                                           uint32_t request_id) {
     uint32_t i;
     if (!payload || !os_vfs_path_is_safe(path)) return OS_VFS_STATUS_INVALID;
     payload->type = OS_IPC_VFS_READ;
     payload->size = OS_VFS_PATH_MAX;
+    payload->request_id = request_id;
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
         if (path[i] == '\0') break;
         payload->data[i] = (uint8_t)path[i];
@@ -83,11 +85,12 @@ static inline uint32_t os_vfs_decode_u32(const uint8_t* in) {
 }
 
 static inline int os_vfs_make_read_reply(os_ipc_payload_t* payload, int32_t status,
-                                  const uint8_t* data, uint32_t size) {
+                                  const uint8_t* data, uint32_t size, uint32_t request_id) {
     uint32_t i;
     if (!payload || size > OS_VFS_READ_MAX || (size > 0U && !data)) return OS_VFS_STATUS_INVALID;
     payload->type = OS_IPC_VFS_READ_REPLY;
     payload->size = 8U + OS_VFS_READ_MAX;
+    payload->request_id = request_id;
     os_vfs_encode_i32(&payload->data[0], status);
     os_vfs_encode_u32(&payload->data[4], size);
     for (i = 0U; i < size; i++) payload->data[8U + i] = data[i];
@@ -97,10 +100,12 @@ static inline int os_vfs_make_read_reply(os_ipc_payload_t* payload, int32_t stat
 }
 
 static inline int os_vfs_parse_read_reply(const os_ipc_message_t* message,
-                                   os_vfs_read_reply_t* reply_out) {
+                                   os_vfs_read_reply_t* reply_out,
+                                   uint32_t expected_request_id) {
     uint32_t i;
     if (!message || !reply_out || message->type != OS_IPC_VFS_READ_REPLY ||
-        message->size != 8U + OS_VFS_READ_MAX) return OS_VFS_STATUS_INVALID;
+        message->size != 8U + OS_VFS_READ_MAX ||
+        message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
     reply_out->status = os_vfs_decode_i32(&message->data[0]);
     reply_out->size = os_vfs_decode_u32(&message->data[4]);
     if (reply_out->size > OS_VFS_READ_MAX) return OS_VFS_STATUS_INVALID;

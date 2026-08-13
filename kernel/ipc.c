@@ -11,6 +11,7 @@ void ipc_endpoint_init(ipc_endpoint_t* endpoint) {
         endpoint->messages[i].sender_pid = -1;
         endpoint->messages[i].type = 0U;
         endpoint->messages[i].size = 0U;
+        endpoint->messages[i].request_id = 0U;
         for (j = 0U; j < OS_IPC_MAX_DATA; j++) endpoint->messages[i].data[j] = 0U;
     }
 }
@@ -28,6 +29,7 @@ int ipc_endpoint_send(ipc_endpoint_t* endpoint, int32_t sender_pid,
     destination->sender_pid = sender_pid;
     destination->type = payload->type;
     destination->size = payload->size;
+    destination->request_id = payload->request_id;
     for (i = 0U; i < payload->size; i++) destination->data[i] = payload->data[i];
     for (; i < OS_IPC_MAX_DATA; i++) destination->data[i] = 0U;
 
@@ -46,11 +48,13 @@ int ipc_endpoint_receive(ipc_endpoint_t* endpoint, os_ipc_message_t* out) {
     out->sender_pid = source->sender_pid;
     out->type = source->type;
     out->size = source->size;
+    out->request_id = source->request_id;
     for (i = 0U; i < OS_IPC_MAX_DATA; i++) out->data[i] = source->data[i];
 
     source->sender_pid = -1;
     source->type = 0U;
     source->size = 0U;
+    source->request_id = 0U;
     for (i = 0U; i < OS_IPC_MAX_DATA; i++) source->data[i] = 0U;
     endpoint->read_index = (endpoint->read_index + 1U) % IPC_ENDPOINT_CAPACITY;
     endpoint->count--;

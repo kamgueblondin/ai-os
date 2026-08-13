@@ -221,6 +221,14 @@ int sys_service_lookup(const char* name) {
     return result;
 }
 
+static uint32_t vfs_request_counter = 0U;
+
+static uint32_t next_vfs_request_id(void) {
+    vfs_request_counter++;
+    if (vfs_request_counter == 0U) vfs_request_counter++;
+    return vfs_request_counter;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -1452,6 +1460,7 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     int pid;
     int rc;
     int attempts;
+    uint32_t request_id;
     uint32_t i;
     if (arg_count != 1) {
         print_error("Usage: vfs-read <chemin>");
@@ -1463,7 +1472,8 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
         ctx->last_rc = pid;
         return;
     }
-    rc = os_vfs_make_read_request(&request, args[0]);
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_read_request(&request, args[0], request_id);
     if (rc != 0) {
         print_error("vfs-read: chemin invalide ou trop long");
         ctx->last_rc = rc;
@@ -1479,10 +1489,13 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         yield();
         rc = sys_ipc_receive(&message);
+        if (rc == 0 && os_vfs_parse_read_reply(&message, &reply, request_id) != 0) {
+            rc = OS_IPC_EMPTY;
+        }
     }
-    if (rc != 0 || os_vfs_parse_read_reply(&message, &reply) != 0) {
+    if (rc != 0) {
         print_error("vfs-read: reponse VFS absente ou invalide");
-        ctx->last_rc = rc != 0 ? rc : OS_VFS_STATUS_INVALID;
+        ctx->last_rc = rc;
         return;
     }
     ctx->last_rc = reply.status;
@@ -1492,6 +1505,8 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     print_string("vfs-read ok ");
     print_int((int)reply.size);
+    print_string(" request ");
+    print_int((int)request_id);
     print_string(" data ");
     for (i = 0U; i < reply.size; i++) putc((char)reply.data[i]);
     if (reply.size == 0U || reply.data[reply.size - 1U] != '\n') print_string("\n");

@@ -58,7 +58,8 @@ void main(void) {
                 if (read < 0) status = read;
                 else size = (uint32_t)read;
             }
-            if (os_vfs_make_read_reply(&reply_payload, status, data, size) == 0) {
+            if (os_vfs_make_read_reply(&reply_payload, status, data, size,
+                                       message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         }
