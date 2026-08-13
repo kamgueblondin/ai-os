@@ -753,6 +753,97 @@ void test_sys_overlay_write_empty(void) {
     TEST_ASSERT_EQUAL(0, (int)cpu.eax);
 }
 
+void test_sys_overlay_append(void) {
+    char buf[64];
+    os_dirent_t st;
+    cpu_state_t cpu = {0};
+    char big[256];
+    int i;
+
+    overlay_init();
+
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"notes.txt";
+    cpu.ecx = (uint32_t)"hello\n";
+    cpu.edx = 6;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(6, (int)cpu.eax);
+
+    cpu.eax = SYS_APPEND;
+    cpu.ebx = (uint32_t)"notes.txt";
+    cpu.ecx = (uint32_t)"world\n";
+    cpu.edx = 6;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(6, (int)cpu.eax);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"notes.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(12, (int)cpu.eax);
+    buf[12] = '\0';
+    TEST_ASSERT_EQUAL_STRING("hello\nworld\n", buf);
+
+    cpu.eax = SYS_APPEND;
+    cpu.ebx = (uint32_t)"new.txt";
+    cpu.ecx = (uint32_t)"x\n";
+    cpu.edx = 2;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(2, (int)cpu.eax);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"new.txt";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_FILE, (int)st.flags);
+    TEST_ASSERT_EQUAL(2, (int)st.size);
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_APPEND;
+    cpu.ebx = (uint32_t)"mydir";
+    cpu.ecx = (uint32_t)"x";
+    cpu.edx = 1;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_ISDIR, (int)cpu.eax);
+
+    cpu.eax = SYS_APPEND;
+    cpu.ebx = (uint32_t)"hello.txt";
+    cpu.ecx = (uint32_t)"Z";
+    cpu.edx = 1;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(1, (int)cpu.eax);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"hello.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(19, (int)cpu.eax);
+    buf[19] = '\0';
+    TEST_ASSERT_EQUAL_STRING("hello from initrd\nZ", buf);
+
+    for (i = 0; i < 256; i++) big[i] = 'a';
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"full.txt";
+    cpu.ecx = (uint32_t)big;
+    cpu.edx = 256;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(256, (int)cpu.eax);
+
+    cpu.eax = SYS_APPEND;
+    cpu.ebx = (uint32_t)"full.txt";
+    cpu.ecx = (uint32_t)"b";
+    cpu.edx = 1;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_NOSPACE, (int)cpu.eax);
+}
+
 void test_sys_overlay_protects_initrd(void) {
     cpu_state_t cpu = {0};
     overlay_init();
@@ -1216,6 +1307,7 @@ int main(void) {
     RUN_TEST(test_sys_overlay_mkdir_listdir_unlink);
     RUN_TEST(test_sys_overlay_write_read);
     RUN_TEST(test_sys_overlay_write_empty);
+    RUN_TEST(test_sys_overlay_append);
     RUN_TEST(test_sys_overlay_protects_initrd);
     RUN_TEST(test_sys_stat_initrd_file_and_overlay_dir);
     RUN_TEST(test_sys_overlay_copy_from_initrd);

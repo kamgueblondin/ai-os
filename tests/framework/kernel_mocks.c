@@ -278,6 +278,22 @@ int initrd_is_file(const char* path) {
     return 0;
 }
 
+int initrd_read_into(const char* path, char* buf, uint32_t max) {
+    char want[64];
+    unsigned i;
+    mock_ird_norm(path, want, 64);
+    if (!want[0] || !buf || max == 0) return -1;
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        if (strcmp(want, mock_initrd[i].name) == 0) {
+            uint32_t copy = mock_initrd[i].size;
+            if (copy > max) copy = max;
+            memcpy(buf, mock_initrd[i].data, copy);
+            return (int)copy;
+        }
+    }
+    return -1;
+}
+
 int initrd_is_dir(const char* path) {
     char want[64];
     unsigned i;
@@ -433,7 +449,7 @@ int sys_unlink(const char* path) {
 }
 
 int sys_writefile(const char* path, const char* buf, uint32_t n) {
-    if (!path || !buf) return -1;
+    if (!path || (n > 0 && !buf)) return -1;
     return overlay_write(path, buf, n);
 }
 
@@ -451,6 +467,11 @@ int sys_rename(const char* oldpath, const char* newpath) {
 int sys_copy(const char* src, const char* dst) {
     if (!src || !dst) return -1;
     return overlay_copy(src, dst);
+}
+
+int sys_append(const char* path, const char* buf, uint32_t n) {
+    if (!path || (n > 0 && !buf)) return -1;
+    return overlay_append(path, buf, n);
 }
 
 int sys_getpid(void) {
@@ -558,6 +579,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_COPY:
             state->eax = (uint32_t)sys_copy((const char*)state->ebx, (const char*)state->ecx);
+            break;
+        case SYS_APPEND:
+            state->eax = (uint32_t)sys_append((const char*)state->ebx, (const char*)state->ecx, state->edx);
             break;
         default:
             break;

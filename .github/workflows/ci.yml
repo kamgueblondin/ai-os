@@ -53,7 +53,7 @@ jobs:
       - name: Run unit tests (make test-all)
         run: make test-all
 
-      - name: QEMU smoke (sendkey ls/cat/ps/uptime/mem/getpid on serial)
+      - name: QEMU smoke (sendkey ls/cat/ps/uptime/mem/getpid/append on serial)
         run: make qemu-smoke
 
       - name: Upload logs

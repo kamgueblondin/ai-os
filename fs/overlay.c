@@ -234,6 +234,40 @@ int overlay_write(const char* path, const char* data, uint32_t n) {
     return (int)n;
 }
 
+int overlay_append(const char* path, const char* data, uint32_t n) {
+    ov_node_t* node;
+    char want[OV_PATH_MAX];
+    uint32_t i;
+    ov_normalize(path, want, OV_PATH_MAX);
+    if (!want[0] || (n > 0 && !data)) return OV_ERR_INVAL;
+    if (initrd_is_dir(want)) return OV_ERR_ISDIR;
+    node = ov_find(want);
+    if (node && node->is_dir) return OV_ERR_ISDIR;
+    if (!node) {
+        uint32_t have = 0;
+        char tmp[OV_DATA_MAX];
+        if (initrd_is_file(want)) {
+            int r = initrd_read_into(want, tmp, OV_DATA_MAX);
+            if (r < 0) return r;
+            have = (uint32_t)r;
+        } else if (!ov_parent_is_dir(want)) {
+            return OV_ERR_NOTDIR;
+        }
+        if (have + n > OV_DATA_MAX) return OV_ERR_NOSPACE;
+        node = ov_alloc();
+        if (!node) return OV_ERR_NOSPACE;
+        node->used = 1;
+        node->is_dir = 0;
+        node->size = have;
+        ov_copy(node->path, want, OV_PATH_MAX);
+        for (i = 0; i < have; i++) node->data[i] = tmp[i];
+    }
+    if (node->size + n > OV_DATA_MAX) return OV_ERR_NOSPACE;
+    for (i = 0; i < n; i++) node->data[node->size + i] = data[i];
+    node->size += n;
+    return (int)n;
+}
+
 int overlay_read(const char* path, char* buf, uint32_t max) {
     ov_node_t* n;
     uint32_t i;
