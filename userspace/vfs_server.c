@@ -28,9 +28,9 @@ static int service_register(const char* name) {
     return result;
 }
 
-static int read_file(const char* path, char* buffer, uint32_t max) {
+static int backend_read(const char* path, char* buffer, uint32_t max) {
     int result;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_READFILE), "b"(path), "c"(buffer), "d"(max));
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_READ), "b"(path), "c"(buffer), "d"(max));
     return result;
 }
 
@@ -76,7 +76,7 @@ void main(void) {
                 if (read_virtual(path, data, &size)) {
                     puts("vfsserver virtual vfs-info\n");
                 } else {
-                    int read = read_file(path, (char*)data, OS_VFS_READ_MAX);
+                    int read = backend_read(path, (char*)data, OS_VFS_READ_MAX);
                     if (read < 0) status = read;
                     else size = (uint32_t)read;
                 }

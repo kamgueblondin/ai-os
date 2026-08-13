@@ -234,6 +234,12 @@ int sys_service_grant(const char* name, int target_pid) {
     return result;
 }
 
+int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_READ), "b"(path), "c"(buffer), "d"(max));
+    return result;
+}
+
 static uint32_t vfs_request_counter = 0U;
 static os_ipc_deferred_t ipc_deferred;
 
@@ -557,6 +563,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  service-publish <nom> - Publier un nom de service detenue par ce shell\n");
     print_string("  service-grant <nom> <pid> - Transferer un nom possede a une tache utilisateur\n");
     print_string("  service-find <nom> - Resoudre un service nomme\n");
+    print_string("  vfs-backend-probe <fichier> - Verifier le backend VFS reserve\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
@@ -1141,7 +1148,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-backend-probe", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1537,6 +1544,22 @@ static void cmd_service_find(shell_context_t* ctx, char args[][128], int arg_cou
         print_string("\n");
     } else {
         print_error("service-find: service indisponible");
+    }
+}
+
+static void cmd_vfs_backend_probe(shell_context_t* ctx, char args[][128], int arg_count) {
+    char data[OS_VFS_READ_MAX];
+    int rc;
+    if (arg_count != 1) {
+        print_error("Usage: vfs-backend-probe <fichier>");
+        return;
+    }
+    rc = sys_vfs_backend_read(args[0], data, OS_VFS_READ_MAX);
+    ctx->last_rc = rc;
+    if (rc == OS_VFS_BACKEND_DENIED) {
+        print_string("vfs-backend-probe denied\n");
+    } else {
+        print_error("vfs-backend-probe: acces inattendu ou erreur backend");
     }
 }
 
@@ -2443,6 +2466,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "service-find") == 0) {
         cmd_service_find(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-backend-probe") == 0) {
+        cmd_vfs_backend_probe(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);

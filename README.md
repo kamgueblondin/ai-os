@@ -14,17 +14,17 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Domaine | Fonction réellement disponible |
 |---|---|
 | Démarrage | Multiboot BIOS, VGA/série, GDT, IDT, PIC, PIT et clavier PS/2 |
-| Utilisateur | Shell ELF Ring 3, syscalls 0–28, `spawn`, `yield`, `exec`, `ps`, `kill` |
+| Utilisateur | Shell ELF Ring 3, syscalls 0–29, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` opaque ; pas de capabilities |
-| VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC, réponse corrélée et source virtuelle `vfs-info` ; backend encore noyau |
+| VFS Foundation | `vfsserver` Ring 3, source `vfs-info` et lecture backend réservée au propriétaire publié de `vfs` ; initrd/overlay encore noyau |
 | Découverte Foundation | Registre volatile de 8 services ; retrait, transfert par propriétaire et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
 | GGUF | Sonde structurelle GGUF v3 et primitives Q8_0 ; pas encore d’inférence quantifiée |
 | Réseau | `net-status` et profil OpenAI explicitement bloqué ; aucune pile réseau noyau |
 
-Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-read <fichier>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. `vfs-read` résout le service `vfs` au lieu d’accepter un PID. Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
+Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-backend-probe <fichier>`, `vfs-read <fichier>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. `vfs-read` résout le service `vfs` au lieu d’accepter un PID. Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
 ## Démarrage rapide
 
@@ -113,6 +113,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Transfert limité de publication : propriétaire, bénéficiaire Ring 3 et nettoyage après `kill`
 - [x] Conservation locale bornée des messages IPC non corrélés pendant `vfs-read`
 - [x] Première source virtuelle VFS (`vfs-info`) construite par `vfsserver` Ring 3
+- [x] Voie backend VFS réservée au propriétaire publié de `vfs`
 - [ ] Capabilities, révocation, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde

@@ -41,8 +41,10 @@
 #define SYS_SERVICE_UNREGISTER 27
 /* EBX = nom de service, ECX = PID bénéficiaire ; transfert par le propriétaire. */
 #define SYS_SERVICE_GRANT 28
+/* EBX = chemin, ECX = buffer, EDX = taille ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_BACKEND_READ 29
 
-#define MAX_SYSCALLS 29
+#define MAX_SYSCALLS 30
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -59,6 +61,7 @@
 #define OS_SERVICE_NOT_FOUND (-53)
 #define OS_SERVICE_NOT_OWNER (-54)
 #define OS_SERVICE_BAD_GRANTEE (-55)
+#define OS_VFS_BACKEND_DENIED (-61)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
