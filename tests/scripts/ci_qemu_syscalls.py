@@ -194,13 +194,6 @@ def main():
             ("stat hello.txt",
              ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "stat file hello.txt"),
-            ("test -f hello.txt",
-             ["t", "e", "s", "t", "spc", "minus", "f", "spc",
-              "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
-             "test ok file hello.txt"),
-            ("test -f zzz",
-             ["t", "e", "s", "t", "spc", "minus", "f", "spc", "z", "z", "z", "ret"],
-             "test no zzz"),
             ("head hello.txt",
              ["h", "e", "a", "d", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "head ok 1 hello.txt"),
@@ -261,6 +254,21 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["g", "e", "t", "p", "i", "d", "ret"])
         wait_needle_from("getpid ok", CMD_TIMEOUT, proc, mark)
+
+        say("typing test -f hello.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "e", "s", "t", "spc", "minus", "f", "spc",
+            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("test ok file hello.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing test -f zzz ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "e", "s", "t", "spc", "minus", "f", "spc", "z", "z", "z", "ret",
+        ])
+        wait_needle_from("test no zzz", CMD_TIMEOUT, proc, mark)
 
         say("typing mkdir mydir ...")
         mark = len(log_text())
