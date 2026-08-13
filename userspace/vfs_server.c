@@ -28,6 +28,23 @@ static int service_register(const char* name) {
     return result;
 }
 
+static int service_grant(const char* name, int target_pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_GRANT), "b"(name), "c"(target_pid));
+    return result;
+}
+
+static void print_int(int value) {
+    char digits[12];
+    int n = 0;
+    unsigned int number;
+    if (value < 0) { putc('-'); number = (unsigned int)(-value); }
+    else number = (unsigned int)value;
+    if (number == 0U) { putc('0'); return; }
+    while (number > 0U && n < 11) { digits[n++] = (char)('0' + (number % 10U)); number /= 10U; }
+    while (n > 0) putc(digits[--n]);
+}
+
 static int backend_read(const char* path, char* buffer, uint32_t max) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_READ), "b"(path), "c"(buffer), "d"(max));
@@ -70,7 +87,9 @@ void main(void) {
     for (;;) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_READ) {
-            int status = os_vfs_parse_read_request(&message, path);
+            int status;
+            puts("vfsserver read request\n");
+            status = os_vfs_parse_read_request(&message, path);
             uint32_t size = 0U;
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
@@ -85,6 +104,23 @@ void main(void) {
                                        message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {
+            int target_pid;
+            puts("vfsserver grant request\n");
+            int status = os_vfs_parse_grant_request(&message, &target_pid);
+            if (status == 0) {
+                puts("vfsserver grant vfs ");
+                print_int(target_pid);
+                puts("\n");
+                status = service_grant("vfs", target_pid);
+            }
+            if (status != 0) {
+                puts("vfsserver grant rc ");
+                print_int(status);
+                puts("\n");
+            }
+        } else if (received == 0) {
+            puts("vfsserver unsupported message\n");
         }
         yield();
     }

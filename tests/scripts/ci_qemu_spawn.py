@@ -141,22 +141,22 @@ def main():
             monitor = monitor_connect()
 
             say("typing spawn idle ...")
-            start = len(log_text())
+            spawn_start = len(log_text())
             send_command(monitor, "spawn idle")
-            wait_for(proc, "idle ok", CMD_TIMEOUT, start)
-            wait_for(proc, "spawn ok pid", CMD_TIMEOUT, start)
-            idle_pid = parse_spawn_pid(log_text()[start:])
+            wait_for(proc, "spawn ok pid", CMD_TIMEOUT, spawn_start)
+            idle_pid = parse_spawn_pid(log_text()[spawn_start:])
             say("spawned idle pid %s" % idle_pid)
+
+            say("typing yield ...")
+            start = len(log_text())
+            send_command(monitor, "yield")
+            wait_for(proc, "idle ok", CMD_TIMEOUT, spawn_start)
+            wait_for(proc, "yield ok", CMD_TIMEOUT, start)
 
             say("typing ps ...")
             start = len(log_text())
             send_command(monitor, "ps")
             wait_for(proc, "user  idle", CMD_TIMEOUT, start)
-
-            say("typing yield ...")
-            start = len(log_text())
-            send_command(monitor, "yield")
-            wait_for(proc, "yield ok", CMD_TIMEOUT, start)
 
             say("typing kill %s ..." % idle_pid)
             start = len(log_text())

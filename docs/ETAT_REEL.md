@@ -48,6 +48,8 @@ Le huitième incrément ajoute `vfs-info`, une source synthétique servie direct
 
 Le neuvième incrément réserve `SYS_VFS_BACKEND_READ` au propriétaire utilisateur vivant du nom `vfs`. `vfsserver` l’utilise pour ses chemins ordinaires et le shell reçoit `OS_VFS_BACKEND_DENIED` par la commande de diagnostic. Cette voie isole le médiateur du syscall générique pour le protocole VFS, sans retirer `SYS_READFILE` des commandes historiques, sans capabilities ni externalisation du backend initrd/overlay.
 
+Le dixième incrément permet à `vfsserver` de transférer son propre nom via une requête IPC `OS_IPC_VFS_GRANT` et la commande shell `vfs-grant <pid>`. Le contrôle backend suit immédiatement le nouveau propriétaire : `vfsclaim` prouve la lecture autorisée, tandis que l’arrêt de l’ancien serveur ne supprime plus le nom. L’arrêt du nouveau propriétaire le purge. Cette révocation repose sur un PID de registre volatile, pas sur un token de capability, une identité ou une autorité de révocation indépendante.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
@@ -73,7 +75,7 @@ QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et 
 
 ## Shell et ABI observables
 
-Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
+Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-backend-probe`, `vfs-grant`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `vfsclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
 L’ABI contient les syscalls 0–29 (`MAX_SYSCALLS = 30`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP`, `SYS_SERVICE_UNREGISTER`, `SYS_SERVICE_GRANT` et `SYS_VFS_BACKEND_READ`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
@@ -82,14 +84,14 @@ L’ABI contient les syscalls 0–29 (`MAX_SYSCALLS = 30`), dont `SYS_APPEND`, `
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 186/186 tests C Unity et robustesse
+make test-all                # 187/187 tests C Unity et robustesse
 make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS différé et transfert Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 186 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (6), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, conserve un message concurrent `deferred`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver`, restitue le message différé puis vérifie son nettoyage, puis le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
+La suite C exécute 187 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (7), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, conserve un message concurrent `deferred`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver`, restitue le message différé puis vérifie son nettoyage, puis le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 

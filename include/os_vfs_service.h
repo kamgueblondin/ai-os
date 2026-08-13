@@ -6,8 +6,10 @@
 
 #define OS_IPC_VFS_READ       0x56465301U
 #define OS_IPC_VFS_READ_REPLY 0x56465302U
+#define OS_IPC_VFS_GRANT      0x56465303U
 
 #define OS_VFS_PATH_MAX 48U
+#define OS_VFS_GRANT_REQUEST_SIZE 4U
 #define OS_VFS_READ_MAX 80U
 
 #define OS_VFS_STATUS_OK        0
@@ -82,6 +84,24 @@ static inline void os_vfs_encode_u32(uint8_t* out, uint32_t value) {
 static inline uint32_t os_vfs_decode_u32(const uint8_t* in) {
     return (uint32_t)in[0] | ((uint32_t)in[1] << 8) |
            ((uint32_t)in[2] << 16) | ((uint32_t)in[3] << 24);
+}
+
+static inline int os_vfs_make_grant_request(os_ipc_payload_t* payload, int32_t target_pid) {
+    uint32_t i;
+    if (!payload || target_pid <= 0) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_GRANT;
+    payload->size = OS_VFS_GRANT_REQUEST_SIZE;
+    payload->request_id = 0U;
+    os_vfs_encode_i32(&payload->data[0], target_pid);
+    for (i = OS_VFS_GRANT_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_grant_request(const os_ipc_message_t* message, int32_t* target_pid) {
+    if (!message || !target_pid || message->type != OS_IPC_VFS_GRANT ||
+        message->size != OS_VFS_GRANT_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    *target_pid = os_vfs_decode_i32(&message->data[0]);
+    return *target_pid > 0 ? 0 : OS_VFS_STATUS_INVALID;
 }
 
 static inline int os_vfs_make_read_reply(os_ipc_payload_t* payload, int32_t status,

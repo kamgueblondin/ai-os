@@ -69,6 +69,29 @@ static void test_malformed_reply_is_rejected(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_read_reply(&message, &reply, 1U));
 }
 
+static void test_grant_request_is_bounded_and_validated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    int32_t target_pid;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_grant_request(&payload, 7));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_GRANT, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_GRANT_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(0, payload.request_id);
+    TEST_ASSERT_EQUAL(7, os_vfs_decode_i32(&payload.data[0]));
+    TEST_ASSERT_EQUAL(0, payload.data[OS_IPC_MAX_DATA - 1U]);
+    message.sender_pid = 1;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_grant_request(&message, &target_pid));
+    TEST_ASSERT_EQUAL(7, target_pid);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_make_grant_request(&payload, 0));
+    message.size = OS_VFS_GRANT_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_grant_request(&message, &target_pid));
+}
+
 static void test_reply_with_unexpected_request_id_is_rejected(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -91,6 +114,7 @@ int main(void) {
     RUN_TEST(test_server_can_parse_valid_request);
     RUN_TEST(test_read_reply_preserves_status_and_data);
     RUN_TEST(test_malformed_reply_is_rejected);
+    RUN_TEST(test_grant_request_is_bounded_and_validated);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     unity_print_results();
     unity_cleanup();
