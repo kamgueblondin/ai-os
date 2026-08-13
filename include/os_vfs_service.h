@@ -12,9 +12,10 @@
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
 #define OS_VFS_READ_MAX 80U
 
-#define OS_VFS_STATUS_OK        0
-#define OS_VFS_STATUS_INVALID  (-60)
-#define OS_VFS_STATUS_TRUNCATED 1
+#define OS_VFS_STATUS_OK          0
+#define OS_VFS_STATUS_INVALID    (-60)
+#define OS_VFS_STATUS_NOT_MOUNTED (-61)
+#define OS_VFS_STATUS_TRUNCATED   1
 
 typedef struct {
     char path[OS_VFS_PATH_MAX];
@@ -34,6 +35,22 @@ static inline int os_vfs_path_is_safe(const char* path) {
         if (path[i] == '.' && i + 1U < OS_VFS_PATH_MAX && path[i + 1U] == '.') return 0;
     }
     return 0;
+}
+
+/* Un montage est un préfixe de répertoire terminé par '/'. Le chemin relatif
+ * retourné ne peut pas être vide : lire la racine d'un montage n'est pas une
+ * opération de lecture de fichier. */
+static inline int os_vfs_match_mount(const char* path, const char* mount,
+                                     const char** relative_out) {
+    uint32_t i = 0U;
+    if (!os_vfs_path_is_safe(path) || !os_vfs_path_is_safe(mount)) return 0;
+    while (mount[i] != '\0') {
+        if (path[i] == '\0' || path[i] != mount[i]) return 0;
+        i++;
+    }
+    if (i == 0U || mount[i - 1U] != '/' || path[i] == '\0') return 0;
+    if (relative_out) *relative_out = path + i;
+    return 1;
 }
 
 static inline int os_vfs_make_read_request(os_ipc_payload_t* payload, const char* path,

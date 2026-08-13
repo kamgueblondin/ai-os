@@ -14,8 +14,8 @@ AI-OS démarre sans système hôte dans QEMU, charge un initrd TAR, lance un she
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot |
 | Stockage | Initrd TAR en lecture seule et overlay ATA PIO persistant V2 |
 | Ordonnancement | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur |
-| IPC Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé |
-| Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire et nettoyage à la terminaison |
+| IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; médiateur VFS, sources virtuelles et politique de montage `initrd/` |
+| Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS et nettoyage à la terminaison |
 | Réseau | **Aucun transport réseau noyau** ; diagnostic et profil OpenAI explicitement bloqués |
 
 > Les poids GPT-2 ne sont pas versionnés dans Git. Une image utilisable sans réseau les embarque dans l’initrd au moment du build.
@@ -49,6 +49,8 @@ Le huitième incrément ajoute `vfs-info`, une source synthétique servie direct
 Le neuvième incrément réserve `SYS_VFS_BACKEND_READ` au propriétaire utilisateur vivant du nom `vfs`. `vfsserver` l’utilise pour ses chemins ordinaires et le shell reçoit `OS_VFS_BACKEND_DENIED` par la commande de diagnostic. Cette voie isole le médiateur du syscall générique pour le protocole VFS, sans retirer `SYS_READFILE` des commandes historiques, sans capabilities ni externalisation du backend initrd/overlay.
 
 Le dixième incrément permet à `vfsserver` de transférer son propre nom via une requête IPC `OS_IPC_VFS_GRANT` et la commande shell `vfs-grant <pid>`. Le contrôle backend suit immédiatement le nouveau propriétaire : `vfsclaim` prouve la lecture autorisée, tandis que l’arrêt de l’ancien serveur ne supprime plus le nom. L’arrêt du nouveau propriétaire le purge. Cette révocation repose sur un PID de registre volatile, pas sur un token de capability, une identité ou une autorité de révocation indépendante.
+
+Le onzième incrément ajoute un registre de montages borné au médiateur. `vfsserver` déclare actuellement le préfixe `initrd/`, l’expose en lecture virtuelle via `vfs-read vfs-mounts` et délègue seulement le suffixe relatif d’un chemin correspondant au backend réservé. Ainsi `vfs-read initrd/hello.txt` atteint `hello.txt`, tandis que `vfs-read hello.txt` retourne `OS_VFS_STATUS_NOT_MOUNTED` et un diagnostic de chemin hors montage. Les sources `vfs-info` et `vfs-mounts` sont toujours produites en Ring 3. La liste est statique, ne monte ni autre backend ni répertoire, et le backend initrd/overlay/ATA reste noyau.
 
 ### IA locale, GGUF et BPE
 
@@ -84,20 +86,20 @@ L’ABI contient les syscalls 0–29 (`MAX_SYSCALLS = 30`), dont `SYS_APPEND`, `
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 187/187 tests C Unity et robustesse
-make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS différé et transfert Foundation
+make test-all                # 188/188 tests C Unity et robustesse
+make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS monté, révocation et transfert Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 187 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (7), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, conserve un message concurrent `deferred`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver`, restitue le message différé puis vérifie son nettoyage, puis le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
+La suite C exécute 188 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (8), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, expose `initrd/`, refuse un chemin hors montage, conserve un message concurrent `deferred`, exige `request 3 data` pour `initrd/hello.txt`, restitue le message différé, vérifie les sources virtuelles puis le transfert, la révocation de l’ancien serveur et la purge du nouveau propriétaire. Le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, de révocation de transfert, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` avec source virtuelle et le registre nommé avec transfert sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` avec sources virtuelles et montage statique, ainsi que le registre nommé avec transfert et révocation VFS, sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 

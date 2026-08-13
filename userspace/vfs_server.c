@@ -64,14 +64,37 @@ static int string_equal(const char* left, const char* right) {
     return left[i] == right[i];
 }
 
-/* Première source VFS isolée : métadonnée synthétique fournie par le service. */
+/* Sources VFS isolées : métadonnées synthétiques fournies par le service. */
+static const char* const vfs_mounts[] = { "initrd/" };
+#define VFS_MOUNT_COUNT (sizeof(vfs_mounts) / sizeof(vfs_mounts[0]))
+
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     static const char info[] = "vfsserver ring3 policy\n";
+    static const char mounts[] = "initrd/\n";
+    const char* source = 0;
     uint32_t i;
-    if (!string_equal(path, "vfs-info")) return 0;
-    for (i = 0U; info[i] != '\0'; i++) data[i] = (uint8_t)info[i];
+    if (string_equal(path, "vfs-info")) source = info;
+    else if (string_equal(path, "vfs-mounts")) source = mounts;
+    else return 0;
+    for (i = 0U; source[i] != '\0'; i++) data[i] = (uint8_t)source[i];
     *size = i;
     return 1;
+}
+
+/* Le backend ne reçoit jamais un chemin global : uniquement le suffixe d’un
+ * montage déclaré par ce médiateur. */
+static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size) {
+    uint32_t i;
+    for (i = 0U; i < VFS_MOUNT_COUNT; i++) {
+        const char* relative = 0;
+        if (os_vfs_match_mount(path, vfs_mounts[i], &relative)) {
+            int read = backend_read(relative, (char*)data, OS_VFS_READ_MAX);
+            if (read < 0) return read;
+            *size = (uint32_t)read;
+            return OS_VFS_STATUS_OK;
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
 void main(void) {
@@ -84,6 +107,7 @@ void main(void) {
         for (;;) yield();
     }
     puts("vfsserver ready vfs\n");
+    puts("vfsserver mount initrd/\n");
     for (;;) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_READ) {
@@ -93,11 +117,13 @@ void main(void) {
             uint32_t size = 0U;
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
-                    puts("vfsserver virtual vfs-info\n");
+                    if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info\n");
+                    else puts("vfsserver virtual vfs-mounts\n");
                 } else {
-                    int read = backend_read(path, (char*)data, OS_VFS_READ_MAX);
-                    if (read < 0) status = read;
-                    else size = (uint32_t)read;
+                    status = read_mounted_backend(path, data, &size);
+                    if (status == OS_VFS_STATUS_NOT_MOUNTED) {
+                        puts("vfsserver path outside mounts\n");
+                    }
                 }
             }
             if (os_vfs_make_read_reply(&reply_payload, status, data, size,
