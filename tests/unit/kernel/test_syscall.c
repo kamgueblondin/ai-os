@@ -790,6 +790,73 @@ void test_sys_overlay_copy_from_initrd(void) {
     TEST_ASSERT_EQUAL(0, (int)cpu.eax);
 }
 
+void test_sys_overlay_nested_mkdir_notempty(void) {
+    char payload[] = "nested\n";
+    os_dirent_t ents[16];
+    cpu_state_t cpu = {0};
+    int n;
+    int found;
+    int i;
+
+    overlay_init();
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"mydir/sub";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"mydir/sub/a.txt";
+    cpu.ecx = (uint32_t)payload;
+    cpu.edx = 7;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(7, (int)cpu.eax);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found = 0;
+    for (i = 0; i < n; i++) {
+        if (strcmp(ents[i].name, "sub") == 0 && ents[i].flags == OS_DIRENT_DIR) {
+            found = 1;
+        }
+    }
+    TEST_ASSERT(found);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_NOTEMPTY, (int)cpu.eax);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir/sub";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_NOTEMPTY, (int)cpu.eax);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir/sub/a.txt";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir/sub";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+}
+
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
@@ -849,6 +916,7 @@ int main(void) {
     RUN_TEST(test_sys_overlay_write_read);
     RUN_TEST(test_sys_overlay_protects_initrd);
     RUN_TEST(test_sys_overlay_copy_from_initrd);
+    RUN_TEST(test_sys_overlay_nested_mkdir_notempty);
     
     unity_print_results();
     unity_cleanup();
