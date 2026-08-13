@@ -216,7 +216,7 @@ int overlay_write(const char* path, const char* data, uint32_t n) {
     char want[OV_PATH_MAX];
     uint32_t i;
     ov_normalize(path, want, OV_PATH_MAX);
-    if (!want[0] || !data) return OV_ERR_INVAL;
+    if (!want[0] || (n > 0 && !data)) return OV_ERR_INVAL;
     node = ov_find(want);
     if (node && node->is_dir) return OV_ERR_ISDIR;
     if (initrd_is_dir(want)) return OV_ERR_ISDIR;

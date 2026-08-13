@@ -310,7 +310,7 @@ int sys_unlink(const char* path) {
 }
 
 int sys_writefile(const char* path, const char* buf, uint32_t n) {
-    if (!path || !buf) return -1;
+    if (!path || (n > 0 && !buf)) return -1;
     return overlay_write(path, buf, n);
 }
 

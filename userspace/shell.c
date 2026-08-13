@@ -485,6 +485,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
+    print_string("  getpid             - PID du shell (syscall SYS_GETPID)\n");
     
     print_colored("\nCOMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  sysinfo            - Informations système\n");
@@ -511,6 +512,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  clear              - Effacer l'écran\n");
     print_string("  echo <text>        - Afficher du texte\n");
     print_string("  write <file> <txt> - Ecrire un fichier overlay (sans >)\n");
+    print_string("  touch <file>       - Creer un fichier overlay vide\n");
     print_string("  grep <pattern>     - Rechercher dans un texte\n");
     print_string("  wc <file>          - Compter lignes/mots/caractères\n");
     print_string("  sort <file>        - Trier les lignes (sort ok N fichier)\n");
@@ -824,6 +826,35 @@ void cmd_write(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+static void cmd_touch(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    os_dirent_t st;
+    int rc;
+    if (arg_count == 0) {
+        print_error("touch: fichier manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    if (sys_stat(path, &st) == 0) {
+        if (st.flags == OS_DIRENT_DIR) {
+            print_error("touch: est un repertoire");
+            return;
+        }
+        print_string("touch ok ");
+        print_string(args[0]);
+        print_string("\n");
+        return;
+    }
+    rc = sys_writefile(path, "", 0);
+    if (rc < 0) {
+        print_fs_err("touch", rc);
+        return;
+    }
+    print_string("touch ok ");
+    print_string(args[0]);
+    print_string("\n");
+}
+
 static void cmd_stat(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
     os_dirent_t st;
@@ -935,10 +966,10 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
-        "history", "env", "echo", "write", "clear", "cls", "exit", "quit",
+        "history", "env", "echo", "write", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
         "cd", "pwd", "cat", "stat", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "jobs", "top", "uptime", "date", "whoami",
+        "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1247,6 +1278,13 @@ static void cmd_top(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(procs[i].name);
         print_string("\n");
     }
+    print_string("\n");
+}
+
+static void cmd_getpid(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)ctx; (void)args; (void)arg_count;
+    print_string("getpid ok ");
+    print_int(sys_getpid());
     print_string("\n");
 }
 
@@ -1798,6 +1836,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "write") == 0) {
         cmd_write(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "touch") == 0) {
+        cmd_touch(ctx, args, arg_count);
+        return 1;
     } else if (strcmp(command, "clear") == 0 || strcmp(command, "cls") == 0) {
         cmd_clear(ctx, args, arg_count);
         return 1;
@@ -1861,6 +1902,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "top") == 0) {
         cmd_top(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "getpid") == 0) {
+        cmd_getpid(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "uptime") == 0) {
         cmd_uptime(ctx, args, arg_count);
