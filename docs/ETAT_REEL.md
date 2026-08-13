@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (overlay nested mkdir/mv + syscalls initrd/spawn/kill ; CI sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/rmdir/uptime)  
+**Code de référence :** `master` (overlay write/cp-into-dir + nested mkdir/mv ; CI sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/write/rmdir/uptime)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -31,7 +31,7 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - Chargeur ELF 32-bit
 - Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3)
 - Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT` (ABI : `include/os_syscalls.h`)
-- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` / `mv` / `echo >` visibles par `ls`/`cat` ; l’initrd reste en lecture seule ; `rmdir` d’un dossier non vide échoue
+- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (y compris vers un dossier) / `mv` / `write` / `echo >` visibles par `ls`/`cat` ; l’initrd reste en lecture seule ; `rmdir` d’un dossier non vide échoue
 
 ### Espace utilisateur
 
@@ -68,16 +68,17 @@ Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en
 
 ## Shell : commandes réelles vs affichées
 
-Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `ps` / `kill` / `mem` / `uptime` parlent au **noyau**. `echo >` écrit dans l’overlay noyau. `cp`/`mv` de répertoires restent un VFS RAM local. `procsim.c` n’est plus utilisé par `ps`/`kill`.
+Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `ps` / `kill` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write` écrivent dans l’overlay noyau. `cp`/`mv` de répertoires restent un VFS RAM local. `procsim.c` n’est plus utilisé par `ps`/`kill`.
 
 | Commande | Comportement réel |
 |---|---|
 | `help` | Aide |
 | `ls` / `dir` | Listing **initrd + overlay** (syscall `SYS_LISTDIR`) + fichiers extra du VFS RAM |
 | `mkdir` / `rmdir` / `rm` | Overlay noyau (`SYS_MKDIR` / `SYS_UNLINK`) ; l’initrd ne peut pas être modifié (`PROTECTED`) ; `rmdir` d’un dossier non vide échoue (`NOTEMPTY`) |
-| `cp` / `mv` | Copie overlay (`SYS_READFILE` + `SYS_WRITEFILE`) ; `mv` refuse l’initrd (rollback) ; répertoires : VFS RAM local |
+| `cp` / `mv` | Copie overlay (`SYS_READFILE` + `SYS_WRITEFILE`) ; `cp fichier dossier/` joint le nom ; `mv` refuse l’initrd (rollback) ; répertoires : VFS RAM local |
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM |
-| `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau |
+| `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
+| `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
 | `cd` / `pwd` | Chemin shell ; `cd` accepte overlay/initrd (`SYS_STAT`) **ou** VFS RAM (`cd bin`). Succès : `cd ok <arg>` |
 | `ps` / `jobs` / `top` / `kill` / `spawn` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT |
@@ -126,13 +127,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/rmdir/uptime
+make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/write/rmdir/uptime
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape `ls`, `cat hello.txt`, `ls bin`, `ps`, `spawn idle`, `kill 2`, `uptime`, `mkdir mydir`, `cd mydir`, `mkdir sub`, `mv copy.txt notes.txt` et `rmdir mydir` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape `ls`, `cat hello.txt`, `ls bin`, `ps`, `spawn idle`, `kill 2`, `uptime`, `mkdir mydir`, `cd mydir`, `mkdir sub`, `mv copy.txt notes.txt`, `cp hello.txt mydir` et `write hi.txt ping` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
