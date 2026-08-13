@@ -9,6 +9,7 @@ ASFLAGS = --32
 
 # Programmes à compiler
 PROGRAMS = shell fake_ai test_program ai_assistant idle spin ipcserver vfsserver ok
+USER_HEADERS = ../include/os_syscalls.h ../include/os_vfs_service.h
 
 all: $(PROGRAMS)
 
@@ -48,7 +49,7 @@ ok: ok.o start.o
 	@echo "Linking ok..."
 	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
 
-%.o: %.c
+%.o: %.c $(USER_HEADERS)
 	@echo "Compiling C: $<"
 	$(CC) $(CFLAGS) -c -o $@ $<
 

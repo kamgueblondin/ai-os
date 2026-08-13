@@ -16,8 +16,8 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Démarrage | Multiboot BIOS, VGA/série, GDT, IDT, PIC, PIT et clavier PS/2 |
 | Utilisateur | Shell ELF Ring 3, syscalls 0–27, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
-| IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, messages de 96 octets, 4 entrées par tâche ; pas de capabilities |
-| VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC ; backend encore noyau |
+| IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` opaque ; pas de capabilities |
+| VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC et réponse corrélée ; backend encore noyau |
 | Découverte Foundation | Registre volatile de 8 services ; retrait propriétaire et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
@@ -43,13 +43,13 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 177 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 179 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
-| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS et découverte Foundation |
+| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS corrélé et cycle de vie Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
-| `make qemu-vfs-service` | Lance `vfsserver` et lit `hello.txt` via IPC |
+| `make qemu-vfs-service` | Lance `vfsserver`, lit `hello.txt` via IPC corrélé puis vérifie le cycle de vie |
 | `make iso` | Produit l’ISO BIOS/GRUB bootable |
 | `make run` / `make run-gui` | Session QEMU interactive curses ou GTK |
 
@@ -90,7 +90,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **177/177** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (5), protocole VFS (5), registre de services (6), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute cinq validations QEMU séparées, dont les contrats IPC, médiateur VFS et découverte nommée Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
+`make test-all` a validé **179/179** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), protocole VFS (6), registre de services (6), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute cinq validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé, découverte nommée et cycle de vie Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -108,7 +108,8 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] IPC Foundation non bloquant entre tâches Ring 3, avec identité d’émetteur noyau
 - [x] Médiateur VFS Ring 3, lecture bornée et réponse IPC structurée
 - [x] Registre de services nommé et cycle de vie : retrait propriétaire, nettoyage sur `exit`/`kill`
-- [ ] Droits de publication/découverte et externalisation d’un backend VFS
+- [x] Corrélation requête-réponse locale : `request_id` IPC, réponse VFS filtrée et contrat QEMU
+- [ ] Droits de publication/découverte, conservation des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
 - [ ] Pilote NIC, DHCP, DNS, TCP, TLS et client OpenAI effectif

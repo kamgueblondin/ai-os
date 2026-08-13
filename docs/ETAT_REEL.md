@@ -14,7 +14,7 @@ AI-OS démarre sans système hôte dans QEMU, charge un initrd TAR, lance un she
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot |
 | Stockage | Initrd TAR en lecture seule et overlay ATA PIO persistant V2 |
 | Ordonnancement | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur |
-| IPC Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, messages de 96 octets, 4 entrées par tâche |
+| IPC Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé |
 | Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait propriétaire et nettoyage à la terminaison |
 | Réseau | **Aucun transport réseau noyau** ; diagnostic et profil OpenAI explicitement bloqués |
 
@@ -36,7 +36,9 @@ Le deuxième incrément construit un premier **médiateur VFS Ring 3** sur cet e
 
 Le troisième incrément retire le PID codé en dur de ce parcours. `SYS_SERVICE_REGISTER` associe un nom de 15 octets utiles au plus au PID de l’appelant Ring 3 et `SYS_SERVICE_LOOKUP` retourne le PID d’un propriétaire utilisateur vivant. `vfsserver` publie `vfs`, puis `vfs-read <chemin>` le résout avant l’envoi IPC. Le registre contient huit entrées, refuse les noms invalides et les conflits actifs. Le client VFS cède au plus trois fois le CPU puis relit sa boîte aux lettres, ce qui préserve un protocole non bloquant tout en absorbant le handoff d’ordonnancement.
 
-Le quatrième incrément fixe le cycle de vie : `SYS_SERVICE_UNREGISTER` ne retire qu’un nom détenu par son appelant Ring 3 ; `SYS_EXIT` et `SYS_KILL` retirent toutes les entrées du PID avant la terminaison ou le retrait de la tâche. La purge lazy à la recherche demeure une défense secondaire. Le registre ne confère toujours aucun droit : tout processus utilisateur peut tenter de réserver un nom libre, les capabilities, badges, réponses corrélées et registre persistant restent absents.
+Le quatrième incrément fixe le cycle de vie : `SYS_SERVICE_UNREGISTER` ne retire qu’un nom détenu par son appelant Ring 3 ; `SYS_EXIT` et `SYS_KILL` retirent toutes les entrées du PID avant la terminaison ou le retrait de la tâche. La purge lazy à la recherche demeure une défense secondaire. Le registre ne confère toujours aucun droit : tout processus utilisateur peut tenter de réserver un nom libre, les capabilities, badges et registre persistant restent absents.
+
+Le cinquième incrément ajoute `request_id` à `os_ipc_payload_t` et `os_ipc_message_t`, sans modifier la charge utile de 96 octets ni les numéros de syscall. La FIFO noyau le copie de bout en bout. `vfs-read` génère un identifiant non nul monotone par session, et `vfsserver` le recopie dans la réponse ; le parseur VFS refuse type, taille ou identifiant discordant. Le client retire et ignore une réponse non corrélée pendant sa fenêtre de trois cessions CPU, ce qui prépare la gestion de plusieurs requêtes mais ne conserve pas encore les messages ignorés ni n’offre un RPC bloquant.
 
 ### IA locale, GGUF et BPE
 
@@ -65,27 +67,27 @@ QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et 
 
 Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
-L’ABI contient les syscalls 0–27 (`MAX_SYSCALLS = 28`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP` et `SYS_SERVICE_UNREGISTER`. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
+L’ABI contient les syscalls 0–27 (`MAX_SYSCALLS = 28`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP` et `SYS_SERVICE_UNREGISTER`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
 ## Vérification reproductible
 
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 177/177 tests C Unity et robustesse
+make test-all                # 179/179 tests C Unity et robustesse
 make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC et VFS Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 177 assertions de tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (5), protocole VFS (5), registre de services (6), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre cinq machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, et le contrat VFS résout `vfs` puis lit `hello.txt` à travers `vfsserver`.
+La suite C exécute 179 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), protocole VFS (6), registre de services (6), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre cinq machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, et le contrat VFS résout `vfs`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver`, puis vérifie le nettoyage après terminaison.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant avec réponses corrélées, de transfert de capabilities ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC, `vfsserver` et le registre nommé sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de conservation des réponses discordantes, de transfert de capabilities ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` et le registre nommé sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 

@@ -7,6 +7,7 @@ static os_ipc_payload_t make_payload(uint32_t type, const char* text) {
     os_ipc_payload_t payload;
     uint32_t i = 0U;
     payload.type = type;
+    payload.request_id = 0U;
     while (text[i] != '\0' && i < OS_IPC_MAX_DATA) {
         payload.data[i] = (uint8_t)text[i];
         i++;
@@ -34,6 +35,17 @@ static void test_send_copies_payload_and_sender(void) {
     TEST_ASSERT_EQUAL(7, message.size);
     TEST_ASSERT_EQUAL('b', message.data[0]);
     TEST_ASSERT_EQUAL('r', message.data[6]);
+}
+
+static void test_request_id_is_copied_with_message(void) {
+    os_ipc_payload_t payload = make_payload(9U, "correlation");
+    os_ipc_message_t message;
+    payload.request_id = 0x4a7c11U;
+    ipc_endpoint_init(&endpoint);
+    TEST_ASSERT_EQUAL(0, ipc_endpoint_send(&endpoint, 27, &payload));
+    payload.request_id = 0U;
+    TEST_ASSERT_EQUAL(0, ipc_endpoint_receive(&endpoint, &message));
+    TEST_ASSERT_EQUAL(0x4a7c11U, message.request_id);
 }
 
 static void test_messages_preserve_fifo_order(void) {
@@ -80,6 +92,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_endpoint_is_empty_after_init);
     RUN_TEST(test_send_copies_payload_and_sender);
+    RUN_TEST(test_request_id_is_copied_with_message);
     RUN_TEST(test_messages_preserve_fifo_order);
     RUN_TEST(test_full_endpoint_keeps_existing_messages);
     RUN_TEST(test_invalid_payload_is_rejected);

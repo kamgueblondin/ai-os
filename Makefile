@@ -35,6 +35,10 @@ OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build
           build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
+# L'ABI partagée influence notamment la taille de task_t et des messages IPC.
+# Une évolution de structure doit donc reconstruire toute l'image, pas seulement ipc.o.
+$(OBJECTS): include/os_syscalls.h
+
 # Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
 all: $(OS_IMAGE) pack-initrd disk
 	@echo "=== AI-OS v7 - Système avec GPT-2 local construit ==="

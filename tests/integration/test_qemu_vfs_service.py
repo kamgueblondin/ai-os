@@ -94,6 +94,7 @@ def main():
             before_read = len(log_text())
             send_command(monitor, "vfs-read hello.txt")
             wait_for("vfs-read ok", proc, before_read)
+            wait_for("request 1 data", proc, before_read)
             wait_for("Un autre fichier de demonstration.", proc, before_read)
             before_kill = len(log_text())
             send_command(monitor, "kill %s" % server_pid)

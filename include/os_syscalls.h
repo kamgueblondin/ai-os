@@ -89,10 +89,13 @@ typedef struct {
     uint32_t free_pages;
 } os_meminfo_t;
 
-/* Charge fournie par l'émetteur : son identité est ajoutée par le noyau. */
+/* Charge fournie par l'émetteur : son identité est ajoutée par le noyau.
+ * request_id est opaque et permet au protocole utilisateur de corréler une réponse.
+ */
 typedef struct {
     uint32_t type;
     uint32_t size;
+    uint32_t request_id;
     uint8_t data[OS_IPC_MAX_DATA];
 } os_ipc_payload_t;
 
@@ -101,6 +104,7 @@ typedef struct {
     int32_t sender_pid;
     uint32_t type;
     uint32_t size;
+    uint32_t request_id;
     uint8_t data[OS_IPC_MAX_DATA];
 } os_ipc_message_t;
 
