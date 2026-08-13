@@ -87,6 +87,11 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_tokenizer: $(UNIT_DIR)/kernel/test_tokenize
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_tokenizer.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_sample: $(UNIT_DIR)/kernel/test_gpt2_sample.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_%: $(UNIT_DIR)/kernel/test_%.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< $(FRAMEWORK_SOURCES)

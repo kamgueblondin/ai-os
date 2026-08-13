@@ -61,10 +61,11 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_task` | 21/21 |
 | `test_overlay` | 6/6 |
 | `test_tokenizer` | 13/13 |
+| `test_gpt2_sample` | 4/4 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des sept binaires (**140** = 17+48+21+6+13+25+10).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des huit binaires (**144** = 17+48+21+6+13+4+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
@@ -101,7 +102,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 
 ## Intelligence artificielle locale
 
-Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l'initrd. L'inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position. L'entrée est tokenisée en **BPE GPT-2** (fusions par plus petit identifiant de vocabulaire, découpage type regex). La sortie décode les octets bruts tiktoken (espaces, sauts de ligne, UTF-8) sans les remplacer par des espaces. La génération est **greedy**, jusqu'à 12 jetons ou le premier saut de ligne / EOT.
+Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l'initrd. L'inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position. L'entrée est tokenisée en **BPE GPT-2** (fusions par plus petit identifiant de vocabulaire, découpage type regex). La sortie décode les octets bruts tiktoken (espaces, sauts de ligne, UTF-8) sans les remplacer par des espaces. La génération est un **échantillonnage top-k** (k=8, température 1,10, pénalité de fréquence, interdiction du jeton précédent) afin d'éviter la boucle greedy GPT-2 ` The The The`. Arrêt au bout de 12 jetons, d'un saut de ligne, d'un EOT, ou d'une répétition consécutive.
 
 La démonstration limite le prompt à 64 jetons et génère jusqu'à 12 jetons (arrêt sur newline ou EOT). L'encodeur BPE couvre le vocabulaire llm.c ; le regex unicode `\p{L}` complet n'est pas reproduit (ASCII + séquences UTF-8). Les poids et le tokenizer ne sont pas distribués dans Git ; sans ces deux fichiers, le moteur local est signalé comme indisponible. `userspace/ai_assistant.c` et `userspace/fake_ai.c` sont conservés comme programmes historiques de compatibilité.
 
