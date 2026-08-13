@@ -1,19 +1,36 @@
-# Userspace build products (must be rebuilt from .c; committed ELFs were stale)
+# Userspace / initrd binaries (rebuilt by pack-initrd; committed ELFs go stale)
 userspace/shell
 userspace/fake_ai
 userspace/test_program
 userspace/ai_assistant
 userspace/idle
-initrd_content/bin/idle
 userspace/*.o
 userspace/*.bin
+initrd_content/bin/shell
+initrd_content/bin/fake_ai
+initrd_content/bin/ai_assistant
+initrd_content/bin/user_program
+initrd_content/bin/idle
+
+# Build and QEMU artefacts
+/build/
+/my_initrd.tar
+/test_logs/
+*.iso
+
+# Host leftovers from old keyboard debug sessions
+/test_segfault
+/test_shell_minimal
 
 # Python
 tests/scripts/__pycache__/
 *.pyc
 
-# Artefacts locaux GPT-2 et exécutions QEMU : ne jamais versionner les poids ni les journaux.
+# GPT-2 weights (release gpt2-124m-assets, not Git)
 /models/
 /initrd_content/models/
-/my_initrd.tar
-/test_logs/
+
+# QEMU / Word dumps (source of truth is the .md files)
+docs/*.log
+docs/*.docx
+docs/*.pdf

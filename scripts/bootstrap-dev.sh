@@ -12,10 +12,10 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo "[bootstrap-dev] apt-get update…"
+echo "[bootstrap-dev] apt-get update..."
 ${SUDO} apt-get update -qq
 
-echo "[bootstrap-dev] paquets de compilation + QEMU i386…"
+echo "[bootstrap-dev] paquets de compilation + QEMU i386..."
 ${SUDO} apt-get install -y --no-install-recommends \
     build-essential \
     gcc-multilib \

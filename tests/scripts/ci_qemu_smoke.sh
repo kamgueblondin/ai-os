@@ -1,5 +1,5 @@
 #!/bin/bash
-# ci_qemu_smoke.sh — Boot QEMU headless, type ls/cat/ps/uptime, require serial markers.
+# ci_qemu_smoke.sh - Boot QEMU headless, type ls/cat/ps/uptime, require serial markers.
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
 # Core smoke and shell extras are separate boots so extra sendkeys do not ghost the shell.
@@ -15,7 +15,7 @@ CORE_TIMEOUT="${CORE_TIMEOUT:-120}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
-    echo "ERROR: missing $KERNEL or $INITRD — run 'make all' first"
+    echo "ERROR: missing $KERNEL or $INITRD - run 'make all' first"
     exit 1
 fi
 
