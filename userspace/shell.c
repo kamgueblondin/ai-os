@@ -564,6 +564,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  service-grant <nom> <pid> - Transferer un nom possede a une tache utilisateur\n");
     print_string("  service-find <nom> - Resoudre un service nomme\n");
     print_string("  vfs-backend-probe <fichier> - Verifier le backend VFS reserve\n");
+    print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
@@ -1148,7 +1149,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-backend-probe", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-backend-probe", "vfs-grant", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1560,6 +1561,40 @@ static void cmd_vfs_backend_probe(shell_context_t* ctx, char args[][128], int ar
         print_string("vfs-backend-probe denied\n");
     } else {
         print_error("vfs-backend-probe: acces inattendu ou erreur backend");
+    }
+}
+
+static void cmd_vfs_grant(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    int pid;
+    int target_pid;
+    int rc;
+    if (arg_count != 1) {
+        print_error("Usage: vfs-grant <pid>");
+        return;
+    }
+    target_pid = parse_int(args[0]);
+    if (target_pid <= 0) {
+        print_error("vfs-grant: pid invalide");
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-grant: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    rc = os_vfs_make_grant_request(&request, target_pid);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    ctx->last_rc = rc;
+    if (rc == 0) {
+        print_string("vfs-grant sent ");
+        print_int(target_pid);
+        print_string(" via ");
+        print_int(pid);
+        print_string("\n");
+    } else {
+        print_error("vfs-grant: demande refusee");
     }
 }
 
@@ -2469,6 +2504,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-backend-probe") == 0) {
         cmd_vfs_backend_probe(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-grant") == 0) {
+        cmd_vfs_grant(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);
