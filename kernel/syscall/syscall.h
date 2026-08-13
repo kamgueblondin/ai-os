@@ -43,6 +43,7 @@ int sys_service_register(const char* name);
 int sys_service_lookup(const char* name);
 int sys_service_unregister(const char* name);
 int sys_service_grant(const char* name, int target_pid);
+int sys_service_notify(const char* name);
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max);
 
 void keyboard_add_char_to_buffer(char c);

@@ -14,14 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS Ring 3, découverte `vfs`, cycle de vie, corrélation, conservation différée, transfert, révocation et montage `initrd/` borné ; noyau monolithique, backend non externalisé |
+| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS Ring 3, découverte `vfs`, cycle de vie, corrélation, conservation différée, transfert, révocation, montage `initrd/` borné et notifications best-effort ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
 | US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 188 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé, monté, cycle de vie, transfert et révocation) + GitHub Actions ; pas de framework distribué |
+| US-008 | Framework de tests IA | Unity 192 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé, monté, cycle de vie, transfert, révocation et notifications) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (30 syscalls), IPC avec `request_id` opaque et registre avec retrait et transfert par propriétaire |
-| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local, registre, cycle de vie, corrélation, conservation bornée des réponses, transfert, révocation et politique de montage statique ; pas de capabilities ni d’identité vérifiée |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (31 syscalls), IPC avec `request_id` opaque, événements noyau de service et registre avec retrait et transfert par propriétaire |
+| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local, registre, cycle de vie, corrélation, conservation bornée des réponses, transfert, révocation, politique de montage statique et notifications best-effort ; pas de capabilities, d’identité vérifiée ni de garantie de livraison |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |

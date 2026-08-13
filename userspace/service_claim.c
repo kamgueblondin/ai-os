@@ -30,9 +30,30 @@ static void print_int(int value) {
     while (n > 0) putc(digits[--n]);
 }
 
+static int string_equal(const char* left, const char* right) {
+    int i = 0;
+    while (left[i] != '\0' && right[i] != '\0') {
+        if (left[i] != right[i]) return 0;
+        i++;
+    }
+    return left[i] == right[i];
+}
+
 static int service_register(const char* name) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_REGISTER), "b"(name));
+    return result;
+}
+
+static int service_notify(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_NOTIFY), "b"(name));
+    return result;
+}
+
+static int ipc_receive(os_ipc_message_t* message) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_IPC_RECV), "b"(message));
     return result;
 }
 
@@ -41,22 +62,39 @@ static void yield(void) {
 }
 
 void main(void) {
-    int announced = 0;
+    os_ipc_message_t message;
+    os_service_event_t event;
+    int rc = service_register("demo");
+    if (rc == 0) {
+        puts("serviceclaim claimed demo\n");
+        for (;;) yield();
+    }
+    if (rc != OS_SERVICE_TAKEN) {
+        puts("serviceclaim register rc ");
+        print_int(rc);
+        puts("\n");
+        for (;;) yield();
+    }
+    rc = service_notify("demo");
+    if (rc != 0) {
+        puts("serviceclaim watch rc ");
+        print_int(rc);
+        puts("\n");
+        for (;;) yield();
+    }
+    puts("serviceclaim waiting demo\n");
     for (;;) {
-        int rc = service_register("demo");
-        if (rc == 0) {
-            puts("serviceclaim claimed demo\n");
-            for (;;) yield();
-        }
-        if (!announced) {
-            if (rc == OS_SERVICE_TAKEN) {
-                puts("serviceclaim waiting demo\n");
-            } else {
-                puts("serviceclaim register rc ");
-                print_int(rc);
-                puts("\n");
+        rc = ipc_receive(&message);
+        if (rc == 0 && os_service_parse_event(&message, &event) == 0 &&
+            string_equal(event.name, "demo")) {
+            puts("serviceclaim notified demo\n");
+            if (event.new_owner_pid > 0) {
+                rc = service_register("demo");
+                if (rc == 0) {
+                    puts("serviceclaim claimed demo\n");
+                    for (;;) yield();
+                }
             }
-            announced = 1;
         }
         yield();
     }
