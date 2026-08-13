@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot QEMU, type ls/cat/ps/uptime via HMP sendkey, assert serial output.
+"""Boot QEMU, type ls/cat/ps/uptime/mem via HMP sendkey, assert serial output.
 
 Used by ci_qemu_smoke.sh so GitHub Actions actually exercises the initrd and
 kernel syscalls, not only the boot prompt.
@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/mkdir/cd/cp/mv/write/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -244,6 +244,11 @@ def main():
         say("typing uptime ...")
         sendkeys(mon, ["u", "p", "t", "i", "m", "e", "ret"])
         wait_needle("PIT ticks", CMD_TIMEOUT, proc)
+
+        say("typing mem ...")
+        mark = len(log_text())
+        sendkeys(mon, ["m", "e", "m", "ret"])
+        wait_needle_from("mem ok", CMD_TIMEOUT, proc, mark)
 
         say("typing mkdir mydir ...")
         mark = len(log_text())
@@ -532,6 +537,7 @@ def main():
             ("ps shows idle", "user  idle"),
             ("kill idle", "Processus %s termine" % idle_pid),
             ("uptime", "PIT ticks"),
+            ("mem pmm", "mem ok"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
             ("pwd overlay", "/mydir"),

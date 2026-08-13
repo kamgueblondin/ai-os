@@ -52,6 +52,27 @@ print_warning() {
     echo -e "${YELLOW}⚠ $1${NC}"
 }
 
+add_unity_counts() {
+    local output=$1
+    local fallback=$2
+    local run_n pass_n fail_n
+    run_n=$(printf '%s\n' "$output" | awk '/^Tests Run:/ {print $3; exit}')
+    pass_n=$(printf '%s\n' "$output" | awk '/^Tests Passed:/ {print $3; exit}')
+    fail_n=$(printf '%s\n' "$output" | awk '/^Tests Failed:/ {print $3; exit}')
+    if [ -n "$run_n" ]; then
+        TOTAL_TESTS=$((TOTAL_TESTS + run_n))
+        PASSED_TESTS=$((PASSED_TESTS + ${pass_n:-0}))
+        FAILED_TESTS=$((FAILED_TESTS + ${fail_n:-0}))
+    else
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
+        if [ "$fallback" = "pass" ]; then
+            PASSED_TESTS=$((PASSED_TESTS + 1))
+        else
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+        fi
+    fi
+}
+
 # Fonction pour compiler et exécuter un test
 run_test() {
     local test_file=$1
@@ -87,14 +108,14 @@ run_test() {
         if test_output=$("$test_binary" 2>&1); then
             echo -e "${GREEN}PASS${NC}"
             echo "$test_output" >> "$RESULTS_FILE"
-            PASSED_TESTS=$((PASSED_TESTS + 1))
+            add_unity_counts "$test_output" pass
             return 0
         else
             echo -e "${RED}FAIL${NC}"
             echo "Test: $test_name" >> "$RESULTS_FILE"
             echo "$test_output" >> "$RESULTS_FILE"
             echo "---" >> "$RESULTS_FILE"
-            FAILED_TESTS=$((FAILED_TESTS + 1))
+            add_unity_counts "$test_output" fail
             return 1
         fi
     else
@@ -103,8 +124,6 @@ run_test() {
         SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
         return 2
     fi
-    
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 }
 
 # Fonction pour exécuter une catégorie de tests

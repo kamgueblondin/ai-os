@@ -696,7 +696,14 @@ void cmd_mem(shell_context_t* ctx, char args[][128], int arg_count) {
     print_int((int)mi.used_pages);
     print_string("\n  Libres : ");
     print_int((int)mi.free_pages);
-    print_string("\n  Taille page : 4 KB\n\n");
+    print_string("\n  Taille page : 4 KB\n");
+    print_string("mem ok ");
+    print_int((int)mi.total_pages);
+    print_string(" ");
+    print_int((int)mi.used_pages);
+    print_string(" ");
+    print_int((int)mi.free_pages);
+    print_string("\n");
 }
 
 void cmd_history(shell_context_t* ctx, char args[][128], int arg_count) {
