@@ -152,8 +152,13 @@ build/userspace_switch.o: boot/userspace_switch.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
+# Toujours recompiler le userspace : les ELF commités sont périmés (même mtime au checkout CI).
+.PHONY: userspace-all
+userspace-all:
+	$(MAKE) -C userspace all
+
 # Règle pour empaqueter l'initrd automatiquement
-pack-initrd: $(USER_SHELL) userspace/fake_ai userspace/test_program userspace/ai_assistant
+pack-initrd: userspace-all
 	@echo "[mkinitrd] Création de l'initrd AI-OS v5.0..."
 	@mkdir -p $(BIN_DEST_DIR)
 	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
@@ -210,9 +215,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-userspace/shell userspace/fake_ai userspace/test_program:
-	@echo "Compilation des programmes utilisateur AI-OS v5.0..."
-	@$(MAKE) -C userspace all
+user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd
@@ -288,10 +291,6 @@ info-initrd: pack-initrd
 	@echo "Contenu de l'initrd:"
 	@tar -tvf $(INITRD_IMAGE)
 
-# Cible pour compiler seulement le programme utilisateur
-user-program:
-	@$(MAKE) -C userspace all
-
 # Cible pour afficher les informations sur le programme utilisateur
 info-user:
 	@$(MAKE) -C userspace info
@@ -357,8 +356,7 @@ ci-tests: $(OS_IMAGE) pack-initrd
 	@echo "=== Tests d'intégration continue ==="
 	@$(MAKE) -C tests ci-test
 
-# Boot QEMU sans affichage et exige le prompt shell dans le log série.
-# timeout est attendu (-no-shutdown) : l'échec vient d'un log vide / marqueurs absents.
+# Boot QEMU headless, tape ls/cat/ps/uptime (sendkey), exige l'initrd et le noyau.
 qemu-smoke: $(OS_IMAGE) pack-initrd
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
@@ -412,5 +410,5 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # Tests complets avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke ci
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke ci
 

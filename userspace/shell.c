@@ -784,8 +784,11 @@ static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
         ramfs_resolve(ctx->current_dir, args[0], newdir, RAMFS_PATH_MAX);
     }
     if (!ramfs_is_dir(newdir)) {
-        print_error("cd: repertoire introuvable");
-        return;
+        os_dirent_t tmp[1];
+        if (sys_listdir(newdir, tmp, 1) <= 0) {
+            print_error("cd: repertoire introuvable");
+            return;
+        }
     }
     strcpy(ctx->current_dir, newdir);
 }

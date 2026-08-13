@@ -1,0 +1,11 @@
+# Userspace build products (must be rebuilt from .c; committed ELFs were stale)
+userspace/shell
+userspace/fake_ai
+userspace/test_program
+userspace/ai_assistant
+userspace/*.o
+userspace/*.bin
+
+# Python
+tests/scripts/__pycache__/
+*.pyc

@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** branche `cursor/kernel-syscalls-fs-ps-6f7a` (syscalls initrd + processus)  
+**Code de référence :** `master` (syscalls initrd + processus ; CI sendkey ls/cat/ps/uptime)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -76,7 +76,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `mkdir` / `rmdir` / `rm` / `cp` / `mv` | Mutation du VFS RAM (pas d’écriture initrd) |
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture **initrd** (`SYS_READFILE`) puis VFS RAM |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans le VFS RAM |
-| `cd` / `pwd` | Chemin en RAM, `cd` refuse un dossier absent du VFS |
+| `cd` / `pwd` | Chemin shell ; `cd` accepte un dossier VFS RAM **ou** un préfixe initrd (`cd bin`) |
 | `ps` / `jobs` / `top` / `kill` | Table des tâches **noyau** (`SYS_PS` / `SYS_KILL`). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
@@ -124,13 +124,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # boot QEMU headless, exige le prompt dans le log série
+make qemu-smoke   # QEMU headless + sendkey ls/cat/ps/uptime (initrd + noyau)
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Les anciens workflows `tests.yml` / `cmake-test.yml` visaient `main`/`develop` et ne s’exécutaient donc pas.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape `ls`, `cat hello.txt`, `ls bin`, `ps` et `uptime` via `sendkey` et exige les marqueurs initrd/noyau dans le log série.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
