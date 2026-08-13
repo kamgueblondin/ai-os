@@ -1506,6 +1506,9 @@ static void cmd_unalias(shell_context_t* ctx, char args[][128], int arg_count) {
                 ctx->aliases[j] = ctx->aliases[j + 1];
             }
             ctx->alias_count--;
+            print_string("unalias ok ");
+            print_string(args[0]);
+            print_string("\n");
             return;
         }
     }
