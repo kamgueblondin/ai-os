@@ -2,7 +2,7 @@
 
 # Configuration de base
 CC = gcc
-CFLAGS_BASE = -Wall -Wextra -std=c99 -I. -I.. -I../kernel -I../include
+CFLAGS_BASE = -Wall -Wextra -std=c99 -I. -I.. -I../kernel -I../include -DKERNEL_TEST=1
 CFLAGS_KERNEL = $(CFLAGS_BASE) -DUSE_INLINE_ASM -g
 CFLAGS_USER = $(CFLAGS_BASE) -g
 

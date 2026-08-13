@@ -1,0 +1,255 @@
+DEBUG: run_test test_pmm
+gcc -I/app/tests -I/app -I/app/kernel -I/app/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1 -m32 -o "/app/build/test_pmm" "/app/tests/unit/kernel/test_pmm.c" "/app/tests/framework/unity.c" "/app/tests/framework/test_kernel.c" "/app/tests/framework/kernel_mocks.c"
+In file included from /app/tests/unit/kernel/test_pmm.c:17:
+/app/tests/unit/kernel/../../../kernel/mem/pmm.c: In function ‘pmm_init’:
+/app/tests/unit/kernel/../../../kernel/mem/pmm.c:82:14: warning: unused variable ‘reserved_until’ [-Wunused-variable]
+   82 |     uint32_t reserved_until = ((uint32_t)memory_map + bitmap_size_bytes);
+      |              ^~~~~~~~~~~~~~
+/app/tests/framework/unity.c: In function ‘unity_putc_redirect’:
+/app/tests/framework/unity.c:10:5: warning: implicit declaration of function ‘putchar’ [-Wimplicit-function-declaration]
+   10 |     putchar(c);
+      |     ^~~~~~~
+/app/tests/framework/unity.c:4:1: note: include ‘<stdio.h>’ or provide a declaration of ‘putchar’
+    3 | #include "unity.h"
+  +++ |+#include <stdio.h>
+    4 |
+Starting main
+Unity Test Framework for AI-OS
+==============================
+
+unity_init done
+Running test_pmm_init_basic... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_init_boundary_conditions... init_pmm_for_test size=4194304
+Calling pmm_init...
+pmm_init done
+init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_bitmap_integrity... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_alloc_single_page... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_alloc_multiple_pages... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_alloc_until_exhaustion... init_pmm_for_test size=524288
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_free_single_page... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_free_multiple_pages... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_free_null_pointer... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_free_invalid_address... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_alloc_free_cycle... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_fragmentation_resistance... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_allocation_performance... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+
+=== Benchmark Results ===
+Test: PMM Single Page Allocation
+Total Cycles: 105534
+Iterations: 1000
+Cycles per iteration: 105
+PASS
+Running test_pmm_batch_allocation_performance... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+
+=== Benchmark Results ===
+Test: PMM Batch Allocation
+Total Cycles: 20410
+Iterations: 1
+Cycles per iteration: 20410
+PASS
+Running test_pmm_double_free_detection... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_memory_corruption_detection... init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+Running test_pmm_integration_with_multiboot... init_pmm_for_test size=262144
+Calling pmm_init...
+pmm_init done
+init_pmm_for_test size=524288
+Calling pmm_init...
+pmm_init done
+init_pmm_for_test size=1048576
+Calling pmm_init...
+pmm_init done
+PASS
+
+==============================
+Test Results Summary:
+Tests Run: 17
+Tests Passed: 17
+Tests Failed: 0
+Tests Ignored: 0
+==============================
+ALL TESTS PASSED!
+DEBUG: run_test test_syscall
+gcc -I/app/tests -I/app -I/app/kernel -I/app/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1 -m32 -o "/app/build/test_syscall" "/app/tests/unit/kernel/test_syscall.c" "/app/tests/framework/unity.c" "/app/tests/framework/test_kernel.c" "/app/tests/framework/kernel_mocks.c"
+/app/tests/unit/kernel/test_syscall.c: In function ‘mock_putc’:
+/app/tests/unit/kernel/test_syscall.c:21:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘unsigned int’ [-Wsign-compare]
+   21 |     if (test_output_index < sizeof(test_output_buffer) - 1) {
+      |                           ^
+/app/tests/unit/kernel/test_syscall.c: In function ‘setup_test_input’:
+/app/tests/unit/kernel/test_syscall.c:38:58: warning: comparison of integer expressions of different signedness: ‘int’ and ‘unsigned int’ [-Wsign-compare]
+   38 |     while (input[test_input_length] && test_input_length < sizeof(test_input_buffer) - 1) {
+      |                                                          ^
+/app/tests/unit/kernel/test_syscall.c: In function ‘test_syscall_buffer_overflow_protection’:
+/app/tests/unit/kernel/test_syscall.c:356:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘unsigned int’ [-Wsign-compare]
+  356 |     for (int i = 0; i < sizeof(small_buffer); i++) {
+      |                       ^
+/app/tests/framework/unity.c: In function ‘unity_putc_redirect’:
+/app/tests/framework/unity.c:10:5: warning: implicit declaration of function ‘putchar’ [-Wimplicit-function-declaration]
+   10 |     putchar(c);
+      |     ^~~~~~~
+/app/tests/framework/unity.c:4:1: note: include ‘<stdio.h>’ or provide a declaration of ‘putchar’
+    3 | #include "unity.h"
+  +++ |+#include <stdio.h>
+    4 |
+Unity Test Framework for AI-OS
+==============================
+
+Running test_syscall_init_basic... PASS
+Running test_sys_putc_single_character... PASS
+Running test_sys_putc_multiple_characters... PASS
+Running test_sys_putc_special_characters... PASS
+Running test_sys_puts_basic_string... PASS
+Running test_sys_puts_empty_string... PASS
+Running test_sys_puts_null_pointer... PASS
+Running test_sys_getc_single_character... PASS
+Running test_sys_getc_multiple_calls... PASS
+Running test_sys_getc_no_input... PASS
+Running test_sys_gets_basic_input... PASS
+Running test_sys_gets_buffer_size_limit... PASS
+Running test_sys_gets_null_buffer... PASS
+Running test_sys_exit_with_code... PASS
+Running test_sys_exit_zero_code... PASS
+Running test_syscall_handler_putc... PASS
+Running test_syscall_handler_exit... PASS
+Running test_syscall_handler_invalid_syscall... PASS
+Running test_syscall_handler_boundary_syscall_numbers... PASS
+Running test_syscall_performance_putc...
+=== Benchmark Results ===
+Test: SYS_PUTC Performance
+Total Cycles: 23262
+Iterations: 1000
+Cycles per iteration: 23
+PASS
+Running test_syscall_performance_getc...
+=== Benchmark Results ===
+Test: SYS_GETC Performance
+Total Cycles: 17828
+Iterations: 1000
+Cycles per iteration: 17
+PASS
+Running test_syscall_handler_performance...
+=== Benchmark Results ===
+Test: Syscall Handler Performance
+Total Cycles: 33580
+Iterations: 1000
+Cycles per iteration: 33
+PASS
+Running test_syscall_with_corrupted_state... PASS
+Running test_syscall_buffer_overflow_protection... PASS
+Running test_syscall_parameter_validation... PASS
+Running test_syscall_integration_with_tasks... PASS
+Running test_syscall_exec_basic... PASS
+Running test_syscall_yield_integration... PASS
+Running test_syscall_ring_isolation... PASS
+Running test_syscall_privilege_escalation_prevention... PASS
+
+==============================
+Test Results Summary:
+Tests Run: 30
+Tests Passed: 30
+Tests Failed: 0
+Tests Ignored: 0
+==============================
+ALL TESTS PASSED!
+DEBUG: run_test test_task
+gcc -I/app/tests -I/app -I/app/kernel -I/app/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1 -m32 -o "/app/build/test_task" "/app/tests/unit/kernel/test_task.c" "/app/tests/framework/unity.c" "/app/tests/framework/test_kernel.c" "/app/tests/framework/kernel_mocks.c"
+/app/tests/framework/unity.c: In function ‘unity_putc_redirect’:
+/app/tests/framework/unity.c:10:5: warning: implicit declaration of function ‘putchar’ [-Wimplicit-function-declaration]
+   10 |     putchar(c);
+      |     ^~~~~~~
+/app/tests/framework/unity.c:4:1: note: include ‘<stdio.h>’ or provide a declaration of ‘putchar’
+    3 | #include "unity.h"
+  +++ |+#include <stdio.h>
+    4 |
+Unity Test Framework for AI-OS
+==============================
+
+Running test_tasking_init... PASS
+Running test_create_task_basic... PASS
+Running test_create_multiple_tasks... PASS
+Running test_create_task_memory_allocation... PASS
+Running test_add_task_to_queue_single... PASS
+Running test_add_task_to_queue_multiple... PASS
+Running test_remove_task_from_queue... PASS
+Running test_get_task_by_id... PASS
+Running test_find_task_waiting_for_input... PASS
+Running test_schedule_basic_round_robin... PASS
+Running test_schedule_skip_terminated_tasks... PASS
+Running test_schedule_no_ready_tasks... PASS
+Running test_task_creation_performance...
+=== Benchmark Results ===
+Test: Task Creation
+Total Cycles: 71212
+Iterations: 100
+Cycles per iteration: 712
+PASS
+Running test_scheduling_performance...
+=== Benchmark Results ===
+Test: Task Scheduling
+Total Cycles: 161422
+Iterations: 1000
+Cycles per iteration: 161
+PASS
+Running test_task_state_transitions... PASS
+Running test_task_yield_functionality... PASS
+Running test_task_memory_corruption_detection... PASS
+Running test_task_queue_integrity... PASS
+Running test_task_cleanup_on_termination... PASS
+Running test_task_integration_with_memory... PASS
+Running test_multitask_execution_simulation... PASS
+
+==============================
+Test Results Summary:
+Tests Run: 21
+Tests Passed: 21
+Tests Failed: 0
+Tests Ignored: 0
+==============================
+ALL TESTS PASSED!

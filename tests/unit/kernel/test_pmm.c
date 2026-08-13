@@ -8,10 +8,35 @@
 #include "../../../kernel/mem/pmm.h"
 
 // Redefine end symbol for testing
-uint32_t end;
-uint8_t test_memory_pool[1024 * 1024 * 2]; // 2MB pool for testing
+uint32_t end __attribute__((aligned(4096)));
+uint8_t extra_space[1024 * 1024 * 2]; // 2MB pool following end
+#define test_memory_pool ((uint8_t*)&end)
 
+#define pmm_alloc_page real_pmm_alloc_page
+#define pmm_free_page real_pmm_free_page
 #include "../../../kernel/mem/pmm.c"
+#undef pmm_alloc_page
+#undef pmm_free_page
+
+// Wrapper for pmm_alloc_page to map low physical addresses to safe user-space virtual addresses
+void* pmm_alloc_page(void) {
+    void* phys = real_pmm_alloc_page();
+    if (!phys) return NULL;
+    uint32_t page_num = (uint32_t)phys / 4096;
+    return (void*)((uint32_t)&end + page_num * 4096);
+}
+
+// Wrapper for pmm_free_page to map virtual pointers back to physical addresses
+void pmm_free_page(void* page) {
+    if (!page) return;
+    if (page < (void*)test_memory_pool || page >= (void*)(test_memory_pool + sizeof(extra_space))) {
+        // For invalid or out-of-pool pointers, pass them through to test invalid address handling
+        real_pmm_free_page(page);
+        return;
+    }
+    uint32_t offset = (uint32_t)page - (uint32_t)&end;
+    real_pmm_free_page((void*)offset);
+}
 
 // === SETUP ET TEARDOWN ===
 
@@ -28,7 +53,6 @@ void tearDown(void) {
 // Helper to init for other tests
 void init_pmm_for_test(uint32_t size) {
     printf("init_pmm_for_test size=%u\n", size);
-    end = (uint32_t)test_memory_pool;
     multiboot_info_t mbi;
     mbi.flags = 0;
     printf("Calling pmm_init...\n");

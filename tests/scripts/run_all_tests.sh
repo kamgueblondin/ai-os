@@ -26,14 +26,14 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 SKIPPED_TESTS=0
 
+# Créer les répertoires nécessaires avant toute opération
+mkdir -p "$LOG_DIR"
+mkdir -p "$BUILD_DIR"
+
 echo -e "${BLUE}=================================${NC}"
 echo -e "${BLUE} AI-OS Test Suite Runner v1.0   ${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
-
-# Créer les répertoires nécessaires
-mkdir -p "$LOG_DIR"
-mkdir -p "$BUILD_DIR"
 
 # Fonction d'affichage des résultats
 print_header() {
@@ -65,7 +65,7 @@ run_test() {
     local test_binary="$BUILD_DIR/$(basename $test_file .c)"
     
     # Flags de compilation spécialisés selon le type de test
-    local cflags="-I$TEST_DIR -Wall -Wextra -std=c99"
+    local cflags="-I$TEST_DIR -I$BASE_DIR -I$BASE_DIR/kernel -I$BASE_DIR/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1"
     
     if [ "$test_type" == "kernel" ]; then
         cflags="$cflags -m32 -ffreestanding -nostdlib -fno-pie"
@@ -81,24 +81,24 @@ run_test() {
         if test_output=$("$test_binary" 2>&1); then
             echo -e "${GREEN}PASS${NC}"
             echo "$test_output" >> "$RESULTS_FILE"
-            ((PASSED_TESTS++))
+            PASSED_TESTS=$((PASSED_TESTS + 1))
             return 0
         else
             echo -e "${RED}FAIL${NC}"
             echo "Test: $test_name" >> "$RESULTS_FILE"
             echo "$test_output" >> "$RESULTS_FILE"
             echo "---" >> "$RESULTS_FILE"
-            ((FAILED_TESTS++))
+            FAILED_TESTS=$((FAILED_TESTS + 1))
             return 1
         fi
     else
         echo -e "${YELLOW}COMPILATION_ERROR${NC}"
         echo "Compilation failed for $test_name" >> "$RESULTS_FILE"
-        ((SKIPPED_TESTS++))
+        SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
         return 2
     fi
     
-    ((TOTAL_TESTS++))
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
 }
 
 # Fonction pour exécuter une catégorie de tests
@@ -116,12 +116,12 @@ run_test_category() {
     for test_file in "$TEST_DIR/$category"/*.c; do
         if [ -f "$test_file" ]; then
             local test_name=$(basename "$test_file" .c)
-            ((category_total++))
+            category_total=$((category_total + 1))
             
             if run_test "$test_file" "$test_name" "$category"; then
-                ((category_passed++))
+                category_passed=$((category_passed + 1))
             else
-                ((category_failed++))
+                category_failed=$((category_failed + 1))
             fi
         fi
     done

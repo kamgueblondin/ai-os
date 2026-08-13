@@ -6,7 +6,9 @@ echo "Version: AI-OS v7.0 - Debug Mode Complet"
 echo "Date: $(date)"
 echo ""
 
-cd /workspace/ai-os
+# Déterminer le dossier du script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # 1. Backup des fichiers originaux
 echo "📦 Sauvegarde des fichiers originaux..."
