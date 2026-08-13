@@ -132,13 +132,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey (overlay + extras env/history/jobs/top/date/echo/rc/which/aistats)
+make qemu-smoke   # deux boots QEMU : overlay (#73) + extras env/history/jobs/top/rc/which
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape l’overlay (`mkdir`/`cd`/`cp`/`mv`/`write`/`touch`/`append`/`grep`/`wc`) et, dans la liste initiale : `export`, `alias`/`unalias`, `which ls`/`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc` (`rc ok 0` puis `rc ok 1` après `test no zz`), `aistats`/`aimode`/`aihelp`, `ai hello`. `head`/`tail`/`sort` et `aitest` restent hors smoke (`aitest` fait un `SYS_EXEC` bloquant comme `ai`). `[` est branché, non tapé (sendkey `bracket_left`). Timeout smoke : 240 s.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : overlay (identique à #73) puis extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Séparer les boots évite les touches fantômes (`cd ..` → `ccd ..`) quand la liste initiale s’allonge. `[` est branché, non tapé. `aitest` / `head` / `tail` / `sort` hors smoke. Timeouts : 180 s overlay + 90 s extras.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
