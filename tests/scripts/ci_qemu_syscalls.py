@@ -142,7 +142,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/mkdir/cd/mv/write/uptime) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/mv/write/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -162,6 +162,9 @@ def main():
             ("cat hello.txt",
              ["c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "demonstration"),
+            ("stat hello.txt",
+             ["s", "t", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
+             "stat file hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
@@ -201,6 +204,11 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["m", "k", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("mkdir ok mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing stat mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, ["s", "t", "a", "t", "spc", "m", "y", "d", "i", "r", "ret"])
+        wait_needle_from("stat dir mydir", CMD_TIMEOUT, proc, mark)
 
         say("typing cd mydir ...")
         mark = len(log_text())
@@ -377,6 +385,19 @@ def main():
         sendkeys(mon, ["c", "a", "t", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
         wait_needle_from("ping", CMD_TIMEOUT, proc, mark)
 
+        say("typing grep ping hi.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "g", "r", "e", "p", "spc", "p", "i", "n", "g", "spc",
+            "h", "i", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("grep hits 1", CMD_TIMEOUT, proc, mark)
+
+        say("typing wc hi.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, ["w", "c", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
+        wait_needle_from("wc ok 1 1 5 hi.txt", CMD_TIMEOUT, proc, mark)
+
         say("typing rm hi.txt ...")
         mark = len(log_text())
         sendkeys(mon, ["r", "m", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
@@ -419,7 +440,11 @@ def main():
             ("cp into dir", "cp ok hello.txt"),
             ("rmdir overlay", "rmdir ok mydir"),
             ("write overlay", "write ok hi.txt"),
+            ("grep overlay", "grep hits 1"),
+            ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),
+            ("stat file", "stat file hello.txt"),
+            ("stat dir", "stat dir mydir"),
         ]
         fail = 0
         for label, needle in checks:

@@ -738,6 +738,33 @@ void test_sys_overlay_protects_initrd(void) {
     TEST_ASSERT_EQUAL(OV_ERR_NOTDIR, (int)cpu.eax);
 }
 
+void test_sys_stat_initrd_file_and_overlay_dir(void) {
+    os_dirent_t st;
+    cpu_state_t cpu = {0};
+
+    overlay_init();
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"hello.txt";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_FILE, (int)st.flags);
+    TEST_ASSERT_EQUAL(18, (int)st.size);
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"mydir";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_DIR, (int)st.flags);
+}
+
 void test_sys_overlay_copy_from_initrd(void) {
     char src[64];
     char dst[64];
@@ -915,6 +942,7 @@ int main(void) {
     RUN_TEST(test_sys_overlay_mkdir_listdir_unlink);
     RUN_TEST(test_sys_overlay_write_read);
     RUN_TEST(test_sys_overlay_protects_initrd);
+    RUN_TEST(test_sys_stat_initrd_file_and_overlay_dir);
     RUN_TEST(test_sys_overlay_copy_from_initrd);
     RUN_TEST(test_sys_overlay_nested_mkdir_notempty);
     
