@@ -9,7 +9,7 @@ ASFLAGS = --32
 
 # Programmes à compiler
 PROGRAMS = shell fake_ai test_program ai_assistant idle spin ipcserver vfsserver serviceclaim ok
-USER_HEADERS = ../include/os_syscalls.h ../include/os_vfs_service.h
+USER_HEADERS = ../include/os_syscalls.h ../include/os_vfs_service.h ../include/os_ipc_deferred.h
 
 all: $(PROGRAMS)
 

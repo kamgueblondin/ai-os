@@ -7,6 +7,7 @@
 #include "procsim.h"
 #include "os_syscalls.h"
 #include "os_vfs_service.h"
+#include "os_ipc_deferred.h"
 
 // ==============================================================================
 // STRUCTURES ET DÉFINITIONS
@@ -234,6 +235,7 @@ int sys_service_grant(const char* name, int target_pid) {
 }
 
 static uint32_t vfs_request_counter = 0U;
+static os_ipc_deferred_t ipc_deferred;
 
 static uint32_t next_vfs_request_id(void) {
     vfs_request_counter++;
@@ -417,6 +419,7 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->ai_query_count = 0;
     ctx->cmd_ticks = 0;
     ctx->last_rc = 0;
+    os_ipc_deferred_init(&ipc_deferred);
     
     // Initialiser quelques variables d'environnement par défaut
     strcpy(ctx->env_vars[0].name, "PATH");
@@ -1450,7 +1453,8 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
     uint32_t i;
     (void)args;
     (void)arg_count;
-    rc = sys_ipc_receive(&message);
+    rc = os_ipc_deferred_take(&ipc_deferred, &message);
+    if (rc == OS_IPC_EMPTY) rc = sys_ipc_receive(&message);
     ctx->last_rc = rc;
     if (rc == OS_IPC_EMPTY) {
         print_string("ipc-recv empty\n");
@@ -1568,12 +1572,20 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
         ctx->last_rc = rc;
         return;
     }
-    rc = OS_IPC_EMPTY;
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_READ_REPLY,
+                                       request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_read_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved;
         yield();
         rc = sys_ipc_receive(&message);
-        if (rc == 0 && os_vfs_parse_read_reply(&message, &reply, request_id) != 0) {
-            rc = OS_IPC_EMPTY;
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_READ_REPLY && message.request_id == request_id) {
+                rc = os_vfs_parse_read_reply(&message, &reply, request_id);
+            } else {
+                saved = os_ipc_deferred_push(&ipc_deferred, &message);
+                rc = saved == 0 ? OS_IPC_EMPTY : saved;
+            }
         }
     }
     if (rc != 0) {
