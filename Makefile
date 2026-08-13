@@ -357,8 +357,7 @@ ci-tests: $(OS_IMAGE) pack-initrd
 	@echo "=== Tests d'intégration continue ==="
 	@$(MAKE) -C tests ci-test
 
-# Boot QEMU sans affichage et exige le prompt shell dans le log série.
-# timeout est attendu (-no-shutdown) : l'échec vient d'un log vide / marqueurs absents.
+# Boot QEMU headless, tape ls/cat/ps/uptime (sendkey), exige l'initrd et le noyau.
 qemu-smoke: $(OS_IMAGE) pack-initrd
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
