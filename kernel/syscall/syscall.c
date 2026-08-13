@@ -13,7 +13,7 @@
 #include "../llm/gpt2_infer.h"
 #include "../llm/gpt2_model.h"
 #include "../llm/gpt2_tokenizer.h"
-/* Completions locales : BPE en entree, greedy, arret newline/EOT, 12 jetons max. */
+/* Completions locales : BPE en entree, top-k, arret newline/EOT/repetition, 12 jetons max. */
 #define GPT2_BAREMETAL_GENERATION_STEPS 12U
 
 // Externs VMM
@@ -180,6 +180,8 @@ int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
     uint32_t tokens[64];
     uint32_t token_count = 0;
     uint32_t written = 0;
+    uint32_t rng_state;
+    uint32_t prev_generated = 0xFFFFFFFFu;
     const gpt2_model_t* model;
     int rc;
 
@@ -201,13 +203,21 @@ int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
     model = gpt2_model_current();
     if (!model->ready || token_count > model->config.max_seq_len) return -5;
 
+    rng_state = timer_get_ticks() + 1U;
+    for (uint32_t i = 0; prompt_copy[i] != '\0'; i++) {
+        rng_state = rng_state * 16777619U + (uint8_t)prompt_copy[i];
+    }
+    if (rng_state == 0U) rng_state = 0x9e3779b9U;
+
     for (uint32_t step = 0; step < GPT2_BAREMETAL_GENERATION_STEPS && token_count < 64 && token_count < model->config.max_seq_len; step++) {
         uint32_t next_token = 0;
         const char* piece;
         int saw_newline = 0;
-        rc = gpt2_generate_next(tokens, token_count, &next_token);
+        rc = gpt2_generate_next_sampled(tokens, token_count, &next_token, &rng_state);
         if (rc != 0) return -30 + rc;
         if (next_token == gpt2_tokenizer_eot()) break;
+        if (next_token == prev_generated) break;
+        prev_generated = next_token;
         tokens[token_count++] = next_token;
         piece = gpt2_tokenizer_decode(next_token);
         if (!piece) return -4;

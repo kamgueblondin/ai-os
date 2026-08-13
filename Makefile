@@ -31,7 +31,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
@@ -164,8 +164,13 @@ build/gpt2_tokenizer.o: kernel/llm/gpt2_tokenizer.c kernel/llm/gpt2_tokenizer.h 
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Echantillonnage top-k GPT-2 (sans dependance heap / checkpoint).
+build/gpt2_sample.o: kernel/llm/gpt2_sample.c kernel/llm/gpt2_sample.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # Noyau d'inference GPT-2 CPU freestanding.
-build/gpt2_infer.o: kernel/llm/gpt2_infer.c kernel/llm/gpt2_infer.h kernel/llm/gpt2_model.h kernel/mem/heap.h
+build/gpt2_infer.o: kernel/llm/gpt2_infer.c kernel/llm/gpt2_infer.h kernel/llm/gpt2_sample.h kernel/llm/gpt2_model.h kernel/mem/heap.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -496,7 +501,7 @@ help:
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # 140 tests Unity avant push"
+	@echo "  make test-all             # 144 tests Unity avant push"
 
 .PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk
 

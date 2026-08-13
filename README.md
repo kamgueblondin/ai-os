@@ -33,7 +33,7 @@ git clone https://github.com/kamgueblondin/ai-os.git
 cd ai-os
 make deps          # ou : bash scripts/bootstrap-dev.sh
 make all
-make test-all      # 140 tests Unity, sans poids GPT-2
+make test-all      # 144 tests Unity, sans poids GPT-2
 make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port série
 ```
 
@@ -42,7 +42,7 @@ make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port sé
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau + initrd + `build/overlay.img` (disque IDE 32 Kio) |
-| `make test-all` | Unity 32-bit (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10) |
+| `make test-all` | Unity 32-bit (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_gpt2_sample` 4, `test_shell` 25, `test_ramfs` 10) |
 | `make qemu-smoke` | Cinq boots QEMU (overlay + extras + persist + spawn/yield + exec), sans modèle |
 | `make ci` | `all` + `test-all` + `qemu-smoke` (gate PR) |
 | `make run` / `make run-gui` | Session interactive (voir [docs/GUIDE_EXECUTION.md](docs/GUIDE_EXECUTION.md)) |
@@ -94,7 +94,7 @@ make qemu-smoke    # smoke QEMU (CI)
 make ci            # même gate que GitHub Actions
 ```
 
-Unity 32-bit : **140** tests (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10). Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affiches par d'anciens scripts ne sont pas mesures par gcov.
+Unity 32-bit : **144** tests (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_gpt2_sample` 4, `test_shell` 25, `test_ramfs` 10). Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affiches par d'anciens scripts ne sont pas mesures par gcov.
 
 GitHub Actions (`.github/workflows/ci.yml`) : à chaque push/PR vers `master` (et `main` si la branche est renommée) - `make all`, `make test-all`, `make qemu-smoke`.
 

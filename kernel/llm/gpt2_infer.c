@@ -1,9 +1,9 @@
 #include "gpt2_infer.h"
 #include "gpt2_model.h"
+#include "gpt2_sample.h"
 #include "../mem/heap.h"
 
 #define GPT2_BAREMETAL_MAX_CONTEXT 64U
-#define GPT2_SAMPLE_TOP_K 8U
 
 typedef struct {
     const float* wte;
@@ -265,35 +265,6 @@ static void gpt2_forward_cached_token(const gpt2_params_t* params, const gpt2_co
         for (uint32_t i = 0; i < c; i++) logit += workspace.normalized[i] * output_embedding[i];
         workspace.logits[token] = logit;
     }
-}
-
-static uint32_t gpt2_sample_top_k(const float* logits, uint32_t vocab, const uint32_t* history,
-                                  uint32_t history_count, uint32_t* rng_state) {
-    uint32_t ids[GPT2_SAMPLE_TOP_K];
-    float values[GPT2_SAMPLE_TOP_K];
-    float weights[GPT2_SAMPLE_TOP_K];
-    uint32_t count = 0;
-    uint32_t state = rng_state && *rng_state ? *rng_state : 0x9e3779b9U;
-
-    for (uint32_t i = 0; i < vocab; i++) {
-        float value = logits[i];
-        uint32_t begin = history_count > 16U ? history_count - 16U : 0U;
-        for (uint32_t j = begin; j < history_count; j++) if (history[j] == i) value -= 1.35f;
-        uint32_t pos = count < GPT2_SAMPLE_TOP_K ? count++ : GPT2_SAMPLE_TOP_K;
-        while (pos > 0U && value > values[pos - 1U]) {
-            if (pos < GPT2_SAMPLE_TOP_K) { values[pos] = values[pos - 1U]; ids[pos] = ids[pos - 1U]; }
-            pos--;
-        }
-        if (pos < GPT2_SAMPLE_TOP_K) { values[pos] = value; ids[pos] = i; }
-    }
-    if (count == 0U) return 0U;
-    float total = 0.0f;
-    for (uint32_t i = 0; i < count; i++) { weights[i] = gpt2_fast_exp((values[i] - values[0]) / 1.10f); total += weights[i]; }
-    state = state * 1664525U + 1013904223U;
-    if (rng_state) *rng_state = state;
-    float target = ((float)(state & 0x00ffffffU) / 16777216.0f) * total;
-    for (uint32_t i = 0; i < count; i++) { if (target <= weights[i]) return ids[i]; target -= weights[i]; }
-    return ids[count - 1U];
 }
 
 static int gpt2_generate_next_impl(const uint32_t* tokens, uint32_t token_count,
