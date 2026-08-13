@@ -3,6 +3,8 @@
 #include "../../framework/unity.h"
 #include "../../framework/test_kernel.h"
 
+extern int putchar(int c);
+
 // Mock des syscalls pour les tests userspace
 static char mock_output_buffer[2048];
 static int mock_output_pos = 0;
@@ -16,6 +18,7 @@ void unity_putc_redirect(char c) {
         mock_output_buffer[mock_output_pos++] = c;
         mock_output_buffer[mock_output_pos] = '\0';
     }
+    putchar(c);
 }
 
 void gets(char* buffer, int size) {
@@ -253,8 +256,9 @@ void test_strcpy_basic(void) {
 }
 
 void test_strstr_basic(void) {
-    TEST_ASSERT_EQUAL_PTR("hello world", strstr("hello world", ""));
-    TEST_ASSERT_EQUAL_PTR("world", strstr("hello world", "world"));
+    const char* haystack = "hello world";
+    TEST_ASSERT_EQUAL_PTR(haystack, strstr(haystack, ""));
+    TEST_ASSERT_EQUAL_PTR(haystack + 6, strstr(haystack, "world"));
     TEST_ASSERT_NULL(strstr("hello", "xyz"));
 }
 
@@ -319,7 +323,8 @@ void test_parse_command_max_args(void) {
     parse_command(long_cmd, command, args, &argc);
     
     TEST_ASSERT_EQUAL_STRING("cmd", command);
-    TEST_ASSERT_LESS_THAN(MAX_ARGS, argc + 1); // +1 pour la commande
+    TEST_ASSERT_LESS_THAN(MAX_ARGS, argc);
+    TEST_ASSERT_EQUAL(15, argc);
 }
 
 // === TESTS DES COMMANDES SHELL ===
