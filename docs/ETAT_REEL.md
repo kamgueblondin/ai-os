@@ -62,7 +62,7 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**108**).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**118** = 17+45+21+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
