@@ -1,14 +1,14 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `ai hello` via SYS_EXEC ; head/tail/sort ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI `mem` / `SYS_MEMINFO` ; `ai hello` via SYS_EXEC ; head/tail/sort ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
 
 ## Synthèse
 
-AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU, charge un initrd TAR, passe en espace utilisateur (Ring 3) et exécute un shell ELF interactif. L’« IA » est un **simulateur par mots-clés** (`userspace/fake_ai.c`), pas un moteur d’inférence.
+AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU, charge un initrd TAR, passe en espace utilisateur (Ring 3) et exécute un shell ELF interactif. L’« IA » est un **simulateur par mots-clés** (`userspace/ai_assistant.c`), pas un moteur d’inférence.
 
 | Périmètre | Avancement réel |
 |---|---|
@@ -37,7 +37,7 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 
 - `userspace/shell.c` s’exécute vraiment en Ring 3 (plus de boucle shell simulée dans le kernel)
 - Programmes empaquetés dans l’initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`
-- Commande `ai <texte>` lance `fake_ai` via `SYS_EXEC`
+- Commande `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC`
 
 ### Clavier (août 2026)
 
@@ -62,7 +62,7 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le compteur « Total Tests » du script `run_all_tests.sh` reste à 0 (incrément placé après `return`) : bug d’affichage, pas d’échec des binaires.
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**118** = 17+45+21+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
@@ -82,7 +82,7 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
 | `cd` / `pwd` | Chemin shell ; `cd` accepte overlay/initrd (`SYS_STAT`) **ou** VFS RAM (`cd bin`). Succès : `cd ok <arg>` |
 | `ps` / `jobs` / `top` / `kill` / `spawn` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
-| `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT |
+| `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
 | `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut) |
 | `alias` / `unalias` | Table d’alias, expansion avant exécution |
@@ -128,13 +128,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime
+make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime/mem
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
