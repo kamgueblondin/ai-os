@@ -180,6 +180,12 @@ int sys_copy(const char* src, const char* dst) {
     return result;
 }
 
+int sys_append(const char* path, const char* buf, int n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_APPEND), "b"(path), "c"(buf), "d"(n));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -512,6 +518,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  clear              - Effacer l'écran\n");
     print_string("  echo <text>        - Afficher du texte\n");
     print_string("  write <file> <txt> - Ecrire un fichier overlay (sans >)\n");
+    print_string("  append <file> <txt> - Ajouter du texte (SYS_APPEND)\n");
     print_string("  touch <file>       - Creer un fichier overlay vide\n");
     print_string("  grep <pattern>     - Rechercher dans un texte\n");
     print_string("  wc <file>          - Compter lignes/mots/caractères\n");
@@ -525,7 +532,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  reboot             - Redémarrer le système\n");
     print_string("  shutdown           - Arrêter le système\n");
     
-    print_colored("\nTIP: ls/cat/mkdir/rm/cp/mv/write parlent au noyau (initrd + overlay RAM).\n", COLOR_GREEN);
+    print_colored("\nTIP: ls/cat/mkdir/rm/cp/mv/write/append parlent au noyau (initrd + overlay RAM).\n", COLOR_GREEN);
     print_colored("    Si le mode IA est activé, posez des questions sans 'ai'.\n\n", COLOR_GREEN);
 }
 
@@ -826,6 +833,33 @@ void cmd_write(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+static void cmd_append(shell_context_t* ctx, char args[][128], int arg_count) {
+    char path[RAMFS_PATH_MAX];
+    char buf[256];
+    int pos = 0;
+    int rc;
+    if (arg_count < 2) {
+        print_error("append: fichier ou texte manquant");
+        return;
+    }
+    resolve_arg(ctx, args[0], path);
+    for (int i = 1; i < arg_count; i++) {
+        int j = 0;
+        if (i > 1 && pos < 254) buf[pos++] = ' ';
+        while (args[i][j] && pos < 254) buf[pos++] = args[i][j++];
+    }
+    buf[pos++] = '\n';
+    buf[pos] = '\0';
+    rc = sys_append(path, buf, pos);
+    if (rc < 0) {
+        print_fs_err("append", rc);
+        return;
+    }
+    print_string("append ok ");
+    print_string(args[0]);
+    print_string("\n");
+}
+
 static void cmd_touch(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
     os_dirent_t st;
@@ -966,7 +1000,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
-        "history", "env", "echo", "write", "touch", "clear", "cls", "exit", "quit",
+        "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
         "cd", "pwd", "cat", "stat", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
@@ -1835,6 +1869,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "write") == 0) {
         cmd_write(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "append") == 0) {
+        cmd_append(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "touch") == 0) {
         cmd_touch(ctx, args, arg_count);

@@ -36,7 +36,7 @@ make run-gui
 
 ## ⭐ Fonctionnalités Principales
 
-- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd + overlay noyau ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write` mutent l’overlay (pas de disque persistant). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
+- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd + overlay noyau ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write`/`append` mutent l’overlay (pas de disque persistant). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
 - **🤖 Simulateur d'IA Intégré** - `ai hello` lance `bin/ai_assistant` (`SYS_EXEC`) ; réponses préprogrammées, pas un modèle ML
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
@@ -80,7 +80,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **119 tests** répartis dans `test_pmm` (17), `test_syscall` (46), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **120 tests** répartis dans `test_pmm` (17), `test_syscall` (47), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
 
 ### Configuration Initiale
 ```bash

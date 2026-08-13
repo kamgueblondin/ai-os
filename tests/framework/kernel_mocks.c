@@ -433,7 +433,7 @@ int sys_unlink(const char* path) {
 }
 
 int sys_writefile(const char* path, const char* buf, uint32_t n) {
-    if (!path || !buf) return -1;
+    if (!path || (n > 0 && !buf)) return -1;
     return overlay_write(path, buf, n);
 }
 
@@ -451,6 +451,11 @@ int sys_rename(const char* oldpath, const char* newpath) {
 int sys_copy(const char* src, const char* dst) {
     if (!src || !dst) return -1;
     return overlay_copy(src, dst);
+}
+
+int sys_append(const char* path, const char* buf, uint32_t n) {
+    if (!path || (n > 0 && !buf)) return -1;
+    return overlay_append(path, buf, n);
 }
 
 int sys_getpid(void) {
@@ -558,6 +563,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_COPY:
             state->eax = (uint32_t)sys_copy((const char*)state->ebx, (const char*)state->ecx);
+            break;
+        case SYS_APPEND:
+            state->eax = (uint32_t)sys_append((const char*)state->ebx, (const char*)state->ecx, state->edx);
             break;
         default:
             break;

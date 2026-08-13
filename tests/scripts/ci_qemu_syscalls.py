@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -500,6 +500,21 @@ def main():
         ])
         wait_needle_from("stat file z.txt 0", CMD_TIMEOUT, proc, mark)
 
+        say("typing append z.txt zap ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "a", "p", "p", "e", "n", "d", "spc", "z", "dot", "t", "x", "t",
+            "spc", "z", "a", "p", "ret",
+        ])
+        wait_needle_from("append ok z.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing stat z.txt (after append) ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "s", "t", "a", "t", "spc", "z", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("stat file z.txt 4", CMD_TIMEOUT, proc, mark)
+
         say("typing rm z.txt ...")
         mark = len(log_text())
         sendkeys(mon, ["r", "m", "spc", "z", "dot", "t", "x", "t", "ret"])
@@ -582,6 +597,8 @@ def main():
             ("write overlay", "write ok hi.txt"),
             ("touch overlay", "touch ok z.txt"),
             ("stat empty", "stat file z.txt 0"),
+            ("append overlay", "append ok z.txt"),
+            ("stat appended", "stat file z.txt 4"),
             ("grep overlay", "grep hits 1"),
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),

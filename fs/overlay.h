@@ -17,6 +17,7 @@
 void overlay_init(void);
 int overlay_mkdir(const char* path);
 int overlay_write(const char* path, const char* data, uint32_t n);
+int overlay_append(const char* path, const char* data, uint32_t n);
 int overlay_unlink(const char* path);
 int overlay_rename(const char* oldpath, const char* newpath);
 int overlay_copy(const char* src, const char* dst);

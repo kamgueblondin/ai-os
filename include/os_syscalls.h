@@ -26,8 +26,9 @@
 #define SYS_STAT     18
 #define SYS_RENAME   19
 #define SYS_COPY     20
+#define SYS_APPEND   21
 
-#define MAX_SYSCALLS 21
+#define MAX_SYSCALLS 22
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

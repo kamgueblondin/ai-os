@@ -140,6 +140,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_COPY:
             cpu->eax = (uint32_t)sys_copy((const char*)cpu->ebx, (const char*)cpu->ecx);
             break;
+        case SYS_APPEND:
+            cpu->eax = (uint32_t)sys_append((const char*)cpu->ebx, (const char*)cpu->ecx, cpu->edx);
+            break;
             
         default:
             // Syscall inconnu
@@ -328,6 +331,11 @@ int sys_rename(const char* oldpath, const char* newpath) {
 int sys_copy(const char* src, const char* dst) {
     if (!src || !dst) return -1;
     return overlay_copy(src, dst);
+}
+
+int sys_append(const char* path, const char* buf, uint32_t n) {
+    if (!path || (n > 0 && !buf)) return -1;
+    return overlay_append(path, buf, n);
 }
 
 int sys_getpid(void) {
