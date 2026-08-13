@@ -189,6 +189,10 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_service_grant((const char*)cpu->ebx, (int)cpu->ecx);
             if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
             break;
+        case SYS_VFS_BACKEND_READ:
+            cpu->eax = (uint32_t)sys_vfs_backend_read((const char*)cpu->ebx,
+                                                       (char*)cpu->ecx, cpu->edx);
+            break;
         default:
 
             // Syscall inconnu
@@ -254,6 +258,14 @@ int sys_service_grant(const char* name, int target_pid) {
         return OS_SERVICE_BAD_GRANTEE;
     }
     return service_registry_grant(name, current_task->id, target_pid);
+}
+
+int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    return sys_readfile(path, buffer, max);
 }
 
 /*

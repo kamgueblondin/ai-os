@@ -46,6 +46,8 @@ Le septième incrément conserve les messages non corrélés retirés de l’end
 
 Le huitième incrément ajoute `vfs-info`, une source synthétique servie directement par `vfsserver` Ring 3 sans `SYS_READFILE`. Il déplace ainsi une première politique de chemin et la construction de sa réponse hors du noyau. Les autres chemins sûrs restent relayés vers le backend initrd/overlay noyau ; il ne s’agit ni d’un montage général ni d’une externalisation des pilotes ou du stockage ATA.
 
+Le neuvième incrément réserve `SYS_VFS_BACKEND_READ` au propriétaire utilisateur vivant du nom `vfs`. `vfsserver` l’utilise pour ses chemins ordinaires et le shell reçoit `OS_VFS_BACKEND_DENIED` par la commande de diagnostic. Cette voie isole le médiateur du syscall générique pour le protocole VFS, sans retirer `SYS_READFILE` des commandes historiques, sans capabilities ni externalisation du backend initrd/overlay.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
@@ -73,7 +75,7 @@ QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et 
 
 Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
-L’ABI contient les syscalls 0–28 (`MAX_SYSCALLS = 29`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP`, `SYS_SERVICE_UNREGISTER` et `SYS_SERVICE_GRANT`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
+L’ABI contient les syscalls 0–29 (`MAX_SYSCALLS = 30`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP`, `SYS_SERVICE_UNREGISTER`, `SYS_SERVICE_GRANT` et `SYS_VFS_BACKEND_READ`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
 ## Vérification reproductible
 
