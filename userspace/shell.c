@@ -215,6 +215,12 @@ int sys_ipc_receive(os_ipc_message_t* message) {
     return result;
 }
 
+int sys_service_lookup(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_LOOKUP), "b"(name));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -525,7 +531,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  yield              - Ceder le CPU (SYS_YIELD, cooperatif)\n");
     print_string("  ipc-send <pid> <txt> - Envoyer un message IPC borne\n");
     print_string("  ipc-recv           - Lire un message IPC non bloquant\n");
-    print_string("  vfs-read <pid> <f> - Lire un fichier via le service VFS\n");
+    print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1446,16 +1452,17 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     int pid;
     int rc;
     uint32_t i;
-    if (arg_count != 2) {
-        print_error("Usage: vfs-read <pid> <chemin>");
+    if (arg_count != 1) {
+        print_error("Usage: vfs-read <chemin>");
         return;
     }
-    pid = parse_int(args[0]);
+    pid = sys_service_lookup("vfs");
     if (pid <= 0) {
-        print_error("vfs-read: pid invalide");
+        print_error("vfs-read: service vfs indisponible");
+        ctx->last_rc = pid;
         return;
     }
-    rc = os_vfs_make_read_request(&request, args[1]);
+    rc = os_vfs_make_read_request(&request, args[0]);
     if (rc != 0) {
         print_error("vfs-read: chemin invalide ou trop long");
         ctx->last_rc = rc;

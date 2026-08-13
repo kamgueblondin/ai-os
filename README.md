@@ -14,16 +14,17 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Domaine | Fonction réellement disponible |
 |---|---|
 | Démarrage | Multiboot BIOS, VGA/série, GDT, IDT, PIC, PIT et clavier PS/2 |
-| Utilisateur | Shell ELF Ring 3, syscalls 0–24, `spawn`, `yield`, `exec`, `ps`, `kill` |
+| Utilisateur | Shell ELF Ring 3, syscalls 0–26, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, messages de 96 octets, 4 entrées par tâche ; pas de capabilities |
 | VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC ; backend encore noyau |
+| Découverte Foundation | Registre volatile de 8 services nommés, `vfs` publié par son serveur ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
 | GGUF | Sonde structurelle GGUF v3 et primitives Q8_0 ; pas encore d’inférence quantifiée |
 | Réseau | `net-status` et profil OpenAI explicitement bloqué ; aucune pile réseau noyau |
 
-Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `vfs-read`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
+Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `vfs-read <fichier>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. `vfs-read` résout le service `vfs` au lieu d’accepter un PID. Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
 ## Démarrage rapide
 
@@ -42,9 +43,9 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 171 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 176 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
-| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC et VFS Foundation |
+| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS et découverte Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
@@ -89,7 +90,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **171/171** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (5), protocole VFS (5), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute cinq validations QEMU séparées, dont les contrats IPC et médiateur VFS Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
+`make test-all` a validé **176/176** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (5), protocole VFS (5), registre de services (5), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute cinq validations QEMU séparées, dont les contrats IPC, médiateur VFS et découverte nommée Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -106,7 +107,9 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Stub OpenAI/network honnête et testable
 - [x] IPC Foundation non bloquant entre tâches Ring 3, avec identité d’émetteur noyau
 - [x] Médiateur VFS Ring 3, lecture bornée et réponse IPC structurée
-- [ ] Externalisation d’un backend VFS et migration microkernel réelle
+- [x] Registre de services nommé, découverte de `vfs` sans PID codé en dur
+- [ ] Droits de publication/découverte et externalisation d’un backend VFS
+- [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
 - [ ] Pilote NIC, DHCP, DNS, TCP, TLS et client OpenAI effectif
 - [ ] Système de fichiers disque général (ext2/FAT)

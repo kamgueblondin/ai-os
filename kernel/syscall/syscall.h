@@ -39,6 +39,8 @@ int sys_append(const char* path, const char* buf, uint32_t n);
 int sys_gpt2_generate(const char* prompt, char* out, uint32_t max);
 int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload);
 int sys_ipc_receive(os_ipc_message_t* out);
+int sys_service_register(const char* name);
+int sys_service_lookup(const char* name);
 
 void keyboard_add_char_to_buffer(char c);
 

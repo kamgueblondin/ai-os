@@ -16,6 +16,7 @@
 #include "llm/gpt2_infer.h"
 #include "llm/gpt2_tokenizer.h"
 #include "keyboard.h"
+#include "service_registry.h"
 #include <stddef.h>
 
 // Function to read a byte from a port
@@ -565,6 +566,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // NOUVEAU: Initialisation du système de tâches
     print_string("Initialisation du systeme de taches...\n");
     tasking_init();
+    service_registry_init();
 
     // NOUVEAU: Initialisation des appels système
     print_string("Initialisation des appels systeme...\n");
