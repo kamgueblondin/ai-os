@@ -86,6 +86,20 @@ int service_registry_remove(const char* name, int32_t pid) {
     return OS_SERVICE_NOT_FOUND;
 }
 
+int service_registry_grant(const char* name, int32_t owner_pid, int32_t grantee_pid) {
+    uint32_t i;
+    if (!service_registry_name_valid(name) || owner_pid <= 0) return OS_SERVICE_BAD_NAME;
+    if (grantee_pid <= 0) return OS_SERVICE_BAD_GRANTEE;
+    for (i = 0U; i < SERVICE_REGISTRY_CAPACITY; i++) {
+        if (name_equal(service_entries[i].name, name)) {
+            if (service_entries[i].pid != owner_pid) return OS_SERVICE_NOT_OWNER;
+            service_entries[i].pid = grantee_pid;
+            return 0;
+        }
+    }
+    return OS_SERVICE_NOT_FOUND;
+}
+
 int service_registry_remove_pid(int32_t pid) {
     uint32_t i;
     int removed = 0;

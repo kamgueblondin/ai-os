@@ -14,14 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS, découverte `vfs`, retrait à la terminaison et corrélation locale ; noyau monolithique, backend non externalisé |
+| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS, découverte `vfs`, cycle de vie, corrélation et transfert de nom ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
 | US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 179 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé et cycle de vie) + GitHub Actions ; pas de framework distribué |
+| US-008 | Framework de tests IA | Unity 182 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé, cycle de vie et transfert) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (28 syscalls), IPC avec `request_id` opaque et registre avec retrait propriétaire |
-| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local, registre, cycle de vie et corrélation ; pas de conservation des réponses discordantes ni de capabilities |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (29 syscalls), IPC avec `request_id` opaque et registre avec retrait et transfert par propriétaire |
+| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local, registre, cycle de vie, corrélation et transfert borné ; pas de conservation des réponses, révocation ni capabilities |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |

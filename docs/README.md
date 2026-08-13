@@ -13,11 +13,12 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 5. [mohhos_foundation_increment_03_service_registry.md](mohhos_foundation_increment_03_service_registry.md) - registre nommé, découverte VFS et limites de sécurité
 6. [mohhos_foundation_increment_04_service_lifecycle.md](mohhos_foundation_increment_04_service_lifecycle.md) - retrait propriétaire, nettoyage à la terminaison et limites
 7. [mohhos_foundation_increment_05_ipc_correlation.md](mohhos_foundation_increment_05_ipc_correlation.md) - corrélation requête-réponse IPC et filtre VFS borné
-8. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
-9. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
-10. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-11. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
-12. [../README.md](../README.md) - compilation, tests, architecture des sources
+8. [mohhos_foundation_increment_06_service_grant.md](mohhos_foundation_increment_06_service_grant.md) - transfert limité de publication et nettoyage du bénéficiaire
+9. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
+10. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
+11. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
+12. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+13. [../README.md](../README.md) - compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -32,6 +33,7 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 | [mohhos_foundation_increment_03_service_registry.md](mohhos_foundation_increment_03_service_registry.md) | Registre nommé, découverte `vfs` et absence de capabilities |
 | [mohhos_foundation_increment_04_service_lifecycle.md](mohhos_foundation_increment_04_service_lifecycle.md) | Retrait propriétaire et nettoyage du registre à la terminaison |
 | [mohhos_foundation_increment_05_ipc_correlation.md](mohhos_foundation_increment_05_ipc_correlation.md) | Identifiant de corrélation IPC, filtre VFS et limites non bloquantes |
+| [mohhos_foundation_increment_06_service_grant.md](mohhos_foundation_increment_06_service_grant.md) | Transfert de propriété d’un nom, handoff et limites sans capabilities |
 | [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0 et limites des kernels quantifiés |
 | [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI, diagnostic réseau et critères de sortie d’un transport réel |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
@@ -97,4 +99,4 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 - [../US/README.md](../US/README.md) — deux couches : AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les phases MOHHOS restent majoritairement des **spécifications**. Les exceptions actuelles sont les incréments Foundation IPC, médiateur VFS, registre nommé, cycle de vie et corrélation de requête, réellement compilés et testés ; ils ne transforment pas encore le noyau monolithique en microkernel, ne fournissent pas de capabilities ni de RPC bloquant et n’implémentent pas les autres phases.
+Les phases MOHHOS restent majoritairement des **spécifications**. Les exceptions actuelles sont les incréments Foundation IPC, médiateur VFS, registre nommé, cycle de vie, corrélation de requête et transfert limité de nom, réellement compilés et testés ; ils ne transforment pas encore le noyau monolithique en microkernel, ne fournissent pas de capabilities, de révocation ni de RPC bloquant et n’implémentent pas les autres phases.

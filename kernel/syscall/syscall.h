@@ -42,6 +42,7 @@ int sys_ipc_receive(os_ipc_message_t* out);
 int sys_service_register(const char* name);
 int sys_service_lookup(const char* name);
 int sys_service_unregister(const char* name);
+int sys_service_grant(const char* name, int target_pid);
 
 void keyboard_add_char_to_buffer(char c);
 
