@@ -38,7 +38,7 @@ all: $(OS_IMAGE) pack-initrd
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
 
-# Paquets hôte (Debian/Ubuntu) — même ensemble que .github/workflows/ci.yml
+# Paquets hôte (Debian/Ubuntu) - même ensemble que .github/workflows/ci.yml
 .PHONY: deps check-build-deps
 deps:
 	@bash scripts/bootstrap-dev.sh
@@ -206,7 +206,7 @@ pack-initrd: userspace-all
 	@echo "#!/bin/sh" > $(INITRD_DIR)/startup.sh
 	@echo "echo 'Script de demarrage AI-OS v7'" >> $(INITRD_DIR)/startup.sh
 	@echo "Donnees de demonstration pour l'intelligence artificielle locale" > $(INITRD_DIR)/ai_data.txt
-	@echo "Base de connaissances statique — pas de base vectorielle" > $(INITRD_DIR)/ai_knowledge.txt
+	@echo "Base de connaissances statique - pas de base vectorielle" > $(INITRD_DIR)/ai_knowledge.txt
 	@echo "# AI-OS bare-metal LLM manifest" > $(INITRD_DIR)/models/models.manifest
 	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
 	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest

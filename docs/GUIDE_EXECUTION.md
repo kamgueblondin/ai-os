@@ -2,7 +2,7 @@
 
 Prérequis (Debian/Ubuntu, même ensemble que la CI) : `build-essential`, `gcc-multilib`, `libc6-dev-i386`, `nasm`, `qemu-system-x86` (binaire `qemu-system-i386`). Ajouter `qemu-system-gui` pour GTK. Installation : `make deps` ou `bash scripts/bootstrap-dev.sh`. État du système : [ETAT_REEL.md](ETAT_REEL.md).
 
-Le shell lit le **clavier emulé PS/2**, pas le port série. En nographic, la saisie du terminal hôte n’atteint souvent pas le guest ; préférer `make run` (curses) ou `make run-gui`.
+Le shell lit le **clavier emulé PS/2**, pas le port série. En nographic, la saisie du terminal hôte n'atteint souvent pas le guest ; préférer `make run` (curses) ou `make run-gui`.
 
 ## 🚀 Options de Lancement
 
