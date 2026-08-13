@@ -18,7 +18,7 @@ BUILD_DIR = ../build
 LOG_DIR = ../test_logs
 
 # Fichiers du framework
-FRAMEWORK_SOURCES = $(FRAMEWORK_DIR)/unity.c $(FRAMEWORK_DIR)/test_kernel.c $(FRAMEWORK_DIR)/kernel_mocks.c
+FRAMEWORK_SOURCES = $(FRAMEWORK_DIR)/unity.c $(FRAMEWORK_DIR)/test_kernel.c $(FRAMEWORK_DIR)/kernel_mocks.c ../fs/overlay.c
 FRAMEWORK_HEADERS = $(FRAMEWORK_DIR)/unity.h $(FRAMEWORK_DIR)/test_kernel.h
 
 # Listes des tests

@@ -9,6 +9,7 @@
 #include "syscall/syscall.h"
 #include "elf.h"
 #include "../fs/initrd.h"
+#include "../fs/overlay.h"
 #include "keyboard.h"
 #include <stddef.h>
 
@@ -492,6 +493,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
             initrd_init(initrd_location, initrd_size);
         }
     }
+
+    overlay_init();
+    print_string("Overlay FS initialise (mkdir/rm en RAM).\n");
 
     // NOUVEAU: Initialisation du système de tâches
     print_string("Initialisation du systeme de taches...\n");

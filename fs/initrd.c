@@ -403,3 +403,66 @@ int initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
     return count;
 }
 
+int initrd_is_file(const char* path) {
+    return ird_find(path) != 0;
+}
+
+int initrd_is_dir(const char* path) {
+    char prefix[256];
+    int plen;
+    if (!current_initrd || !path) return 0;
+    ird_normalize(path, prefix, 256);
+    if (!prefix[0]) return 1;
+    plen = 0;
+    while (prefix[plen]) plen++;
+    for (uint32_t i = 0; i < current_initrd->file_count; i++) {
+        char have[256];
+        int j = 0;
+        ird_normalize(current_initrd->files[i].name, have, 256);
+        if (strcmp(have, prefix) == 0) {
+            /* TAR directory entries are not stored as files; a file
+             * with the exact directory name is not a directory. */
+            continue;
+        }
+        while (j < plen && have[j] == prefix[j]) j++;
+        if (j == plen && have[j] == '/') return 1;
+    }
+    return 0;
+}
+
+int initrd_stat(const char* path, os_dirent_t* out) {
+    const initrd_file_t* f;
+    char want[256];
+    const char* base;
+    int i;
+    if (!path || !out) return -1;
+    ird_normalize(path, want, 256);
+    if (!want[0]) {
+        out->name[0] = '/';
+        out->name[1] = '\0';
+        out->size = 0;
+        out->flags = OS_DIRENT_DIR;
+        return 0;
+    }
+    if (initrd_is_dir(want)) {
+        base = want;
+        for (i = 0; want[i]; i++) {
+            if (want[i] == '/') base = want + i + 1;
+        }
+        ird_copy_name(out->name, base, OS_NAME_MAX);
+        out->size = 0;
+        out->flags = OS_DIRENT_DIR;
+        return 0;
+    }
+    f = ird_find(want);
+    if (!f) return -1;
+    base = want;
+    for (i = 0; want[i]; i++) {
+        if (want[i] == '/') base = want + i + 1;
+    }
+    ird_copy_name(out->name, base, OS_NAME_MAX);
+    out->size = f->size;
+    out->flags = OS_DIRENT_FILE;
+    return 0;
+}
+

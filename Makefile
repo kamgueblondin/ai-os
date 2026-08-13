@@ -24,7 +24,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
@@ -120,6 +120,10 @@ build/syscall.o: kernel/syscall/syscall.c kernel/syscall/syscall.h
 
 # Règles de compilation pour le système de fichiers
 build/initrd.o: fs/initrd.c fs/initrd.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/overlay.o: fs/overlay.c fs/overlay.h fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

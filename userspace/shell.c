@@ -144,6 +144,32 @@ int sys_meminfo(os_meminfo_t* info) {
     return result;
 }
 
+int sys_mkdir(const char* path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
+    return result;
+}
+
+int sys_unlink(const char* path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_UNLINK), "b"(path));
+    return result;
+}
+
+int sys_writefile(const char* path, const char* buf, int n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_WRITEFILE), "b"(path), "c"(buf), "d"(n));
+    return result;
+}
+
+int sys_stat(const char* path, os_dirent_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_STAT), "b"(path), "c"(out));
+    return result;
+}
+
+static void print_fs_err(const char* cmd, int rc);
+
 // ==============================================================================
 // FONCTIONS UTILITAIRES MODERNES
 // ==============================================================================
@@ -430,11 +456,11 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("\n=== AI-OS Shell v6.0 - Aide Complète ===\n", COLOR_CYAN);
     
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
-    print_string("  ls [path]          - Lister initrd (noyau) + VFS RAM\n");
-    print_string("  cat <file>         - Afficher un fichier (initrd puis VFS RAM)\n");
+    print_string("  ls [path]          - Lister initrd + overlay noyau\n");
+    print_string("  cat <file>         - Afficher un fichier (overlay puis initrd)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
-    print_string("  mkdir <dir>        - Créer un répertoire\n");
+    print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
     print_string("  rmdir <dir>        - Supprimer un répertoire vide\n");
     print_string("  cp <src> <dest>    - Copier un fichier\n");
     print_string("  mv <src> <dest>    - Déplacer/renommer un fichier\n");
@@ -483,7 +509,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  reboot             - Redémarrer le système\n");
     print_string("  shutdown           - Arrêter le système\n");
     
-    print_colored("\n💡 TIP: ls/cat lisent l'initrd (noyau). mkdir/rm restent un VFS RAM.\n", COLOR_GREEN);
+    print_colored("\nTIP: ls/cat/mkdir/rm parlent au noyau (initrd + overlay RAM). cp/mv restent un VFS local.\n", COLOR_GREEN);
     print_colored("    Si le mode IA est activé, posez des questions sans 'ai'.\n\n", COLOR_GREEN);
 }
 
@@ -628,7 +654,7 @@ void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("AI-Shell v6.0 (IA intégrée)\n");
     
     print_colored("Système de fichiers : ", COLOR_YELLOW);
-    print_string("InitRD (RAM Disk)\n");
+    print_string("Initrd TAR + overlay RAM\n");
     
     print_colored("Fonctionnalités : ", COLOR_YELLOW);
     print_string("PMM, VMM, Multitâche, IA, Ring 0/3\n");
@@ -739,8 +765,8 @@ void cmd_echo(shell_context_t* ctx, char args[][128], int arg_count) {
         buf[pos++] = '\n';
         buf[pos] = '\0';
         resolve_arg(ctx, args[redir + 1], path);
-        rc = ramfs_write(path, buf, pos);
-        if (rc != RAMFS_OK) print_ramfs_err("echo", rc);
+        rc = sys_writefile(path, buf, pos);
+        if (rc < 0) print_fs_err("echo", rc);
         return;
     }
     for (int i = 0; i < arg_count; i++) {
@@ -785,8 +811,8 @@ static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
         ramfs_resolve(ctx->current_dir, args[0], newdir, RAMFS_PATH_MAX);
     }
     if (!ramfs_is_dir(newdir)) {
-        os_dirent_t tmp[1];
-        if (sys_listdir(newdir, tmp, 1) <= 0) {
+        os_dirent_t st;
+        if (sys_stat(newdir, &st) != 0 || st.flags != OS_DIRENT_DIR) {
             print_error("cd: repertoire introuvable");
             return;
         }
@@ -853,6 +879,18 @@ static void cmd_which(shell_context_t* ctx, const char* cmd) {
     print_string(" (non verifie)\n");
 }
 
+static void print_fs_err(const char* cmd, int rc) {
+    print_string(cmd);
+    print_string(": ");
+    if (rc == -2) print_string("existe deja\n");
+    else if (rc == -3) print_string("parent invalide\n");
+    else if (rc == -4) print_string("est un repertoire\n");
+    else if (rc == -5) print_string("repertoire non vide\n");
+    else if (rc == -6) print_string("plus de place\n");
+    else if (rc == -8) print_string("protege (initrd)\n");
+    else print_string("echec\n");
+}
+
 static void cmd_mkdir(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
     int rc;
@@ -861,31 +899,65 @@ static void cmd_mkdir(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     resolve_arg(ctx, args[0], path);
-    rc = ramfs_mkdir(path);
-    if (rc != RAMFS_OK) print_ramfs_err("mkdir", rc);
-    else print_success(path);
+    rc = sys_mkdir(path);
+    if (rc != 0) {
+        print_fs_err("mkdir", rc);
+        return;
+    }
+    print_string("mkdir ok ");
+    print_string(args[0]);
+    print_string("\n");
 }
 
 static void cmd_rmdir(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
+    os_dirent_t st;
     int rc;
     if (arg_count == 0) {
         print_error("rmdir: repertoire manquant");
         return;
     }
     resolve_arg(ctx, args[0], path);
+    if (sys_stat(path, &st) == 0) {
+        if (st.flags != OS_DIRENT_DIR) {
+            print_error("rmdir: n'est pas un repertoire");
+            return;
+        }
+        rc = sys_unlink(path);
+        if (rc != 0) {
+            print_fs_err("rmdir", rc);
+            return;
+        }
+        print_string("rmdir ok ");
+        print_string(args[0]);
+        print_string("\n");
+        return;
+    }
     rc = ramfs_rmdir(path);
     if (rc != RAMFS_OK) print_ramfs_err("rmdir", rc);
 }
 
 static void cmd_rm(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
+    os_dirent_t st;
     int rc;
     if (arg_count == 0) {
         print_error("rm: fichier manquant");
         return;
     }
     resolve_arg(ctx, args[0], path);
+    if (sys_stat(path, &st) == 0) {
+        if (st.flags == OS_DIRENT_DIR) {
+            print_error("rm: est un repertoire");
+            return;
+        }
+        rc = sys_unlink(path);
+        if (rc != 0) {
+            print_fs_err("rm", rc);
+            return;
+        }
+        return;
+    }
     rc = ramfs_rm(path);
     if (rc != RAMFS_OK) print_ramfs_err("rm", rc);
 }
