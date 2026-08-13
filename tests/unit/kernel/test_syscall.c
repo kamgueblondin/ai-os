@@ -575,24 +575,6 @@ void test_sys_ps_lists_task(void) {
     current_task = old_current;
 }
 
-    cpu.eax = SYS_PS;
-    cpu.ebx = (uint32_t)procs;
-    cpu.ecx = 8;
-    syscall_handler(&cpu);
-    n = (int)cpu.eax;
-    TEST_ASSERT(n >= 1);
-    for (int i = 0; i < n; i++) {
-        if (procs[i].pid == 3) {
-            found = 1;
-            TEST_ASSERT_EQUAL_STRING("shell", procs[i].name);
-        }
-    }
-    TEST_ASSERT(found);
-
-    task_queue = old_queue;
-    current_task = old_current;
-}
-
 void test_sys_kill_unknown_pid(void) {
     cpu_state_t cpu = {0};
     cpu.eax = SYS_KILL;
