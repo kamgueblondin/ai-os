@@ -21,7 +21,7 @@ Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). Treize incréments de **Foundation** sont maintenant livrés : une boîte aux lettres IPC locale, un médiateur VFS Ring 3, un registre nommé et son cycle de vie, la corrélation requête-réponse, le transfert de publication, la conservation bornée des réponses différées, une politique VFS virtuelle, un backend VFS réservé à son propriétaire, sa révocation par transfert, une politique de montages VFS bornée, des notifications de changement de propriétaire best-effort et une écriture `overlay/` médiée.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). Quatorze incréments de **Foundation** sont maintenant livrés : une boîte aux lettres IPC locale, un médiateur VFS Ring 3, un registre nommé et son cycle de vie, la corrélation requête-réponse, le transfert de publication, la conservation bornée des réponses différées, une politique VFS virtuelle, un backend VFS réservé à son propriétaire, sa révocation par transfert, une politique de montages VFS bornée, des notifications de changement de propriétaire best-effort, une écriture `overlay/` médiée et des lectures VFS source-spécifiques.
  Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le backend VFS, ni les pilotes, ni le réseau vers un espace d’adressage séparé ; le noyau reste monolithique.
 
 Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant, IPC local, médiateur VFS et découverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
@@ -32,7 +32,7 @@ Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec
 |---|---|
 | [mohhos_user_stories_master.md](mohhos_user_stories_master.md) | Index historique des 120 titres (numérotation parfois **différente** des fichiers) |
 | [recherche_technologies_mohhos.md](recherche_technologies_mohhos.md) | Veille (P2P, federated learning, navigateur-OS) |
-| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée : IPC, VFS, découverte, cycle de vie, corrélation, transfert, conservation différée, politique virtuelle, backend réservé, révocation, montages bornés, notifications et écriture médiée livrés ; microkernel/services séparés non commencés |
+| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée : IPC, VFS, découverte, cycle de vie, corrélation, transfert, conservation différée, politique virtuelle, backend réservé, révocation, montages bornés, notifications, écriture médiée et lectures source-spécifiques livrés ; microkernel/services séparés non commencés |
 | [../docs/mohhos_foundation_increment_01_ipc.md](../docs/mohhos_foundation_increment_01_ipc.md) | Conception et contrat de l’incrément IPC Foundation livré |
 | [../docs/mohhos_foundation_increment_02_vfs_service.md](../docs/mohhos_foundation_increment_02_vfs_service.md) | Médiateur VFS Ring 3 et contrat de lecture IPC livré |
 | [../docs/mohhos_foundation_increment_03_service_registry.md](../docs/mohhos_foundation_increment_03_service_registry.md) | Registre nommé, découverte `vfs` et limites de sécurité |
@@ -46,6 +46,7 @@ Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec
 | [../docs/mohhos_foundation_increment_11_vfs_mounts.md](../docs/mohhos_foundation_increment_11_vfs_mounts.md) | Montage `initrd/` déclaré, sources virtuelles et refus des chemins hors préfixe |
 | [../docs/mohhos_foundation_increment_12_service_notifications.md](../docs/mohhos_foundation_increment_12_service_notifications.md) | Abonnements de service bornés et événements IPC best-effort de changement de propriétaire |
 | [../docs/mohhos_foundation_increment_13_vfs_write.md](../docs/mohhos_foundation_increment_13_vfs_write.md) | Montage `overlay/ rw`, écriture IPC corrélée et backend réservé au propriétaire de `vfs` |
+| [../docs/mohhos_foundation_increment_14_vfs_source_reads.md](../docs/mohhos_foundation_increment_14_vfs_source_reads.md) | Lectures initrd/overlay distinctes et réservées au propriétaire de `vfs` |
 | [mohhos_us_phase2_ai_core.md](mohhos_us_phase2_ai_core.md) | Phase 2 (TensorFlow Lite, NLU, fédéré) — non livrée ; l'IA réelle est GPT-2 freestanding |
 | [mohhos_us_phase3_web_runtime.md](mohhos_us_phase3_web_runtime.md) | Phase 3 navigateur-OS — absente |
 | [mohhos_us_phases_4_8_synthese.md](mohhos_us_phases_4_8_synthese.md) | Phases 4-8 (PromptMessage, P2P, etc.) — absentes |
@@ -62,7 +63,7 @@ Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec
 7. Collaborative (points)  
 8. Production  
 
-La migration complète de US-001 reste une refonte à haut risque : les incréments actuels fournissent IPC, médiateur VFS de lecture-écriture, découverte de nom, nettoyage de cycle de vie, corrélation locale, conservation différée bornée, transfert de propriété, politique virtuelle, révocation du droit d’accès au backend, montages statiques bornés et notifications best-effort.
+La migration complète de US-001 reste une refonte à haut risque : les incréments actuels fournissent IPC, médiateur VFS de lecture-écriture avec sources de lecture distinctes, découverte de nom, nettoyage de cycle de vie, corrélation locale, conservation différée bornée, transfert de propriété, politique virtuelle, révocation du droit d’accès au backend, montages statiques bornés et notifications best-effort.
  La suite doit introduire une identité vérifiée et des capabilities, des événements accusés ou persistants, des montages dynamiques associés à des services, externaliser le backend VFS lui-même, puis déplacer pilotes ou réseau derrière ces droits, sans affirmer prématurément que ces composants sont déjà hors du noyau.
 
 ## Contribution

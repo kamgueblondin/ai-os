@@ -45,9 +45,15 @@ static void print_int(int value) {
     while (n > 0) putc(digits[--n]);
 }
 
-static int backend_read(const char* path, char* buffer, uint32_t max) {
+static int backend_initrd_read(const char* path, char* buffer, uint32_t max) {
     int result;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_READ), "b"(path), "c"(buffer), "d"(max));
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_READ), "b"(path), "c"(buffer), "d"(max));
+    return result;
+}
+
+static int backend_overlay_read(const char* path, char* buffer, uint32_t max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_READ), "b"(path), "c"(buffer), "d"(max));
     return result;
 }
 
@@ -71,7 +77,16 @@ static int string_equal(const char* left, const char* right) {
 }
 
 /* Sources VFS isolées : métadonnées synthétiques fournies par le service. */
-static const char* const vfs_read_mounts[] = { "initrd/" };
+#define VFS_READ_SOURCE_INITRD 1U
+#define VFS_READ_SOURCE_OVERLAY 2U
+typedef struct {
+    const char* mount;
+    uint32_t source;
+} vfs_read_mount_t;
+static const vfs_read_mount_t vfs_read_mounts[] = {
+    { "initrd/", VFS_READ_SOURCE_INITRD },
+    { "overlay/", VFS_READ_SOURCE_OVERLAY },
+};
 static const char* const vfs_write_mounts[] = { "overlay/" };
 #define VFS_READ_MOUNT_COUNT (sizeof(vfs_read_mounts) / sizeof(vfs_read_mounts[0]))
 #define VFS_WRITE_MOUNT_COUNT (sizeof(vfs_write_mounts) / sizeof(vfs_write_mounts[0]))
@@ -95,8 +110,13 @@ static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size)
     uint32_t i;
     for (i = 0U; i < VFS_READ_MOUNT_COUNT; i++) {
         const char* relative = 0;
-        if (os_vfs_match_mount(path, vfs_read_mounts[i], &relative)) {
-            int read = backend_read(relative, (char*)data, OS_VFS_READ_MAX);
+        if (os_vfs_match_mount(path, vfs_read_mounts[i].mount, &relative)) {
+            int read;
+            if (vfs_read_mounts[i].source == VFS_READ_SOURCE_INITRD) {
+                read = backend_initrd_read(relative, (char*)data, OS_VFS_READ_MAX);
+            } else {
+                read = backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX);
+            }
             if (read < 0) return read;
             *size = (uint32_t)read;
             return OS_VFS_STATUS_OK;

@@ -47,8 +47,12 @@
 #define SYS_SERVICE_NOTIFY 30
 /* EBX = chemin relatif, ECX = données, EDX = taille ; réservé au propriétaire de `vfs`. */
 #define SYS_VFS_BACKEND_WRITE 31
+/* EBX = chemin initrd relatif, ECX = buffer, EDX = taille ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_INITRD_READ 32
+/* EBX = chemin overlay relatif, ECX = buffer, EDX = taille ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_OVERLAY_READ 33
 
-#define MAX_SYSCALLS 32
+#define MAX_SYSCALLS 34
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
