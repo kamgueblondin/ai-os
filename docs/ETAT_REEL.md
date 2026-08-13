@@ -137,7 +137,7 @@ make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat` overlay, `test f`/`test d`, `export TAG=ok` (`export ok TAG`), `alias ll=whoami` puis `ll` puis `unalias ll`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `head`, `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey ; `cat` couvre encore `SYS_READFILE` sur l’initrd). `stat hello.txt` n’est plus tapé en smoke (`test f hello.txt` et `stat` overlay couvrent `SYS_STAT`).
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat` overlay, `test f`/`test d`, `export tag=ok` (`export ok tag`), `alias ll=whoami` puis `ll` puis `unalias ll`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `head`, `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey ; `cat` couvre encore `SYS_READFILE` sur l’initrd). `stat hello.txt` n’est plus tapé en smoke (`test f hello.txt` et `stat` overlay couvrent `SYS_STAT`).
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
