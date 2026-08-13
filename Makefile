@@ -38,12 +38,28 @@ all: $(OS_IMAGE) pack-initrd
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
 
-# Vérification des dépendances de build (ex: nasm)
-.PHONY: check-build-deps
+# Paquets hôte (Debian/Ubuntu) — même ensemble que .github/workflows/ci.yml
+.PHONY: deps check-build-deps
+deps:
+	@bash scripts/bootstrap-dev.sh
+
+# nasm, gcc -m32 (gcc-multilib + libc6-dev-i386), qemu-system-i386
 check-build-deps:
 	@command -v nasm >/dev/null 2>&1 || { \
-		echo "ERROR: 'nasm' introuvable. Installez-le puis réessayez."; \
+		echo "ERROR: 'nasm' introuvable. Installez les dépendances : make deps"; \
 		echo "       Debian/Ubuntu: sudo apt-get install -y nasm"; \
+		exit 1; \
+	}
+	@mkdir -p build
+	@printf 'int main(void){return 0;}\n' | $(CC) -m32 -x c - -o build/.m32-check - >/dev/null 2>&1 || { \
+		echo "ERROR: 'gcc -m32' indisponible (paquets gcc-multilib et libc6-dev-i386)."; \
+		echo "       Debian/Ubuntu: make deps"; \
+		exit 1; \
+	}
+	@rm -f build/.m32-check
+	@command -v qemu-system-i386 >/dev/null 2>&1 || { \
+		echo "ERROR: 'qemu-system-i386' introuvable (paquet qemu-system-x86)."; \
+		echo "       Debian/Ubuntu: make deps"; \
 		exit 1; \
 	}
 
@@ -415,13 +431,15 @@ ci: all test-all qemu-smoke
 
 # Cible pour afficher l'aide
 help:
-	@echo "=== AI-OS v6.1 - Cibles de Compilation Disponibles ==="
+	@echo "=== AI-OS v7 - Cibles de compilation ==="
 	@echo ""
 	@echo "Cibles principales:"
+	@echo "  deps         - Installe les paquets hôte (scripts/bootstrap-dev.sh)"
 	@echo "  all          - Compile le système complet (noyau + initrd + programmes)"
 	@echo "  kernel-only  - Compile seulement le noyau"
 	@echo "  run          - Compile et exécute avec QEMU (mode texte)"
 	@echo "  run-gui      - Compile et exécute avec QEMU (mode graphique)"
+	@echo "  iso          - Image GRUB Multiboot (grub-pc-bin + xorriso)"
 	@echo ""
 	@echo "Cibles de développement:"
 	@echo "  test-build   - Compile sans exécuter"
@@ -452,14 +470,16 @@ help:
 	@echo "  help         - Affiche cette aide"
 	@echo ""
 	@echo "Usage recommandé pour développeurs:"
+	@echo "  make deps                 # Paquets Debian/Ubuntu (CI)"
+	@echo "  make check-build-deps     # nasm, gcc -m32, qemu-system-i386"
 	@echo "  make clean && make all    # Compilation complète"
-	@echo "  make pre-commit-tests     # Tests avant commit"
-	@echo "  make run                  # Test rapide du système"
+	@echo "  make ci                   # Gate PR : all + test-all + qemu-smoke"
+	@echo "  make run                  # Session QEMU curses"
 	@echo ""
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # Tests complets avant push"
+	@echo "  make test-all             # 121 tests Unity avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps
 
