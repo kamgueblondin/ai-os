@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Smoke test for the AI provider/model control plane in AI-OS."""
+"""Contrat MOHHOS Foundation : lecture VFS par médiateur Ring 3."""
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -8,9 +9,9 @@ import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LOG_DIR = os.path.join(ROOT, "test_logs")
-LOG = os.path.join(LOG_DIR, "ai-provider-smoke.log")
-ERR = os.path.join(LOG_DIR, "ai-provider-smoke.err")
-MON = os.path.join(LOG_DIR, "ai-provider-monitor.sock")
+LOG = os.path.join(LOG_DIR, "vfs-service.log")
+ERR = os.path.join(LOG_DIR, "vfs-service.err")
+MON = os.path.join(LOG_DIR, "vfs-service-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 
@@ -23,15 +24,15 @@ def log_text():
         return ""
 
 
-def wait_for(needle, proc, timeout=15):
+def wait_for(needle, proc, offset=0, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped early")
-        if needle in log_text():
+            raise RuntimeError("QEMU s'est arrêté prématurément")
+        if needle in log_text()[offset:]:
             return
         time.sleep(0.1)
-    raise RuntimeError("missing output: %s" % needle)
+    raise RuntimeError("sortie manquante : %s" % needle)
 
 
 def connect_monitor():
@@ -50,31 +51,15 @@ def connect_monitor():
             except OSError:
                 client.close()
         time.sleep(0.1)
-    raise RuntimeError("QEMU monitor unavailable")
+    raise RuntimeError("moniteur QEMU indisponible")
 
 
-def send_keys(client, keys):
-    for key in keys:
-        client.sendall(("sendkey %s\n" % key).encode("ascii"))
-        time.sleep(0.12)
-
-
-def key_sequence(command):
-    special = {" ": "spc", ".": "dot", "-": "minus", "_": "shift-minus"}
-    return [special.get(char, char.lower()) for char in command] + ["ret"]
-
-
-def run_command(client, proc, command, expected):
-    before = len(log_text())
-    send_keys(client, key_sequence(command))
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped while executing %s" % command)
-        if expected in log_text()[before:]:
-            return
-        time.sleep(0.1)
-    raise RuntimeError("command %s did not emit %s" % (command, expected))
+def send_command(client, command):
+    special = {" ": "spc", "-": "minus", ".": "dot"}
+    for char in command:
+        client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
+        time.sleep(0.06)
+    client.sendall(b"sendkey ret\n")
 
 
 def main():
@@ -98,16 +83,22 @@ def main():
             wait_for("(-.-)", proc)
             monitor = connect_monitor()
             time.sleep(0.5)
-            run_command(monitor, proc, "ai-provider", "Fournisseur IA : local")
-            run_command(monitor, proc, "ai-model list", "qwen2.5-1.5b-instruct-q4_0.gguf")
-            run_command(monitor, proc, "ai-model use control.bin", "Profil memorise; seul GPT-2")
-            run_command(monitor, proc, "ai-model", "control.bin")
-            run_command(monitor, proc, "ai-runtime", "Runtime IA bare-metal")
-            run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
-            run_command(monitor, proc, "ai-provider openai", "OpenAI selectionne")
-            run_command(monitor, proc, "ai hello", "OpenAI configure mais indisponible")
-            run_command(monitor, proc, "ai-provider local", "Fournisseur local selectionne")
-            print("AI provider control-plane smoke passed.")
+            before_spawn = len(log_text())
+            send_command(monitor, "spawn vfsserver")
+            wait_for("spawn ok pid", proc, before_spawn)
+            spawned = re.search(r"spawn ok pid (\d+) vfsserver", log_text()[before_spawn:])
+            if not spawned:
+                raise RuntimeError("PID du serveur VFS absent")
+            server_pid = spawned.group(1)
+            wait_for("vfsserver ready", proc, before_spawn)
+            before_read = len(log_text())
+            send_command(monitor, "vfs-read %s hello.txt" % server_pid)
+            wait_for("vfs-read ok", proc, before_read)
+            wait_for("Un autre fichier de demonstration.", proc, before_read)
+            before_return = len(log_text())
+            send_command(monitor, "rc")
+            wait_for("rc ok 0", proc, before_return)
+            print("MOHHOS Foundation VFS service contract passed")
             return 0
         finally:
             if monitor is not None:
@@ -128,5 +119,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("AI provider control-plane smoke failed: %s" % error, file=sys.stderr)
+        print("MOHHOS Foundation VFS service contract failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)
