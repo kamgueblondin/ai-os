@@ -20,8 +20,12 @@
 #define SYS_KILL     12
 #define SYS_TICKS    13
 #define SYS_MEMINFO  14
+#define SYS_MKDIR    15
+#define SYS_UNLINK   16
+#define SYS_WRITEFILE 17
+#define SYS_STAT     18
 
-#define MAX_SYSCALLS 15
+#define MAX_SYSCALLS 19
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

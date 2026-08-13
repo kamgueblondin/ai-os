@@ -142,7 +142,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/uptime) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/mkdir/uptime) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -197,6 +197,33 @@ def main():
         sendkeys(mon, ["u", "p", "t", "i", "m", "e", "ret"])
         wait_needle("PIT ticks", CMD_TIMEOUT, proc)
 
+        say("typing mkdir mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, ["m", "k", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
+        wait_needle_from("mkdir ok mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing ls (after mkdir) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "ret"])
+        wait_needle_from("mydir", CMD_TIMEOUT, proc, mark)
+        after_mkdir_ls = log_text()[mark:]
+        if "hello.txt" not in after_mkdir_ls:
+            raise RuntimeError("ls after mkdir missing hello.txt")
+
+        say("typing rmdir mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, ["r", "m", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
+        wait_needle_from("rmdir ok mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing ls (after rmdir) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "ret"])
+        wait_needle_from("Initrd / VFS", CMD_TIMEOUT, proc, mark)
+        wait_needle_from("Total:", CMD_TIMEOUT, proc, mark)
+        after_rmdir_ls = log_text()[mark:]
+        if "mydir" in after_rmdir_ls:
+            raise RuntimeError("mydir still listed in ls after rmdir")
+
         text = log_text()
         checks = [
             ("syscall ls", "Initrd / VFS"),
@@ -211,6 +238,8 @@ def main():
             ("ps shows idle", "user  idle"),
             ("kill 2", "Processus 2 termine"),
             ("uptime", "PIT ticks"),
+            ("mkdir overlay", "mkdir ok mydir"),
+            ("rmdir overlay", "rmdir ok mydir"),
         ]
         fail = 0
         for label, needle in checks:

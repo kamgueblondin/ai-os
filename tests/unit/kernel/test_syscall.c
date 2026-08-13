@@ -6,6 +6,7 @@
 
 // Include du module à tester
 #include "../../../kernel/syscall/syscall.h"
+#include "../../../fs/overlay.h"
 // Ne pas inclure les en-têtes réels du kernel pour éviter les conflits de types
 
 // === MOCK DATA ET HELPERS ===
@@ -631,6 +632,112 @@ void test_sys_kill_removes_ready_task(void) {
     current_task = old_current;
 }
 
+void test_sys_overlay_mkdir_listdir_unlink(void) {
+    os_dirent_t ents[16];
+    os_dirent_t st;
+    cpu_state_t cpu = {0};
+    int n;
+    int found;
+    int i;
+
+    overlay_init();
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"mydir";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_DIR, (int)st.flags);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"/";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found = 0;
+    TEST_ASSERT(n > 0);
+    for (i = 0; i < n; i++) {
+        if (strcmp(ents[i].name, "mydir") == 0 && ents[i].flags == OS_DIRENT_DIR) {
+            found = 1;
+        }
+    }
+    TEST_ASSERT(found);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"mydir";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"mydir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"/";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found = 0;
+    for (i = 0; i < n; i++) {
+        if (strcmp(ents[i].name, "mydir") == 0) found = 1;
+    }
+    TEST_ASSERT_EQUAL(0, found);
+}
+
+void test_sys_overlay_write_read(void) {
+    char buf[64];
+    cpu_state_t cpu = {0};
+    const char* payload = "hello overlay\n";
+
+    overlay_init();
+
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"notes.txt";
+    cpu.ecx = (uint32_t)payload;
+    cpu.edx = 14;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(14, (int)cpu.eax);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"notes.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(14, (int)cpu.eax);
+    buf[14] = '\0';
+    TEST_ASSERT_EQUAL_STRING("hello overlay\n", buf);
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"notes.txt";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+}
+
+void test_sys_overlay_protects_initrd(void) {
+    cpu_state_t cpu = {0};
+    overlay_init();
+
+    cpu.eax = SYS_UNLINK;
+    cpu.ebx = (uint32_t)"hello.txt";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_PROTECTED, (int)cpu.eax);
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"no/such/dir";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_NOTDIR, (int)cpu.eax);
+}
+
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
@@ -686,6 +793,9 @@ int main(void) {
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);
     RUN_TEST(test_sys_kill_removes_ready_task);
+    RUN_TEST(test_sys_overlay_mkdir_listdir_unlink);
+    RUN_TEST(test_sys_overlay_write_read);
+    RUN_TEST(test_sys_overlay_protects_initrd);
     
     unity_print_results();
     unity_cleanup();

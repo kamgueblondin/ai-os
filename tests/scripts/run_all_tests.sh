@@ -66,7 +66,7 @@ run_test() {
     
     # Flags de compilation spécialisés selon le type de test
     local cflags="-I$TEST_DIR -I$BASE_DIR -I$BASE_DIR/kernel -I$BASE_DIR/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1"
-    local extra_src=""
+    local extra_src="$BASE_DIR/fs/overlay.c"
     
     if [ "$test_type" == "kernel" ]; then
         cflags="$cflags -m32 -ffreestanding -nostdlib -fno-pie"
@@ -75,7 +75,7 @@ run_test() {
     fi
 
     if [ "$(basename "$test_file")" = "test_ramfs.c" ]; then
-        extra_src="$BASE_DIR/userspace/ramfs.c $BASE_DIR/userspace/procsim.c"
+        extra_src="$extra_src $BASE_DIR/userspace/ramfs.c $BASE_DIR/userspace/procsim.c"
         cflags="$cflags -I$BASE_DIR/userspace"
     fi
     

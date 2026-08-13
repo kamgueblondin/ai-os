@@ -6,6 +6,7 @@
 #include "kernel/mem/vmm.h"
 #include "kernel/task/task.h"
 #include "kernel/syscall/syscall.h"
+#include "fs/overlay.h"
 
 // === GESTION MÉMOIRE MOCKS ===
 extern void* test_malloc(size_t size);
@@ -186,7 +187,7 @@ void sys_yield(void) {
 }
 
 void syscall_init(void) {
-    // Mock simple - ne fait rien
+    overlay_init();
 }
 
 void sys_putc(char c) {
@@ -234,62 +235,212 @@ static struct {
     {"bin/shell", "ELF", 3},
 };
 
-int sys_listdir(const char* path, os_dirent_t* out, int max_n) {
-    int count = 0;
-    const char* p = path ? path : "/";
-    if (!out || max_n <= 0) return -1;
-    if (p[0] == '/') p++;
-    if (p[0] == '\0' || (p[0] == '.' && p[1] == '\0')) {
-        int has_bin = 0;
-        for (unsigned i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]) && count < max_n; i++) {
-            const char* n = mock_initrd[i].name;
-            const char* slash = 0;
-            const char* s = n;
-            while (*s) {
-                if (*s == '/') slash = s;
-                s++;
-            }
-            if (slash) {
-                if (!has_bin && count < max_n) {
-                    out[count].name[0] = 'b';
-                    out[count].name[1] = 'i';
-                    out[count].name[2] = 'n';
-                    out[count].name[3] = '\0';
-                    out[count].size = 0;
-                    out[count].flags = OS_DIRENT_DIR;
-                    count++;
-                    has_bin = 1;
-                }
-            } else {
-                int k = 0;
-                while (n[k] && k < OS_NAME_MAX - 1) {
-                    out[count].name[k] = n[k];
-                    k++;
-                }
-                out[count].name[k] = '\0';
-                out[count].size = mock_initrd[i].size;
-                out[count].flags = OS_DIRENT_FILE;
-                count++;
-            }
-        }
-        return count;
+static void mock_ird_norm(const char* in, char* out, int max) {
+    int i = 0;
+    if (!in) {
+        out[0] = '\0';
+        return;
+    }
+    if (in[0] == '.' && in[1] == '/') in += 2;
+    while (*in == '/') in++;
+    while (in[i] && i < max - 1) {
+        out[i] = in[i];
+        i++;
+    }
+    out[i] = '\0';
+    while (i > 0 && out[i - 1] == '/') {
+        out[--i] = '\0';
+    }
+}
+
+static void mock_ird_basename(const char* path, char* out, int max) {
+    const char* base = path ? path : "";
+    int i;
+    for (i = 0; path && path[i]; i++) {
+        if (path[i] == '/') base = path + i + 1;
+    }
+    i = 0;
+    while (base[i] && i < max - 1) {
+        out[i] = base[i];
+        i++;
+    }
+    out[i] = '\0';
+}
+
+int initrd_is_file(const char* path) {
+    char want[64];
+    unsigned i;
+    mock_ird_norm(path, want, 64);
+    if (!want[0]) return 0;
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        if (strcmp(want, mock_initrd[i].name) == 0) return 1;
     }
     return 0;
 }
 
-int sys_readfile(const char* path, char* buf, uint32_t max) {
-    const char* p = path ? path : "";
-    if (!buf || max == 0) return -1;
-    if (p[0] == '/') p++;
-    for (unsigned i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
-        if (strcmp(p, mock_initrd[i].name) == 0) {
-            uint32_t n = mock_initrd[i].size;
-            if (n > max) n = max;
-            memcpy(buf, mock_initrd[i].data, n);
-            return (int)n;
+int initrd_is_dir(const char* path) {
+    char want[64];
+    unsigned i;
+    int plen;
+    mock_ird_norm(path, want, 64);
+    if (!want[0]) return 1;
+    plen = (int)strlen(want);
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        const char* n = mock_initrd[i].name;
+        int j = 0;
+        while (j < plen && n[j] == want[j]) j++;
+        if (j == plen && n[j] == '/') return 1;
+    }
+    return 0;
+}
+
+int initrd_stat(const char* path, os_dirent_t* out) {
+    char want[64];
+    unsigned i;
+    if (!path || !out) return -1;
+    mock_ird_norm(path, want, 64);
+    if (!want[0]) {
+        out->name[0] = '/';
+        out->name[1] = '\0';
+        out->size = 0;
+        out->flags = OS_DIRENT_DIR;
+        return 0;
+    }
+    if (initrd_is_dir(want)) {
+        mock_ird_basename(want, out->name, OS_NAME_MAX);
+        out->size = 0;
+        out->flags = OS_DIRENT_DIR;
+        return 0;
+    }
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        if (strcmp(want, mock_initrd[i].name) == 0) {
+            mock_ird_basename(want, out->name, OS_NAME_MAX);
+            out->size = mock_initrd[i].size;
+            out->flags = OS_DIRENT_FILE;
+            return 0;
         }
     }
     return -1;
+}
+
+static int mock_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
+    char prefix[64];
+    int plen;
+    int count = 0;
+    unsigned i;
+    if (!out || max_n <= 0) return -1;
+    mock_ird_norm(path ? path : "/", prefix, 64);
+    plen = (int)strlen(prefix);
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]) && count < max_n; i++) {
+        const char* have = mock_initrd[i].name;
+        const char* rest;
+        int slash = -1;
+        int k;
+        if (plen == 0) {
+            rest = have;
+        } else {
+            int j = 0;
+            while (j < plen && have[j] == prefix[j]) j++;
+            if (j != plen || have[j] != '/') continue;
+            rest = have + plen + 1;
+        }
+        if (!rest[0]) continue;
+        k = 0;
+        while (rest[k]) {
+            if (rest[k] == '/') {
+                slash = k;
+                break;
+            }
+            k++;
+        }
+        if (slash >= 0) {
+            char dname[OS_NAME_MAX];
+            int dup = 0;
+            int e;
+            int nlen = slash;
+            if (nlen >= OS_NAME_MAX) nlen = OS_NAME_MAX - 1;
+            for (e = 0; e < nlen; e++) dname[e] = rest[e];
+            dname[nlen] = '\0';
+            for (e = 0; e < count; e++) {
+                if (out[e].flags == OS_DIRENT_DIR && strcmp(out[e].name, dname) == 0) {
+                    dup = 1;
+                    break;
+                }
+            }
+            if (!dup) {
+                int t = 0;
+                while (dname[t] && t < OS_NAME_MAX - 1) {
+                    out[count].name[t] = dname[t];
+                    t++;
+                }
+                out[count].name[t] = '\0';
+                out[count].size = 0;
+                out[count].flags = OS_DIRENT_DIR;
+                count++;
+            }
+        } else {
+            int t = 0;
+            while (rest[t] && t < OS_NAME_MAX - 1) {
+                out[count].name[t] = rest[t];
+                t++;
+            }
+            out[count].name[t] = '\0';
+            out[count].size = mock_initrd[i].size;
+            out[count].flags = OS_DIRENT_FILE;
+            count++;
+        }
+    }
+    return count;
+}
+
+int sys_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int n;
+    if (!path || !out || max_n <= 0) return -1;
+    if (!overlay_is_dir(path) && !initrd_is_dir(path)) return -1;
+    n = mock_initrd_listdir(path, out, max_n);
+    if (n < 0) n = 0;
+    return overlay_listdir(path, out, n, max_n);
+}
+
+int sys_readfile(const char* path, char* buf, uint32_t max) {
+    int n;
+    char want[64];
+    unsigned i;
+    if (!path || !buf || max == 0) return -1;
+    n = overlay_read(path, buf, max);
+    if (n >= 0) return n;
+    if (n == OV_ERR_ISDIR) return n;
+    mock_ird_norm(path, want, 64);
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        if (strcmp(want, mock_initrd[i].name) == 0) {
+            uint32_t copy = mock_initrd[i].size;
+            if (copy > max) copy = max;
+            memcpy(buf, mock_initrd[i].data, copy);
+            return (int)copy;
+        }
+    }
+    return -1;
+}
+
+int sys_mkdir(const char* path) {
+    if (!path) return -1;
+    return overlay_mkdir(path);
+}
+
+int sys_unlink(const char* path) {
+    if (!path) return -1;
+    return overlay_unlink(path);
+}
+
+int sys_writefile(const char* path, const char* buf, uint32_t n) {
+    if (!path || !buf) return -1;
+    return overlay_write(path, buf, n);
+}
+
+int sys_stat(const char* path, os_dirent_t* out) {
+    if (!path || !out) return -1;
+    if (overlay_stat(path, out) == OV_OK) return 0;
+    return initrd_stat(path, out);
 }
 
 int sys_getpid(void) {
@@ -379,6 +530,18 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_MEMINFO:
             state->eax = (uint32_t)sys_meminfo((os_meminfo_t*)state->ebx);
+            break;
+        case SYS_MKDIR:
+            state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
+            break;
+        case SYS_UNLINK:
+            state->eax = (uint32_t)sys_unlink((const char*)state->ebx);
+            break;
+        case SYS_WRITEFILE:
+            state->eax = (uint32_t)sys_writefile((const char*)state->ebx, (const char*)state->ecx, state->edx);
+            break;
+        case SYS_STAT:
+            state->eax = (uint32_t)sys_stat((const char*)state->ebx, (os_dirent_t*)state->ecx);
             break;
         default:
             break;

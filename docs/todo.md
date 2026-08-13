@@ -51,9 +51,10 @@
 ### Reste ouvert (hors périmètre « shell qui démarre »)
 - [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (VFS RAM + table processus simulée)
 - [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + `task.c` + PIT + PMM)
-- [ ] API FS userspace en écriture vers l’initrd / un disque (le VFS RAM n’est pas persistant)
+- [x] Overlay noyau RAM : `mkdir` / `rm` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
+- [ ] FS persistant sur disque (l’overlay RAM n’est pas persisté)
 - [ ] Préemption round-robin continue (aujourd’hui limitée pour la stabilité)
-- [ ] FS persistant, réseau, vrai moteur IA — voir roadmap README / dossier `US/`
+- [ ] Réseau, vrai moteur IA — voir roadmap README / dossier `US/`
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
 - [x] Tests complets du système corrigé (`make test-all` : tests unitaires kernel + shell + ramfs)

@@ -36,11 +36,11 @@ make run-gui
 
 ## ⭐ Fonctionnalités Principales
 
-- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd ; `ps`/`kill`/`mem`/`uptime` interrogent le noyau. `mkdir`/`rm` restent un VFS RAM (pas de disque persistant).
+- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd + overlay noyau ; `mkdir`/`rm` mutent l’overlay (pas de disque persistant). `ps`/`kill`/`mem`/`uptime` interrogent le noyau.
 - **🤖 Simulateur d'IA Intégré** - Réponses préprogrammées par mots-clés (`fake_ai.c`), pas un modèle ML
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
-- **💾 Système de Fichiers** - Initrd TAR en RAM uniquement (pas de disque persistant). `ls` liste l’initrd via `SYS_LISTDIR`.
+- **💾 Système de Fichiers** - Initrd TAR en lecture seule + overlay RAM (`mkdir`/`rm`). Pas de disque persistant. `ls` fusionne les deux via `SYS_LISTDIR`.
 - **🧠 Gestion Mémoire** - VMM/PMM avec paging (cible ~128 MB RAM sous QEMU)
 - **🔌 Gestion Interruptions** - PIC, clavier PS/2, timer PIT
 
@@ -80,7 +80,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **93 tests** répartis dans `test_pmm` (17), `test_syscall` (30), `test_task` (21), `test_shell` (25). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **103 tests** répartis dans `test_pmm` (17), `test_syscall` (40), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
 
 ### Configuration Initiale
 ```bash
@@ -177,7 +177,7 @@ ai-os/
 - ✅ **Interruptions clavier (IRQ1) générées par QEMU**
 - ✅ **Fin des boucles infinies** sur appels système
 - ✅ **IA accessible** via interface clavier
-- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `grep`, `kill`, `top`, `ai`, etc. — `ls`/`ps`/`kill`/`mem` via syscalls noyau, `mkdir`/`rm` sur VFS RAM, voir `docs/ETAT_REEL.md`)
+- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `grep`, `kill`, `top`, `ai`, etc. — `ls`/`mkdir`/`rm`/`ps`/`kill`/`mem` via syscalls noyau, `cp`/`mv` sur VFS RAM, voir `docs/ETAT_REEL.md`)
 
 ### ✅ Corrections Antérieures
 

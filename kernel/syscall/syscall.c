@@ -5,6 +5,7 @@
 #include "../keyboard.h"
 #include "../elf.h"
 #include "../../fs/initrd.h"
+#include "../../fs/overlay.h"
 #include "../mem/string.h"
 #include "../mem/vmm.h"
 #include "../mem/pmm.h"
@@ -120,6 +121,18 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_MEMINFO:
             cpu->eax = (uint32_t)sys_meminfo((os_meminfo_t*)cpu->ebx);
+            break;
+        case SYS_MKDIR:
+            cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
+            break;
+        case SYS_UNLINK:
+            cpu->eax = (uint32_t)sys_unlink((const char*)cpu->ebx);
+            break;
+        case SYS_WRITEFILE:
+            cpu->eax = (uint32_t)sys_writefile((const char*)cpu->ebx, (const char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_STAT:
+            cpu->eax = (uint32_t)sys_stat((const char*)cpu->ebx, (os_dirent_t*)cpu->ecx);
             break;
             
         default:
@@ -263,13 +276,42 @@ void sys_gets(char* buffer, uint32_t size) {
 }
 
 int sys_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int n;
     if (!path || !out || max_n <= 0) return -1;
-    return initrd_listdir(path, out, max_n);
+    if (!overlay_is_dir(path) && !initrd_is_dir(path)) return -1;
+    n = initrd_listdir(path, out, max_n);
+    if (n < 0) n = 0;
+    return overlay_listdir(path, out, n, max_n);
 }
 
 int sys_readfile(const char* path, char* buf, uint32_t max) {
+    int n;
     if (!path || !buf || max == 0) return -1;
+    n = overlay_read(path, buf, max);
+    if (n >= 0) return n;
+    if (n == OV_ERR_ISDIR) return n;
     return initrd_read_into(path, buf, max);
+}
+
+int sys_mkdir(const char* path) {
+    if (!path) return -1;
+    return overlay_mkdir(path);
+}
+
+int sys_unlink(const char* path) {
+    if (!path) return -1;
+    return overlay_unlink(path);
+}
+
+int sys_writefile(const char* path, const char* buf, uint32_t n) {
+    if (!path || !buf) return -1;
+    return overlay_write(path, buf, n);
+}
+
+int sys_stat(const char* path, os_dirent_t* out) {
+    if (!path || !out) return -1;
+    if (overlay_stat(path, out) == OV_OK) return 0;
+    return initrd_stat(path, out);
 }
 
 int sys_getpid(void) {
