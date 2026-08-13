@@ -23,6 +23,17 @@ static void test_unsafe_or_unterminated_path_is_rejected(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_make_read_request(&payload, unterminated, 1U));
 }
 
+static void test_mount_match_requires_a_declared_directory_prefix(void) {
+    const char* relative = 0;
+    TEST_ASSERT_TRUE(os_vfs_match_mount("initrd/hello.txt", "initrd/", &relative));
+    TEST_ASSERT_EQUAL_STRING("hello.txt", relative);
+    TEST_ASSERT_FALSE(os_vfs_match_mount("initrd", "initrd/", &relative));
+    TEST_ASSERT_FALSE(os_vfs_match_mount("initrdx/hello.txt", "initrd/", &relative));
+    TEST_ASSERT_FALSE(os_vfs_match_mount("initrd/../secret", "initrd/", &relative));
+    TEST_ASSERT_FALSE(os_vfs_match_mount("hello.txt", "initrd/", &relative));
+    TEST_ASSERT_FALSE(os_vfs_match_mount("initrd/hello.txt", "initrd", &relative));
+}
+
 static void test_server_can_parse_valid_request(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -111,6 +122,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
     RUN_TEST(test_unsafe_or_unterminated_path_is_rejected);
+    RUN_TEST(test_mount_match_requires_a_declared_directory_prefix);
     RUN_TEST(test_server_can_parse_valid_request);
     RUN_TEST(test_read_reply_preserves_status_and_data);
     RUN_TEST(test_malformed_reply_is_rejected);

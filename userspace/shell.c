@@ -1653,7 +1653,11 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     ctx->last_rc = reply.status;
     if (reply.status != OS_VFS_STATUS_OK) {
-        print_error("vfs-read: lecture refusee ou fichier absent");
+        if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) {
+            print_error("vfs-read: chemin hors montage");
+        } else {
+            print_error("vfs-read: lecture refusee ou fichier absent");
+        }
         return;
     }
     print_string("vfs-read ok ");

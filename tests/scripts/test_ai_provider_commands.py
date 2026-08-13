@@ -56,7 +56,7 @@ def connect_monitor():
 def send_keys(client, keys):
     for key in keys:
         client.sendall(("sendkey %s\n" % key).encode("ascii"))
-        time.sleep(0.12)
+        time.sleep(0.20)
 
 
 def key_sequence(command):
