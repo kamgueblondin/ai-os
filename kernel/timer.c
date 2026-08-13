@@ -56,18 +56,13 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // Vérifier que le système de tâches est initialisé avant de faire du scheduling
-    extern task_t* current_task;
-    extern task_t* task_queue;
-    
-    // CORRECTION: Activer le scheduler dès que possible pour lancer le shell utilisateur
-    if (g_reschedule_needed || (current_task && task_queue && timer_ticks > 2)) {
+    // Un seul changement de contexte quand il est demandé (lancement du shell,
+    // exec/spawn). Planifier à chaque tick après EOI provoque un page fault :
+    // jump_to_task() ne revient pas, et l'état IRQ du kernel devient invalide.
+    if (g_reschedule_needed) {
         g_reschedule_needed = 0;
         schedule(cpu);
     }
-
-    // Envoyer le signal End-of-Interrupt (EOI) au PIC
-    pic_send_eoi(0);
 }
 
 // Fonction unifiée pour obtenir les ticks (marche avec les deux modes)
