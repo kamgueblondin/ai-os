@@ -51,6 +51,12 @@ static int backend_read(const char* path, char* buffer, uint32_t max) {
     return result;
 }
 
+static int backend_write(const char* path, const uint8_t* data, uint32_t size) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_WRITE), "b"(path), "c"(data), "d"(size));
+    return result;
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -65,12 +71,14 @@ static int string_equal(const char* left, const char* right) {
 }
 
 /* Sources VFS isolées : métadonnées synthétiques fournies par le service. */
-static const char* const vfs_mounts[] = { "initrd/" };
-#define VFS_MOUNT_COUNT (sizeof(vfs_mounts) / sizeof(vfs_mounts[0]))
+static const char* const vfs_read_mounts[] = { "initrd/" };
+static const char* const vfs_write_mounts[] = { "overlay/" };
+#define VFS_READ_MOUNT_COUNT (sizeof(vfs_read_mounts) / sizeof(vfs_read_mounts[0]))
+#define VFS_WRITE_MOUNT_COUNT (sizeof(vfs_write_mounts) / sizeof(vfs_write_mounts[0]))
 
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     static const char info[] = "vfsserver ring3 policy\n";
-    static const char mounts[] = "initrd/\n";
+    static const char mounts[] = "initrd/ ro\noverlay/ rw\n";
     const char* source = 0;
     uint32_t i;
     if (string_equal(path, "vfs-info")) source = info;
@@ -85,13 +93,26 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
  * montage déclaré par ce médiateur. */
 static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size) {
     uint32_t i;
-    for (i = 0U; i < VFS_MOUNT_COUNT; i++) {
+    for (i = 0U; i < VFS_READ_MOUNT_COUNT; i++) {
         const char* relative = 0;
-        if (os_vfs_match_mount(path, vfs_mounts[i], &relative)) {
+        if (os_vfs_match_mount(path, vfs_read_mounts[i], &relative)) {
             int read = backend_read(relative, (char*)data, OS_VFS_READ_MAX);
             if (read < 0) return read;
             *size = (uint32_t)read;
             return OS_VFS_STATUS_OK;
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+/* Une écriture ne peut atteindre que le montage explicite `overlay/`. */
+static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size) {
+    uint32_t i;
+    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+        const char* relative = 0;
+        if (os_vfs_match_mount(path, vfs_write_mounts[i], &relative)) {
+            int written = backend_write(relative, data, size);
+            return written < 0 ? written : OS_VFS_STATUS_OK;
         }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
@@ -102,12 +123,14 @@ void main(void) {
     os_ipc_payload_t reply_payload;
     char path[OS_VFS_PATH_MAX];
     uint8_t data[OS_VFS_READ_MAX];
+    uint8_t write_data[OS_VFS_WRITE_MAX];
     if (service_register("vfs") != 0) {
         puts("vfsserver register failed\n");
         for (;;) yield();
     }
     puts("vfsserver ready vfs\n");
-    puts("vfsserver mount initrd/\n");
+    puts("vfsserver mount initrd/ ro\n");
+    puts("vfsserver mount overlay/ rw\n");
     for (;;) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_READ) {
@@ -128,6 +151,20 @@ void main(void) {
             }
             if (os_vfs_make_read_reply(&reply_payload, status, data, size,
                                        message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WRITE) {
+            int status;
+            uint32_t size = 0U;
+            puts("vfsserver write request\n");
+            status = os_vfs_parse_write_request(&message, path, write_data, &size);
+            if (status == 0) {
+                status = write_mounted_backend(path, write_data, size);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) {
+                    puts("vfsserver write outside mounts\n");
+                }
+            }
+            if (os_vfs_make_write_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

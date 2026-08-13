@@ -7,10 +7,15 @@
 #define OS_IPC_VFS_READ       0x56465301U
 #define OS_IPC_VFS_READ_REPLY 0x56465302U
 #define OS_IPC_VFS_GRANT      0x56465303U
+#define OS_IPC_VFS_WRITE      0x56465304U
+#define OS_IPC_VFS_WRITE_REPLY 0x56465305U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
 #define OS_VFS_READ_MAX 80U
+#define OS_VFS_WRITE_MAX 44U
+#define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
+#define OS_VFS_WRITE_REPLY_SIZE 4U
 
 #define OS_VFS_STATUS_OK          0
 #define OS_VFS_STATUS_INVALID    (-60)
@@ -26,6 +31,10 @@ typedef struct {
     uint32_t size;
     uint8_t data[OS_VFS_READ_MAX];
 } os_vfs_read_reply_t;
+
+typedef struct {
+    int32_t status;
+} os_vfs_write_reply_t;
 
 static inline int os_vfs_path_is_safe(const char* path) {
     uint32_t i;
@@ -101,6 +110,67 @@ static inline void os_vfs_encode_u32(uint8_t* out, uint32_t value) {
 static inline uint32_t os_vfs_decode_u32(const uint8_t* in) {
     return (uint32_t)in[0] | ((uint32_t)in[1] << 8) |
            ((uint32_t)in[2] << 16) | ((uint32_t)in[3] << 24);
+}
+
+static inline int os_vfs_make_write_request(os_ipc_payload_t* payload, const char* path,
+                                            const uint8_t* data, uint32_t size,
+                                            uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(path) || size > OS_VFS_WRITE_MAX ||
+        (size > 0U && !data)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WRITE;
+    payload->size = OS_VFS_WRITE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        payload->data[i] = (uint8_t)path[i];
+        if (path[i] == '\0') {
+            for (i++; i < OS_VFS_PATH_MAX; i++) payload->data[i] = 0U;
+            break;
+        }
+    }
+    os_vfs_encode_u32(&payload->data[OS_VFS_PATH_MAX], size);
+    for (i = 0U; i < size; i++) payload->data[OS_VFS_PATH_MAX + 4U + i] = data[i];
+    for (; i < OS_VFS_WRITE_MAX; i++) payload->data[OS_VFS_PATH_MAX + 4U + i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_write_request(const os_ipc_message_t* message,
+                                             char* path_out, uint8_t* data_out,
+                                             uint32_t* size_out) {
+    uint32_t i;
+    uint32_t size;
+    if (!message || !path_out || !data_out || !size_out || message->type != OS_IPC_VFS_WRITE ||
+        message->size != OS_VFS_WRITE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    if (!os_vfs_path_is_safe(path_out)) return OS_VFS_STATUS_INVALID;
+    size = os_vfs_decode_u32(&message->data[OS_VFS_PATH_MAX]);
+    if (size > OS_VFS_WRITE_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < size; i++) data_out[i] = message->data[OS_VFS_PATH_MAX + 4U + i];
+    *size_out = size;
+    return 0;
+}
+
+static inline int os_vfs_make_write_reply(os_ipc_payload_t* payload, int32_t status,
+                                          uint32_t request_id) {
+    uint32_t i;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WRITE_REPLY;
+    payload->size = OS_VFS_WRITE_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    for (i = OS_VFS_WRITE_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_write_reply(const os_ipc_message_t* message,
+                                           os_vfs_write_reply_t* reply_out,
+                                           uint32_t expected_request_id) {
+    if (!message || !reply_out || message->type != OS_IPC_VFS_WRITE_REPLY ||
+        message->size != OS_VFS_WRITE_REPLY_SIZE || message->request_id != expected_request_id) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    return 0;
 }
 
 static inline int os_vfs_make_grant_request(os_ipc_payload_t* payload, int32_t target_pid) {

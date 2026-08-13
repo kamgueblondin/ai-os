@@ -103,6 +103,59 @@ static void test_grant_request_is_bounded_and_validated(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_grant_request(&message, &target_pid));
 }
 
+static void test_write_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_write_reply_t reply;
+    char path[OS_VFS_PATH_MAX];
+    uint8_t data_out[OS_VFS_WRITE_MAX];
+    uint8_t data[3] = {'o', 'k', '!'};
+    uint32_t size;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_write_request(&payload, "overlay/note.txt", data, 3U, 37U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WRITE, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WRITE_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(37, payload.request_id);
+    message.sender_pid = 1;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_write_request(&message, path, data_out, &size));
+    TEST_ASSERT_EQUAL_STRING("overlay/note.txt", path);
+    TEST_ASSERT_EQUAL(3, size);
+    TEST_ASSERT_EQUAL('o', data_out[0]);
+    TEST_ASSERT_EQUAL('!', data_out[2]);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_write_reply(&payload, OS_VFS_STATUS_OK, 37U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_write_reply(&message, &reply, 37U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, reply.status);
+}
+
+static void test_write_rejects_oversize_and_unexpected_reply(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_write_reply_t reply;
+    uint8_t data[OS_VFS_WRITE_MAX + 1U];
+    uint32_t i;
+    for (i = 0U; i < OS_VFS_WRITE_MAX + 1U; i++) data[i] = 'x';
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_write_request(&payload, "overlay/a", data,
+                                                OS_VFS_WRITE_MAX + 1U, 1U));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_write_reply(&payload, OS_VFS_STATUS_NOT_MOUNTED, 4U));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_write_reply(&message, &reply, 5U));
+    message.size = OS_VFS_WRITE_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_write_reply(&message, &reply, 4U));
+}
+
 static void test_reply_with_unexpected_request_id_is_rejected(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -127,6 +180,8 @@ int main(void) {
     RUN_TEST(test_read_reply_preserves_status_and_data);
     RUN_TEST(test_malformed_reply_is_rejected);
     RUN_TEST(test_grant_request_is_bounded_and_validated);
+    RUN_TEST(test_write_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_write_rejects_oversize_and_unexpected_reply);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     unity_print_results();
     unity_cleanup();

@@ -45,8 +45,10 @@
 #define SYS_VFS_BACKEND_READ 29
 /* EBX = nom ; abonne l’appelant Ring 3 aux changements de propriétaire. */
 #define SYS_SERVICE_NOTIFY 30
+/* EBX = chemin relatif, ECX = données, EDX = taille ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_BACKEND_WRITE 31
 
-#define MAX_SYSCALLS 31
+#define MAX_SYSCALLS 32
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

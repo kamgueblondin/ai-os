@@ -224,6 +224,10 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_backend_read((const char*)cpu->ebx,
                                                        (char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_VFS_BACKEND_WRITE:
+            cpu->eax = (uint32_t)sys_vfs_backend_write((const char*)cpu->ebx,
+                                                        (const char*)cpu->ecx, cpu->edx);
+            break;
         default:
 
             // Syscall inconnu
@@ -316,6 +320,14 @@ int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_readfile(path, buffer, max);
+}
+
+int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    return sys_writefile(path, data, size);
 }
 
 /*

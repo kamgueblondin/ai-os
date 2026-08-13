@@ -246,6 +246,12 @@ int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
     return result;
 }
 
+int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_WRITE), "b"(path), "c"(data), "d"(size));
+    return result;
+}
+
 static uint32_t vfs_request_counter = 0U;
 static os_ipc_deferred_t ipc_deferred;
 
@@ -571,8 +577,10 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  service-find <nom> - Resoudre un service nomme\n");
     print_string("  service-watch <nom> - S'abonner aux changements de proprietaire\n");
     print_string("  vfs-backend-probe <fichier> - Verifier le backend VFS reserve\n");
+    print_string("  vfs-backend-write-probe <fichier> <texte> - Verifier l'ecriture backend reservee\n");
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
+    print_string("  vfs-write <chemin> <texte> - Ecrire via le montage VFS overlay/\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1156,7 +1164,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-grant", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-grant", "vfs-read", "vfs-write", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1603,6 +1611,25 @@ static void cmd_vfs_backend_probe(shell_context_t* ctx, char args[][128], int ar
     }
 }
 
+static void cmd_vfs_backend_write_probe(shell_context_t* ctx, char args[][128], int arg_count) {
+    uint32_t size = 0U;
+    int rc;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-backend-write-probe <fichier> <texte>");
+        return;
+    }
+    while (args[1][size] != '\0') size++;
+    rc = sys_vfs_backend_write(args[0], args[1], size);
+    ctx->last_rc = rc;
+    if (rc == OS_VFS_BACKEND_DENIED) {
+        print_string("vfs-backend-write-probe denied\n");
+    } else if (rc == 0) {
+        print_string("vfs-backend-write-probe unexpectedly allowed\n");
+    } else {
+        print_error("vfs-backend-write-probe: erreur backend");
+    }
+}
+
 static void cmd_vfs_grant(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request;
     int pid;
@@ -1635,6 +1662,80 @@ static void cmd_vfs_grant(shell_context_t* ctx, char args[][128], int arg_count)
     } else {
         print_error("vfs-grant: demande refusee");
     }
+}
+
+static void cmd_vfs_write(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_ipc_message_t message;
+    os_vfs_write_reply_t reply;
+    int pid;
+    int rc;
+    int attempts;
+    uint32_t request_id;
+    uint32_t size = 0U;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-write <chemin> <texte>");
+        return;
+    }
+    while (args[1][size] != '\0') size++;
+    if (size > OS_VFS_WRITE_MAX) {
+        print_error("vfs-write: texte trop long");
+        ctx->last_rc = OS_VFS_STATUS_INVALID;
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-write: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_write_request(&request, args[0], (const uint8_t*)args[1],
+                                   size, request_id);
+    if (rc != 0) {
+        print_error("vfs-write: chemin invalide ou trop long");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-write: service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_WRITE_REPLY,
+                                       request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_write_reply(&message, &reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved;
+        yield();
+        rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_WRITE_REPLY && message.request_id == request_id) {
+                rc = os_vfs_parse_write_reply(&message, &reply, request_id);
+            } else {
+                saved = os_ipc_deferred_push(&ipc_deferred, &message);
+                rc = saved == 0 ? OS_IPC_EMPTY : saved;
+            }
+        }
+    }
+    if (rc != 0) {
+        print_error("vfs-write: reponse VFS absente ou invalide");
+        ctx->last_rc = rc;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK) {
+        if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) {
+            print_error("vfs-write: chemin hors montage ecriture");
+        } else {
+            print_error("vfs-write: ecriture refusee");
+        }
+        return;
+    }
+    print_string("vfs-write ok request ");
+    print_int((int)request_id);
+    print_string("\n");
 }
 
 static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2551,11 +2652,17 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "vfs-backend-probe") == 0) {
         cmd_vfs_backend_probe(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "vfs-backend-write-probe") == 0) {
+        cmd_vfs_backend_write_probe(ctx, args, arg_count);
+        return 1;
     } else if (strcmp(command, "vfs-grant") == 0) {
         cmd_vfs_grant(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-write") == 0) {
+        cmd_vfs_write(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "yield") == 0) {
         cmd_yield(ctx, args, arg_count);
