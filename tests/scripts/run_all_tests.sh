@@ -66,16 +66,22 @@ run_test() {
     
     # Flags de compilation spécialisés selon le type de test
     local cflags="-I$TEST_DIR -I$BASE_DIR -I$BASE_DIR/kernel -I$BASE_DIR/include -Wall -Wextra -std=c99 -DKERNEL_TEST=1"
+    local extra_src=""
     
     if [ "$test_type" == "kernel" ]; then
         cflags="$cflags -m32 -ffreestanding -nostdlib -fno-pie"
     else
         cflags="$cflags -m32"
     fi
+
+    if [ "$(basename "$test_file")" = "test_ramfs.c" ]; then
+        extra_src="$BASE_DIR/userspace/ramfs.c $BASE_DIR/userspace/procsim.c"
+        cflags="$cflags -I$BASE_DIR/userspace"
+    fi
     
     # Compiler
-    echo "gcc $cflags -o \"$test_binary\" \"$test_file\" \"$TEST_DIR/framework/unity.c\" \"$TEST_DIR/framework/test_kernel.c\" \"$TEST_DIR/framework/kernel_mocks.c\"" >> "$RESULTS_FILE"
-    if gcc $cflags -o "$test_binary" "$test_file" "$TEST_DIR/framework/unity.c" "$TEST_DIR/framework/test_kernel.c" "$TEST_DIR/framework/kernel_mocks.c" 2>> "$RESULTS_FILE"; then
+    echo "gcc $cflags -o \"$test_binary\" \"$test_file\" $extra_src \"$TEST_DIR/framework/unity.c\" \"$TEST_DIR/framework/test_kernel.c\" \"$TEST_DIR/framework/kernel_mocks.c\"" >> "$RESULTS_FILE"
+    if gcc $cflags -o "$test_binary" "$test_file" $extra_src "$TEST_DIR/framework/unity.c" "$TEST_DIR/framework/test_kernel.c" "$TEST_DIR/framework/kernel_mocks.c" 2>> "$RESULTS_FILE"; then
         # Exécuter le test
         local test_output
         if test_output=$("$test_binary" 2>&1); then
