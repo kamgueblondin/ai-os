@@ -21,6 +21,7 @@ QEMU_ERR = os.environ.get("EXTRAS_ERR", os.path.join(LOG_DIR, "ci-qemu-extras-st
 MON_SOCK = os.environ.get("EXTRAS_MON_SOCK", os.path.join(LOG_DIR, "qemu-extras-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "18"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "8"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.40"))
 
 
 def say(msg):
@@ -101,7 +102,7 @@ def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
         drain_monitor(mon)
-        time.sleep(0.25)
+        time.sleep(KEY_DELAY)
 
 
 def dump_logs():
@@ -176,6 +177,7 @@ def main():
         wait_needle("SYS_GETS: Debut", BOOT_TIMEOUT, proc)
         time.sleep(0.4)
         mon = monitor_connect()
+        time.sleep(0.6)
 
         commands = [
             ("which idle",

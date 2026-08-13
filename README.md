@@ -43,7 +43,7 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 182 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 186 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
@@ -91,7 +91,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **182/182** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), protocole VFS (6), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé, découverte nommée, cycle de vie et transfert de propriété Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
+`make test-all` a validé **186/186** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (6), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé avec conservation locale, découverte nommée, cycle de vie et transfert de propriété Foundation, et réinitialise son disque de contrat sans toucher à `build/overlay.img`.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -111,7 +111,8 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Registre de services nommé et cycle de vie : retrait propriétaire, nettoyage sur `exit`/`kill`
 - [x] Corrélation requête-réponse locale : `request_id` IPC, réponse VFS filtrée et contrat QEMU
 - [x] Transfert limité de publication : propriétaire, bénéficiaire Ring 3 et nettoyage après `kill`
-- [ ] Capabilities, révocation, identité vérifiée, conservation des réponses discordantes et externalisation d’un backend VFS
+- [x] Conservation locale bornée des messages IPC non corrélés pendant `vfs-read`
+- [ ] Capabilities, révocation, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
 - [ ] Pilote NIC, DHCP, DNS, TCP, TLS et client OpenAI effectif

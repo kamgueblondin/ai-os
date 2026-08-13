@@ -42,6 +42,8 @@ Le cinquième incrément ajoute `request_id` à `os_ipc_payload_t` et `os_ipc_me
 
 Le sixième incrément introduit `SYS_SERVICE_GRANT` : le propriétaire courant d’un nom peut transférer ce nom à une tâche Ring 3 vivante. Le registre remplace son PID en place, et le nettoyage à `exit` ou `kill` s’applique ensuite au nouveau propriétaire. Un handoff coopératif laisse le bénéficiaire constater immédiatement le transfert avant que le shell ne retourne dans son attente Ring 0. Cela reste un transfert unique, volatile et sans secret : l’ancien propriétaire ne peut plus le révoquer, la découverte demeure publique et aucun token de capability, contrôle d’identité ou audit n’est fourni.
 
+Le septième incrément conserve les messages non corrélés retirés de l’endpoint du shell : `vfs-read` les place dans une file Ring 3 de quatre entrées, puis `ipc-recv` les restitue FIFO. Une réponse VFS dont le type et le `request_id` correspondent est extraite directement de cette file avant toute attente. La capacité est strictement bornée : une saturation renvoie une erreur au lieu d’écraser un message, et aucune file partagée, persistance ou attente bloquante n’est ajoutée.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
@@ -76,20 +78,20 @@ L’ABI contient les syscalls 0–28 (`MAX_SYSCALLS = 29`), dont `SYS_APPEND`, `
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 182/182 tests C Unity et robustesse
-make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS et transfert Foundation
+make test-all                # 186/186 tests C Unity et robustesse
+make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS différé et transfert Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 182 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), protocole VFS (6), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver` et vérifie son nettoyage, puis le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
+La suite C exécute 186 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (6), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, conserve un message concurrent `deferred`, exige `request 1 data`, lit `hello.txt` à travers `vfsserver`, restitue le message différé puis vérifie son nettoyage, puis le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de conservation des réponses discordantes, de capabilities, de révocation de transfert, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` et le registre nommé avec transfert sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, de révocation de transfert, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` et le registre nommé avec transfert sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 
