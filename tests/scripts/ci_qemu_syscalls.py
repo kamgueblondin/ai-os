@@ -142,7 +142,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/mkdir/uptime) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/mkdir/cd/cp/uptime) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -202,13 +202,60 @@ def main():
         sendkeys(mon, ["m", "k", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("mkdir ok mydir", CMD_TIMEOUT, proc, mark)
 
-        say("typing ls (after mkdir) ...")
+        say("typing cd mydir ...")
+        mark = len(log_text())
+        sendkeys(mon, ["c", "d", "spc", "m", "y", "d", "i", "r", "ret"])
+        wait_needle_from("cd ok mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing pwd ...")
+        mark = len(log_text())
+        sendkeys(mon, ["p", "w", "d", "ret"])
+        wait_needle_from("/mydir", CMD_TIMEOUT, proc, mark)
+
+        say("typing cd .. ...")
+        mark = len(log_text())
+        sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
+        wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
+
+        say("typing cp hello.txt copy.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "c", "p", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t",
+            "spc", "c", "o", "p", "y", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("cp ok copy.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing ls (after cp) ...")
         mark = len(log_text())
         sendkeys(mon, ["l", "s", "ret"])
-        wait_needle_from("mydir", CMD_TIMEOUT, proc, mark)
-        after_mkdir_ls = log_text()[mark:]
-        if "hello.txt" not in after_mkdir_ls:
-            raise RuntimeError("ls after mkdir missing hello.txt")
+        wait_needle_from("copy.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing cat copy.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "c", "a", "t", "spc", "c", "o", "p", "y", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("demonstration", CMD_TIMEOUT, proc, mark)
+
+        say("typing rm copy.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "r", "m", "spc", "c", "o", "p", "y", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("rm ok copy.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing ls (after rm copy) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "ret"])
+        wait_needle_from("Initrd / VFS", CMD_TIMEOUT, proc, mark)
+        wait_needle_from("Total:", CMD_TIMEOUT, proc, mark)
+        after_rm_copy = log_text()[mark:]
+        if "copy.txt" in after_rm_copy:
+            raise RuntimeError("copy.txt still listed in ls after rm")
+        if "mydir" not in after_rm_copy:
+            raise RuntimeError("ls after cd/cp missing mydir")
+        if "hello.txt" not in after_rm_copy:
+            raise RuntimeError("ls after cd/cp missing hello.txt")
 
         say("typing rmdir mydir ...")
         mark = len(log_text())
@@ -239,6 +286,11 @@ def main():
             ("kill 2", "Processus 2 termine"),
             ("uptime", "PIT ticks"),
             ("mkdir overlay", "mkdir ok mydir"),
+            ("cd overlay", "cd ok mydir"),
+            ("pwd overlay", "/mydir"),
+            ("cd parent", "cd ok .."),
+            ("cp overlay", "cp ok copy.txt"),
+            ("rm overlay", "rm ok copy.txt"),
             ("rmdir overlay", "rmdir ok mydir"),
         ]
         fail = 0

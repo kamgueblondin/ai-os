@@ -10,7 +10,7 @@ cd "$ROOT"
 
 KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
-SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-75}"
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
     echo "ERROR: missing $KERNEL or $INITRD — run 'make all' first"
