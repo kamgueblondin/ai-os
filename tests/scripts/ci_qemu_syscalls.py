@@ -89,6 +89,10 @@ def monitor_connect(retries=50):
 def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
+        try:
+            mon.recv(8192)
+        except socket.timeout:
+            pass
         time.sleep(0.12)
 
 
@@ -187,6 +191,7 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["k", "i", "l", "l", "spc", "2", "ret"])
         wait_needle_from("Processus 2 termine", CMD_TIMEOUT, proc, mark)
+        time.sleep(0.3)
 
         say("typing ps (after kill) ...")
         mark = len(log_text())
