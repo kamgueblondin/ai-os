@@ -192,6 +192,7 @@ def main():
             say("typing %s ..." % name)
             sendkeys(mon, keys)
             wait_needle(needle, CMD_TIMEOUT, proc)
+            time.sleep(0.2)
 
         text = log_text()
         checks = [

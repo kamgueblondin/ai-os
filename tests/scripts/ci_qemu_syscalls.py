@@ -214,6 +214,8 @@ def main():
             say("typing %s ..." % name)
             sendkeys(mon, keys)
             wait_needle(needle, CMD_TIMEOUT, proc)
+            if name == "ai hello":
+                time.sleep(0.5)
 
         say("typing spawn idle ...")
         mark = len(log_text())
