@@ -33,6 +33,7 @@ void tasking_init() {
     current_task->type = TASK_TYPE_KERNEL;
     current_task->vmm_dir = kernel_directory;
     current_task->kernel_stack_p = 0;
+    current_task->waiter_pid = 0;
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
     current_task->name[2] = 'r';
@@ -240,6 +241,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
     new_task->vmm_dir = vmm_dir;
+    new_task->waiter_pid = 0;
     {
         int i = 0;
         const char* n = name_src ? name_src : "user";
@@ -406,9 +408,19 @@ int task_kill(int pid) {
     t = get_task_by_id(pid);
     if (!t) return -1;
     if (current_task && t->id == current_task->id) return -3;
+    task_wake_waiter(t);
     t->state = TASK_TERMINATED;
     unlink_task(t);
     return 0;
+}
+
+void task_wake_waiter(task_t* child) {
+    task_t* parent;
+    if (!child || child->waiter_pid <= 0) return;
+    parent = get_task_by_id(child->waiter_pid);
+    if (parent && parent->state == TASK_WAITING) {
+        parent->state = TASK_READY;
+    }
 }
 
 static int32_t map_task_state(task_state_t s) {

@@ -53,7 +53,7 @@ jobs:
       - name: Run unit tests (make test-all)
         run: make test-all
 
-      - name: QEMU smoke (overlay + extras + persist + spawn)
+      - name: QEMU smoke (overlay + extras + persist + spawn + exec)
         run: make qemu-smoke
 
       - name: Upload logs

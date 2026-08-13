@@ -54,6 +54,7 @@
 - [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` (fichier et dossier via `SYS_COPY`) / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`) / `touch` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
 - [x] Overlay persisté : snapshot ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; pas un FS général
 - [x] `spawn` / `yield` coopératifs (cadre syscall user ; pas de round-robin IRQ0)
+- [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [ ] Préemption round-robin continue (aujourd'hui limitée pour la stabilité)
 - [ ] Réseau, vrai moteur IA - voir roadmap README / dossier `US/`
 

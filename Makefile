@@ -232,6 +232,7 @@ pack-initrd: userspace-all
 	@cp -f userspace/ai_assistant $(BIN_DEST_DIR)/ai_assistant
 	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
 	@cp -f userspace/idle $(BIN_DEST_DIR)/idle
+	@cp -f userspace/ok $(BIN_DEST_DIR)/ok
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
 
@@ -275,7 +276,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle: userspace-all
+user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/ok: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd disk
@@ -468,7 +469,7 @@ help:
 	@echo "  test-kernel     - Tests des modules kernel uniquement"
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
-	@echo "  qemu-smoke      - Boots QEMU : overlay, extras, persist, spawn/yield"
+	@echo "  qemu-smoke      - Boots QEMU : overlay, extras, persist, spawn, exec"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"

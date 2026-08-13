@@ -56,8 +56,8 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // Un seul changement de contexte quand il est demandé (lancement du shell,
-    // exec bloquant). spawn/yield basculent depuis int 0x80, pas depuis IRQ0 :
+    // Un seul changement de contexte quand il est demandé (lancement du shell).
+    // exec/spawn/yield basculent depuis int 0x80, pas depuis IRQ0 :
     // un schedule() pendant un syscall (cadre noyau sans SS/ESP user) page-fault.
     if (g_reschedule_needed) {
         g_reschedule_needed = 0;

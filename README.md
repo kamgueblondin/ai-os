@@ -18,7 +18,7 @@ La branche par défaut est **`master`**.
 - **Shell Ring 3** - prompt `/ (-.-) :`. `ls`/`cat` lisent initrd + overlay ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write`/`append` mutent l'overlay (snapshot ATA PIO si un disque IDE est présent). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
 - **GPT-2 local optionnel** - `ai <texte>` -> `[GPT-2 local]` si le checkpoint est dans l'initrd ; sinon message d'indisponibilité. Le binaire historique `bin/ai_assistant` reste empaqueté.
 - **Isolation** - GDT/IDT, Ring 0/3, chargeur ELF, syscalls (0-22, `MAX_SYSCALLS` = 23).
-- **Tâches** - passage kernel -> shell via `jump_to_task()` ; `spawn`/`yield` basculent de façon coopérative (int 0x80). Le round-robin à chaque tick PIT n'est pas le mode actuel.
+- **Tâches** - passage kernel -> shell via `jump_to_task()` ; `spawn`/`yield`/`exec` basculent de façon coopérative (int 0x80). Le round-robin à chaque tick PIT n'est pas le mode actuel.
 - **Fichiers** - initrd TAR en lecture seule + overlay RAM 32 nœuds (fichiers <= 256 octets). Snapshot persisté sur le disque IDE QEMU (`build/overlay.img`) en ATA PIO LBA28, sans IRQ14.
 - **Matériel QEMU** - PIC, clavier PS/2, PIT 100 Hz, IDE primaire (maître). Historique clavier (EOI IRQ0) : [docs/ETAT_REEL.md](docs/ETAT_REEL.md).
 
@@ -43,7 +43,7 @@ make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port sé
 |---|---|
 | `make all` | Noyau + initrd + `build/overlay.img` (disque IDE 32 Kio) |
 | `make test-all` | Unity 32-bit (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10) |
-| `make qemu-smoke` | Quatre boots QEMU (overlay + extras shell + persist disque + spawn/yield), sans modèle |
+| `make qemu-smoke` | Cinq boots QEMU (overlay + extras + persist + spawn/yield + exec), sans modèle |
 | `make ci` | `all` + `test-all` + `qemu-smoke` (gate PR) |
 | `make run` / `make run-gui` | Session interactive (voir [docs/GUIDE_EXECUTION.md](docs/GUIDE_EXECUTION.md)) |
 
@@ -112,7 +112,7 @@ ai-os/
 │   ├── input/            # buffer clavier
 │   └── llm/              # GPT-2 freestanding
 ├── fs/                   # initrd TAR + overlay RAM (snapshot IDE)
-├── userspace/            # shell, idle, fake_ai, ai_assistant
+├── userspace/            # shell, idle, ok, fake_ai, ai_assistant
 ├── include/              # ABI syscalls
 ├── initrd_content/       # contenu empaqueté dans my_initrd.tar
 ├── models/               # local, gitignoré - poids GPT-2 optionnels
@@ -131,6 +131,7 @@ Le dossier [`US/`](US/README.md) décrit la vision MOHHOS (spécifications, pas 
 - [x] Tokenizer BPE GPT-2 (entree et sortie)
 - [x] Overlay persisté (snapshot ATA PIO sur disque IDE QEMU)
 - [x] `spawn` / `yield` coopératifs (l'enfant tourne vraiment)
+- [x] `exec` bloquant coopératif (parent TASK_WAITING, enfant SYS_EXIT)
 - [ ] Quantification, chargeur GGUF, latence &lt; 1 s
 - [ ] Réseau, DNS, TLS, fournisseur OpenAI effectif
 - [ ] Système de fichiers disque général (ext2/FAT)

@@ -16,6 +16,7 @@ CORE_TIMEOUT="${CORE_TIMEOUT:-120}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 PERSIST_TIMEOUT="${PERSIST_TIMEOUT:-180}"
 SPAWN_TIMEOUT="${SPAWN_TIMEOUT:-90}"
+EXEC_TIMEOUT="${EXEC_TIMEOUT:-90}"
 OVERLAY_DISK="${OVERLAY_DISK:-$ROOT/build/overlay.img}"
 PERSIST_DISK="${PERSIST_DISK:-$ROOT/build/overlay-persist.img}"
 export OVERLAY_DISK PERSIST_DISK
@@ -44,6 +45,10 @@ if ! grep -a -qF "yield ok" userspace/shell; then
     echo "ERROR: userspace/shell is stale (no yield ok needle)."
     exit 1
 fi
+if ! grep -a -qF "exec ok" userspace/ok; then
+    echo "ERROR: userspace/ok is stale (no exec ok needle). Expected 'make -C userspace all'."
+    exit 1
+fi
 
 run_python() {
     local name="$1"
@@ -68,3 +73,5 @@ run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py
 run_python persist "$PERSIST_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_persist.py"
 reset_overlay_disk "$OVERLAY_DISK"
 run_python spawn "$SPAWN_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_spawn.py"
+reset_overlay_disk "$OVERLAY_DISK"
+run_python exec "$EXEC_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_exec.py"

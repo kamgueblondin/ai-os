@@ -42,6 +42,7 @@ typedef struct task {
     vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
     char name[32];
+    int waiter_pid;            // Parent TASK_WAITING (SYS_EXEC), 0 sinon
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
 } task_t;
@@ -70,6 +71,7 @@ int get_task_count();
 task_t* find_task_waiting_for_input();
 int task_kill(int pid);
 int task_fill_ps(os_proc_t* out, int max_n);
+void task_wake_waiter(task_t* child);
 
 #endif
 
