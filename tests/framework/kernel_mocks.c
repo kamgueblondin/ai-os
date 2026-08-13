@@ -278,6 +278,22 @@ int initrd_is_file(const char* path) {
     return 0;
 }
 
+int initrd_read_into(const char* path, char* buf, uint32_t max) {
+    char want[64];
+    unsigned i;
+    mock_ird_norm(path, want, 64);
+    if (!want[0] || !buf || max == 0) return -1;
+    for (i = 0; i < sizeof(mock_initrd) / sizeof(mock_initrd[0]); i++) {
+        if (strcmp(want, mock_initrd[i].name) == 0) {
+            uint32_t copy = mock_initrd[i].size;
+            if (copy > max) copy = max;
+            memcpy(buf, mock_initrd[i].data, copy);
+            return (int)copy;
+        }
+    }
+    return -1;
+}
+
 int initrd_is_dir(const char* path) {
     char want[64];
     unsigned i;
