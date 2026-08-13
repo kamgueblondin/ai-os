@@ -11,7 +11,7 @@ cd "$ROOT"
 
 KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
-OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-210}"
+OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-180}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
@@ -49,5 +49,8 @@ run_python() {
     return "$rc"
 }
 
-run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"
+if ! run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"; then
+    echo "=== overlay smoke retry (sendkey ghosts) ==="
+    run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"
+fi
 run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py"

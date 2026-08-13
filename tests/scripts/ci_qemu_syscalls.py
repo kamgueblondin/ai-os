@@ -118,7 +118,7 @@ def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
         drain_monitor(mon)
-        time.sleep(0.20)
+        time.sleep(0.16)
 
 
 def dump_logs():
@@ -214,8 +214,6 @@ def main():
             say("typing %s ..." % name)
             sendkeys(mon, keys)
             wait_needle(needle, CMD_TIMEOUT, proc)
-            if name == "ai hello":
-                time.sleep(0.5)
 
         say("typing spawn idle ...")
         mark = len(log_text())
