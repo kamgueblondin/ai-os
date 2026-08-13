@@ -1,5 +1,7 @@
 # 🎯 DIAGNOSTIC FINAL - PROBLÈME CLAVIER AI-OS RÉSOLU
 
+> **Complément août 2026.** Les correctifs PS/2 de ce diagnostic restent dans le code. Un blocage PIC (EOI IRQ0 après `schedule()`) a encore dû être traité ensuite. Voir [ETAT_REEL.md](ETAT_REEL.md) et [CHANGELOG_v6.1.md](CHANGELOG_v6.1.md).
+
 **Date:** 27 août 2025  
 **Status:** ✅ **PROBLÈME IDENTIFIÉ ET RÉSOLU**  
 **Auteur:** MiniMax Agent

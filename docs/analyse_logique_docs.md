@@ -1,5 +1,7 @@
 # Analyse de la Logique du Projet AI-OS
 
+> **État réel (août 2026).** Les étapes 1 à 7 existent dans le code (noyau + shell + simulateur IA). Les syscalls sont au nombre de **8** (dont exec/spawn). Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Vue d'Ensemble du Projet
 
 AI-OS est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle de manière sécurisée et efficace. Le projet suit une approche progressive par étapes, chaque version ajoutant des fonctionnalités essentielles.
@@ -24,7 +26,7 @@ AI-OS est un système d'exploitation spécialement conçu pour héberger et exé
 - **Système de tâches** : Multitâche préemptif avec ordonnanceur Round-Robin
 - **Changement de contexte** : Optimisé en assembleur
 - **Séparation Ring 0/3** : Isolation kernel/utilisateur
-- **Appels système** : Interface sécurisée (5 syscalls)
+- **Appels système** : Interface sécurisée (**8** syscalls : exit, putc, getc, puts, yield, gets, exec, spawn ; le chiffre 5 ci-dessous est l’état à l’étape 5–6 d’origine)
 - **Chargeur ELF** : Exécution de programmes externes
 
 ## Logique Technique Détaillée

@@ -1,5 +1,7 @@
 # Rapport d'Implémentation - Gestion des Interruptions et Clavier
 
+> **Complément août 2026.** L’IRQ clavier n’était pleinement livrée au shell qu’après l’EOI timer avant `schedule()`. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Résumé
 
 L'implémentation de la gestion des interruptions et de l'interaction avec le clavier a été réalisée avec succès selon les spécifications fournies. Le système AI-OS peut maintenant détecter et réagir aux entrées clavier de l'utilisateur.

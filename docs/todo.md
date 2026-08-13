@@ -1,5 +1,7 @@
 # TODO - Correction AI-OS Shell Utilisateur
 
+> **État réel (août 2026).** Le shell utilisateur Ring 3 **se lance** et le clavier **répond** (correctif EOI IRQ0). Les cases des phases 5–6 ci-dessous sont mises à jour. Le diagnostic d’origine (phases 1–4) est **conservé** : il décrit correctement un état antérieur. Référence : [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Phase 1: Récupération et configuration du projet ✅
 - [x] Cloner le projet depuis GitHub
 - [x] Examiner la structure du projet
@@ -35,21 +37,32 @@
 - ✅ **Compilation réussie** après installation de nasm, gcc-multilib et qemu
 - ✅ **Système stable** - Plus de redémarrage en boucle
 - ✅ **Timer fonctionnel** - Ticks réguliers à 100Hz
-- ❌ **Mode simulation seulement** - Le système reste en mode kernel au lieu de passer au shell utilisateur
+- ❌ **Mode simulation seulement** - Le système reste en mode kernel au lieu de passer au shell utilisateur *(constat d’alors)*
 - 📝 **Point de blocage identifié**: Le code reste dans la boucle de simulation au lieu d'exécuter le shell utilisateur
 
-## Phase 5: Correction et refactorisation
-- [ ] Corriger les problèmes identifiés
-- [ ] Refactoriser le code si nécessaire
-- [ ] Améliorer la stabilité du système
-- [ ] Optimiser la communication kernel/userspace
+*Mise à jour août 2026 :* le shell ELF userspace est lancé ; le « mode simulation seulement » ne s’applique plus. Voir phase 5.
 
-## Phase 6: Tests finaux et soumission sur GitHub
-- [ ] Tests complets du système corrigé
-- [ ] Validation du fonctionnement en mode utilisateur
-- [ ] Commit et push des corrections sur GitHub
-- [ ] Documentation des corrections apportées
+## Phase 5: Correction et refactorisation ✅ (août 2026)
+- [x] Corriger les problèmes identifiés (transition userspace via `jump_to_task`, EOI PIC avant `schedule()`)
+- [x] Refactoriser le code si nécessaire (planification uniquement sur `g_reschedule_needed`)
+- [x] Améliorer la stabilité du système (plus de reboot systématique après le timer)
+- [x] Optimiser la communication kernel/userspace (syscalls GETS/EXEC fonctionnels)
 
-## Problème identifié
+### Reste ouvert (hors périmètre « shell qui démarre »)
+- [ ] `ls` / `ps` / `sysinfo` : remplacer les affichages simulés par de vrais syscalls
+- [ ] API FS userspace (`cat` est un stub)
+- [ ] Commandes listées dans `help` mais absentes du gestionnaire (`mkdir`, `kill`, `top`, …)
+- [ ] Préemption round-robin continue (aujourd’hui limitée pour la stabilité)
+- [ ] FS persistant, réseau, vrai moteur IA — voir roadmap README / dossier `US/`
+
+## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
+- [x] Tests complets du système corrigé (`make test-all` : 93 tests unitaires)
+- [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
+- [x] Commit et push des corrections sur GitHub
+- [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
+
+## Problème identifié (historique — phases 1 à 4)
 Le mode simulation fonctionnait parfaitement mais le passage au mode utilisateur échoue - l'interface reste figée. Besoin d'analyser les appels système et la gestion des processus.
+
+**Statut 2026 :** ce blocage est levé. Le kernel pose `g_reschedule_needed` puis le timer appelle `schedule()` une fois vers le shell ELF.
 

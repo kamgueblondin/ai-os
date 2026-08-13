@@ -1,5 +1,7 @@
 # Analyse des Problèmes - AI-OS Mode Utilisateur
 
+> **État réel (août 2026).** Le kernel n’est plus coincé dans une boucle shell simulée : le programme `userspace/shell.c` s’exécute en Ring 3. Ce fichier reste une analyse utile de l’ancien flux. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Problèmes Identifiés
 
 ### 1. Problème Principal: Pas de Vrai Passage au Mode Utilisateur

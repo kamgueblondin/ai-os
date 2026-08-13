@@ -1,5 +1,7 @@
 # Correction Définitive du Clavier AI-OS - Rapport Final
 
+> **Complément août 2026.** Un second blocage (EOI IRQ0 / PIC) subsistait après ce rapport. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## 🎯 Problème Résolu
 
 **Symptôme initial :** Une fois le shell utilisateur affiché, aucune touche du clavier ne fonctionnait, rendant le système inutilisable.

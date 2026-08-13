@@ -1,6 +1,8 @@
 # Rapport de Correction de Stabilité - AI-OS v5.0
 ## Résolution des Redémarrages en Boucle et Stabilisation du Système
 
+> **État réel (août 2026).** Les redémarrages en boucle décrits ici ne sont plus le comportement observé après le correctif de planification/EOI. Rapport conservé. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ### 📋 Résumé Exécutif
 
 **Projet :** AI-OS v5.0 - Correction de Stabilité  

@@ -1,5 +1,7 @@
 # Recherche Approfondie - Technologies pour MOHHOS
 
+> **État réel (août 2026).** Veille / spécification. Ces technologies (TFLite, P2P, navigateur-OS, …) **ne sont pas** dans le dépôt AI-OS actuel. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble du Projet MOHHOS
 
 D'après l'analyse de l'objectif fourni, MOHHOS est un projet révolutionnaire visant à créer un système d'exploitation basé sur l'IA avec les caractéristiques suivantes :

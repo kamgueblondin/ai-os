@@ -1,5 +1,7 @@
 # MOHHOS - Phases 4-8 - Synthèse des User Stories
 
+> **État réel (août 2026).** Phases 4 à 8 **non implémentées** (PromptMessage, P2P, multi-plateforme, économie, production). Synthèse de conception conservée. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble des Phases Avancées
 
 Les phases 4 à 8 de MOHHOS complètent la transformation révolutionnaire du système d'exploitation en implémentant les fonctionnalités les plus innovantes : le langage PromptMessage, le réseau P2P distribué, l'adaptation multi-plateforme, l'économie collaborative, et l'optimisation pour la production.
