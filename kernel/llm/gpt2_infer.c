@@ -268,7 +268,8 @@ static void gpt2_forward_cached_token(const gpt2_params_t* params, const gpt2_co
 }
 
 static int gpt2_generate_next_impl(const uint32_t* tokens, uint32_t token_count,
-                                   uint32_t* next_token, int sampled, uint32_t* rng_state) {
+                                   uint32_t* next_token, int sampled,
+                                   uint32_t generated_count, uint32_t* rng_state) {
     const gpt2_model_t* model = gpt2_model_current();
     const gpt2_config_t* cfg;
     gpt2_params_t params;
@@ -298,7 +299,12 @@ static int gpt2_generate_next_impl(const uint32_t* tokens, uint32_t token_count,
         if (workspace.logits[token] > best_logit) { best_logit = workspace.logits[token]; best_token = token; }
     }
     if (sampled) {
-        *next_token = gpt2_sample_top_k(workspace.logits, cfg->vocab_size, tokens, token_count, rng_state);
+        uint32_t gen_n = generated_count;
+        const uint32_t* generated = 0;
+        if (gen_n > token_count) gen_n = token_count;
+        if (gen_n > 0U) generated = tokens + (token_count - gen_n);
+        *next_token = gpt2_sample_top_k(workspace.logits, cfg->vocab_size,
+                                        generated, gen_n, rng_state);
         infer_status = "GPT-2: jeton echantillonne localement (cache KV actif)";
     } else {
         *next_token = best_token;
@@ -308,12 +314,13 @@ static int gpt2_generate_next_impl(const uint32_t* tokens, uint32_t token_count,
 }
 
 int gpt2_generate_next(const uint32_t* tokens, uint32_t token_count, uint32_t* next_token) {
-    return gpt2_generate_next_impl(tokens, token_count, next_token, 0, 0);
+    return gpt2_generate_next_impl(tokens, token_count, next_token, 0, 0, 0);
 }
 
 int gpt2_generate_next_sampled(const uint32_t* tokens, uint32_t token_count,
-                               uint32_t* next_token, uint32_t* rng_state) {
-    return gpt2_generate_next_impl(tokens, token_count, next_token, 1, rng_state);
+                               uint32_t generated_count, uint32_t* next_token,
+                               uint32_t* rng_state) {
+    return gpt2_generate_next_impl(tokens, token_count, next_token, 1, generated_count, rng_state);
 }
 
 const char* gpt2_infer_status(void) { return infer_status; }
