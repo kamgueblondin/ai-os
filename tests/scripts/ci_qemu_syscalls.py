@@ -86,14 +86,23 @@ def monitor_connect(retries=50):
     raise RuntimeError("cannot connect to QEMU monitor: %s" % last)
 
 
+def drain_monitor(mon):
+    """Read HMP replies until the socket is quiet so sendkey commands do not pile up."""
+    mon.settimeout(0.05)
+    while True:
+        try:
+            data = mon.recv(8192)
+            if not data:
+                break
+        except socket.timeout:
+            break
+
+
 def sendkeys(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
-        try:
-            mon.recv(8192)
-        except socket.timeout:
-            pass
-        time.sleep(0.12)
+        drain_monitor(mon)
+        time.sleep(0.16)
 
 
 def dump_logs():
@@ -469,6 +478,7 @@ def main():
             ("rm overlay", "rm ok notes.txt"),
             ("cp into dir", "cp ok hello.txt"),
             ("mv overlay dir", "mv ok newd"),
+            ("cd renamed dir", "cd ok newd"),
             ("rmdir overlay", "rmdir ok newd"),
             ("write overlay", "write ok hi.txt"),
             ("grep overlay", "grep hits 1"),
