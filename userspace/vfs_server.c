@@ -22,6 +22,12 @@ static int ipc_send(int target_pid, const os_ipc_payload_t* payload) {
     return result;
 }
 
+static int service_register(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_REGISTER), "b"(name));
+    return result;
+}
+
 static int read_file(const char* path, char* buffer, uint32_t max) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_READFILE), "b"(path), "c"(buffer), "d"(max));
@@ -37,7 +43,11 @@ void main(void) {
     os_ipc_payload_t reply_payload;
     char path[OS_VFS_PATH_MAX];
     uint8_t data[OS_VFS_READ_MAX];
-    puts("vfsserver ready\n");
+    if (service_register("vfs") != 0) {
+        puts("vfsserver register failed\n");
+        for (;;) yield();
+    }
+    puts("vfsserver ready vfs\n");
     for (;;) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_READ) {

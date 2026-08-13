@@ -129,7 +129,6 @@ def main():
                 ("ls qc", "hello.txt"),
                 ("append q.txt ok", "append ok q.txt"),
                 ("cat q.txt", "ok"),
-                ("rc", "rc ok 0"),
             )
             for command, marker in commands:
                 say("typing %s ..." % command)

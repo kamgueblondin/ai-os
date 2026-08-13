@@ -33,8 +33,12 @@
 #define SYS_IPC_SEND      23
 /* EBX = os_ipc_message_t* */
 #define SYS_IPC_RECV      24
+/* EBX = nom de service ; le PID est celui de l’appelant Ring 3. */
+#define SYS_SERVICE_REGISTER 25
+/* EBX = nom de service ; EAX reçoit le PID associé. */
+#define SYS_SERVICE_LOOKUP   26
 
-#define MAX_SYSCALLS 25
+#define MAX_SYSCALLS 27
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -42,6 +46,13 @@
 #define OS_IPC_FULL        (-41)
 #define OS_IPC_BAD_TARGET  (-42)
 #define OS_IPC_BAD_MESSAGE (-43)
+
+/* Registre Foundation : simple découverte de nom, pas une capability. */
+#define OS_SERVICE_NAME_MAX 16U
+#define OS_SERVICE_BAD_NAME  (-50)
+#define OS_SERVICE_FULL      (-51)
+#define OS_SERVICE_TAKEN     (-52)
+#define OS_SERVICE_NOT_FOUND (-53)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

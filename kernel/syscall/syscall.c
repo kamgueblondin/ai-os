@@ -13,6 +13,7 @@
 #include "../llm/gpt2_infer.h"
 #include "../llm/gpt2_model.h"
 #include "../llm/gpt2_tokenizer.h"
+#include "../service_registry.h"
 /* Completions locales : BPE, top-k basse temperature, arret newline/EOT/repetition. */
 #define GPT2_BAREMETAL_GENERATION_STEPS 12U
 
@@ -174,6 +175,12 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_IPC_RECV:
             cpu->eax = (uint32_t)sys_ipc_receive((os_ipc_message_t*)cpu->ebx);
             break;
+        case SYS_SERVICE_REGISTER:
+            cpu->eax = (uint32_t)sys_service_register((const char*)cpu->ebx);
+            break;
+        case SYS_SERVICE_LOOKUP:
+            cpu->eax = (uint32_t)sys_service_lookup((const char*)cpu->ebx);
+            break;
             
         default:
             // Syscall inconnu
@@ -198,6 +205,32 @@ int sys_ipc_receive(os_ipc_message_t* out) {
         return OS_IPC_BAD_MESSAGE;
     }
     return ipc_endpoint_receive(&current_task->ipc_endpoint, out);
+}
+
+int sys_service_register(const char* name) {
+    int owner_pid;
+    task_t* owner;
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    owner_pid = service_registry_lookup(name);
+    if (owner_pid > 0) {
+        owner = get_task_by_id(owner_pid);
+        if (!owner || owner->type != TASK_TYPE_USER || owner->state == TASK_TERMINATED) {
+            (void)service_registry_remove(name, owner_pid);
+        }
+    }
+    return service_registry_register(name, current_task->id);
+}
+
+int sys_service_lookup(const char* name) {
+    int owner_pid = service_registry_lookup(name);
+    task_t* owner;
+    if (owner_pid < 0) return owner_pid;
+    owner = get_task_by_id(owner_pid);
+    if (!owner || owner->type != TASK_TYPE_USER || owner->state == TASK_TERMINATED) {
+        (void)service_registry_remove(name, owner_pid);
+        return OS_SERVICE_NOT_FOUND;
+    }
+    return owner_pid;
 }
 
 /*

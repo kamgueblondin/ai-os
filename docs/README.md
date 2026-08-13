@@ -10,11 +10,12 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 2. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite)
 3. [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) - IPC Foundation MOHHOS, limites et contrat QEMU
 4. [mohhos_foundation_increment_02_vfs_service.md](mohhos_foundation_increment_02_vfs_service.md) - médiateur VFS Ring 3, protocole et contrat QEMU
-5. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
-6. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
-7. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-8. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
-9. [../README.md](../README.md) - compilation, tests, architecture des sources
+5. [mohhos_foundation_increment_03_service_registry.md](mohhos_foundation_increment_03_service_registry.md) - registre nommé, découverte VFS et limites de sécurité
+6. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
+7. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
+8. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
+9. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+10. [../README.md](../README.md) - compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -26,6 +27,7 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 | [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…025 et limites restantes |
 | [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) | IPC Foundation entre tâches Ring 3, limites de la tranche et contrat QEMU |
 | [mohhos_foundation_increment_02_vfs_service.md](mohhos_foundation_increment_02_vfs_service.md) | Médiateur VFS Ring 3, protocole de lecture et limites du backend noyau |
+| [mohhos_foundation_increment_03_service_registry.md](mohhos_foundation_increment_03_service_registry.md) | Registre nommé, découverte `vfs` et absence de capabilities |
 | [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0 et limites des kernels quantifiés |
 | [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI, diagnostic réseau et critères de sortie d’un transport réel |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
@@ -91,4 +93,4 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 - [../US/README.md](../US/README.md) — deux couches : AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les phases MOHHOS restent majoritairement des **spécifications**. Les exceptions actuelles sont les incréments Foundation IPC et médiateur VFS, réellement compilés et testés ; ils ne transforment pas encore le noyau monolithique en microkernel et n’implémentent pas les autres phases.
+Les phases MOHHOS restent majoritairement des **spécifications**. Les exceptions actuelles sont les incréments Foundation IPC, médiateur VFS et registre nommé, réellement compilés et testés ; ils ne transforment pas encore le noyau monolithique en microkernel, ne fournissent pas de capabilities et n’implémentent pas les autres phases.

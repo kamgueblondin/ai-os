@@ -14,14 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | **Livraison partielle :** endpoints FIFO IPC et médiateur VFS Ring 3 de lecture ; noyau monolithique, backend VFS non externalisé |
+| US-001 | Microkernel + IPC | **Livraison partielle :** endpoints FIFO IPC, médiateur VFS et découverte `vfs` nommée ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
 | US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 171 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS) + GitHub Actions ; pas de framework distribué |
+| US-008 | Framework de tests IA | Unity 176 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS nommé) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (25 syscalls), dont `SYS_IPC_SEND`/`SYS_IPC_RECV` |
-| US-013 | Communication inter-services | **Livraison partielle :** boîte aux lettres IPC et requête/réponse VFS locale ; pas de corrélation ni de registre de services |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (27 syscalls), dont IPC et registre `SYS_SERVICE_REGISTER`/`SYS_SERVICE_LOOKUP` |
+| US-013 | Communication inter-services | **Livraison partielle :** IPC, requête/réponse VFS locale et registre nommé ; pas de corrélation ni de capabilities |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |

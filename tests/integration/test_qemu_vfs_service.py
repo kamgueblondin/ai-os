@@ -86,13 +86,11 @@ def main():
             before_spawn = len(log_text())
             send_command(monitor, "spawn vfsserver")
             wait_for("spawn ok pid", proc, before_spawn)
-            spawned = re.search(r"spawn ok pid (\d+) vfsserver", log_text()[before_spawn:])
-            if not spawned:
-                raise RuntimeError("PID du serveur VFS absent")
-            server_pid = spawned.group(1)
-            wait_for("vfsserver ready", proc, before_spawn)
+            if not re.search(r"spawn ok pid (\d+) vfsserver", log_text()[before_spawn:]):
+                raise RuntimeError("serveur VFS non lance")
+            wait_for("vfsserver ready vfs", proc, before_spawn)
             before_read = len(log_text())
-            send_command(monitor, "vfs-read %s hello.txt" % server_pid)
+            send_command(monitor, "vfs-read hello.txt")
             wait_for("vfs-read ok", proc, before_read)
             wait_for("Un autre fichier de demonstration.", proc, before_read)
             before_return = len(log_text())
