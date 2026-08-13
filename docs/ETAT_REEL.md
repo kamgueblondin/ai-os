@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `export ok` ; `unalias` / `alias` ; `whoami` / `which` ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI shell extras : `env`/`history`/`jobs`/`top`/`date`/`echo`/`rc`/`which idle`/`test no`/`aistats`)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -78,21 +78,22 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `cp` / `mv` | `cp` fichier : `SYS_READFILE` + `SYS_WRITEFILE` (y compris initrd → overlay, et `cp fichier dossier/` joint le nom). `cp` dossier overlay : `SYS_COPY` (enfants dupliqués, source conservée). `mv` : `SYS_RENAME`. L’initrd reste `PROTECTED`. |
 | `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` ; `head`/`tail`/`sort` affichent `head ok N fichier` / `tail ok N fichier` / `sort ok N fichier` |
 | `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
-| `test` | `test f`/`d`/`e <chemin>` (`SYS_STAT`, aussi `-f`/`-d`/`-e`) : `test ok file hello.txt` / `test ok dir mydir` / `test no zzz` |
-| `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
+| `test` / `[` | `test f`/`d`/`e <chemin>` (`SYS_STAT`, aussi `-f`/`-d`/`-e`) ; `[` est un alias (`]` optionnel) : `test ok file hello.txt` / `test ok dir mydir` / `test no zz` |
+| `echo` | Affichage puis `echo ok` ; `echo $?` expand le dernier code ; `echo texte > fichier` écrit dans l’overlay (le `>` n’est pas tapable en CI sendkey) |
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
 | `append` | `append <fichier> <texte>` → concatène (`SYS_APPEND`) ; crée le fichier s’il n’existe pas ; un fichier initrd est recopié dans l’overlay (copie sur écriture). Succès : `append ok <fichier>` |
 | `touch` | `touch <fichier>` → fichier overlay vide (`SYS_WRITEFILE` taille 0). Succès : `touch ok <fichier>` ; un fichier existant n’est pas tronqué |
 | `cd` / `pwd` | Chemin shell ; `cd` accepte overlay/initrd (`SYS_STAT`) **ou** VFS RAM (`cd bin`). Succès : `cd ok <arg>` |
-| `ps` / `jobs` / `top` / `kill` / `spawn` / `getpid` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`). `getpid` affiche `getpid ok <pid>` (`SYS_GETPID`) |
+| `ps` / `jobs` / `top` / `kill` / `spawn` / `getpid` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`). `getpid` affiche `getpid ok <pid>` (`SYS_GETPID`). `jobs` affiche `jobs ok N` ; `top` affiche `top ok N` |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
-| `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
-| `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` ; `export VAR=val` affiche `export ok VAR` |
+| `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) et affiche `date ok` |
+| `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` ; `export VAR=val` affiche `export ok VAR` ; `env` affiche `env ok N` |
 | `alias` / `unalias` | Table d’alias, expansion avant exécution. Succès : `alias ok <name>` / `unalias ok <name>` |
-| `history` | Historique en mémoire |
+| `history` | Historique en mémoire ; `history ok N` |
 | `which` | `which ok builtin <cmd>` ou `which ok bin/<cmd>` |
+| `rc` / `$?` | Dernier code de retour. `rc` affiche `rc ok N` (sendkey sans `$`/`?`). `echo $?` expand `$?` |
 | `clear`/`cls` | Séquence ANSI + bannière |
-| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC` (bloquant). `hello`/`bonjour` → `AI: bonjour` puis `ai ok`. Compteur de requêtes dans le shell. |
+| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats` | `ai <texte>` lance `bin/ai_assistant` via `SYS_EXEC` (bloquant). Variantes sans tiret pour sendkey : `aimode` / `aihelp` / `aitest` / `aistats`. `aimode ok off` / `aihelp ok` / `aistats ok N` / `aitest ok` |
 | `exit` / `quit` / `logout` | Sortie du programme |
 | `reboot` / `shutdown` | Message simulé (QEMU n’est pas arrêté) |
 
@@ -131,13 +132,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/stat/test/alias/unalias/export/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/append/rmdir/uptime/mem/getpid/whoami/which
+make qemu-smoke   # QEMU headless + sendkey (overlay + extras env/history/jobs/top/date/echo/rc/which/aistats)
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat` overlay, `test f`/`test d`, `export tag=ok` (`export ok tag`), `alias ll=whoami` puis `ll` puis `unalias ll`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `which ls`, `touch`, `append` (`SYS_APPEND`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`. `head`, `tail` et `sort` restent des commandes shell, hors smoke (budget sendkey ; `cat` couvre encore `SYS_READFILE` sur l’initrd). `stat hello.txt` n’est plus tapé en smoke (`test f hello.txt` et `stat` overlay couvrent `SYS_STAT`).
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape l’overlay (`mkdir`/`cd`/`cp`/`mv`/`write`/`touch`/`append`/`grep`/`wc`) et, dans la liste initiale : `export`, `alias`/`unalias`, `which ls`/`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc` (`rc ok 0` puis `rc ok 1` après `test no zz`), `aistats`/`aimode`/`aihelp`, `ai hello`. `head`/`tail`/`sort` et `aitest` restent hors smoke (`aitest` fait un `SYS_EXEC` bloquant comme `ai`). `[` est branché, non tapé (sendkey `bracket_left`). Timeout smoke : 240 s.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

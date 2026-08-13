@@ -61,6 +61,7 @@ typedef struct {
     int debug_mode;
     int ai_query_count;
     int cmd_ticks;
+    int last_rc;
 } shell_context_t;
 
 // ==============================================================================
@@ -359,6 +360,7 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->debug_mode = 0;
     ctx->ai_query_count = 0;
     ctx->cmd_ticks = 0;
+    ctx->last_rc = 0;
     
     // Initialiser quelques variables d'environnement par défaut
     strcpy(ctx->env_vars[0].name, "PATH");
@@ -478,6 +480,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  cat <file>         - Afficher un fichier (overlay puis initrd)\n");
     print_string("  stat <path>        - Type et taille (syscall SYS_STAT)\n");
     print_string("  test f|d|e <path>  - Tester fichier/dossier (SYS_STAT)\n");
+    print_string("  [ f|d|e <path> ]   - Alias de test\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
@@ -508,6 +511,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  env                - Variables d'environnement\n");
     print_string("  export <var>=<val> - Définir une variable\n");
     print_string("  which <cmd>        - Trouver l'emplacement d'une commande\n");
+    print_string("  rc                 - Dernier code retour ($?)\n");
     
     print_colored("\nCOMMANDES INTELLIGENCE ARTIFICIELLE :\n", COLOR_YELLOW);
     print_string("  ai <question>      - Poser une question à l'IA\n");
@@ -720,7 +724,8 @@ void cmd_history(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("\n=== Historique des Commandes ===\n", COLOR_CYAN);
     
     if (ctx->history.count == 0) {
-        print_string("Aucune commande dans l'historique.\n\n");
+        print_string("Aucune commande dans l'historique.\n");
+        print_string("history ok 0\n");
         return;
     }
     
@@ -756,6 +761,8 @@ void cmd_history(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(ctx->history.commands[i]);
         print_string("\n");
     }
+    print_string("history ok ");
+    print_int(ctx->history.count);
     print_string("\n");
 }
 
@@ -768,6 +775,8 @@ void cmd_env(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(ctx->env_vars[i].value);
         print_string("\n");
     }
+    print_string("env ok ");
+    print_int(ctx->env_count);
     print_string("\n");
 }
 
@@ -801,10 +810,12 @@ void cmd_echo(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     for (int i = 0; i < arg_count; i++) {
-        print_string(args[i]);
+        if (strcmp(args[i], "$?") == 0) print_int(ctx->last_rc);
+        else print_string(args[i]);
         if (i < arg_count - 1) print_string(" ");
     }
     print_string("\n");
+    print_string("echo ok\n");
 }
 
 void cmd_write(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -947,6 +958,7 @@ static void cmd_test(shell_context_t* ctx, char args[][128], int arg_count) {
     const char* name;
     if (arg_count < 2) {
         print_error("test: usage test f|d|e <chemin>");
+        ctx->last_rc = 1;
         return;
     }
     flag = args[0];
@@ -957,6 +969,7 @@ static void cmd_test(shell_context_t* ctx, char args[][128], int arg_count) {
     else if (strcmp(flag, "-e") == 0 || strcmp(flag, "e") == 0) ok = found;
     else {
         print_error("test: flag inconnu");
+        ctx->last_rc = 1;
         return;
     }
     if (ok) {
@@ -965,10 +978,12 @@ static void cmd_test(shell_context_t* ctx, char args[][128], int arg_count) {
         else print_string("test ok ");
         print_string(name);
         print_string("\n");
+        ctx->last_rc = 0;
     } else {
         print_string("test no ");
         print_string(name);
         print_string("\n");
+        ctx->last_rc = 1;
     }
 }
 
@@ -1055,11 +1070,12 @@ static int is_builtin(const char* cmd) {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
-        "cd", "pwd", "cat", "stat", "test", "mkdir", "rmdir", "cp", "mv", "rm",
+        "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
-        "alias", "unalias", "export", "which",
+        "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
+        "aistats", "aimode", "aihelp", "aitest",
         0
     };
     for (int i = 0; names[i]; i++) {
@@ -1340,6 +1356,8 @@ static void cmd_jobs(shell_context_t* ctx, char args[][128], int arg_count) {
         shown++;
     }
     if (shown == 0) print_string("Aucun job utilisateur.\n");
+    print_string("jobs ok ");
+    print_int(shown);
     print_string("\n");
 }
 
@@ -1367,6 +1385,8 @@ static void cmd_top(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string(procs[i].name);
         print_string("\n");
     }
+    print_string("top ok ");
+    print_int(n < 0 ? 0 : n);
     print_string("\n");
 }
 
@@ -1417,6 +1437,7 @@ static void cmd_date(shell_context_t* ctx, char args[][128], int arg_count) {
     if (s < 10) putc('0');
     print_int(s);
     print_string(" UTC 2026\n");
+    print_string("date ok\n");
 }
 
 static void cmd_whoami(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1770,7 +1791,16 @@ static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) 
     print_int(ctx->ai_query_count);
     print_string("\nMode IA     : ");
     print_string(ctx->ai_mode ? "active" : "desactive");
-    print_string("\nMoteur      : simulateur mots-cles (fake_ai)\n\n");
+    print_string("\nMoteur      : simulateur mots-cles (fake_ai)\n");
+    print_string("aistats ok ");
+    print_int(ctx->ai_query_count);
+    print_string("\n");
+}
+
+static void cmd_rc(shell_context_t* ctx) {
+    print_string("rc ok ");
+    print_int(ctx->last_rc);
+    print_string("\n");
 }
 
 static void cmd_reboot(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1850,19 +1880,18 @@ void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
 
 void cmd_ai_mode(shell_context_t* ctx, char args[][128], int arg_count) {
     if (arg_count == 0) {
-        print_string("Mode IA actuellement : ");
-        print_colored(ctx->ai_mode ? "ACTIVÉ" : "DÉSACTIVÉ", 
-                     ctx->ai_mode ? COLOR_GREEN : COLOR_RED);
+        print_string("aimode ok ");
+        print_string(ctx->ai_mode ? "on" : "off");
         print_string("\n");
         return;
     }
     
     if (strcmp(args[0], "on") == 0) {
         ctx->ai_mode = 1;
-        print_success("Mode IA activé - Vous pouvez maintenant poser des questions directement");
+        print_string("aimode ok on\n");
     } else if (strcmp(args[0], "off") == 0) {
         ctx->ai_mode = 0;
-        print_success("Mode IA désactivé - Utilisez 'ai <question>' pour interroger l'IA");
+        print_string("aimode ok off\n");
     } else {
         print_error("Usage: ai-mode [on|off]");
     }
@@ -1893,19 +1922,25 @@ void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  • Soyez précis dans vos questions\n");
     print_string("  • Mentionnez le contexte si nécessaire\n");
     print_string("  • L'IA apprend de vos interactions\n\n");
+    print_string("aihelp ok\n");
 }
 
 // Test IA: lance l'IA avec une requete de sante et verifie le code retour
 static void cmd_ai_test(shell_context_t* ctx) {
-    print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
-    char* argv[2]; argv[0] = "healthcheck"; argv[1] = 0;
-    int rc = spawn("bin/ai_assistant", argv);
-    if (rc >= 0) {
-        print_string("AI HEALTH: OK\n");
-        print_colored("[AI-TEST] OK\n", COLOR_GREEN);
-    } else {
-        print_colored("[AI-TEST] FAIL\n", COLOR_RED);
+    char* argv[3];
+    int rc;
+    argv[0] = "ai_assistant";
+    argv[1] = "healthcheck";
+    argv[2] = 0;
+    rc = exec("bin/ai_assistant", argv);
+    if (rc != 0) rc = exec("ai_assistant", argv);
+    if (rc != 0) {
+        print_string("aitest fail\n");
+        ctx->last_rc = 1;
+        return;
     }
+    print_string("aitest ok\n");
+    ctx->last_rc = 0;
 }
 
 // ==============================================================================
@@ -1962,8 +1997,11 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "stat") == 0) {
         cmd_stat(ctx, args, arg_count);
         return 1;
-    } else if (strcmp(command, "test") == 0) {
-        cmd_test(ctx, args, arg_count);
+    } else if (strcmp(command, "test") == 0 || strcmp(command, "[") == 0) {
+        int n = arg_count;
+        if (command[0] == '[' && n > 0 && strcmp(args[n - 1], "]") == 0)
+            n--;
+        cmd_test(ctx, args, n);
         return 1;
     } else if (strcmp(command, "which") == 0) {
         if (arg_count == 0) {
@@ -1978,13 +2016,13 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "ai") == 0) {
         cmd_ai(ctx, args, arg_count);
         return 1;
-    } else if (strcmp(command, "ai-mode") == 0) {
+    } else if (strcmp(command, "ai-mode") == 0 || strcmp(command, "aimode") == 0) {
         cmd_ai_mode(ctx, args, arg_count);
         return 1;
-    } else if (strcmp(command, "ai-help") == 0) {
+    } else if (strcmp(command, "ai-help") == 0 || strcmp(command, "aihelp") == 0) {
         cmd_ai_help(ctx, args, arg_count);
         return 1;
-    } else if (strcmp(command, "ai-test") == 0) {
+    } else if (strcmp(command, "ai-test") == 0 || strcmp(command, "aitest") == 0) {
         cmd_ai_test(ctx);
         return 1;
     } else if (strcmp(command, "mkdir") == 0) {
@@ -2050,8 +2088,11 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "tail") == 0) {
         cmd_tail(ctx, args, arg_count);
         return 1;
-    } else if (strcmp(command, "ai-stats") == 0) {
+    } else if (strcmp(command, "ai-stats") == 0 || strcmp(command, "aistats") == 0) {
         cmd_ai_stats(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "rc") == 0) {
+        cmd_rc(ctx);
         return 1;
     } else if (strcmp(command, "logout") == 0) {
         cmd_exit(ctx, args, arg_count);
@@ -2155,6 +2196,12 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
 
     // Exécuter la commande builtin
     if (execute_builtin_command(ctx, command, args, arg_count)) {
+        if (strcmp(command, "rc") != 0
+            && strcmp(command, "test") != 0
+            && strcmp(command, "[") != 0
+            && strcmp(command, "ai-test") != 0
+            && strcmp(command, "aitest") != 0)
+            ctx->last_rc = 0;
         return;
     }
 
@@ -2176,6 +2223,7 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
     }
 
     if (result != 0) {
+        ctx->last_rc = 1;
         print_error("Commande non trouvée ou erreur d'exécution");
         print_string("   Tapez 'help' pour voir les commandes disponibles\n");
         
@@ -2184,6 +2232,8 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
             print_colored("💡 Suggestion IA : ", COLOR_YELLOW);
             print_string("Voulez-vous que je vous aide avec cette commande ?\n");
         }
+    } else {
+        ctx->last_rc = 0;
     }
 }
 
