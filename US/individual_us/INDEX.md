@@ -3,6 +3,7 @@
 > **Légende (août 2026)**  
 > - **Spec** = fichier rédigé, **pas** livré dans le noyau.  
 > - **Chevauchement** = le prototype AI-OS a un voisinage technique (souvent une fraction du besoin).  
+> - **Livraison partielle** = mécanisme réellement compilé et testé, sans satisfaire tous les critères de la spec.
 > - Backlog du code réel : [../ai_os_us.md](../ai_os_us.md). Runtime : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
 
 Les titres du [document maître](../mohhos_user_stories_master.md) **ne correspondent pas toujours** aux noms de fichiers ci-dessous (ex. maître US-008 = « mise à jour automatique », fichier = tests automatisés). **Le fichier individuel fait foi** pour le texte de la spec. Les IDs **US-023, US-024 et US-025 existent en double**.
@@ -13,13 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | Non. Noyau monolithique `kernel/kernel.c` |
+| US-001 | Microkernel + IPC | **Livraison partielle :** endpoints FIFO IPC locaux entre tâches Ring 3 ; noyau monolithique, services non externalisés |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
-| US-003 | Sécurité adaptative IA | Isolation Ring 0/3, pas de détection de menaces |
+| US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 144 + `make qemu-smoke` + GitHub Actions ; dossiers integration/system/performance/robustness vides |
+| US-008 | Framework de tests IA | Unity 166 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (23 syscalls) |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (25 syscalls), dont `SYS_IPC_SEND`/`SYS_IPC_RECV` |
+| US-013 | Communication inter-services | **Livraison partielle :** boîte aux lettres IPC locale non bloquante ; pas de protocoles inter-services complets |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |

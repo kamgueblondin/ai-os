@@ -1,6 +1,6 @@
 # MOHHOS - Phase 1 Foundation - User Stories Détaillées
 
-> **État réel (août 2026).** Phase **non commencée dans le code** : le noyau reste monolithique (`kernel/kernel.c`). Ce n'est pas la suite du prototype (voir [ai_os_us.md](ai_os_us.md)). Specs conservées. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** L’incrément Foundation 01 a livré une boîte aux lettres IPC locale, bornée et testée entre tâches Ring 3 ; voir [la note de conception](../docs/mohhos_foundation_increment_01_ipc.md). Le noyau reste monolithique (`kernel/kernel.c`) : aucun VFS, pilote ou réseau n’a encore été déplacé dans un service isolé. Les critères complets de microkernel ci-dessous restent à réaliser. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble de la Phase 1
 

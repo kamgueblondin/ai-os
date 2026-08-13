@@ -8,11 +8,12 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 
 1. [ETAT_REEL.md](ETAT_REEL.md) - **état actuel du code**, y compris GPT-2 local et limites vérifiées
 2. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite)
-3. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
-4. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
-5. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-6. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
-7. [../README.md](../README.md) - compilation, tests, architecture des sources
+3. [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) - IPC Foundation MOHHOS, limites et contrat QEMU
+4. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
+5. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
+6. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
+7. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+8. [../README.md](../README.md) - compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -22,6 +23,7 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
 | [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…025 et limites restantes |
+| [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) | IPC Foundation entre tâches Ring 3, limites de la tranche et contrat QEMU |
 | [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0 et limites des kernels quantifiés |
 | [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI, diagnostic réseau et critères de sortie d’un transport réel |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
@@ -87,4 +89,4 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 - [../US/README.md](../US/README.md) — deux couches : AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les 8 phases MOHHOS restent des **spécifications**. Elles ne décrivent pas GPT-2, l'overlay ATA ni `spawn`/`exec`.
+Les phases MOHHOS restent majoritairement des **spécifications**. L’exception actuelle est l’incrément Foundation IPC, réellement compilé et testé ; il ne transforme pas encore le noyau monolithique en microkernel et n’implémente pas les autres phases.

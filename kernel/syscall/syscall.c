@@ -163,11 +163,41 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_GPT2_GENERATE:
             cpu->eax = (uint32_t)sys_gpt2_generate((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_IPC_SEND:
+            cpu->eax = (uint32_t)sys_ipc_send((int)cpu->ebx,
+                                               (const os_ipc_payload_t*)cpu->ecx);
+            /* Le shell dort ensuite dans SYS_GETS (Ring 0) et ne peut pas être
+             * préempté par IRQ0. Un handoff coopératif livre donc sans délai un
+             * message à une autre tâche utilisateur déjà prête. */
+            if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
+            break;
+        case SYS_IPC_RECV:
+            cpu->eax = (uint32_t)sys_ipc_receive((os_ipc_message_t*)cpu->ebx);
+            break;
             
         default:
             // Syscall inconnu
             break;
     }
+}
+
+int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload) {
+    task_t* target;
+    if (!current_task || !payload || payload->size > OS_IPC_MAX_DATA) {
+        return OS_IPC_BAD_MESSAGE;
+    }
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) {
+        return OS_IPC_BAD_TARGET;
+    }
+    return ipc_endpoint_send(&target->ipc_endpoint, current_task->id, payload);
+}
+
+int sys_ipc_receive(os_ipc_message_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) {
+        return OS_IPC_BAD_MESSAGE;
+    }
+    return ipc_endpoint_receive(&current_task->ipc_endpoint, out);
 }
 
 /*

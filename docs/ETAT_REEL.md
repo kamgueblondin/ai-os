@@ -14,6 +14,7 @@ AI-OS démarre sans système hôte dans QEMU, charge un initrd TAR, lance un she
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot |
 | Stockage | Initrd TAR en lecture seule et overlay ATA PIO persistant V2 |
 | Ordonnancement | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur |
+| IPC Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, messages de 96 octets, 4 entrées par tâche |
 | Réseau | **Aucun transport réseau noyau** ; diagnostic et profil OpenAI explicitement bloqués |
 
 > Les poids GPT-2 ne sont pas versionnés dans Git. Une image utilisable sans réseau les embarque dans l’initrd au moment du build.
@@ -27,6 +28,8 @@ Le noyau configure GDT, IDT, PIC 8259, PIT 100 Hz, i8042 PS/2, PMM/VMM/heap, pag
 L’overlay RAM persistant utilise désormais le format snapshot **V2** : 64 nœuds, chemins de 80 octets, contenu de 384 octets et 64 secteurs ATA PIO. `overlay_restore()` reconnaît également le format V1 afin de restaurer les images de disque déjà créées. Il ne s’agit pas d’un système de fichiers général : ext2, FAT, répertoires sur disque et cache de blocs sont absents.
 
 Les appels `spawn`, `yield` et `exec` continuent de changer de contexte depuis le cadre utilisateur de `int 0x80`. En complément, IRQ0 déclenche un round-robin toutes les 20 interruptions uniquement si le cadre interrompu est Ring 3 et si une **autre** tâche utilisateur est `READY`. Cela évite les cadres noyau incomplets et empêche un quantum inutile en mono-tâche. Le contrat QEMU lance `spin`, une boucle utilisateur sans syscall, puis exige une nouvelle commande du shell : la réactivité obtenue démontre la préemption réelle.
+
+Le premier incrément MOHHOS ajoute une boîte aux lettres **IPC Foundation** par tâche utilisateur. `SYS_IPC_SEND` transmet un payload borné de 96 octets vers un PID utilisateur valide et le noyau inscrit lui-même le PID d’émetteur ; `SYS_IPC_RECV` retire le plus ancien message de la FIFO. Chaque endpoint tient quatre messages, rejette explicitement la saturation et ne bloque jamais le destinataire. Après un envoi réussi, le noyau réalise un handoff coopératif lorsqu’une autre tâche utilisateur est prête : cela permet au destinataire de traiter le message avant que le shell ne retourne dans `SYS_GETS`, cadre Ring 0 non préemptable par IRQ0. Le contrat QEMU lance `ipcserver`, envoie `bonjour`, vérifie l’émetteur puis confirme une boîte aux lettres vide. Ce mécanisme prépare l’externalisation ultérieure des services ; il ne constitue ni un microkernel ni un IPC à capabilities.
 
 ### IA locale, GGUF et BPE
 
@@ -53,29 +56,29 @@ QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et 
 
 ## Shell et ABI observables
 
-Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
+Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
-L’ABI contient les syscalls 0–22 (`MAX_SYSCALLS = 23`) dont `SYS_APPEND` et `SYS_GPT2_GENERATE`. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
+L’ABI contient les syscalls 0–24 (`MAX_SYSCALLS = 25`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND` et `SYS_IPC_RECV`. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
 ## Vérification reproductible
 
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 161/161 tests C Unity et robustesse
-make integration-qemu        # contrats AOS-022, AOS-024 et AOS-025
+make test-all                # 166/166 tests C Unity et robustesse
+make integration-qemu        # contrats AOS-022/AOS-024/AOS-025 et IPC Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 161 assertions de tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre trois machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, et le smoke AOS-025 vérifie que le profil OpenAI reste bloqué.
+La suite C exécute 166 assertions de tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (5), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre quatre machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, et le contrat Foundation livre un message à `ipcserver`.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC général ni des fonctionnalités de la vision MOHHOS. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant avec réponses corrélées, de transfert de capabilities ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC Foundation est un mécanisme local préparatoire, non une migration de services hors du noyau. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 

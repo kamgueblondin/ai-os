@@ -5,6 +5,7 @@ userspace/test_program
 userspace/ai_assistant
 userspace/idle
 userspace/spin
+userspace/ipcserver
 userspace/ok
 userspace/*.o
 userspace/*.bin
@@ -14,6 +15,7 @@ initrd_content/bin/ai_assistant
 initrd_content/bin/user_program
 initrd_content/bin/idle
 initrd_content/bin/spin
+initrd_content/bin/ipcserver
 initrd_content/bin/ok
 
 # Build and QEMU artefacts

@@ -8,7 +8,7 @@ LDFLAGS = -nostdlib -Ttext=0x40000000
 ASFLAGS = --32
 
 # Programmes à compiler
-PROGRAMS = shell fake_ai test_program ai_assistant idle spin ok
+PROGRAMS = shell fake_ai test_program ai_assistant idle spin ipcserver ok
 
 all: $(PROGRAMS)
 
@@ -34,6 +34,10 @@ idle: idle.o start.o
 
 spin: spin.o start.o
 	@echo "Linking spin..."
+	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
+
+ipcserver: ipc_server.o start.o
+	@echo "Linking ipcserver..."
 	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
 
 ok: ok.o start.o

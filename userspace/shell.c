@@ -202,6 +202,18 @@ int sys_gpt2_generate(const char* prompt, char* out, int max) {
     return result;
 }
 
+int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_IPC_SEND), "b"(target_pid), "c"(payload));
+    return result;
+}
+
+int sys_ipc_receive(os_ipc_message_t* message) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_IPC_RECV), "b"(message));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -510,6 +522,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ps                 - Afficher les processus\n");
     print_string("  spawn <prog>       - Lancer un programme (cede le CPU une fois)\n");
     print_string("  yield              - Ceder le CPU (SYS_YIELD, cooperatif)\n");
+    print_string("  ipc-send <pid> <txt> - Envoyer un message IPC borne\n");
+    print_string("  ipc-recv           - Lire un message IPC non bloquant\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1093,7 +1107,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1356,6 +1370,70 @@ static void cmd_spawn(shell_context_t* ctx, char args[][128], int arg_count) {
     print_int(pid);
     print_string(" ");
     print_string(args[0]);
+    print_string("\n");
+}
+
+static void cmd_ipc_send(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t payload;
+    int pid;
+    int rc;
+    uint32_t i = 0U;
+    if (arg_count != 2) {
+        print_error("Usage: ipc-send <pid> <texte_sans_espace>");
+        return;
+    }
+    pid = parse_int(args[0]);
+    if (pid <= 0) {
+        print_error("ipc-send: pid invalide");
+        return;
+    }
+    payload.type = 0U;
+    while (args[1][i] != '\0' && i < OS_IPC_MAX_DATA) {
+        payload.data[i] = (uint8_t)args[1][i];
+        i++;
+    }
+    if (args[1][i] != '\0') {
+        print_error("ipc-send: texte trop long");
+        return;
+    }
+    payload.size = i;
+    while (i < OS_IPC_MAX_DATA) payload.data[i++] = 0U;
+    rc = sys_ipc_send(pid, &payload);
+    ctx->last_rc = rc;
+    if (rc == OS_IPC_FULL) print_error("ipc-send: boite aux lettres pleine");
+    else if (rc == OS_IPC_BAD_TARGET) print_error("ipc-send: cible utilisateur introuvable");
+    else if (rc != 0) print_error("ipc-send: message invalide");
+    else {
+        print_string("ipc-send ok ");
+        print_int(pid);
+        print_string(" ");
+        print_int((int)payload.size);
+        print_string("\n");
+    }
+}
+
+static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_message_t message;
+    int rc;
+    uint32_t i;
+    (void)args;
+    (void)arg_count;
+    rc = sys_ipc_receive(&message);
+    ctx->last_rc = rc;
+    if (rc == OS_IPC_EMPTY) {
+        print_string("ipc-recv empty\n");
+        return;
+    }
+    if (rc != 0) {
+        print_error("ipc-recv: erreur");
+        return;
+    }
+    print_string("ipc-recv from ");
+    print_int(message.sender_pid);
+    print_string(" type ");
+    print_int((int)message.type);
+    print_string(" data ");
+    for (i = 0U; i < message.size; i++) putc((char)message.data[i]);
     print_string("\n");
 }
 
@@ -2180,6 +2258,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "spawn") == 0) {
         cmd_spawn(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ipc-send") == 0) {
+        cmd_ipc_send(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ipc-recv") == 0) {
+        cmd_ipc_recv(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "yield") == 0) {
         cmd_yield(ctx, args, arg_count);
