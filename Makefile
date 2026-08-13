@@ -20,6 +20,7 @@ DISK_SECTORS ?= 64
 QEMU_DISK_OPTS = -drive file=$(DISK_IMAGE),format=raw,if=ide,cache=writethrough
 MODEL_DIR ?= models
 GPT2_MODEL ?= $(MODEL_DIR)/gpt2_124M.bin
+GPT2_GGUF_MODEL ?= $(MODEL_DIR)/gpt2.gguf
 # GPT-2 124M charge ses 475 Mio de poids depuis l'initrd; 1 Gio est le minimum valide.
 GPT2_RAM ?= 1024M
 
@@ -31,7 +32,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
@@ -159,6 +160,16 @@ build/gpt2_model.o: kernel/llm/gpt2_model.c kernel/llm/gpt2_model.h fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Sonde GGUF v3 (lecture structurelle bornée, sans exécution quantifiée).
+build/gpt2_gguf.o: kernel/llm/gpt2_gguf.c kernel/llm/gpt2_gguf.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Kernel de produit Q8_0 x FP32 pour la quantification GGUF.
+build/gpt2_quant.o: kernel/llm/gpt2_quant.c kernel/llm/gpt2_quant.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # Tokenizer GPT-2 local en lecture seule.
 build/gpt2_tokenizer.o: kernel/llm/gpt2_tokenizer.c kernel/llm/gpt2_tokenizer.h fs/initrd.h
 	@mkdir -p $(dir $@)
@@ -223,8 +234,9 @@ pack-initrd: userspace-all
 	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
 	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest
 	@echo "gpt2_124M.bin|gpt2|124M|FP32|local" >> $(INITRD_DIR)/models/models.manifest
+	@echo "gpt2.gguf|gpt2|optional|GGUF-v3|structural-probe" >> $(INITRD_DIR)/models/models.manifest
 	@echo "# Provide gpt2_124M.bin and gpt2_tokenizer.bin in models/ before build." > $(INITRD_DIR)/models/README.txt
-	@echo "# GGUF profiles are declared by the shell but are not executable yet." >> $(INITRD_DIR)/models/README.txt
+	@echo "# models/gpt2.gguf is optional: v3 structure is validated at boot; quantized execution remains disabled until its kernels land." >> $(INITRD_DIR)/models/README.txt
 	@if [ -f "$(GPT2_MODEL)" ] && [ -f "$(MODEL_DIR)/gpt2_tokenizer.bin" ]; then \
 		echo "[mkinitrd] Inclusion du checkpoint et du tokenizer GPT-2 locaux..."; \
 		cp -f "$(GPT2_MODEL)" "$(INITRD_DIR)/models/gpt2_124M.bin"; \
@@ -232,11 +244,17 @@ pack-initrd: userspace-all
 	else \
 		echo "[mkinitrd] Checkpoint ou tokenizer GPT-2 local absent."; \
 	fi
+	@rm -f "$(INITRD_DIR)/models/gpt2.gguf"
+	@if [ -f "$(GPT2_GGUF_MODEL)" ]; then \
+		echo "[mkinitrd] Inclusion du profil GGUF optionnel..."; \
+		cp -f "$(GPT2_GGUF_MODEL)" "$(INITRD_DIR)/models/gpt2.gguf"; \
+	fi
 	@cp -f $(USER_SHELL) $(BIN_DEST_DIR)/shell
 	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/fake_ai
 	@cp -f userspace/ai_assistant $(BIN_DEST_DIR)/ai_assistant
 	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
 	@cp -f userspace/idle $(BIN_DEST_DIR)/idle
+	@cp -f userspace/spin $(BIN_DEST_DIR)/spin
 	@cp -f userspace/ok $(BIN_DEST_DIR)/ok
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
@@ -281,7 +299,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/ok: userspace-all
+user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/spin userspace/ok: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd disk
@@ -435,6 +453,20 @@ qemu-smoke: $(OS_IMAGE) pack-initrd disk
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
 
+# Contrats d’intégration QEMU versionnés : boot, shell/overlay, préemption IRQ0
+# et absence réseau OpenAI explicitement vérifiable.
+.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider
+qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/integration/test_qemu_irq0_preemption.py
+
+qemu-ai-provider: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/scripts/test_ai_provider_commands.py
+
+integration-qemu: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/integration/test_qemu_core_contract.py
+	@python3 tests/integration/test_qemu_irq0_preemption.py
+	@python3 tests/scripts/test_ai_provider_commands.py
+
 # Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
 .PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
 gpt2-recovery: $(OS_IMAGE) pack-initrd
@@ -475,6 +507,9 @@ help:
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
 	@echo "  qemu-smoke      - Boots QEMU : overlay, extras, persist, spawn, exec"
+	@echo "  integration-qemu - Contrats QEMU : boot, shell/overlay, IRQ0 et fournisseur IA"
+	@echo "  qemu-irq0-preemption - Prouve la reprise du shell après spawn spin"
+	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"

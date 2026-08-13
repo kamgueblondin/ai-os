@@ -12,6 +12,7 @@
 #include "../fs/overlay.h"
 #include "ata.h"
 #include "llm/gpt2_model.h"
+#include "llm/gpt2_gguf.h"
 #include "llm/gpt2_infer.h"
 #include "llm/gpt2_tokenizer.h"
 #include "keyboard.h"
@@ -511,6 +512,17 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
             print_string("Initrd trouve ! Initialisation...\n");
             initrd_init(initrd_location, initrd_size);
+            if (initrd_file_exists("models/gpt2.gguf")) {
+                gpt2_gguf_info_t gguf_info;
+                int gguf_status = gpt2_gguf_probe_blob((const uint8_t*)initrd_read_file("models/gpt2.gguf"),
+                                                        initrd_get_file_size("models/gpt2.gguf"), &gguf_info);
+                print_string(gpt2_gguf_probe_status(gguf_status));
+                if (gguf_status == 0 && gguf_info.unsupported_quantized_tensors != 0U) {
+                    print_string("; kernels de quantification a activer\n");
+                } else {
+                    print_string("\n");
+                }
+            }
             if (gpt2_model_load_from_initrd("models/gpt2_124M.bin") == 0) {
                 const gpt2_model_t* gpt2 = gpt2_model_current();
                 print_string("Modele GPT-2 local charge depuis l'initrd.\n");

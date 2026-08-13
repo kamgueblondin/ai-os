@@ -1,2 +1,2 @@
 #!/bin/sh
-echo 'Script de demarrage AI-OS v5.0'
+echo 'Script de demarrage AI-OS v7'

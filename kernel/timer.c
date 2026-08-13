@@ -12,6 +12,15 @@ uint32_t timer_ticks = 0;
 uint32_t software_timer_counter = 0;
 int timer_mode = 0; // 0 = logiciel, 1 = matériel
 
+/* La préemption IRQ0 est limitée aux retours Ring 3 : un cadre noyau issu d’un
+ * syscall ne possède pas l’ESP/SS utilisateur requis par jump_to_task(). */
+#define TIMER_PREEMPT_QUANTUM 20U
+static uint32_t timer_last_preempt_tick;
+
+static int timer_user_frame(const cpu_state_t* cpu) {
+    return cpu && (cpu->cs & 3U) == 3U && (cpu->ss & 3U) == 3U;
+}
+
 // Timer logiciel de secours
 void software_timer_tick() {
     software_timer_counter++;
@@ -56,11 +65,18 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // Un seul changement de contexte quand il est demandé (lancement du shell).
-    // exec/spawn/yield basculent depuis int 0x80, pas depuis IRQ0 :
-    // un schedule() pendant un syscall (cadre noyau sans SS/ESP user) page-fault.
+    // Changement explicite existant (lancement du shell / yield coopératif).
     if (g_reschedule_needed) {
         g_reschedule_needed = 0;
+        schedule(cpu);
+    }
+
+    /* Préemption matérielle : uniquement entre deux cadres utilisateur valides.
+     * Le garde Ring 3 évite le basculement depuis un syscall ou une IRQ noyau. */
+    if (timer_user_frame(cpu) && current_task && current_task->type == TASK_TYPE_USER &&
+        task_has_other_ready_user() &&
+        timer_ticks - timer_last_preempt_tick >= TIMER_PREEMPT_QUANTUM) {
+        timer_last_preempt_tick = timer_ticks;
         schedule(cpu);
     }
 }
@@ -81,6 +97,7 @@ void timer_update() {
 // Initialise le timer matériel (PIT) pour le scheduling préemptif
 void timer_init(uint32_t frequency) {
     timer_mode = 1; // Mode matériel
+    timer_last_preempt_tick = 0U;
 
     // Le PIT (Programmable Interval Timer) utilise une fréquence de base de 1.193182 MHz
     uint32_t divisor = 1193182 / frequency;

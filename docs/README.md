@@ -8,10 +8,11 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 
 1. [ETAT_REEL.md](ETAT_REEL.md) - **état actuel du code**, y compris GPT-2 local et limites vérifiées
 2. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite)
-3. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-4. [kv_cache_performance_report.md](kv_cache_performance_report.md) - cache KV, reprise du shell et mesures de latence
-5. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
-6. [../README.md](../README.md) - compilation, tests, architecture des sources
+3. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
+4. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
+5. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
+6. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+7. [../README.md](../README.md) - compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -20,7 +21,9 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 | Fichier | Contenu |
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
-| [../US/ai_os_us.md](../US/ai_os_us.md) | User stories du prototype (AOS-001…012 faits, suite AOS-020…025) |
+| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…025 et limites restantes |
+| [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0 et limites des kernels quantifiés |
+| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI, diagnostic réseau et critères de sortie d’un transport réel |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
 | [kv_cache_performance_report.md](kv_cache_performance_report.md) | Cache KV, SSE2, test de reprise du shell et mesures de latence |
 | [baremetal_llm_architecture.md](baremetal_llm_architecture.md) | Architecture de référence et évolutions envisagées pour un LLM bare-metal |

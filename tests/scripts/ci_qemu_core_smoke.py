@@ -15,6 +15,7 @@ LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
 QEMU_ERR = os.environ.get("QEMU_ERR", os.path.join(LOG_DIR, "ci-qemu-stderr.log"))
 MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-monitor.sock"))
+TEST_DISK = os.environ.get("OVERLAY_DISK", os.path.join(LOG_DIR, "qemu-core-overlay.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
 
@@ -64,11 +65,16 @@ def monitor_connect():
     raise RuntimeError("QEMU monitor unavailable")
 
 
+def prepare_test_disk():
+    directory = os.path.dirname(TEST_DISK)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(TEST_DISK, "wb") as handle:
+        handle.truncate(64 * 512)
+
+
 def qemu_disk_args():
-    disk = os.environ.get("OVERLAY_DISK", os.path.join(ROOT, "build", "overlay.img"))
-    if os.path.isfile(disk):
-        return ["-drive", "file=%s,format=raw,if=ide,cache=writethrough" % disk]
-    return []
+    return ["-drive", "file=%s,format=raw,if=ide,cache=writethrough" % TEST_DISK]
 
 
 def send_command(client, command):
@@ -99,6 +105,7 @@ def main():
         except OSError:
             pass
 
+    prepare_test_disk()
     proc = None
     monitor = None
     try:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test for the AI provider/model control plane in AI-OS."""
+"""Contrat AOS-024 : IRQ0 préempte une tâche Ring 3 non coopérative."""
 import os
 import socket
 import subprocess
@@ -8,9 +8,9 @@ import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LOG_DIR = os.path.join(ROOT, "test_logs")
-LOG = os.path.join(LOG_DIR, "ai-provider-smoke.log")
-ERR = os.path.join(LOG_DIR, "ai-provider-smoke.err")
-MON = os.path.join(LOG_DIR, "ai-provider-monitor.sock")
+LOG = os.path.join(LOG_DIR, "irq0-preemption.log")
+ERR = os.path.join(LOG_DIR, "irq0-preemption.err")
+MON = os.path.join(LOG_DIR, "irq0-preemption-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 
@@ -23,15 +23,15 @@ def log_text():
         return ""
 
 
-def wait_for(needle, proc, timeout=15):
+def wait_for(needle, proc, offset=0, timeout=12):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped early")
-        if needle in log_text():
+            raise RuntimeError("QEMU s'est arrêté prématurément")
+        if needle in log_text()[offset:]:
             return
         time.sleep(0.1)
-    raise RuntimeError("missing output: %s" % needle)
+    raise RuntimeError("sortie manquante : %s" % needle)
 
 
 def connect_monitor():
@@ -50,31 +50,15 @@ def connect_monitor():
             except OSError:
                 client.close()
         time.sleep(0.1)
-    raise RuntimeError("QEMU monitor unavailable")
+    raise RuntimeError("moniteur QEMU indisponible")
 
 
-def send_keys(client, keys):
-    for key in keys:
-        client.sendall(("sendkey %s\n" % key).encode("ascii"))
-        time.sleep(0.08)
-
-
-def key_sequence(command):
-    special = {" ": "spc", ".": "dot", "-": "minus", "_": "shift-minus"}
-    return [special.get(char, char.lower()) for char in command] + ["ret"]
-
-
-def run_command(client, proc, command, expected):
-    before = len(log_text())
-    send_keys(client, key_sequence(command))
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped while executing %s" % command)
-        if expected in log_text()[before:]:
-            return
-        time.sleep(0.1)
-    raise RuntimeError("command %s did not emit %s" % (command, expected))
+def send_command(client, command):
+    special = {" ": "spc", "-": "minus"}
+    for char in command:
+        client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
+        time.sleep(0.06)
+    client.sendall(b"sendkey ret\n")
 
 
 def main():
@@ -97,16 +81,13 @@ def main():
         try:
             wait_for("(-.-)", proc)
             monitor = connect_monitor()
-            run_command(monitor, proc, "ai-provider", "Fournisseur IA : local")
-            run_command(monitor, proc, "ai-model list", "qwen2.5-1.5b-instruct-q4_0.gguf")
-            run_command(monitor, proc, "ai-model use custom-local-model.gguf", "Profil memorise; seul GPT-2")
-            run_command(monitor, proc, "ai-model", "custom-local-model.gguf")
-            run_command(monitor, proc, "ai-runtime", "Runtime IA bare-metal")
-            run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
-            run_command(monitor, proc, "ai-provider openai", "OpenAI selectionne")
-            run_command(monitor, proc, "ai hello", "OpenAI configure mais indisponible")
-            run_command(monitor, proc, "ai-provider local", "Fournisseur local selectionne")
-            print("AI provider control-plane smoke passed.")
+            before_spawn = len(log_text())
+            send_command(monitor, "spawn spin")
+            wait_for("spawn ok pid", proc, before_spawn)
+            before_echo = len(log_text())
+            send_command(monitor, "echo irq0-preempt-ok")
+            wait_for("irq0-preempt-ok", proc, before_echo)
+            print("AOS-024 IRQ0 preemption contract passed")
             return 0
         finally:
             if monitor is not None:
@@ -127,5 +108,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("AI provider control-plane smoke failed: %s" % error, file=sys.stderr)
+        print("AOS-024 IRQ0 preemption contract failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)

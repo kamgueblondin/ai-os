@@ -74,10 +74,6 @@ static uint32_t gpt2_lookup_token(const uint8_t* bytes, uint32_t length) {
     return GPT2_HASH_EMPTY;
 }
 
-static int gpt2_is_ascii_letter(uint8_t c) {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
 static int gpt2_is_digit(uint8_t c) {
     return c >= '0' && c <= '9';
 }
@@ -86,8 +82,76 @@ static int gpt2_is_space(uint8_t c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-static int gpt2_is_letter(uint8_t c) {
-    return gpt2_is_ascii_letter(c) || c >= 0xC0U;
+static int gpt2_utf8_decode(const uint8_t* text, uint32_t remaining,
+                            uint32_t* codepoint, uint32_t* width) {
+    uint8_t a;
+    uint8_t b;
+    uint8_t c;
+    uint8_t d;
+    if (!text || remaining == 0U || !codepoint || !width) return 0;
+    a = text[0];
+    if (a < 0x80U) {
+        *codepoint = a;
+        *width = 1U;
+        return 1;
+    }
+    if (a >= 0xC2U && a <= 0xDFU && remaining >= 2U) {
+        b = text[1];
+        if ((b & 0xC0U) != 0x80U) return 0;
+        *codepoint = ((uint32_t)(a & 0x1FU) << 6) | (uint32_t)(b & 0x3FU);
+        *width = 2U;
+        return 1;
+    }
+    if (a >= 0xE0U && a <= 0xEFU && remaining >= 3U) {
+        b = text[1];
+        c = text[2];
+        if ((b & 0xC0U) != 0x80U || (c & 0xC0U) != 0x80U ||
+            (a == 0xE0U && b < 0xA0U) || (a == 0xEDU && b >= 0xA0U)) return 0;
+        *codepoint = ((uint32_t)(a & 0x0FU) << 12) |
+                     ((uint32_t)(b & 0x3FU) << 6) | (uint32_t)(c & 0x3FU);
+        *width = 3U;
+        return 1;
+    }
+    if (a >= 0xF0U && a <= 0xF4U && remaining >= 4U) {
+        b = text[1];
+        c = text[2];
+        d = text[3];
+        if ((b & 0xC0U) != 0x80U || (c & 0xC0U) != 0x80U || (d & 0xC0U) != 0x80U ||
+            (a == 0xF0U && b < 0x90U) || (a == 0xF4U && b > 0x8FU)) return 0;
+        *codepoint = ((uint32_t)(a & 0x07U) << 18) |
+                     ((uint32_t)(b & 0x3FU) << 12) |
+                     ((uint32_t)(c & 0x3FU) << 6) | (uint32_t)(d & 0x3FU);
+        *width = 4U;
+        return 1;
+    }
+    return 0;
+}
+
+/* Sous-ensemble sans table externe de \p{L}, couvrant les écritures courantes
+ * des prompts GPT-2. Les séparateurs, chiffres, marques et emoji restent hors
+ * de la classe lettre comme dans le découpage regex de référence. */
+static int gpt2_is_unicode_letter(uint32_t cp) {
+    if ((cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z')) return 1;
+    if ((cp >= 0x00C0U && cp <= 0x00D6U) || (cp >= 0x00D8U && cp <= 0x00F6U) ||
+        (cp >= 0x00F8U && cp <= 0x02C1U) || (cp >= 0x02C6U && cp <= 0x02D1U) ||
+        (cp >= 0x02E0U && cp <= 0x02E4U) || (cp >= 0x0370U && cp <= 0x052FU) ||
+        (cp >= 0x0531U && cp <= 0x0588U) || (cp >= 0x05D0U && cp <= 0x05EAU) ||
+        (cp >= 0x05F0U && cp <= 0x05F2U) || (cp >= 0x0620U && cp <= 0x063FU) ||
+        (cp >= 0x0641U && cp <= 0x064AU) || (cp >= 0x066EU && cp <= 0x066FU) ||
+        (cp >= 0x0671U && cp <= 0x06D3U) || (cp >= 0x0904U && cp <= 0x0939U) ||
+        (cp >= 0x3041U && cp <= 0x3096U) || (cp >= 0x30A1U && cp <= 0x30FAU) ||
+        (cp >= 0x3400U && cp <= 0x4DBFU) || (cp >= 0x4E00U && cp <= 0x9FFFU) ||
+        (cp >= 0xAC00U && cp <= 0xD7A3U)) return 1;
+    return 0;
+}
+
+static int gpt2_is_letter_at(const uint8_t* text, uint32_t length, uint32_t pos,
+                             uint32_t* width) {
+    uint32_t cp;
+    uint32_t local_width;
+    if (pos >= length || !gpt2_utf8_decode(text + pos, length - pos, &cp, &local_width)) return 0;
+    if (width) *width = local_width;
+    return gpt2_is_unicode_letter(cp);
 }
 
 static int gpt2_match_ci(const uint8_t* text, uint32_t remaining, const char* lit) {
@@ -129,17 +193,13 @@ static uint32_t gpt2_next_chunk(const uint8_t* text, uint32_t length, uint32_t p
 
     start = pos;
     if (text[pos] == ' ' && pos + 1U < length &&
-        (gpt2_is_letter(text[pos + 1U]) || gpt2_is_digit(text[pos + 1U]) ||
+        (gpt2_is_letter_at(text, length, pos + 1U, 0) || gpt2_is_digit(text[pos + 1U]) ||
          !gpt2_is_space(text[pos + 1U]))) {
         pos++;
     }
-    if (pos < length && gpt2_is_letter(text[pos])) {
-        pos++;
-        while (pos < length && (gpt2_is_ascii_letter(text[pos]) ||
-                                (text[pos] >= 0x80U && text[pos] <= 0xBFU) ||
-                                text[pos] >= 0xC0U)) {
-            pos++;
-        }
+    if (pos < length && gpt2_is_letter_at(text, length, pos, 0)) {
+        uint32_t letter_width;
+        while (pos < length && gpt2_is_letter_at(text, length, pos, &letter_width)) pos += letter_width;
         return pos - start;
     }
     if (pos < length && gpt2_is_digit(text[pos])) {
@@ -147,12 +207,16 @@ static uint32_t gpt2_next_chunk(const uint8_t* text, uint32_t length, uint32_t p
         while (pos < length && gpt2_is_digit(text[pos])) pos++;
         return pos - start;
     }
-    if (pos < length && !gpt2_is_space(text[pos]) && !gpt2_is_letter(text[pos]) &&
+    if (pos < length && !gpt2_is_space(text[pos]) && !gpt2_is_letter_at(text, length, pos, 0) &&
         !gpt2_is_digit(text[pos])) {
-        pos++;
-        while (pos < length && !gpt2_is_space(text[pos]) && !gpt2_is_letter(text[pos]) &&
-               !gpt2_is_digit(text[pos])) {
-            pos++;
+        uint32_t punct_width = 1U;
+        uint32_t ignored_cp;
+        if (gpt2_utf8_decode(text + pos, length - pos, &ignored_cp, &punct_width)) pos += punct_width;
+        else pos++;
+        while (pos < length && !gpt2_is_space(text[pos]) &&
+               !gpt2_is_letter_at(text, length, pos, 0) && !gpt2_is_digit(text[pos])) {
+            if (gpt2_utf8_decode(text + pos, length - pos, &ignored_cp, &punct_width)) pos += punct_width;
+            else pos++;
         }
         return pos - start;
     }

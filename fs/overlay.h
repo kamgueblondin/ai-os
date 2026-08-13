@@ -15,12 +15,20 @@
 #define OV_ERR_PROTECTED -8
 
 #define OV_SNAP_MAGIC   0x564F4941u /* 'AIOV' little-endian */
-#define OV_SNAP_VERSION 1
-#define OV_SNAP_NODES   32
-#define OV_SNAP_PATH    64
-#define OV_SNAP_DATA    256
+#define OV_SNAP_VERSION 2
+#define OV_SNAP_NODES   64
+#define OV_SNAP_PATH    80
+#define OV_SNAP_DATA    384
 #define OV_SNAP_NODE    (1 + 1 + 2 + 4 + OV_SNAP_PATH + OV_SNAP_DATA)
 #define OV_SNAP_SIZE    (16 + OV_SNAP_NODES * OV_SNAP_NODE)
+
+/* Lecture de compatibilite pour les images overlay creees avant AOS-023. */
+#define OV_SNAP_V1_VERSION 1
+#define OV_SNAP_V1_NODES   32
+#define OV_SNAP_V1_PATH    64
+#define OV_SNAP_V1_DATA    256
+#define OV_SNAP_V1_NODE    (1 + 1 + 2 + 4 + OV_SNAP_V1_PATH + OV_SNAP_V1_DATA)
+#define OV_SNAP_V1_SIZE    (16 + OV_SNAP_V1_NODES * OV_SNAP_V1_NODE)
 
 void overlay_init(void);
 int overlay_mkdir(const char* path);

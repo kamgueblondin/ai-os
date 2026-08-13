@@ -1,88 +1,91 @@
-# User Stories AI-OS (implémentation actuelle)
+# User stories AI-OS — backlog du prototype i386
 
 **Date :** 13 août 2026  
 **Source de vérité runtime :** [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)  
-**Rôle :** backlog du **prototype i386** qui tourne sous QEMU. Ce n'est pas le plan MOHHOS (120 US, 8 phases).
+**Périmètre :** noyau i386 Multiboot, QEMU, shell Ring 3 et IA locale. Ce document ne constitue pas le plan MOHHOS à long terme.
 
-Légende : **fait** = observable dans le code et vérifié par `make test-all` / `make qemu-smoke` (GPT-2 : aussi `make gpt2-recovery` si les poids sont présents). **suite** = prochaine tranche cohérente, pas une vision à 6 ans.
+La mention **fait** signifie que le comportement est observable dans le code et couvert par une commande de vérification. Les limites explicitement indiquées font partie du résultat : elles ne doivent pas être confondues avec des fonctionnalités livrées.
 
----
+## Socle déjà livré
 
-## Fait (noyau et shell)
-
-### AOS-001 — Boot Multiboot sous QEMU
-**En tant que** développeur, **je veux** un binaire Multiboot i386 qui démarre dans QEMU, **afin de** travailler sur un hobby OS réel.
-
-Fait : `boot/boot.s`, VGA + série, `make run` / `make run-gui`. Pas d'UEFI.
-
-### AOS-002 — Mémoire physique, virtuelle et tas
-**En tant que** noyau, **je veux** allouer des pages et un tas, **afin d'** héberger tâches, initrd et (optionnellement) GPT-2.
-
-Fait : PMM / VMM / heap, paging. `SYS_MEMINFO` (`mem`). Pas de prédiction IA des ressources (US-002 MOHHOS).
-
-### AOS-003 — Interruptions, timer et clavier
-**En tant que** utilisateur du shell, **je veux** taper des commandes au clavier PS/2, **afin d'** interagir avec le système.
-
-Fait : PIC 8259, PIT 100 Hz, i8042, EOI IRQ0 **avant** `schedule()` (sinon IRQ1 bloquée). Le round-robin à chaque tick est **volontairement off** après le premier saut vers le shell.
-
-### AOS-004 — Initrd TAR en lecture seule
-**En tant que** shell, **je veux** lister et lire des fichiers empaquetés, **afin d'** avoir un disque racine au boot.
-
-Fait : TAR POSIX, `SYS_LISTDIR` / `SYS_READFILE`. Programmes : `shell`, `idle`, `ok`, `fake_ai`, `ai_assistant`, `user_program`.
-
-### AOS-005 — Shell ELF en Ring 3
-**En tant que** utilisateur, **je veux** un prompt interactif isolé du noyau, **afin de** lancer des commandes sans rester dans une boucle kernel.
-
-Fait : `userspace/shell.c`, prompt `/ (-.-) :`, `jump_to_task()`. Builtins : voir le tableau dans ETAT_REEL.
-
-### AOS-006 — ABI de syscalls
-**En tant que** programme userspace, **je veux** un ensemble d'appels `int 0x80` documenté, **afin de** parler au noyau sans bidouiller.
-
-Fait : `include/os_syscalls.h`, numéros 0-22 (`MAX_SYSCALLS` = 23), dont overlay, tâches et `SYS_GPT2_GENERATE`.
-
-### AOS-007 — Overlay RAM persisté
-**En tant que** utilisateur, **je veux** créer et modifier de petits fichiers qui survivent à un reboot QEMU, **afin de** ne pas tout perdre à chaque `make run`.
-
-Fait : 32 nœuds, fichiers ≤ 256 octets, snapshot ATA PIO LBA28 (`AIOV`) sur le maître IDE. Pas d'ext2/FAT.
-
-### AOS-008 — Tâches coopératives
-**En tant que** utilisateur, **je veux** `spawn` / `yield` / `ps` / `kill`, **afin de** voir une deuxième tâche tourner sans casser le clavier.
-
-Fait : bascule depuis le cadre user de `int 0x80`. `idle` affiche `idle ok` puis yield. Pas de préemption IRQ0 continue.
-
-### AOS-009 — Exec bloquant
-**En tant que** shell, **je veux** lancer un ELF et attendre sa fin, **afin de** récupérer un code de retour.
-
-Fait : parent `TASK_WAITING`, enfant `SYS_EXIT` réveille le waiter. `ok` → `exec ok` → `rc ok 0`.
-
-### AOS-010 — Inférence GPT-2 locale
-**En tant que** utilisateur, **je veux** `ai <texte>` hors ligne, **afin d'** obtenir une complétion courte sans réseau.
-
-Fait si `models/gpt2_124M.bin` + `gpt2_tokenizer.bin` sont dans l'initrd : `SYS_GPT2_GENERATE`, cache KV, SSE2, top-k (k=8, température 0,6), pénalité **uniquement sur les jetons déjà émis**. 64 jetons de prompt, 12 de sortie. Pas TensorFlow Lite, pas GGUF, pas OpenAI effectif. Sans poids : message d'indisponibilité (le shell reste utilisable).
-
-### AOS-011 — Tokenizer BPE
-**En tant que** moteur GPT-2, **je veux** encoder le prompt et décoder les jetons en octets tiktoken, **afin que** la sortie ne soit pas une suite d'espaces artificiels.
-
-Fait : fusions par plus petit id vocabulaire, decode brut (espace, UTF-8). Regex unicode `\p{L}` complet : non.
-
-### AOS-012 — Tests et CI
-**En tant que** contributeur, **je veux** un gate reproductible, **afin de** ne pas casser le shell à chaque PR.
-
-Fait : Unity **144** (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_overlay` 6, `test_tokenizer` 13, `test_gpt2_sample` 4, `test_shell` 25, `test_ramfs` 10). `make qemu-smoke` : cinq boots. GitHub Actions = `make ci`. Dossiers `tests/integration`, `system`, `performance`, `robustness` : **vides**.
-
----
-
-## Suite cohérente (prochaines tranches)
-
-Ordre volontaire : rester sur i386 / QEMU / Ring 3. Ne pas commencer un microkernel, du P2P ou PromptMessage tant que le prototype n'a pas ces briques.
-
-| ID | User story | Pourquoi maintenant |
+| ID | User story | État vérifié |
 |---|---|---|
-| AOS-020 | Quantification / GGUF / latence &lt; 1 s sous QEMU | GPT-2 marche, ~7,7 s pour 4 jetons |
-| AOS-021 | BPE `\p{L}` (unicode lettres) | L'encodeur ASCII+UTF-8 chunké limite les prompts |
-| AOS-022 | Tests d'intégration non vides (scripts QEMU déjà là) | Unity ne couvre pas `ai` sans poids |
-| AOS-023 | FS disque général (ext2 ou FAT) au-delà du snapshot 32 nœuds | L'overlay ATA est un cache, pas un FS |
-| AOS-024 | Préemption round-robin IRQ0 **sans** tuer IRQ1 | Coopératif seulement, par stabilité clavier |
-| AOS-025 | Pile réseau minimale (ou stub OpenAI documenté comme absent) | `ai-provider openai` est un profil vide |
+| AOS-001 | Démarrer un noyau Multiboot i386 | Boot QEMU, VGA/série, `make run`, `make run-gui` et ISO GRUB BIOS |
+| AOS-002 | Gérer mémoire physique, virtuelle et tas | PMM, VMM, heap, paging et `SYS_MEMINFO` |
+| AOS-003 | Recevoir timer et clavier | PIC/PIT 100 Hz/i8042 ; EOI IRQ0 envoyé avant le gestionnaire C |
+| AOS-004 | Lire un initrd | TAR POSIX en lecture seule, `SYS_LISTDIR`, `SYS_READFILE` |
+| AOS-005 | Exécuter un shell isolé | Shell ELF utilisateur et retour Ring 3 par `iret` |
+| AOS-006 | Exposer une ABI de syscalls | Syscalls 0–22, `MAX_SYSCALLS = 23` |
+| AOS-007 | Conserver de petits fichiers | Overlay ATA PIO persistant V2 et restauration V1/V2 |
+| AOS-008 | Gérer plusieurs tâches | `spawn`, `yield`, `ps`, `kill`, plus préemption IRQ0 sûre |
+| AOS-009 | Exécuter un ELF bloquant | `exec`, parent `TASK_WAITING`, réveil par `SYS_EXIT` |
+| AOS-010 | Compléter localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
+| AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et décodage UTF-8 brut |
+| AOS-012 | Prévenir les régressions | 161 tests C et contrats QEMU versionnés |
 
-Hors suite proche (vision MOHHOS, pas le backlog courant) : microkernel, apprentissage fédéré, navigateur-OS, PromptMessage, P2P, multi-plateforme, économie de points. Voir [README.md](README.md) et [individual_us/INDEX.md](individual_us/INDEX.md).
+## Tranche AOS-020 à AOS-025 — livrée
+
+### AOS-020 — Compatibilité GGUF et réduction de latence
+
+**En tant que** mainteneur du runtime local, **je veux** accepter de façon bornée la structure des checkpoints GGUF et préparer la quantification, **afin de** pouvoir évoluer au-delà du checkpoint FP32 initial.
+
+**Livraison.** `gpt2_gguf.c` analyse GGUF v3, ses métadonnées, les descripteurs de tenseurs et leurs alignements. Le parseur a été validé contre un checkpoint GPT-2 réel contenant F32, Q3_K, Q4_K et Q6_K. `gpt2_quant.c` fournit FP16→FP32 et le produit Q8_0×FP32 freestanding. Les tests Unity et les tests de robustesse couvrent les préfixes tronqués, compteurs excessifs et alignements invalides.
+
+**Limite.** Les kernels Q3_K/Q4_K/Q6_K manquent : un modèle GGUF n’est pas encore exécutable. Le cache KV et SSE2 améliorent le chemin GPT-2 FP32, mais le temps observé sous QEMU TCG sans KVM reste de l’ordre de 7 à 9 secondes pour une courte réponse, au-dessus de l’objectif inférieur à une seconde.
+
+**Vérification.** `make test-all`, puis `make integration-qemu`. La conception est documentée dans [docs/aos020_gguf_quantization_design.md](../docs/aos020_gguf_quantization_design.md).
+
+### AOS-021 — BPE Unicode
+
+**En tant qu’**utilisateur, **je veux** que les prompts non ASCII soient segmentés avec une logique de lettres Unicode utile, **afin de** ne pas réduire tous les textes internationaux à des octets opaques.
+
+**Livraison.** Le tokenizer valide l’UTF-8 sur 2, 3 et 4 octets, rejette les formes overlong et les surrogates, puis reconnaît les lettres Latin étendu, Grec, Arabe, Hébreu, Devanagari, CJK et Hangul. Les emoji et symboles restent des séparateurs BPE, ce qui est testé.
+
+**Limite.** Cette implémentation n’est pas une réimplémentation exhaustive de `\p{L}` Unicode.
+
+### AOS-022 — Contrat d’intégration QEMU
+
+**En tant que** contributeur, **je veux** une intégration QEMU versionnée, **afin de** vérifier un boot et un shell réels au-delà des tests C isolés.
+
+**Livraison.** `tests/integration/test_qemu_core_contract.py` vérifie le boot, `ai-runtime`, l’overlay, la copie, `append` et le retour au shell. Son disque overlay de test est isolé de `build/overlay.img`, de sorte que le contrat est idempotent.
+
+**Vérification.** `make integration-qemu`.
+
+### AOS-023 — Stockage étendu
+
+**En tant qu’**utilisateur, **je veux** des fichiers overlay plus nombreux et plus grands, **afin de** dépasser le snapshot de démonstration initial.
+
+**Livraison.** Le format AIOV V2 porte l’overlay à 64 nœuds, 80 octets par chemin, 384 octets de données et 64 secteurs ATA. La restauration lit aussi les snapshots V1. Les tests couvrent une restauration V1 et un fichier V2 étendu.
+
+**Limite.** L’overlay reste un petit cache persistant, pas un ext2/FAT ni un système de fichiers disque général.
+
+### AOS-024 — Préemption IRQ0 sûre
+
+**En tant qu’**utilisateur, **je veux** qu’une tâche Ring 3 qui ne coopère pas ne gèle pas le shell, **afin de** pouvoir garder une interaction clavier fiable.
+
+**Livraison.** Le timer applique un quantum de 20 ticks seulement pour un cadre ayant `CS` et `SS` Ring 3 et lorsqu’une autre tâche utilisateur est `READY`. Cette garde interdit un `schedule()` depuis un cadre noyau incomplet. L’EOI IRQ0 reste placé avant le gestionnaire C.
+
+**Vérification.** `make qemu-irq0-preemption` lance `spawn spin`, où `spin` ne fait aucun syscall, puis exige `echo irq0-preempt-ok` depuis le shell.
+
+### AOS-025 — Réseau minimal et fournisseur OpenAI
+
+**En tant qu’**utilisateur, **je veux** savoir exactement si le fournisseur en ligne peut émettre une requête, **afin de** ne pas croire qu’un profil sélectionné est déjà un client OpenAI fonctionnel.
+
+**Livraison.** `ai-provider openai` est un stub explicite et `net-status` expose l’absence de pilote Ethernet, ARP, IPv4, DHCP, DNS, TCP et TLS. La commande `ai` avec ce profil n’émet aucune requête et informe l’utilisateur que le transport bare-metal est absent. Le smoke QEMU `make qemu-ai-provider` garantit ce comportement.
+
+**Limite et suite.** Aucun NIC ni pile réseau n’est fourni. Un client OpenAI réel exige, dans l’ordre, un pilote NIC, Ethernet, ARP, IPv4, DHCP/UDP, DNS, TCP, TLS et HTTP. Les clés API doivent rester hors de l’initrd et du dépôt. La documentation QEMU confirme que l’émulateur peut relier une NIC ISA/PCI à un backend, mais cette fonction hôte ne remplace pas une pile dans le guest [1].
+
+## Prochaines tranches, hors livraison actuelle
+
+| Priorité | Sujet | Critère de sortie |
+|---|---|---|
+| 1 | Inference GGUF quantifiée | Kernels Q3_K/Q4_K/Q6_K, comparaison numérique et génération GPT-2 réelle |
+| 2 | Latence locale | Mesure sous matériel/KVM et optimisation documentée jusqu’à l’objectif cible |
+| 3 | Réseau effectif | NIC, DHCP, DNS, TCP/TLS et requête HTTP contrôlée, sans secret intégré |
+| 4 | Système de fichiers général | Driver de blocs et ext2 ou FAT avec tests de reprise |
+
+La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
+
+## Références
+
+[1] [QEMU, *Network emulation*](https://www.qemu.org/docs/master/system/devices/net.html)

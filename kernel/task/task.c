@@ -390,6 +390,17 @@ task_t* get_task_by_id(int id) {
     return NULL;
 }
 
+int task_has_other_ready_user(void) {
+    task_t* t;
+    if (!task_queue || !current_task) return 0;
+    t = current_task->next;
+    while (t && t != current_task) {
+        if (t->type == TASK_TYPE_USER && t->state == TASK_READY) return 1;
+        t = t->next;
+    }
+    return 0;
+}
+
 int get_task_count(void) {
     int n = 0;
     task_t* t;

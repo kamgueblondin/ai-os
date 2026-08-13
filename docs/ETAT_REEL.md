@@ -1,153 +1,82 @@
-# État réel d'AI-OS
+# État réel d’AI-OS
 
-**Date de constat :** 13 août 2026  
-**Code de référence :** prototype i386 (overlay ATA, spawn/yield/exec coopératifs, GPT-2 top-k borné)  
-**Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
+**Date de constat :** 13 août 2026
 
-Les rapports, TODO et user stories **MOHHOS** restent utiles (pistes, extraits, vision). Ils ne décrivent pas le hobby OS actuel. Backlog aligné sur le code : [US/ai_os_us.md](../US/ai_os_us.md). En cas de contradiction, **ce fichier prime**.
+**Référence :** prototype pédagogique i386 32-bit, BIOS/Multiboot, QEMU et Ring 3.
 
-## Synthèse
+**Rôle :** cette page décrit uniquement les fonctions observables dans le code et les tests. Elle prévaut sur les diagnostics historiques et sur la vision MOHHOS.
 
-AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU, charge un initrd TAR, passe en espace utilisateur (Ring 3) et exécute un shell ELF interactif. Lorsqu'un checkpoint GPT-2 124M `llm.c v3` et son tokenizer binaire sont inclus dans l'initrd, le noyau exécute une **inférence locale freestanding** sans dépendance réseau au démarrage.
+AI-OS démarre sans système hôte dans QEMU, charge un initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.
 
-| Périmètre | Avancement réel |
+| Périmètre | État vérifié |
 |---|---|
-| Hobby OS minimal (boot -> shell sous QEMU) | ~60-70 % |
-| Inference GPT-2 locale de démonstration | Fonctionnelle avec checkpoint externe, contexte et sortie bornés |
-| Vision MOHHOS (120 US, 8 phases) | Specs seulement ; backlog réel : [US/ai_os_us.md](../US/ai_os_us.md) |
+| Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3 |
+| IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot |
+| Stockage | Initrd TAR en lecture seule et overlay ATA PIO persistant V2 |
+| Ordonnancement | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur |
+| Réseau | **Aucun transport réseau noyau** ; diagnostic et profil OpenAI explicitement bloqués |
 
-Ce n'est **pas** un système d'exploitation utilisable au quotidien (pas de FS disque général, pas de réseau, pas d'interface graphique native, pas de vrais pilotes hors QEMU/i8042/ATA PIO).
+> Les poids GPT-2 ne sont pas versionnés dans Git. Une image utilisable sans réseau les embarque dans l’initrd au moment du build.
 
-## Ce qui fonctionne (vérifié)
+## Fonctions livrées
 
-Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavier via `sendkey`, et `make test-all`.
+### Noyau, stockage et tâches
 
-### Noyau
+Le noyau configure GDT, IDT, PIC 8259, PIT 100 Hz, i8042 PS/2, PMM/VMM/heap, paging, chargement ELF 32-bit, syscalls et initrd TAR. L’EOI de l’IRQ0 est envoyé **avant** le gestionnaire C : lorsqu’un changement de contexte effectue un `iret` sans revenir dans le stub, IRQ1 clavier n’est donc pas laissée bloquée.
 
-- Boot Multiboot, affichage VGA + logs série
-- GDT, IDT, PIC 8259, PIT (timer), clavier PS/2 (IRQ1)
-- PMM / VMM / heap, paging
-- Initrd format TAR POSIX (`fs/initrd.c`)
-- Chargeur ELF 32-bit
-- Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3) ; `SYS_SPAWN` / `SYS_YIELD` / `SYS_EXEC` basculent depuis le cadre user (pas depuis IRQ0)
-- Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY`, `SYS_APPEND` et `SYS_GPT2_GENERATE` (ABI : `include/os_syscalls.h`)
-- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`, concatène sans écraser) / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l'initrd reste en lecture seule ; `rmdir` d'un dossier non vide échoue. Après chaque mutation réussie, un snapshot binaire (magic `AIOV`, 32 nœuds, 24 secteurs) est écrit en ATA PIO LBA28 sur le maître IDE primaire (`kernel/ata.c`, ports `0x1F0`, sans IRQ14). Au boot, si IDENTIFY réussit, l'overlay est restauré. Sans disque QEMU, IDENTIFY échoue tout de suite et l'overlay reste volatile.
+L’overlay RAM persistant utilise désormais le format snapshot **V2** : 64 nœuds, chemins de 80 octets, contenu de 384 octets et 64 secteurs ATA PIO. `overlay_restore()` reconnaît également le format V1 afin de restaurer les images de disque déjà créées. Il ne s’agit pas d’un système de fichiers général : ext2, FAT, répertoires sur disque et cache de blocs sont absents.
 
-### Espace utilisateur
+Les appels `spawn`, `yield` et `exec` continuent de changer de contexte depuis le cadre utilisateur de `int 0x80`. En complément, IRQ0 déclenche un round-robin toutes les 20 interruptions uniquement si le cadre interrompu est Ring 3 et si une **autre** tâche utilisateur est `READY`. Cela évite les cadres noyau incomplets et empêche un quantum inutile en mono-tâche. Le contrat QEMU lance `spin`, une boucle utilisateur sans syscall, puis exige une nouvelle commande du shell : la réactivité obtenue démontre la préemption réelle.
 
-- `userspace/shell.c` s'exécute vraiment en Ring 3 (plus de boucle shell simulée dans le kernel)
-- Programmes empaquetés dans l'initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`, `idle`, `ok`, ainsi que les fichiers de modèle lorsqu'ils sont fournis au build
-- Commande `ai <texte>` appelle `SYS_GPT2_GENERATE` pour le profil local GPT-2 et produit une sortie `[GPT-2 local]` ; le binaire historique `ai_assistant` reste disponible comme compatibilité
+### IA locale, GGUF et BPE
 
-### Clavier (août 2026)
+Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
 
-Les nombreuses notes "clavier corrigé" des versions 6.0/6.1 étaient **partiellement** vraies (init PS/2, scancodes, buffer). Un bug restait : `schedule()` fait `iret` et ne revient jamais dans le stub IRQ0, donc l'EOI PIC placé *après* `schedule()` n'était pas envoyé. IRQ0 restait in-service et **bloquait IRQ1**.
+AOS-020 ajoute une sonde freestanding **GGUF v3** bornée. Elle valide magic, version, métadonnées, tenseurs et alignement ; elle a été exercée contre un checkpoint GPT-2 réel contenant des tenseurs F32, Q3_K, Q4_K et Q6_K. Les primitives FP16→FP32 et Q8_0×FP32 sont présentes. L’exécution de checkpoints Q3_K/Q4_K/Q6_K ne l’est pas encore, faute des kernels correspondants ; GGUF est donc une validation structurelle, pas un backend d’inférence quantifié.
 
-Correctif actuel :
+Le tokenizer BPE gère maintenant un décodage UTF-8 validé et une classe de lettres couvrant notamment Latin étendu, Grec, Arabe, Hébreu, Devanagari, CJK et Hangul. Les emoji et symboles restent des séparateurs BPE. Cette couverture est volontairement pratique et bornée ; elle n’implémente pas l’intégralité de `\p{L}` Unicode.
 
-1. EOI IRQ0 **avant** `timer_handler` / `schedule()` (`boot/isr_stubs.s`)
-2. Planification seulement si `g_reschedule_needed` (lancement du shell) - plus à chaque tick, ce qui provoquait un page fault une fois l'EOI rétabli (`kernel/timer.c`). `SYS_SPAWN`, `SYS_YIELD` et `SYS_EXEC` appellent `schedule()` depuis le cadre **user** de `int 0x80`. Le parent d'`exec` passe `TASK_WAITING` jusqu'au `SYS_EXIT` de l'enfant.
+### Réseau et fournisseur OpenAI — AOS-025
 
-Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` reçus par `SYS_GETS`.
+La commande `ai-provider openai` ne réalise **aucun** appel réseau. Elle ne fait que sélectionner un profil, puis `ai` répond explicitement que le transport OpenAI est indisponible. La commande `net-status` expose le contrat réel : aucun pilote Ethernet, ARP, IPv4, DHCP, DNS, TCP ou TLS n’est initialisé ; aucune requête ni secret n’est envoyé depuis l’image.
 
-### Tests
+QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et son backend utilisateur peut fournir DHCP sans privilèges. Cette capacité de l’émulateur ne crée toutefois ni pilote de carte ni pile réseau dans le guest [1]. Une suite réseau réaliste devra livrer, dans cet ordre, un pilote NIC, la réception/transmission Ethernet, ARP, IPv4, UDP/DHCP, DNS, TCP, TLS et seulement ensuite un client HTTP compatible OpenAI. Les clés API doivent rester hors de l’initrd, du dépôt et des logs série.
 
-`make test-all` (binaires 32-bit) :
-
-| Binaire | Tests unitaires |
+| Jalons AOS | Livraison réellement vérifiée |
 |---|---|
-| `test_pmm` | 17/17 |
-| `test_syscall` | 48/48 |
-| `test_task` | 21/21 |
-| `test_overlay` | 6/6 |
-| `test_tokenizer` | 13/13 |
-| `test_gpt2_sample` | 4/4 |
-| `test_shell` | 25/25 |
-| `test_ramfs` | 10/10 |
+| AOS-020 | Sonde GGUF v3, tests de bornes et primitives Q8_0 ; exécution quantifiée non livrée |
+| AOS-021 | BPE UTF-8 avec catégories de lettres Unicode ciblées |
+| AOS-022 | Contrat QEMU versionné : boot, runtime IA, overlay, append et retour au shell |
+| AOS-023 | Snapshot ATA overlay V2 avec restauration V1/V2 |
+| AOS-024 | Préemption IRQ0 Ring 3, quantum 20 ticks, contrat `spawn spin` puis shell réactif |
+| AOS-025 | Stub OpenAI honnête, `net-status` et smoke QEMU ; aucune pile réseau fournie |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des huit binaires (**144** = 17+48+21+6+13+4+25+10).
+## Shell et ABI observables
 
-Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
+Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
-## Shell : commandes réelles vs affichées
+L’ABI contient les syscalls 0–22 (`MAX_SYSCALLS = 23`) dont `SYS_APPEND` et `SYS_GPT2_GENERATE`. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
-Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `stat` / `test` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `append` / `touch` / `grep` / `wc` / `ps` / `kill` / `getpid` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write`/`append`/`touch` écrivent dans l'overlay noyau. `procsim.c` n'est plus utilisé par `ps`/`kill`.
-
-| Commande | Comportement réel |
-|---|---|
-| `help` | Aide |
-| `ls` / `dir` | Listing **initrd + overlay** (syscall `SYS_LISTDIR`) + fichiers extra du VFS RAM |
-| `mkdir` / `rmdir` / `rm` | Overlay noyau (`SYS_MKDIR` / `SYS_UNLINK`) ; l'initrd ne peut pas être modifié (`PROTECTED`) ; `rmdir` d'un dossier non vide échoue (`NOTEMPTY`) |
-| `cp` / `mv` | `cp` fichier : `SYS_READFILE` + `SYS_WRITEFILE` (y compris initrd -> overlay, et `cp fichier dossier/` joint le nom). `cp` dossier overlay : `SYS_COPY` (enfants dupliqués, source conservée). `mv` : `SYS_RENAME`. L'initrd reste `PROTECTED`. |
-| `cat` / `grep` / `wc` / `sort` / `head` / `tail` | Lecture overlay puis **initrd** (`SYS_READFILE`) puis VFS RAM. `grep` affiche `grep hits N` ; `wc` affiche `wc ok L W C fichier` ; `head`/`tail`/`sort` affichent `head ok N fichier` / `tail ok N fichier` / `sort ok N fichier` |
-| `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
-| `test` / `[` | `test f`/`d`/`e <chemin>` (`SYS_STAT`, aussi `-f`/`-d`/`-e`) ; `[` est un alias (`]` optionnel) : `test ok file hello.txt` / `test ok dir mydir` / `test no zz` |
-| `echo` | Affichage puis `echo ok` ; `echo $?` expand le dernier code ; `echo texte > fichier` écrit dans l'overlay (le `>` n'est pas tapable en CI sendkey) |
-| `write` | `write <fichier> <texte>` -> overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
-| `append` | `append <fichier> <texte>` -> concatène (`SYS_APPEND`) ; crée le fichier s'il n'existe pas ; un fichier initrd est recopié dans l'overlay (copie sur écriture). Succès : `append ok <fichier>` |
-| `touch` | `touch <fichier>` -> fichier overlay vide (`SYS_WRITEFILE` taille 0). Succès : `touch ok <fichier>` ; un fichier existant n'est pas tronqué |
-| `cd` / `pwd` | Chemin shell ; `cd` accepte overlay/initrd (`SYS_STAT`) **ou** VFS RAM (`cd bin`). Succès : `cd ok <arg>` |
-| `ps` / `jobs` / `top` / `kill` / `spawn` / `yield` / `getpid` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY puis lui cède le CPU une fois (cadre syscall). `idle` affiche `idle ok` puis boucle sur `SYS_YIELD`. `yield` affiche `yield ok`. pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`). `getpid` affiche `getpid ok <pid>` (`SYS_GETPID`). `jobs` affiche `jobs ok N` ; `top` affiche `top ok N` |
-| `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
-| `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) et affiche `date ok` |
-| `whoami` / `env` / `export` | Variables d'environnement du shell (`USER=root` par défaut). `whoami` affiche `whoami ok root` ; `export VAR=val` affiche `export ok VAR` ; `env` affiche `env ok N` |
-| `alias` / `unalias` | Table d'alias, expansion avant exécution. Succès : `alias ok <name>` / `unalias ok <name>` |
-| `history` | Historique en mémoire ; `history ok N` |
-| `which` | `which ok builtin <cmd>` ou `which ok bin/<cmd>` |
-| `rc` / `$?` | Dernier code de retour. `rc` affiche `rc ok N` (sendkey sans `$`/`?`). `echo $?` expand `$?` |
-| `clear`/`cls` | Séquence ANSI + bannière |
-| `ai`, `ai-mode`, `ai-help`, `ai-test`, `ai-stats`, `ai-provider`, `ai-model`, `ai-runtime` | `ai <texte>` appelle le moteur GPT-2 local si le modèle est chargé ; la génération est synchrone et bornée. `ai-provider local` est opérationnel ; `ai-provider openai` sélectionne seulement un profil futur. `ai-model list` décrit GPT-2 opérationnel et GGUF futur. Variantes sans tiret pour sendkey : `aimode` / `aihelp` / `aitest` / `aistats`. |
-| `exit` / `quit` / `logout` | Sortie du programme |
-| `reboot` / `shutdown` | Message simulé (QEMU n'est pas arrêté) |
-
-## Intelligence artificielle locale
-
-Le chemin local de `ai <texte>` appelle `SYS_GPT2_GENERATE`. Le noyau charge au boot le checkpoint GPT-2 124M en format `llm.c v3` et le tokenizer binaire depuis l'initrd. L'inférence est écrite en C freestanding ; elle utilise un cache clé/valeur par couche et position. L'entrée est tokenisée en **BPE GPT-2** (fusions par plus petit identifiant de vocabulaire, découpage type regex). La sortie décode les octets bruts tiktoken (espaces, sauts de ligne, UTF-8) sans les remplacer par des espaces. La génération est un **échantillonnage top-k** proche du greedy (k=8, température 0,6). La pénalité de fréquence et l'interdiction du jeton précédent s'appliquent **seulement aux jetons déjà émis**, pas au prompt : cela casse la boucle ` The The The` sans écarter la suite naturelle de la question. Arrêt au bout de 12 jetons, d'un saut de ligne, d'un EOT, ou d'une répétition consécutive. Le RNG est dérivé du prompt (même question → même suite).
-
-La démonstration limite le prompt à 64 jetons et génère jusqu'à 12 jetons (arrêt sur newline ou EOT). L'encodeur BPE couvre le vocabulaire llm.c ; le regex unicode `\p{L}` complet n'est pas reproduit (ASCII + séquences UTF-8). Les poids et le tokenizer ne sont pas distribués dans Git ; sans ces deux fichiers, le moteur local est signalé comme indisponible. `userspace/ai_assistant.c` et `userspace/fake_ai.c` sont conservés comme programmes historiques de compatibilité.
-
-La configuration mesurée avec QEMU sans KVM est de 7,693 s pour `ai hello` et quatre jetons, contre 88,835 s avant l'optimisation SSE2. Le réalignement de pile évite également un défaut de protection générale qui pouvait survenir dans la copie récursive de l'overlay lorsque le compilateur produisait des instructions SSE alignées. Le détail figure dans [kv_cache_performance_report.md](kv_cache_performance_report.md).
-
-## Ce qui n'existe pas dans le code
-
-Malgré la roadmap README v7/v8 et le dossier `US/` :
-
-- Apprentissage fédéré, cloud-edge et les autres services IA décrits par les anciennes spécifications MOHHOS
-- Système de fichiers disque général (ext2/FAT) ; seul un snapshot overlay ATA PIO (32 nœuds, 256 octets par fichier) survit au reboot QEMU
-- Pile TCP/IP, services réseau
-- Interface graphique du OS (seul QEMU affiche du VGA texte)
-- Architecture microkernel, IPC, plugins
-- Réseau P2P, multi-plateforme, économie collaborative
-- Les User Stories MOHHOS : **spécifications**, pas d'implémentation. Recouvrement partiel (PMM, Unity, GPT-2, commande `ai`) : [US/individual_us/INDEX.md](../US/individual_us/INDEX.md). Suite proche du prototype : [US/ai_os_us.md](../US/ai_os_us.md)
-
-Le préemptif "à chaque tick" est volontairement **limité** : après le premier passage au shell, le timer n'appelle plus `schedule()` sauf `g_reschedule_needed` (premier saut vers le shell). `spawn`, `yield` et `exec` basculent depuis le syscall, sans round-robin IRQ0 (stabilité clavier).
-
-## Documents historiques à ne pas prendre pour l'état courant
-
-Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusion "le shell ne se lance pas" / "crash timer" / "clavier mort à jamais" est **obsolète** :
-
-- `docs/todo.md` (phases 3-4 : blocage userspace) - mis à jour, le diagnostic d'origine est conservé
-- `docs/ANALYSE_ARCHITECTURE.md`, `ANALYSE_PROBLEMES.md`, `ANALYSE_PROBLEMES_SHELL.md`
-- `docs/diagnostic_problemes.md`, `DIAGNOSTIC_SHELL_IA_PROBLEMES.md`
-- Série `CORRECTION_CLAVIER_*.md`, `DIAGNOSTIC_CLAVIER_*.md`, `KEYBOARD_*.md` (correctifs PS/2 toujours pertinents ; le blocage PIC/EOI n'y est en général pas identifié)
-
-## Comment vérifier
+## Vérification reproductible
 
 ```bash
-sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
-make clean && make all
-make test-all
-make qemu-smoke       # cinq boots QEMU : overlay (#73) + extras + persist + spawn/yield + exec ok
-make gpt2-recovery    # modèle requis : réponse GPT-2, puis validation de `rc`
-make gpt2-benchmark   # modèle requis : mesure avec CPU QEMU Pentium III SSE2
-make gpt2-tests       # modèle requis : reprise shell + benchmark
-make ci               # all + test-all + qemu-smoke (même gate que GitHub Actions)
-make run              # console curses (recommandé en local)
-make run-gui          # fenêtre GTK
+sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
+make clean && make all       # noyau, initrd et disque overlay
+make test-all                # 161/161 tests C Unity et robustesse
+make integration-qemu        # contrats AOS-022, AOS-024 et AOS-025
+make iso                     # ISO BIOS/GRUB bootable
+make run                     # console curses
+make run-gui                 # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **cinq boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d'un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`), une persistance disque (`write k.txt v7ok`, kill QEMU, reboot, `cat k.txt` voit `v7ok`), `spawn idle` (aiguille `idle ok`), `yield`, `kill`, puis `ok` (ELF `exec ok`, retour au shell, `rc ok 0`). Le disque cœur/extras/spawn/exec est remis à zéro entre ces boots. Le scénario cœur attend le retour du shell après chaque commande afin d'éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras + 180 s persist + 90 s spawn + 90 s exec.
+La suite C exécute 161 assertions de tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre trois machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, et le smoke AOS-025 vérifie que le profil OpenAI reste bloqué.
 
-En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n'atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
+Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
-Prompt actuel du shell : `/ (-.-) :`
+## Absences importantes
+
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC général ni des fonctionnalités de la vision MOHHOS. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+
+## Références
+
+[1] [QEMU, *Network emulation*](https://www.qemu.org/docs/master/system/devices/net.html)

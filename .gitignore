@@ -4,6 +4,7 @@ userspace/fake_ai
 userspace/test_program
 userspace/ai_assistant
 userspace/idle
+userspace/spin
 userspace/ok
 userspace/*.o
 userspace/*.bin
@@ -12,6 +13,7 @@ initrd_content/bin/fake_ai
 initrd_content/bin/ai_assistant
 initrd_content/bin/user_program
 initrd_content/bin/idle
+initrd_content/bin/spin
 initrd_content/bin/ok
 
 # Build and QEMU artefacts
@@ -31,6 +33,7 @@ tests/scripts/__pycache__/
 # GPT-2 weights (release gpt2-124m-assets, not Git)
 /models/
 /initrd_content/models/
+*.gguf
 
 # QEMU / Word dumps (source of truth is the .md files)
 docs/*.log
