@@ -1451,6 +1451,7 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     os_vfs_read_reply_t reply;
     int pid;
     int rc;
+    int attempts;
     uint32_t i;
     if (arg_count != 1) {
         print_error("Usage: vfs-read <chemin>");
@@ -1474,7 +1475,11 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
         ctx->last_rc = rc;
         return;
     }
-    rc = sys_ipc_receive(&message);
+    rc = OS_IPC_EMPTY;
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        yield();
+        rc = sys_ipc_receive(&message);
+    }
     if (rc != 0 || os_vfs_parse_read_reply(&message, &reply) != 0) {
         print_error("vfs-read: reponse VFS absente ou invalide");
         ctx->last_rc = rc != 0 ? rc : OS_VFS_STATUS_INVALID;

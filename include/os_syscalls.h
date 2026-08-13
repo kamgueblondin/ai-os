@@ -37,8 +37,10 @@
 #define SYS_SERVICE_REGISTER 25
 /* EBX = nom de service ; EAX reçoit le PID associé. */
 #define SYS_SERVICE_LOOKUP   26
+/* EBX = nom de service ; seul son propriétaire peut le retirer. */
+#define SYS_SERVICE_UNREGISTER 27
 
-#define MAX_SYSCALLS 27
+#define MAX_SYSCALLS 28
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
