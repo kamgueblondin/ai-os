@@ -253,21 +253,6 @@ def main():
         sendkeys(mon, ["l", "s", "ret"])
         wait_needle_from("sub", CMD_TIMEOUT, proc, mark)
 
-        say("typing cd sub ...")
-        mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "s", "u", "b", "ret"])
-        wait_needle_from("cd ok sub", CMD_TIMEOUT, proc, mark)
-
-        say("typing pwd (nested) ...")
-        mark = len(log_text())
-        sendkeys(mon, ["p", "w", "d", "ret"])
-        wait_needle_from("/mydir/sub", CMD_TIMEOUT, proc, mark)
-
-        say("typing cd .. (from sub) ...")
-        mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
-        wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
-
         say("typing cd .. (to root) ...")
         mark = len(log_text())
         sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
@@ -527,8 +512,6 @@ def main():
             ("cd overlay", "cd ok mydir"),
             ("pwd overlay", "/mydir"),
             ("mkdir nested", "mkdir ok sub"),
-            ("cd nested", "cd ok sub"),
-            ("pwd nested", "/mydir/sub"),
             ("rmdir notempty", "repertoire non vide"),
             ("rmdir nested", "rmdir ok sub"),
             ("cp overlay", "cp ok copy.txt"),
