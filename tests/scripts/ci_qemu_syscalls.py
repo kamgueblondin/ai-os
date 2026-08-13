@@ -155,7 +155,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -188,6 +188,9 @@ def main():
              ["s", "o", "r", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "sort ok 1 hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
+            ("ai hello",
+             ["a", "i", "spc", "h", "e", "l", "l", "o", "ret"],
+             "ai ok"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
         for name, keys, needle in commands:
@@ -501,6 +504,8 @@ def main():
             ("initrd ls", "startup.sh"),
             ("cat hello.txt", "Un autre fichier de demonstration"),
             ("ls bin", "fake_ai"),
+            ("ai exec", "AI: bonjour"),
+            ("ai exec returned", "ai ok"),
             ("ps kernel table", "Processus (noyau)"),
             ("ps kernel", "kern"),
             ("ps shell", "shell"),
