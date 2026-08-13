@@ -201,6 +201,10 @@ def main():
              ["s", "o", "r", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "sort ok 1 hello.txt"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
+            ("whoami", ["w", "h", "o", "a", "m", "i", "ret"], "whoami ok root"),
+            ("which ls",
+             ["w", "h", "i", "c", "h", "spc", "l", "s", "ret"],
+             "which ok builtin ls"),
             ("ai hello",
              ["a", "i", "spc", "h", "e", "l", "l", "o", "ret"],
              "ai ok"),
@@ -251,16 +255,6 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["g", "e", "t", "p", "i", "d", "ret"])
         wait_needle_from("getpid ok", CMD_TIMEOUT, proc, mark)
-
-        say("typing whoami ...")
-        mark = len(log_text())
-        sendkeys(mon, ["w", "h", "o", "a", "m", "i", "ret"])
-        wait_needle_from("whoami ok root", CMD_TIMEOUT, proc, mark)
-
-        say("typing which ls ...")
-        mark = len(log_text())
-        sendkeys(mon, ["w", "h", "i", "c", "h", "spc", "l", "s", "ret"])
-        wait_needle_from("which ok builtin ls", CMD_TIMEOUT, proc, mark)
 
         say("typing test f hello.txt ...")
         mark = len(log_text())
