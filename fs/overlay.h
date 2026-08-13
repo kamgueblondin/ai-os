@@ -18,6 +18,7 @@ void overlay_init(void);
 int overlay_mkdir(const char* path);
 int overlay_write(const char* path, const char* data, uint32_t n);
 int overlay_unlink(const char* path);
+int overlay_rename(const char* oldpath, const char* newpath);
 int overlay_read(const char* path, char* buf, uint32_t max);
 int overlay_stat(const char* path, os_dirent_t* out);
 int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n);

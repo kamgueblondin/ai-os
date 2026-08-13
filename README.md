@@ -40,7 +40,7 @@ make run-gui
 - **🤖 Simulateur d'IA Intégré** - Réponses préprogrammées par mots-clés (`fake_ai.c`), pas un modèle ML
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
-- **💾 Système de Fichiers** - Initrd TAR en lecture seule + overlay RAM (`mkdir`/`rm`). Pas de disque persistant. `ls` fusionne les deux via `SYS_LISTDIR`.
+- **💾 Système de Fichiers** - Initrd TAR en lecture seule + overlay RAM (`mkdir`/`rm`/`mv` fichier et dossier). Pas de disque persistant. `ls` fusionne les deux via `SYS_LISTDIR`.
 - **🧠 Gestion Mémoire** - VMM/PMM avec paging (cible ~128 MB RAM sous QEMU)
 - **🔌 Gestion Interruptions** - PIC, clavier PS/2, timer PIT
 
@@ -80,7 +80,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **106 tests** répartis dans `test_pmm` (17), `test_syscall` (43), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **107 tests** répartis dans `test_pmm` (17), `test_syscall` (44), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
 
 ### Configuration Initiale
 ```bash
@@ -177,7 +177,7 @@ ai-os/
 - ✅ **Interruptions clavier (IRQ1) générées par QEMU**
 - ✅ **Fin des boucles infinies** sur appels système
 - ✅ **IA accessible** via interface clavier
-- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `cp`, `grep`, `kill`, `top`, `ai`, etc. — `ls`/`mkdir`/`rm`/`cp`/`mv`/`ps`/`kill`/`mem` via syscalls noyau, voir `docs/ETAT_REEL.md`)
+- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `cp`, `grep`, `kill`, `top`, `ai`, etc. — `ls`/`mkdir`/`rm`/`cp`/`mv` (dont dossiers overlay)/`ps`/`kill`/`mem` via syscalls noyau, voir `docs/ETAT_REEL.md`)
 
 ### ✅ Corrections Antérieures
 

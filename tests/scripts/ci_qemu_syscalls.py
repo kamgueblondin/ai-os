@@ -146,7 +146,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/ps/spawn/kill/mkdir/cd/mv/write/grep/wc/rename-dir) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -339,34 +339,49 @@ def main():
         sendkeys(mon, ["l", "s", "spc", "m", "y", "d", "i", "r", "ret"])
         wait_needle_from("hello.txt", CMD_TIMEOUT, proc, mark)
 
-        say("typing cd mydir (copied file) ...")
-        mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "m", "y", "d", "i", "r", "ret"])
-        wait_needle_from("cd ok mydir", CMD_TIMEOUT, proc, mark)
-
-        say("typing cat hello.txt (in mydir) ...")
+        say("typing mv mydir newd ...")
         mark = len(log_text())
         sendkeys(mon, [
-            "c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+            "m", "v", "spc", "m", "y", "d", "i", "r", "spc", "n", "e", "w", "d", "ret",
+        ])
+        wait_needle_from("mv ok newd", CMD_TIMEOUT, proc, mark)
+
+        say("typing ls (after mv dir) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "ret"])
+        wait_needle_from("Initrd / VFS", CMD_TIMEOUT, proc, mark)
+        wait_needle_from("Total:", CMD_TIMEOUT, proc, mark)
+        after_mv_dir = log_text()[mark:]
+        if "mydir" in after_mv_dir:
+            raise RuntimeError("mydir still listed after mv mydir newd")
+        if "newd" not in after_mv_dir:
+            raise RuntimeError("ls after mv dir missing newd")
+
+        say("typing ls newd ...")
+        mark = len(log_text())
+        sendkeys(mon, ["l", "s", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("hello.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing cat newd/hello.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "c", "a", "t", "spc", "n", "e", "w", "d", "slash",
+            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("demonstration", CMD_TIMEOUT, proc, mark)
 
-        say("typing rm hello.txt (in mydir) ...")
+        say("typing rm newd/hello.txt ...")
         mark = len(log_text())
         sendkeys(mon, [
-            "r", "m", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
+            "r", "m", "spc", "n", "e", "w", "d", "slash",
+            "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("rm ok hello.txt", CMD_TIMEOUT, proc, mark)
 
-        say("typing cd .. (after cp into dir) ...")
+        say("typing rmdir newd ...")
         mark = len(log_text())
-        sendkeys(mon, ["c", "d", "spc", "dot", "dot", "ret"])
-        wait_needle_from("cd ok ..", CMD_TIMEOUT, proc, mark)
-
-        say("typing rmdir mydir ...")
-        mark = len(log_text())
-        sendkeys(mon, ["r", "m", "d", "i", "r", "spc", "m", "y", "d", "i", "r", "ret"])
-        wait_needle_from("rmdir ok mydir", CMD_TIMEOUT, proc, mark)
+        sendkeys(mon, ["r", "m", "d", "i", "r", "spc", "n", "e", "w", "d", "ret"])
+        wait_needle_from("rmdir ok newd", CMD_TIMEOUT, proc, mark)
 
         say("typing ls (after rmdir) ...")
         mark = len(log_text())
@@ -376,6 +391,8 @@ def main():
         after_rmdir_ls = log_text()[mark:]
         if "mydir" in after_rmdir_ls:
             raise RuntimeError("mydir still listed in ls after rmdir")
+        if "newd" in after_rmdir_ls:
+            raise RuntimeError("newd still listed in ls after rmdir")
 
         say("typing write hi.txt ping ...")
         mark = len(log_text())
@@ -443,7 +460,8 @@ def main():
             ("mv overlay", "mv ok notes.txt"),
             ("rm overlay", "rm ok notes.txt"),
             ("cp into dir", "cp ok hello.txt"),
-            ("rmdir overlay", "rmdir ok mydir"),
+            ("mv overlay dir", "mv ok newd"),
+            ("rmdir overlay", "rmdir ok newd"),
             ("write overlay", "write ok hi.txt"),
             ("grep overlay", "grep hits 1"),
             ("wc overlay", "wc ok 1 1 5 hi.txt"),

@@ -265,6 +265,67 @@ int overlay_unlink(const char* path) {
     return OV_OK;
 }
 
+static int ov_under(const char* path, const char* prefix, int plen) {
+    int i = 0;
+    while (i < plen && path[i] == prefix[i]) i++;
+    if (i != plen) return 0;
+    return path[plen] == '\0' || path[plen] == '/';
+}
+
+int overlay_rename(const char* oldpath, const char* newpath) {
+    char oldp[OV_PATH_MAX];
+    char newp[OV_PATH_MAX];
+    int oldn;
+    int newn;
+    int i;
+
+    ov_normalize(oldpath, oldp, OV_PATH_MAX);
+    ov_normalize(newpath, newp, OV_PATH_MAX);
+    if (!oldp[0] || !newp[0]) return OV_ERR_INVAL;
+    if (ov_eq(oldp, newp)) return OV_OK;
+
+    if (!ov_find(oldp)) {
+        if (initrd_is_file(oldp) || initrd_is_dir(oldp)) return OV_ERR_PROTECTED;
+        return OV_ERR_NOTFOUND;
+    }
+    if (ov_find(newp)) return OV_ERR_EXISTS;
+    if (initrd_is_file(newp) || initrd_is_dir(newp)) return OV_ERR_EXISTS;
+    if (!ov_parent_is_dir(newp)) return OV_ERR_NOTDIR;
+
+    oldn = ov_len(oldp);
+    newn = ov_len(newp);
+    if (ov_under(newp, oldp, oldn) && newp[oldn] == '/') return OV_ERR_INVAL;
+
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        int rest;
+        if (!g_ov[i].used) continue;
+        if (!ov_under(g_ov[i].path, oldp, oldn)) continue;
+        rest = ov_len(g_ov[i].path) - oldn;
+        if (newn + rest >= OV_PATH_MAX) return OV_ERR_INVAL;
+    }
+
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        char rest[OV_PATH_MAX];
+        int r = 0;
+        if (!g_ov[i].used) continue;
+        if (!ov_under(g_ov[i].path, oldp, oldn)) continue;
+        while (g_ov[i].path[oldn + r]) {
+            rest[r] = g_ov[i].path[oldn + r];
+            r++;
+        }
+        rest[r] = '\0';
+        ov_copy(g_ov[i].path, newp, OV_PATH_MAX);
+        {
+            int k;
+            for (k = 0; rest[k] && newn + k < OV_PATH_MAX - 1; k++) {
+                g_ov[i].path[newn + k] = rest[k];
+            }
+            g_ov[i].path[newn + k] = '\0';
+        }
+    }
+    return OV_OK;
+}
+
 int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n) {
     char prefix[OV_PATH_MAX];
     int count = start;

@@ -168,6 +168,12 @@ int sys_stat(const char* path, os_dirent_t* out) {
     return result;
 }
 
+int sys_rename(const char* oldpath, const char* newpath) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_RENAME), "b"(oldpath), "c"(newpath));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -464,7 +470,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
     print_string("  rmdir <dir>        - Supprimer un répertoire vide\n");
     print_string("  cp <src> <dest>    - Copier un fichier (overlay noyau)\n");
-    print_string("  mv <src> <dest>    - Déplacer un fichier overlay\n");
+    print_string("  mv <src> <dest>    - Deplacer fichier ou dossier overlay\n");
     print_string("  rm <file>          - Supprimer un fichier\n");
     
     print_colored("\nCOMMANDES PROCESSUS :\n", COLOR_YELLOW);
@@ -1105,21 +1111,12 @@ static void cmd_mv(shell_context_t* ctx, char args[][128], int arg_count) {
     resolve_arg(ctx, args[0], src);
     resolve_arg(ctx, args[1], dst);
     if (sys_stat(src, &st) == 0) {
-        if (st.flags == OS_DIRENT_DIR) {
-            print_error("mv: repertoire non supporte");
-            return;
+        if (sys_stat(dst, &st) == 0 && st.flags == OS_DIRENT_DIR) {
+            char joined[RAMFS_PATH_MAX];
+            fs_join(joined, RAMFS_PATH_MAX, dst, fs_basename(src));
+            strcpy(dst, joined);
         }
-        rc = kernel_copy_file(src, dst, RAMFS_PATH_MAX);
-        if (rc != 0) {
-            print_fs_err("mv", rc);
-            return;
-        }
-        rc = sys_unlink(src);
-        if (rc == -8) {
-            sys_unlink(dst);
-            print_fs_err("mv", rc);
-            return;
-        }
+        rc = sys_rename(src, dst);
         if (rc != 0) {
             print_fs_err("mv", rc);
             return;
