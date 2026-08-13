@@ -1,6 +1,8 @@
 # AI-OS Étape 7 : Shell Interactif et Simulateur d'IA
 ## Implémentation Complète de l'Interface Conversationnelle
 
+> **État réel (août 2026).** L’étape 7 est en place (shell ELF + `fake_ai`). Ce n’est pas une « plateforme conversationnelle » au sens ML : simulateur par mots-clés. Liste des commandes réellement branchées : [ETAT_REEL.md](ETAT_REEL.md).
+
 ### 📋 Vue d'Ensemble
 
 L'étape 7 représente l'aboutissement du projet AI-OS avec l'implémentation d'un shell interactif complet intégrant un simulateur d'intelligence artificielle. Cette version transforme AI-OS d'un système d'exploitation expérimental en une plateforme conversationnelle fonctionnelle.
@@ -20,7 +22,14 @@ L'étape 7 représente l'aboutissement du projet AI-OS avec l'implémentation d'
 - Boucle interactive avec prompt personnalisé
 - Gestion des erreurs et mode de secours
 
-**Commandes internes supportées :**
+**Commandes internes réellement gérées par `execute_builtin_command()` (août 2026) :**
+- `help`, `ls`/`dir`, `ps`, `sysinfo`/`info`, `mem`/`memory`
+- `history`, `env`, `echo`, `clear`/`cls`, `pwd`, `cd`, `cat` (stub FS), `which`
+- `exit`/`quit`, `ai`, `ai-mode`, `ai-help`, `ai-test`
+
+`help` affiche aussi mkdir/rm/kill/top/… : **non implémentées** dans le gestionnaire. `ls` et `ps` affichent des données simulées.
+
+**Commandes internes supportées (liste d’origine du document, v5) :**
 - `exit/quit` : Quitter le shell
 - `clear/cls` : Effacer l'écran
 - `about/version` : Informations sur AI-OS

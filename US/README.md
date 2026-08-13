@@ -1,5 +1,7 @@
 # MOHHOS - Dossier User Stories (US)
 
+> **État réel (août 2026).** Ce dossier est un **plan / spécification**. Aucune des 8 phases MOHHOS n’est livrée dans le noyau actuel (toujours un kernel monolithique pédagogique + simulateur `fake_ai`). Les fichiers US restent la référence de conception. Implémenté aujourd’hui : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+
 ## Vue d'Ensemble
 
 Ce dossier contient l'ensemble des User Stories (US) et spécifications techniques pour transformer AI-OS v5.0 en **MOHHOS** (Manus Operating Hybrid Hosted OS), un système d'exploitation révolutionnaire basé sur l'intelligence artificielle.

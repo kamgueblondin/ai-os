@@ -1,5 +1,7 @@
 # Diagnostic Complet - Problèmes Shell Utilisateur et IA
 
+> **État réel (août 2026).** Le système **utilise** le shell utilisateur (`userspace/shell.c` en Ring 3). L’affirmation « faux shell kernel » ci-dessous décrit un état antérieur. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## 🚨 **PROBLÈME PRINCIPAL IDENTIFIÉ**
 
 **Le système AI-OS n'utilise PAS le shell utilisateur réel !**

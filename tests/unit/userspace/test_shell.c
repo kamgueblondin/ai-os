@@ -3,6 +3,8 @@
 #include "../../framework/unity.h"
 #include "../../framework/test_kernel.h"
 
+extern int putchar(int c);
+
 // Mock des syscalls pour les tests userspace
 static char mock_output_buffer[2048];
 static int mock_output_pos = 0;
@@ -16,6 +18,7 @@ void unity_putc_redirect(char c) {
         mock_output_buffer[mock_output_pos++] = c;
         mock_output_buffer[mock_output_pos] = '\0';
     }
+    putchar(c);
 }
 
 void gets(char* buffer, int size) {
@@ -160,10 +163,11 @@ int parse_command(const char* input, char* command, char args[][64], int* argc) 
     // Skip leading spaces
     while (input[input_pos] == ' ') input_pos++;
     
-    // Extract command
-    while (input[input_pos] != '\0' && input[input_pos] != ' ') {
+    // Extract command (leave room for NUL)
+    while (input[input_pos] != '\0' && input[input_pos] != ' ' && cmd_pos < 63) {
         command[cmd_pos++] = input[input_pos++];
     }
+    while (input[input_pos] != '\0' && input[input_pos] != ' ') input_pos++;
     command[cmd_pos] = '\0';
     
     // Extract arguments
@@ -175,9 +179,10 @@ int parse_command(const char* input, char* command, char args[][64], int* argc) 
         
         // Extract argument
         int arg_pos = 0;
-        while (input[input_pos] != '\0' && input[input_pos] != ' ') {
+        while (input[input_pos] != '\0' && input[input_pos] != ' ' && arg_pos < 63) {
             args[*argc][arg_pos++] = input[input_pos++];
         }
+        while (input[input_pos] != '\0' && input[input_pos] != ' ') input_pos++;
         args[*argc][arg_pos] = '\0';
         (*argc)++;
     }
@@ -251,8 +256,9 @@ void test_strcpy_basic(void) {
 }
 
 void test_strstr_basic(void) {
-    TEST_ASSERT_EQUAL_PTR("hello world", strstr("hello world", ""));
-    TEST_ASSERT_EQUAL_PTR("world", strstr("hello world", "world"));
+    const char* haystack = "hello world";
+    TEST_ASSERT_EQUAL_PTR(haystack, strstr(haystack, ""));
+    TEST_ASSERT_EQUAL_PTR(haystack + 6, strstr(haystack, "world"));
     TEST_ASSERT_NULL(strstr("hello", "xyz"));
 }
 
@@ -317,7 +323,8 @@ void test_parse_command_max_args(void) {
     parse_command(long_cmd, command, args, &argc);
     
     TEST_ASSERT_EQUAL_STRING("cmd", command);
-    TEST_ASSERT_LESS_THAN(MAX_ARGS, argc + 1); // +1 pour la commande
+    TEST_ASSERT_LESS_THAN(MAX_ARGS, argc);
+    TEST_ASSERT_EQUAL(15, argc);
 }
 
 // === TESTS DES COMMANDES SHELL ===

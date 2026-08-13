@@ -1,5 +1,7 @@
 # Diagnostic Complet - Projet AI-OS
 
+> **État réel (août 2026).** Le projet boote jusqu’au shell userspace. Ce rapport de campagne reste valable comme chronologie. Synthèse à jour : [ETAT_REEL.md](ETAT_REEL.md).
+
 ## 📋 Résumé Exécutif
 
 **Statut Global : ✅ FONCTIONNEL AVEC CORRECTIONS APPLIQUÉES**

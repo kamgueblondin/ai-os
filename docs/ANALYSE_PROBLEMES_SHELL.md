@@ -1,5 +1,7 @@
 # Analyse des Problèmes - Shell Utilisateur AI-OS
 
+> **État réel (août 2026).** L’interface n’est plus figée au passage userspace ; le shell ELF démarre. Contenu historique conservé. Voir [ETAT_REEL.md](ETAT_REEL.md).
+
 ## Problème Principal Identifié
 
 **Symptôme**: L'interface reste figée lors du passage au mode utilisateur et le système redémarre en boucle.
