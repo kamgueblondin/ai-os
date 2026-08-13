@@ -21,15 +21,16 @@ irq0:
     mov es, ax
     mov fs, ax
     mov gs, ax
+
+    ; EOI avant le handler C : schedule() fait iret et ne revient jamais.
+    ; Sans ceci, IRQ0 reste in-service et le PIC bloque IRQ1 (clavier).
+    mov al, 0x20
+    out 0x20, al
     
     ; Passe un pointeur vers la structure de registres au handler C
     push esp
     call timer_handler
     add esp, 4
-    
-    ; Envoie EOI au PIC pour IRQ 0
-    mov al, 0x20
-    out 0x20, al
     
     ; Restaure l'état complet du processeur
     popad
