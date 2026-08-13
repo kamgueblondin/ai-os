@@ -110,6 +110,7 @@ int task_kill(int pid) {
     t = get_task_by_id(pid);
     if (!t) return -1;
     if (current_task && t->id == current_task->id) return -3;
+    task_wake_waiter(t);
     t->state = TASK_TERMINATED;
     remove_task(t);
     return 0;
@@ -169,6 +170,15 @@ void schedule(cpu_state_t* cpu) {
     current_task = next_task;
     current_task->state = TASK_RUNNING;
     g_reschedule_needed = 0;
+}
+
+void task_wake_waiter(task_t* child) {
+    task_t* parent;
+    if (!child || child->waiter_pid <= 0) return;
+    parent = get_task_by_id(child->waiter_pid);
+    if (parent && parent->state == TASK_WAITING) {
+        parent->state = TASK_READY;
+    }
 }
 
 void task_yield(void) {

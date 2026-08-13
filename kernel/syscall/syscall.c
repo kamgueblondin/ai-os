@@ -37,11 +37,10 @@ void syscall_handler(cpu_state_t* cpu) {
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
         case SYS_EXIT:
+            task_wake_waiter(current_task);
             current_task->state = TASK_TERMINATED;
             print_string_serial("[EXIT] task terminated, scheduling...\n");
-            // Basculer directement via l'ordonnanceur en utilisant l'état CPU courant
             schedule(cpu);
-            // Ne devrait jamais revenir
             break;
         
         case SYS_PUTC:
@@ -101,8 +100,15 @@ void syscall_handler(cpu_state_t* cpu) {
             
         case SYS_EXEC:
             print_string_serial("[EXEC] starting child\n");
-            cpu->eax = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
-            print_string_serial("[EXEC] child finished\n");
+            {
+                int rc = sys_exec((const char*)cpu->ebx, (char**)cpu->ecx);
+                cpu->eax = (uint32_t)rc;
+                if (rc >= 0) {
+                    print_string_serial("[EXEC] waiting for child\n");
+                    current_task->state = TASK_WAITING;
+                    schedule(cpu);
+                }
+            }
             break;
         case SYS_SPAWN:
             print_string_serial("[SPAWN] starting child\n");
@@ -229,15 +235,15 @@ void syscall_init() {
     register_interrupt_handler(0x80, (interrupt_handler_t)syscall_handler);
 }
 
-// Nouveau: SYS_EXEC - Exécuter un programme
+/* SYS_EXEC : cree l'enfant, le parent passe TASK_WAITING. Le handler
+ * appelle schedule() depuis le cadre user. SYS_EXIT reveille le waiter. */
 int sys_exec(const char* path, char* argv[]) {
     task_t* new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
-        return -1; // Echec
+        return -1;
     }
 
-    // Passer premier argument (question) comme pour spawn
     if (argv) {
         char** argv_list = (char**)argv;
         const char* src = 0;
@@ -259,16 +265,8 @@ int sys_exec(const char* path, char* argv[]) {
             new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
         }
     }
-    // Demander un reschedule immediat
-    extern volatile int g_reschedule_needed;
-    g_reschedule_needed = 1;
-
-    // L'exec actuel est bloquant. On attend la fin de la tâche.
-    while (new_task->state != TASK_TERMINATED) {
-        asm volatile("int $0x30");
-    }
-
-    return 0; // Succès
+    new_task->waiter_pid = current_task ? current_task->id : 0;
+    return 0;
 }
 
 /* Cree la tache et retourne son pid. Le handler appelle schedule() pour

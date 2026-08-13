@@ -4,6 +4,7 @@ userspace/fake_ai
 userspace/test_program
 userspace/ai_assistant
 userspace/idle
+userspace/ok
 userspace/*.o
 userspace/*.bin
 initrd_content/bin/shell
@@ -11,6 +12,7 @@ initrd_content/bin/fake_ai
 initrd_content/bin/ai_assistant
 initrd_content/bin/user_program
 initrd_content/bin/idle
+initrd_content/bin/ok
 
 # Build and QEMU artefacts
 /build/

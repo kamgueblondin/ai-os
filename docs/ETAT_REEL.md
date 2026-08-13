@@ -29,14 +29,14 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - PMM / VMM / heap, paging
 - Initrd format TAR POSIX (`fs/initrd.c`)
 - Chargeur ELF 32-bit
-- Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3) ; `SYS_SPAWN` / `SYS_YIELD` basculent depuis le cadre user (pas depuis IRQ0)
+- Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3) ; `SYS_SPAWN` / `SYS_YIELD` / `SYS_EXEC` basculent depuis le cadre user (pas depuis IRQ0)
 - Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY`, `SYS_APPEND` et `SYS_GPT2_GENERATE` (ABI : `include/os_syscalls.h`)
 - Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`, concatène sans écraser) / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l'initrd reste en lecture seule ; `rmdir` d'un dossier non vide échoue. Après chaque mutation réussie, un snapshot binaire (magic `AIOV`, 32 nœuds, 24 secteurs) est écrit en ATA PIO LBA28 sur le maître IDE primaire (`kernel/ata.c`, ports `0x1F0`, sans IRQ14). Au boot, si IDENTIFY réussit, l'overlay est restauré. Sans disque QEMU, IDENTIFY échoue tout de suite et l'overlay reste volatile.
 
 ### Espace utilisateur
 
 - `userspace/shell.c` s'exécute vraiment en Ring 3 (plus de boucle shell simulée dans le kernel)
-- Programmes empaquetés dans l'initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`, `idle`, ainsi que les fichiers de modèle lorsqu'ils sont fournis au build
+- Programmes empaquetés dans l'initrd : `shell`, `fake_ai`, `ai_assistant`, `user_program`, `idle`, `ok`, ainsi que les fichiers de modèle lorsqu'ils sont fournis au build
 - Commande `ai <texte>` appelle `SYS_GPT2_GENERATE` pour le profil local GPT-2 et produit une sortie `[GPT-2 local]` ; le binaire historique `ai_assistant` reste disponible comme compatibilité
 
 ### Clavier (août 2026)
@@ -46,7 +46,7 @@ Les nombreuses notes "clavier corrigé" des versions 6.0/6.1 étaient **partiell
 Correctif actuel :
 
 1. EOI IRQ0 **avant** `timer_handler` / `schedule()` (`boot/isr_stubs.s`)
-2. Planification seulement si `g_reschedule_needed` (lancement du shell, exec bloquant) - plus à chaque tick, ce qui provoquait un page fault une fois l'EOI rétabli (`kernel/timer.c`). `SYS_SPAWN` et `SYS_YIELD` appellent `schedule()` depuis le cadre **user** de `int 0x80`.
+2. Planification seulement si `g_reschedule_needed` (lancement du shell) - plus à chaque tick, ce qui provoquait un page fault une fois l'EOI rétabli (`kernel/timer.c`). `SYS_SPAWN`, `SYS_YIELD` et `SYS_EXEC` appellent `schedule()` depuis le cadre **user** de `int 0x80`. Le parent d'`exec` passe `TASK_WAITING` jusqu'au `SYS_EXIT` de l'enfant.
 
 Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` reçus par `SYS_GETS`.
 
@@ -119,7 +119,7 @@ Malgré la roadmap README v7/v8 et le dossier `US/` :
 - Réseau P2P, multi-plateforme, économie collaborative
 - Les 120 User Stories MOHHOS : **spécifications**, pas d'implémentation (sauf recouvrement accidentel avec le noyau actuel : mémoire, tests unitaires partiels)
 
-Le préemptif "à chaque tick" est volontairement **limité** : après le premier passage au shell, le timer n'appelle plus `schedule()` sauf `g_reschedule_needed` (exec bloquant). `spawn` et `yield` basculent depuis le syscall, sans round-robin IRQ0 (stabilité clavier).
+Le préemptif "à chaque tick" est volontairement **limité** : après le premier passage au shell, le timer n'appelle plus `schedule()` sauf `g_reschedule_needed` (premier saut vers le shell). `spawn`, `yield` et `exec` basculent depuis le syscall, sans round-robin IRQ0 (stabilité clavier).
 
 ## Documents historiques à ne pas prendre pour l'état courant
 
@@ -136,7 +136,7 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke       # quatre boots QEMU : overlay (#73) + extras + persist + spawn/yield
+make qemu-smoke       # cinq boots QEMU : overlay (#73) + extras + persist + spawn/yield + exec ok
 make gpt2-recovery    # modèle requis : réponse GPT-2, puis validation de `rc`
 make gpt2-benchmark   # modèle requis : mesure avec CPU QEMU Pentium III SSE2
 make gpt2-tests       # modèle requis : reprise shell + benchmark
@@ -145,7 +145,7 @@ make run              # console curses (recommandé en local)
 make run-gui          # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **quatre boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d'un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`), une persistance disque (`write k.txt v7ok`, kill QEMU, reboot, `cat k.txt` voit `v7ok`), puis `spawn idle` (aiguille `idle ok`), `yield`, `kill`. Le disque cœur/extras/spawn est remis à zéro entre ces boots. Le scénario cœur attend le retour du shell après chaque commande afin d'éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras + 180 s persist + 90 s spawn.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **cinq boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d'un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`), une persistance disque (`write k.txt v7ok`, kill QEMU, reboot, `cat k.txt` voit `v7ok`), `spawn idle` (aiguille `idle ok`), `yield`, `kill`, puis `ok` (ELF `exec ok`, retour au shell, `rc ok 0`). Le disque cœur/extras/spawn/exec est remis à zéro entre ces boots. Le scénario cœur attend le retour du shell après chaque commande afin d'éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras + 180 s persist + 90 s spawn + 90 s exec.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n'atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
