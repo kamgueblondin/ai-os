@@ -38,6 +38,25 @@ static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
 
+static int string_equal(const char* left, const char* right) {
+    uint32_t i = 0U;
+    while (left[i] != '\0' && right[i] != '\0') {
+        if (left[i] != right[i]) return 0;
+        i++;
+    }
+    return left[i] == right[i];
+}
+
+/* Première source VFS isolée : métadonnée synthétique fournie par le service. */
+static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
+    static const char info[] = "vfsserver ring3 policy\n";
+    uint32_t i;
+    if (!string_equal(path, "vfs-info")) return 0;
+    for (i = 0U; info[i] != '\0'; i++) data[i] = (uint8_t)info[i];
+    *size = i;
+    return 1;
+}
+
 void main(void) {
     os_ipc_message_t message;
     os_ipc_payload_t reply_payload;
@@ -54,9 +73,13 @@ void main(void) {
             int status = os_vfs_parse_read_request(&message, path);
             uint32_t size = 0U;
             if (status == 0) {
-                int read = read_file(path, (char*)data, OS_VFS_READ_MAX);
-                if (read < 0) status = read;
-                else size = (uint32_t)read;
+                if (read_virtual(path, data, &size)) {
+                    puts("vfsserver virtual vfs-info\n");
+                } else {
+                    int read = read_file(path, (char*)data, OS_VFS_READ_MAX);
+                    if (read < 0) status = read;
+                    else size = (uint32_t)read;
+                }
             }
             if (os_vfs_make_read_reply(&reply_payload, status, data, size,
                                        message.request_id) == 0) {

@@ -44,6 +44,8 @@ Le sixième incrément introduit `SYS_SERVICE_GRANT` : le propriétaire courant 
 
 Le septième incrément conserve les messages non corrélés retirés de l’endpoint du shell : `vfs-read` les place dans une file Ring 3 de quatre entrées, puis `ipc-recv` les restitue FIFO. Une réponse VFS dont le type et le `request_id` correspondent est extraite directement de cette file avant toute attente. La capacité est strictement bornée : une saturation renvoie une erreur au lieu d’écraser un message, et aucune file partagée, persistance ou attente bloquante n’est ajoutée.
 
+Le huitième incrément ajoute `vfs-info`, une source synthétique servie directement par `vfsserver` Ring 3 sans `SYS_READFILE`. Il déplace ainsi une première politique de chemin et la construction de sa réponse hors du noyau. Les autres chemins sûrs restent relayés vers le backend initrd/overlay noyau ; il ne s’agit ni d’un montage général ni d’une externalisation des pilotes ou du stockage ATA.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
@@ -91,7 +93,7 @@ Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Ave
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, de révocation de transfert, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` et le registre nommé avec transfert sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, de révocation de transfert, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` avec source virtuelle et le registre nommé avec transfert sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 
