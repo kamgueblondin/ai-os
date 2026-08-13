@@ -15,7 +15,7 @@ AI-OS démarre sans système hôte dans QEMU, charge un initrd TAR, lance un she
 | Stockage | Initrd TAR en lecture seule et overlay ATA PIO persistant V2 |
 | Ordonnancement | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur |
 | IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; médiateur VFS, sources virtuelles et politique de montage `initrd/` |
-| Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS et nettoyage à la terminaison |
+| Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS, abonnements de service best-effort et nettoyage à la terminaison |
 | Réseau | **Aucun transport réseau noyau** ; diagnostic et profil OpenAI explicitement bloqués |
 
 > Les poids GPT-2 ne sont pas versionnés dans Git. Une image utilisable sans réseau les embarque dans l’initrd au moment du build.
@@ -52,6 +52,8 @@ Le dixième incrément permet à `vfsserver` de transférer son propre nom via u
 
 Le onzième incrément ajoute un registre de montages borné au médiateur. `vfsserver` déclare actuellement le préfixe `initrd/`, l’expose en lecture virtuelle via `vfs-read vfs-mounts` et délègue seulement le suffixe relatif d’un chemin correspondant au backend réservé. Ainsi `vfs-read initrd/hello.txt` atteint `hello.txt`, tandis que `vfs-read hello.txt` retourne `OS_VFS_STATUS_NOT_MOUNTED` et un diagnostic de chemin hors montage. Les sources `vfs-info` et `vfs-mounts` sont toujours produites en Ring 3. La liste est statique, ne monte ni autre backend ni répertoire, et le backend initrd/overlay/ATA reste noyau.
 
+Le douzième incrément ajoute `SYS_SERVICE_NOTIFY` et huit abonnements `(nom, PID)` au plus. Lors d’une publication, d’un transfert, d’un retrait ou d’une purge, le noyau émet un `OS_IPC_SERVICE_EVENT` vers chaque abonné actif avec `sender_pid = 0`, l’ancien PID, le nouveau PID et une raison bornée. Le shell offre `service-watch <nom>` et rend l’événement visible par `ipc-recv`; `serviceclaim` s’abonne à `demo` au lieu de retenter continuellement l’inscription. Cette livraison est best-effort : la boîte IPC de quatre entrées peut être saturée, sans bloquer le registre ni garantir la reprise de l’événement.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.
@@ -77,29 +79,29 @@ QEMU sait relier une carte réseau virtuelle ISA ou PCI à un backend hôte, et 
 
 ## Shell et ABI observables
 
-Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `vfs-backend-probe`, `vfs-grant`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `vfsclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
+Le shell Ring 3 propose `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `test`, `grep`, `wc`, `sort`, `head`, `tail`, `ps`, `jobs`, `top`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `service-watch`, `vfs-backend-probe`, `vfs-grant`, `vfs-read`, `kill`, `exec`, `mem`, `uptime`, `history`, `alias`, `env`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`. Les opérations de fichiers modifiables passent par l’overlay noyau ; l’initrd demeure en lecture seule. Les programmes empaquetés incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `vfsclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
-L’ABI contient les syscalls 0–29 (`MAX_SYSCALLS = 30`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP`, `SYS_SERVICE_UNREGISTER`, `SYS_SERVICE_GRANT` et `SYS_VFS_BACKEND_READ`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
+L’ABI contient les syscalls 0–30 (`MAX_SYSCALLS = 31`), dont `SYS_APPEND`, `SYS_GPT2_GENERATE`, `SYS_IPC_SEND`, `SYS_IPC_RECV`, `SYS_SERVICE_REGISTER`, `SYS_SERVICE_LOOKUP`, `SYS_SERVICE_UNREGISTER`, `SYS_SERVICE_GRANT`, `SYS_VFS_BACKEND_READ` et `SYS_SERVICE_NOTIFY`. Les structures IPC ajoutent un `request_id` 32 bits opaque, copié par le noyau sans changer le plafond de charge utile. Les événements de service utilisent ce même transport, avec un émetteur noyau (`sender_pid = 0`) et `request_id = 0`. Le profil local ne nécessite aucun secret ni aucune dépendance réseau à l’exécution.
 
 ## Vérification reproductible
 
 ```bash
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386 grub-pc-bin xorriso
 make clean && make all       # noyau, initrd et disque overlay
-make test-all                # 188/188 tests C Unity et robustesse
-make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS monté, révocation et transfert Foundation
+make test-all                # 192/192 tests C Unity et robustesse
+make integration-qemu        # contrats AOS-022/AOS-024/AOS-025, IPC, VFS monté, révocation, transfert et notifications Foundation
 make iso                     # ISO BIOS/GRUB bootable
 make run                     # console curses
 make run-gui                 # fenêtre GTK
 ```
 
-La suite C exécute 188 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (8), registre de services (9), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, expose `initrd/`, refuse un chemin hors montage, conserve un message concurrent `deferred`, exige `request 3 data` pour `initrd/hello.txt`, restitue le message différé, vérifie les sources virtuelles puis le transfert, la révocation de l’ancien serveur et la purge du nouveau propriétaire. Le contrat de transfert publie `demo`, le donne à un autre PID et exige sa suppression après `kill`.
+La suite C exécute 192 tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (8), registre de services (13), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` démarre six machines QEMU séparées : le contrat cœur AOS-022 utilise une image overlay de test isolée, le contrat IRQ0 AOS-024 préempte `spin`, le smoke AOS-025 vérifie que le profil OpenAI reste bloqué, le contrat Foundation livre un message à `ipcserver`, le contrat VFS résout `vfs`, expose `initrd/`, refuse un chemin hors montage, conserve un message concurrent `deferred`, exige `request 3 data` pour `initrd/hello.txt`, restitue le message différé, vérifie les sources virtuelles puis le transfert, la révocation de l’ancien serveur et la purge du nouveau propriétaire. Le contrat de transfert publie `demo`, abonne le shell, vérifie l’événement de grant, la réaction événementielle de `serviceclaim`, puis l’événement de purge après `kill`.
 
 Le build a également produit une ISO GRUB BIOS avec l’initrd GPT-2 local. Avec les actifs disponibles dans l’environnement de vérification, l’ISO est d’environ 481 Mio ; les modèles restent exclus du versionnement.
 
 ## Absences importantes
 
-AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` avec sources virtuelles et montage statique, ainsi que le registre nommé avec transfert et révocation VFS, sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
+AI-OS ne fournit pas de système de fichiers disque général, de pilote réseau, de pile TCP/IP/TLS, de client OpenAI/Ollama effectif, d’UEFI, de gestion multiprocesseur, de GUI native, de microkernel, d’IPC bloquant, de table de requêtes en attente, de routage général des réponses discordantes, de capabilities, d’identité vérifiée ni des fonctionnalités avancées de la vision MOHHOS. La boîte aux lettres IPC corrélée, `vfsserver` avec sources virtuelles et montage statique, ainsi que le registre nommé avec transfert, révocation VFS et notifications best-effort, sont des mécanismes locaux préparatoires : le backend fichiers reste noyau, l’ABI directe reste accessible aux clients et le registre ne constitue pas un contrôle d’accès. Les événements ne sont ni persistants, ni accusés, ni garantis lorsque la boîte IPC est pleine. Les rapports historiques conservés dans `docs/` sont des éléments de chronologie et non la description de l’état courant.
 
 ## Références
 

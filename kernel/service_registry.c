@@ -1,6 +1,7 @@
 #include "service_registry.h"
 
 static service_registry_entry_t service_entries[SERVICE_REGISTRY_CAPACITY];
+static service_registry_watch_t service_watches[SERVICE_REGISTRY_WATCH_CAPACITY];
 
 static int name_equal(const char* left, const char* right) {
     uint32_t i;
@@ -39,6 +40,10 @@ void service_registry_init(void) {
     for (i = 0U; i < SERVICE_REGISTRY_CAPACITY; i++) {
         service_entries[i].pid = 0;
         service_entries[i].name[0] = '\0';
+    }
+    for (i = 0U; i < SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        service_watches[i].pid = 0;
+        service_watches[i].name[0] = '\0';
     }
 }
 
@@ -100,6 +105,22 @@ int service_registry_grant(const char* name, int32_t owner_pid, int32_t grantee_
     return OS_SERVICE_NOT_FOUND;
 }
 
+int service_registry_collect_owned(int32_t pid, service_registry_entry_t* out, uint32_t max) {
+    uint32_t i;
+    uint32_t count = 0U;
+    if (pid <= 0 || (!out && max > 0U)) return OS_SERVICE_NOT_FOUND;
+    for (i = 0U; i < SERVICE_REGISTRY_CAPACITY; i++) {
+        if (service_entries[i].pid == pid) {
+            if (count < max) {
+                out[count].pid = pid;
+                copy_name(out[count].name, service_entries[i].name);
+            }
+            count++;
+        }
+    }
+    return (int)count;
+}
+
 int service_registry_remove_pid(int32_t pid) {
     uint32_t i;
     int removed = 0;
@@ -108,6 +129,52 @@ int service_registry_remove_pid(int32_t pid) {
         if (service_entries[i].pid == pid) {
             service_entries[i].pid = 0;
             service_entries[i].name[0] = '\0';
+            removed++;
+        }
+    }
+    return removed > 0 ? 0 : OS_SERVICE_NOT_FOUND;
+}
+
+int service_registry_subscribe(const char* name, int32_t pid) {
+    uint32_t i;
+    int free_slot = -1;
+    if (!service_registry_name_valid(name) || pid <= 0) return OS_SERVICE_BAD_NAME;
+    for (i = 0U; i < SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        if (service_watches[i].pid == 0) {
+            if (free_slot < 0) free_slot = (int)i;
+            continue;
+        }
+        if (service_watches[i].pid == pid && name_equal(service_watches[i].name, name)) {
+            return 0;
+        }
+    }
+    if (free_slot < 0) return OS_SERVICE_WATCH_FULL;
+    service_watches[free_slot].pid = pid;
+    copy_name(service_watches[free_slot].name, name);
+    return 0;
+}
+
+int service_registry_collect_watchers(const char* name, int32_t* out, uint32_t max) {
+    uint32_t i;
+    uint32_t count = 0U;
+    if (!service_registry_name_valid(name) || (!out && max > 0U)) return OS_SERVICE_BAD_NAME;
+    for (i = 0U; i < SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        if (service_watches[i].pid > 0 && name_equal(service_watches[i].name, name)) {
+            if (count < max) out[count] = service_watches[i].pid;
+            count++;
+        }
+    }
+    return (int)count;
+}
+
+int service_registry_remove_watcher_pid(int32_t pid) {
+    uint32_t i;
+    int removed = 0;
+    if (pid <= 0) return OS_SERVICE_NOT_FOUND;
+    for (i = 0U; i < SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        if (service_watches[i].pid == pid) {
+            service_watches[i].pid = 0;
+            service_watches[i].name[0] = '\0';
             removed++;
         }
     }

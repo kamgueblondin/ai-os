@@ -234,6 +234,12 @@ int sys_service_grant(const char* name, int target_pid) {
     return result;
 }
 
+int sys_service_notify(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_NOTIFY), "b"(name));
+    return result;
+}
+
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_READ), "b"(path), "c"(buffer), "d"(max));
@@ -563,6 +569,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  service-publish <nom> - Publier un nom de service detenue par ce shell\n");
     print_string("  service-grant <nom> <pid> - Transferer un nom possede a une tache utilisateur\n");
     print_string("  service-find <nom> - Resoudre un service nomme\n");
+    print_string("  service-watch <nom> - S'abonner aux changements de proprietaire\n");
     print_string("  vfs-backend-probe <fichier> - Verifier le backend VFS reserve\n");
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
@@ -1149,7 +1156,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "vfs-backend-probe", "vfs-grant", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-grant", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1457,6 +1464,7 @@ static void cmd_ipc_send(shell_context_t* ctx, char args[][128], int arg_count) 
 
 static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_message_t message;
+    os_service_event_t event;
     int rc;
     uint32_t i;
     (void)args;
@@ -1470,6 +1478,18 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     if (rc != 0) {
         print_error("ipc-recv: erreur");
+        return;
+    }
+    if (os_service_parse_event(&message, &event) == 0) {
+        print_string("service-event ");
+        print_string(event.name);
+        print_string(" old ");
+        print_int(event.old_owner_pid);
+        print_string(" new ");
+        print_int(event.new_owner_pid);
+        print_string(" reason ");
+        print_int((int)event.reason);
+        print_string("\n");
         return;
     }
     print_string("ipc-recv from ");
@@ -1545,6 +1565,25 @@ static void cmd_service_find(shell_context_t* ctx, char args[][128], int arg_cou
         print_string("\n");
     } else {
         print_error("service-find: service indisponible");
+    }
+}
+
+static void cmd_service_watch(shell_context_t* ctx, char args[][128], int arg_count) {
+    int rc;
+    if (arg_count != 1) {
+        print_error("Usage: service-watch <nom>");
+        return;
+    }
+    rc = sys_service_notify(args[0]);
+    ctx->last_rc = rc;
+    if (rc == 0) {
+        print_string("service-watch ok ");
+        print_string(args[0]);
+        print_string("\n");
+    } else if (rc == OS_SERVICE_WATCH_FULL) {
+        print_error("service-watch: limite d'abonnements atteinte");
+    } else {
+        print_error("service-watch: nom invalide");
     }
 }
 
@@ -2505,6 +2544,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "service-find") == 0) {
         cmd_service_find(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "service-watch") == 0) {
+        cmd_service_watch(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-backend-probe") == 0) {
         cmd_vfs_backend_probe(ctx, args, arg_count);

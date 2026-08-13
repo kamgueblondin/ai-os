@@ -26,6 +26,33 @@ extern void print_string_serial(const char* str);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
 
+static void service_notify_change(const char* name, int32_t old_owner_pid,
+                                  int32_t new_owner_pid, uint32_t reason) {
+    os_ipc_payload_t payload;
+    int32_t watchers[SERVICE_REGISTRY_WATCH_CAPACITY];
+    int count;
+    int i;
+    if (os_service_make_event(&payload, name, old_owner_pid, new_owner_pid, reason) != 0) return;
+    count = service_registry_collect_watchers(name, watchers, SERVICE_REGISTRY_WATCH_CAPACITY);
+    if (count < 0) return;
+    for (i = 0; i < count && i < (int)SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        task_t* watcher = get_task_by_id(watchers[i]);
+        if (!watcher || watcher->type != TASK_TYPE_USER || watcher->state == TASK_TERMINATED) continue;
+        /* Best effort non bloquant : une boîte pleine ne retarde jamais un changement de registre. */
+        (void)ipc_endpoint_send(&watcher->ipc_endpoint, 0, &payload);
+    }
+}
+
+static void service_notify_purge_pid(int32_t pid) {
+    service_registry_entry_t owned[SERVICE_REGISTRY_CAPACITY];
+    int count = service_registry_collect_owned(pid, owned, SERVICE_REGISTRY_CAPACITY);
+    int i;
+    if (count <= 0) return;
+    (void)service_registry_remove_pid(pid);
+    for (i = 0; i < count && i < (int)SERVICE_REGISTRY_CAPACITY; i++) {
+        service_notify_change(owned[i].name, pid, 0, OS_SERVICE_EVENT_PURGED);
+    }
+}
 
 // ==============================================================================
 // GESTIONNAIRE D'APPELS SYSTÈME
@@ -38,7 +65,8 @@ void syscall_handler(cpu_state_t* cpu) {
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
         case SYS_EXIT:
-            (void)service_registry_remove_pid(current_task->id);
+            service_notify_purge_pid(current_task->id);
+            (void)service_registry_remove_watcher_pid(current_task->id);
             task_wake_waiter(current_task);
             current_task->state = TASK_TERMINATED;
             print_string_serial("[EXIT] task terminated, scheduling...\n");
@@ -189,6 +217,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_service_grant((const char*)cpu->ebx, (int)cpu->ecx);
             if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
             break;
+        case SYS_SERVICE_NOTIFY:
+            cpu->eax = (uint32_t)sys_service_notify((const char*)cpu->ebx);
+            break;
         case SYS_VFS_BACKEND_READ:
             cpu->eax = (uint32_t)sys_vfs_backend_read((const char*)cpu->ebx,
                                                        (char*)cpu->ecx, cpu->edx);
@@ -221,6 +252,7 @@ int sys_ipc_receive(os_ipc_message_t* out) {
 
 int sys_service_register(const char* name) {
     int owner_pid;
+    int rc;
     task_t* owner;
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
     owner_pid = service_registry_lookup(name);
@@ -228,9 +260,15 @@ int sys_service_register(const char* name) {
         owner = get_task_by_id(owner_pid);
         if (!owner || owner->type != TASK_TYPE_USER || owner->state == TASK_TERMINATED) {
             (void)service_registry_remove(name, owner_pid);
+            service_notify_change(name, owner_pid, 0, OS_SERVICE_EVENT_PURGED);
+            owner_pid = OS_SERVICE_NOT_FOUND;
         }
     }
-    return service_registry_register(name, current_task->id);
+    rc = service_registry_register(name, current_task->id);
+    if (rc == 0 && owner_pid == OS_SERVICE_NOT_FOUND) {
+        service_notify_change(name, 0, current_task->id, OS_SERVICE_EVENT_PUBLISHED);
+    }
+    return rc;
 }
 
 int sys_service_lookup(const char* name) {
@@ -240,24 +278,36 @@ int sys_service_lookup(const char* name) {
     owner = get_task_by_id(owner_pid);
     if (!owner || owner->type != TASK_TYPE_USER || owner->state == TASK_TERMINATED) {
         (void)service_registry_remove(name, owner_pid);
+        service_notify_change(name, owner_pid, 0, OS_SERVICE_EVENT_PURGED);
         return OS_SERVICE_NOT_FOUND;
     }
     return owner_pid;
 }
 
 int sys_service_unregister(const char* name) {
+    int rc;
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
-    return service_registry_remove(name, current_task->id);
+    rc = service_registry_remove(name, current_task->id);
+    if (rc == 0) service_notify_change(name, current_task->id, 0, OS_SERVICE_EVENT_UNREGISTERED);
+    return rc;
 }
 
 int sys_service_grant(const char* name, int target_pid) {
     task_t* target;
+    int rc;
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
     target = get_task_by_id(target_pid);
     if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) {
         return OS_SERVICE_BAD_GRANTEE;
     }
-    return service_registry_grant(name, current_task->id, target_pid);
+    rc = service_registry_grant(name, current_task->id, target_pid);
+    if (rc == 0) service_notify_change(name, current_task->id, target_pid, OS_SERVICE_EVENT_GRANTED);
+    return rc;
+}
+
+int sys_service_notify(const char* name) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    return service_registry_subscribe(name, current_task->id);
 }
 
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
@@ -528,7 +578,10 @@ int sys_ps(os_proc_t* out, int max_n) {
 
 int sys_kill(int pid) {
     int rc = task_kill(pid);
-    if (rc == 0) (void)service_registry_remove_pid(pid);
+    if (rc == 0) {
+        service_notify_purge_pid(pid);
+        (void)service_registry_remove_watcher_pid(pid);
+    }
     return rc;
 }
 

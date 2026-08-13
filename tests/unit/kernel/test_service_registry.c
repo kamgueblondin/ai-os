@@ -76,6 +76,65 @@ static void test_transferred_name_is_removed_with_grantee(void) {
     TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_lookup("demo"));
 }
 
+static void test_watchers_are_collected_and_idempotent(void) {
+    int32_t watchers[2];
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_subscribe("demo", 4));
+    TEST_ASSERT_EQUAL(0, service_registry_subscribe("demo", 4));
+    TEST_ASSERT_EQUAL(0, service_registry_subscribe("demo", 9));
+    TEST_ASSERT_EQUAL(2, service_registry_collect_watchers("demo", watchers, 2U));
+    TEST_ASSERT_EQUAL(4, watchers[0]);
+    TEST_ASSERT_EQUAL(9, watchers[1]);
+}
+
+static void test_watcher_capacity_and_cleanup_are_bounded(void) {
+    int32_t watchers[SERVICE_REGISTRY_WATCH_CAPACITY];
+    uint32_t i;
+    service_registry_init();
+    for (i = 0U; i < SERVICE_REGISTRY_WATCH_CAPACITY; i++) {
+        TEST_ASSERT_EQUAL(0, service_registry_subscribe("demo", (int32_t)(i + 1U)));
+    }
+    TEST_ASSERT_EQUAL(OS_SERVICE_WATCH_FULL, service_registry_subscribe("demo", 99));
+    TEST_ASSERT_EQUAL(0, service_registry_remove_watcher_pid(4));
+    TEST_ASSERT_EQUAL((int)SERVICE_REGISTRY_WATCH_CAPACITY - 1,
+                      service_registry_collect_watchers("demo", watchers, SERVICE_REGISTRY_WATCH_CAPACITY));
+}
+
+static void test_owned_snapshot_survives_removal_for_notification(void) {
+    service_registry_entry_t owned[2];
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_register("logger", 3));
+    TEST_ASSERT_EQUAL(2, service_registry_collect_owned(3, owned, 2U));
+    TEST_ASSERT_EQUAL(3, owned[0].pid);
+    TEST_ASSERT_EQUAL('v', owned[0].name[0]);
+    TEST_ASSERT_EQUAL(0, service_registry_remove_pid(3));
+    TEST_ASSERT_EQUAL('l', owned[1].name[0]);
+}
+
+static void test_service_event_is_bounded_and_parsed(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_service_event_t event;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_service_make_event(&payload, "demo", 4, 9,
+                                                OS_SERVICE_EVENT_GRANTED));
+    TEST_ASSERT_EQUAL(OS_IPC_SERVICE_EVENT, payload.type);
+    TEST_ASSERT_EQUAL(OS_SERVICE_EVENT_SIZE, payload.size);
+    message.sender_pid = 0;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_service_parse_event(&message, &event));
+    TEST_ASSERT_EQUAL_STRING("demo", event.name);
+    TEST_ASSERT_EQUAL(4, event.old_owner_pid);
+    TEST_ASSERT_EQUAL(9, event.new_owner_pid);
+    TEST_ASSERT_EQUAL(OS_SERVICE_EVENT_GRANTED, event.reason);
+    message.sender_pid = 3;
+    TEST_ASSERT_TRUE(os_service_parse_event(&message, &event) != 0);
+}
+
 static void test_remove_pid_clears_all_services_owned_by_task(void) {
     service_registry_init();
     TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
@@ -95,6 +154,10 @@ int main(void) {
     RUN_TEST(test_owner_can_grant_name_to_another_pid);
     RUN_TEST(test_registry_refuses_grant_by_non_owner);
     RUN_TEST(test_transferred_name_is_removed_with_grantee);
+    RUN_TEST(test_watchers_are_collected_and_idempotent);
+    RUN_TEST(test_watcher_capacity_and_cleanup_are_bounded);
+    RUN_TEST(test_owned_snapshot_survives_removal_for_notification);
+    RUN_TEST(test_service_event_is_bounded_and_parsed);
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     unity_print_results();
     unity_cleanup();
