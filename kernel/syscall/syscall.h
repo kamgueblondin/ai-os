@@ -3,43 +3,33 @@
 
 #include <stdint.h>
 #include "../task/task.h"
+#include "os_syscalls.h"
 
-// Numéros des appels système
-#define SYS_EXIT    0
-#define SYS_PUTC    1
-#define SYS_GETC    2
-#define SYS_PUTS    3
-#define SYS_YIELD   4
-#define SYS_GETS    5  // Nouveau: Lire une ligne depuis le clavier
-#define SYS_EXEC    6  // Nouveau: Exécuter un programme (bloquant)
-#define SYS_SPAWN   7  // Nouveau: Lancer un programme (non-bloquant)
-
-// Nombre total d'appels système
-#define MAX_SYSCALLS 8
-
-// Structure pour passer les paramètres des syscalls
 typedef struct {
     uint32_t eax, ebx, ecx, edx, esi, edi;
 } syscall_params_t;
 
-// Fonctions publiques
 void syscall_init();
 void syscall_handler(cpu_state_t* cpu);
 
-// Fonctions utilitaires pour les syscalls existants
 void sys_exit(uint32_t exit_code);
 void sys_putc(char c);
 char sys_getc();
 void sys_puts(const char* str);
 void sys_yield();
 
-// Nouveaux appels système
 void sys_gets(char* buffer, uint32_t size);
 int sys_exec(const char* path, char* argv[]);
 int sys_spawn(const char* path, char* argv[]);
 
-// Ajoute un caractère au buffer d'entrée global du clavier.
+int sys_listdir(const char* path, os_dirent_t* out, int max_n);
+int sys_readfile(const char* path, char* buf, uint32_t max);
+int sys_getpid(void);
+int sys_ps(os_proc_t* out, int max_n);
+int sys_kill(int pid);
+uint32_t sys_ticks(void);
+int sys_meminfo(os_meminfo_t* info);
+
 void keyboard_add_char_to_buffer(char c);
 
 #endif
-

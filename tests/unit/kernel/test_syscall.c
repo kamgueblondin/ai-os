@@ -468,6 +468,121 @@ void test_syscall_privilege_escalation_prevention(void) {
     TEST_ASSERT_TRUE(1); // Test passe si pas de crash
 }
 
+void test_sys_getpid_and_ticks(void) {
+    test_task_t* task = test_create_task(dummy_task_function, "shell", 1);
+    current_task = (task_t*)task;
+    current_task->id = 2;
+
+    cpu_state_t cpu = {0};
+    cpu.eax = SYS_GETPID;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(2, (int)cpu.eax);
+
+    cpu.eax = SYS_TICKS;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(42, (int)cpu.eax);
+
+    test_destroy_task(task);
+}
+
+void test_sys_readfile_and_listdir(void) {
+    char buf[64];
+    os_dirent_t ents[8];
+    cpu_state_t cpu = {0};
+    int n;
+    int found_hello = 0;
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"hello.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(18, (int)cpu.eax);
+    buf[18] = '\0';
+    TEST_ASSERT_EQUAL_STRING("hello from initrd\n", buf);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"/";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 8;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    TEST_ASSERT(n > 0);
+    for (int i = 0; i < n; i++) {
+        if (ents[i].name[0] == 'h') found_hello = 1;
+    }
+    TEST_ASSERT(found_hello);
+}
+
+void test_sys_kill_protects_kernel(void) {
+    cpu_state_t cpu = {0};
+    cpu.eax = SYS_KILL;
+    cpu.ebx = 0;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(-2, (int)cpu.eax);
+}
+
+void test_sys_meminfo(void) {
+    os_meminfo_t info;
+    cpu_state_t cpu = {0};
+    cpu.eax = SYS_MEMINFO;
+    cpu.ebx = (uint32_t)&info;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(32768, (int)info.total_pages);
+    TEST_ASSERT(info.free_pages > 0);
+}
+
+void test_sys_ps_lists_task(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* t;
+    os_proc_t procs[8];
+    cpu_state_t cpu = {0};
+    int n;
+    int found = 0;
+
+    task_queue = NULL;
+    current_task = NULL;
+    t = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(t);
+    t->id = 3;
+    t->type = TASK_TYPE_USER;
+    t->name[0] = 's';
+    t->name[1] = 'h';
+    t->name[2] = 'e';
+    t->name[3] = 'l';
+    t->name[4] = 'l';
+    t->name[5] = '\0';
+    add_task_to_queue(t);
+    current_task = t;
+
+    cpu.eax = SYS_PS;
+    cpu.ebx = (uint32_t)procs;
+    cpu.ecx = 8;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    TEST_ASSERT(n >= 1);
+    for (int i = 0; i < n; i++) {
+        if (procs[i].pid == 3) {
+            found = 1;
+            TEST_ASSERT_EQUAL_STRING("shell", procs[i].name);
+        }
+    }
+    TEST_ASSERT(found);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
+void test_sys_kill_unknown_pid(void) {
+    cpu_state_t cpu = {0};
+    cpu.eax = SYS_KILL;
+    cpu.ebx = 9999;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(-1, (int)cpu.eax);
+}
+
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
@@ -516,6 +631,12 @@ int main(void) {
     // Tests de sécurité
     RUN_TEST(test_syscall_ring_isolation);
     RUN_TEST(test_syscall_privilege_escalation_prevention);
+    RUN_TEST(test_sys_getpid_and_ticks);
+    RUN_TEST(test_sys_readfile_and_listdir);
+    RUN_TEST(test_sys_kill_protects_kernel);
+    RUN_TEST(test_sys_meminfo);
+    RUN_TEST(test_sys_ps_lists_task);
+    RUN_TEST(test_sys_kill_unknown_pid);
     
     unity_print_results();
     unity_cleanup();

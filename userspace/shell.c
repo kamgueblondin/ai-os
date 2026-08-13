@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "ramfs.h"
 #include "procsim.h"
+#include "os_syscalls.h"
 
 // ==============================================================================
 // STRUCTURES ET DÉFINITIONS
@@ -99,6 +100,48 @@ int spawn(const char* path, char* argv[]) {
 
 void yield() {
     asm volatile("int $0x80" : : "a"(4));
+}
+
+int sys_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LISTDIR), "b"(path), "c"(out), "d"(max_n));
+    return result;
+}
+
+int sys_readfile(const char* path, char* buf, int max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_READFILE), "b"(path), "c"(buf), "d"(max));
+    return result;
+}
+
+int sys_getpid(void) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_GETPID));
+    return result;
+}
+
+int sys_ps(os_proc_t* out, int max_n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_PS), "b"(out), "c"(max_n));
+    return result;
+}
+
+int sys_kill_pid(int pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_KILL), "b"(pid));
+    return result;
+}
+
+unsigned int sys_ticks(void) {
+    unsigned int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TICKS));
+    return result;
+}
+
+int sys_meminfo(os_meminfo_t* info) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
+    return result;
 }
 
 // ==============================================================================
@@ -387,8 +430,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("\n=== AI-OS Shell v6.0 - Aide Complète ===\n", COLOR_CYAN);
     
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
-    print_string("  ls [path]          - Lister les fichiers et dossiers\n");
-    print_string("  cat <file>         - Afficher le contenu d'un fichier (VFS RAM)\n");
+    print_string("  ls [path]          - Lister initrd (noyau) + VFS RAM\n");
+    print_string("  cat <file>         - Afficher un fichier (initrd puis VFS RAM)\n");
     print_string("  cd <path>          - Changer de répertoire\n");
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire\n");
@@ -439,76 +482,107 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  reboot             - Redémarrer le système\n");
     print_string("  shutdown           - Arrêter le système\n");
     
-    print_colored("\n💡 TIP: mkdir/rm/cat/grep opèrent sur un VFS RAM (pas un disque).\n", COLOR_GREEN);
+    print_colored("\n💡 TIP: ls/cat lisent l'initrd (noyau). mkdir/rm restent un VFS RAM.\n", COLOR_GREEN);
     print_colored("    Si le mode IA est activé, posez des questions sans 'ai'.\n\n", COLOR_GREEN);
 }
 
 void cmd_ls(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
-    ramfs_dirent_t ents[RAMFS_MAX_LIST];
-    int n;
+    os_dirent_t kents[32];
+    ramfs_dirent_t rents[RAMFS_MAX_LIST];
+    int kn, rn;
+    int shown = 0;
 
     if (arg_count > 0) resolve_arg(ctx, args[0], path);
     else resolve_arg(ctx, ".", path);
 
-    print_colored("\n=== VFS RAM ===\n", COLOR_CYAN);
+    print_colored("\n=== Initrd / VFS ===\n", COLOR_CYAN);
     print_string("chemin: ");
     print_string(path);
     print_string("\n");
 
-    if (ramfs_is_file(path)) {
-        print_string("-rw-r--r--  ");
-        print_string(path);
-        print_string("\n\n");
-        return;
-    }
-
-    n = ramfs_list(path, ents, RAMFS_MAX_LIST);
-    if (n < 0) {
-        print_ramfs_err("ls", n);
-        return;
-    }
-    for (int i = 0; i < n; i++) {
-        if (ents[i].is_dir) {
-            print_colored("drwxr-xr-x  ", COLOR_BLUE);
-            print_colored(ents[i].name, COLOR_BLUE);
-            print_string("/\n");
-        } else {
-            print_string("-rw-r--r--  ");
-            print_int(ents[i].size);
-            print_string("  ");
-            print_string(ents[i].name);
-            print_string("\n");
+    kn = sys_listdir(path, kents, 32);
+    if (kn > 0) {
+        for (int i = 0; i < kn; i++) {
+            if (kents[i].flags == OS_DIRENT_DIR) {
+                print_colored("drwxr-xr-x  ", COLOR_BLUE);
+                print_colored(kents[i].name, COLOR_BLUE);
+                print_string("/\n");
+            } else {
+                print_string("-rw-r--r--  ");
+                print_int((int)kents[i].size);
+                print_string("  ");
+                print_string(kents[i].name);
+                print_string("\n");
+            }
+            shown++;
         }
     }
+
+    rn = ramfs_list(path, rents, RAMFS_MAX_LIST);
+    if (rn > 0) {
+        for (int i = 0; i < rn; i++) {
+            int dup = 0;
+            if (kn > 0) {
+                for (int k = 0; k < kn; k++) {
+                    if (strcmp(rents[i].name, kents[k].name) == 0) {
+                        dup = 1;
+                        break;
+                    }
+                }
+            }
+            if (dup) continue;
+            if (rents[i].is_dir) {
+                print_colored("drwxr-xr-x  ", COLOR_BLUE);
+                print_colored(rents[i].name, COLOR_BLUE);
+                print_string("/\n");
+            } else {
+                print_string("-rw-r--r--  ");
+                print_int(rents[i].size);
+                print_string("  ");
+                print_string(rents[i].name);
+                print_string("\n");
+            }
+            shown++;
+        }
+    }
+
+    if (shown == 0 && kn < 0 && rn < 0) {
+        print_error("ls: repertoire introuvable");
+        return;
+    }
     print_string("Total: ");
-    print_int(n);
+    print_int(shown);
     print_string(" elements\n\n");
 }
 
-static void print_proc_row(const procsim_entry_t* p) {
-    print_string("  ");
-    print_int(p->pid);
-    print_string("    ");
-    print_int(p->ppid);
-    print_string("    ");
-    putc(p->state);
-    print_string("    ");
-    print_string(p->name);
-    if (!p->alive) print_string(" (zombie)");
-    print_string("\n");
+static const char* proc_state_str(int st) {
+    if (st == OS_TASK_RUNNING) return "R";
+    if (st == OS_TASK_READY) return "S";
+    if (st == OS_TASK_TERMINATED) return "Z";
+    return "W";
 }
 
 void cmd_ps(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_proc_t procs[16];
+    int n;
     (void)ctx; (void)args; (void)arg_count;
-    print_colored("\n=== Processus (table simulee) ===\n", COLOR_CYAN);
-    print_colored("  PID  PPID  STAT  COMMAND\n", COLOR_YELLOW);
-    for (int i = 0; i < procsim_count(); i++) {
-        const procsim_entry_t* p = procsim_get_by_index(i);
-        if (p) print_proc_row(p);
+    n = sys_ps(procs, 16);
+    print_colored("\n=== Processus (noyau) ===\n", COLOR_CYAN);
+    print_colored("  PID  STAT  TYPE  COMMAND\n", COLOR_YELLOW);
+    if (n < 0) n = 0;
+    for (int i = 0; i < n; i++) {
+        print_string("  ");
+        print_int(procs[i].pid);
+        print_string("    ");
+        print_string(proc_state_str(procs[i].state));
+        print_string("     ");
+        print_string(procs[i].type == OS_TASK_USER ? "user  " : "kern  ");
+        print_string(procs[i].name);
+        print_string("\n");
     }
-    print_string("Actifs: ");
-    print_int(procsim_alive_count());
+    print_string("Total: ");
+    print_int(n);
     print_string("\n\n");
 }
 
@@ -525,10 +599,26 @@ void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("Intel compatible x86\n");
     
     print_colored("Mémoire totale : ", COLOR_YELLOW);
-    print_string("128 MB\n");
-    
+    {
+        os_meminfo_t mi;
+        if (sys_meminfo(&mi) == 0) {
+            print_int((int)((mi.total_pages * 4) / 1024));
+            print_string(" MB (PMM)\n");
+        } else {
+            print_string("inconnue\n");
+        }
+    }
+
     print_colored("Mémoire utilisée : ", COLOR_YELLOW);
-    print_string("24 MB (18.7%)\n");
+    {
+        os_meminfo_t mi;
+        if (sys_meminfo(&mi) == 0) {
+            print_int((int)((mi.used_pages * 4) / 1024));
+            print_string(" MB\n");
+        } else {
+            print_string("inconnue\n");
+        }
+    }
     
     print_colored("Noyau : ", COLOR_YELLOW);
     print_string("AI-OS Kernel v6.0 (Multitâche préemptif)\n");
@@ -543,27 +633,29 @@ void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("PMM, VMM, Multitâche, IA, Ring 0/3\n");
     
     print_colored("Uptime : ", COLOR_YELLOW);
-    print_string("Depuis le démarrage\n\n");
+    {
+        unsigned int ticks = sys_ticks();
+        print_int((int)(ticks / 100));
+        print_string(" s (PIT)\n\n");
+    }
 }
 
 void cmd_mem(shell_context_t* ctx, char args[][128], int arg_count) {
-    print_colored("\n=== Utilisation Mémoire ===\n", COLOR_CYAN);
-    
-    print_colored("Mémoire physique :\n", COLOR_YELLOW);
-    print_string("  Total :      131,072 KB (128 MB)\n");
-    print_string("  Utilisée :    24,576 KB ( 24 MB)\n");
-    print_string("  Libre :      106,496 KB (104 MB)\n");
-    print_string("  Pourcentage :     18.7%\n\n");
-    
-    print_colored("Gestion des pages :\n", COLOR_YELLOW);
-    print_string("  Pages totales :   32,768 pages (4KB chacune)\n");
-    print_string("  Pages allouées :   6,144 pages\n");
-    print_string("  Pages libres :    26,624 pages\n\n");
-    
-    print_colored("Mémoire virtuelle :\n", COLOR_YELLOW);
-    print_string("  Espace kernel :    0x00000000 - 0x3FFFFFFF\n");
-    print_string("  Espace utilisateur : 0x40000000 - 0xFFFFFFFF\n");
-    print_string("  Paging :           Activé\n\n");
+    os_meminfo_t mi;
+    (void)ctx; (void)args; (void)arg_count;
+    print_colored("\n=== Utilisation Mémoire (PMM) ===\n", COLOR_CYAN);
+    if (sys_meminfo(&mi) != 0) {
+        print_error("mem: syscall indisponible");
+        return;
+    }
+    print_colored("Pages physiques :\n", COLOR_YELLOW);
+    print_string("  Total : ");
+    print_int((int)mi.total_pages);
+    print_string("\n  Utilisees : ");
+    print_int((int)mi.used_pages);
+    print_string("\n  Libres : ");
+    print_int((int)mi.free_pages);
+    print_string("\n  Taille page : 4 KB\n\n");
 }
 
 void cmd_history(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -700,13 +792,21 @@ static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
+    char kbuf[1024];
     const char* data;
     int size = 0;
+    int kn;
     if (arg_count == 0) {
         print_error("cat: fichier manquant");
         return;
     }
     resolve_arg(ctx, args[0], path);
+    kn = sys_readfile(path, kbuf, sizeof(kbuf));
+    if (kn >= 0) {
+        for (int i = 0; i < kn; i++) putc(kbuf[i]);
+        if (kn == 0 || kbuf[kn - 1] != '\n') print_string("\n");
+        return;
+    }
     if (ramfs_is_dir(path)) {
         print_error("cat: est un repertoire");
         return;
@@ -823,67 +923,71 @@ static void cmd_kill(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     pid = parse_int(args[0]);
-    rc = procsim_kill(pid);
-    if (rc == -2) print_error("kill: processus protege (kernel/init)");
+    rc = sys_kill_pid(pid);
+    if (rc == -2) print_error("kill: processus protege (kernel)");
+    else if (rc == -3) print_error("kill: impossible de tuer le shell courant (exit)");
     else if (rc != 0) print_error("kill: pid introuvable");
     else {
         print_string("Processus ");
         print_int(pid);
-        print_string(" termine (simule)\n");
+        print_string(" termine\n");
     }
 }
 
 static void cmd_jobs(shell_context_t* ctx, char args[][128], int arg_count) {
-    int n = 0;
+    os_proc_t procs[16];
+    int n;
+    int shown = 0;
     (void)ctx; (void)args; (void)arg_count;
-    print_colored("\n=== Jobs (table simulee) ===\n", COLOR_CYAN);
-    for (int i = 0; i < procsim_count(); i++) {
-        const procsim_entry_t* p = procsim_get_by_index(i);
-        if (!p || !p->alive || p->pid < 2) continue;
+    n = sys_ps(procs, 16);
+    print_colored("\n=== Jobs ===\n", COLOR_CYAN);
+    for (int i = 0; i < n; i++) {
+        if (procs[i].type != OS_TASK_USER) continue;
         print_string("[");
-        print_int(p->pid);
-        print_string("]  Running  ");
-        print_string(p->name);
+        print_int(procs[i].pid);
+        print_string("]  ");
+        print_string(proc_state_str(procs[i].state));
+        print_string("  ");
+        print_string(procs[i].name);
         print_string("\n");
-        n++;
+        shown++;
     }
-    if (n == 0) print_string("Aucun job.\n");
+    if (shown == 0) print_string("Aucun job utilisateur.\n");
     print_string("\n");
 }
 
 static void cmd_top(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_proc_t procs[16];
+    int n;
     (void)args; (void)arg_count;
-    print_colored("\n=== top (VFS RAM / processus simules) ===\n", COLOR_CYAN);
-    print_string("uptime ticks: ");
-    print_int(ctx->cmd_ticks);
+    n = sys_ps(procs, 16);
+    print_colored("\n=== top (noyau) ===\n", COLOR_CYAN);
+    print_string("ticks: ");
+    print_int((int)sys_ticks());
+    print_string("  pid: ");
+    print_int(sys_getpid());
     print_string("  tasks: ");
-    print_int(procsim_alive_count());
+    print_int(n < 0 ? 0 : n);
     print_string("\n");
-    print_colored("  PID  PPID  STAT  CPU  MEM  COMMAND\n", COLOR_YELLOW);
-    for (int i = 0; i < procsim_count(); i++) {
-        const procsim_entry_t* p = procsim_get_by_index(i);
-        if (!p || !p->alive) continue;
+    print_colored("  PID  STAT  TYPE  COMMAND\n", COLOR_YELLOW);
+    for (int i = 0; i < n; i++) {
         print_string("  ");
-        print_int(p->pid);
+        print_int(procs[i].pid);
         print_string("    ");
-        print_int(p->ppid);
-        print_string("    ");
-        putc(p->state);
+        print_string(proc_state_str(procs[i].state));
         print_string("     ");
-        print_int(p->cpu);
-        print_string("    ");
-        print_int(p->mem);
-        print_string("   ");
-        print_string(p->name);
+        print_string(procs[i].type == OS_TASK_USER ? "user  " : "kern  ");
+        print_string(procs[i].name);
         print_string("\n");
     }
     print_string("\n");
 }
 
 static void cmd_uptime(shell_context_t* ctx, char args[][128], int arg_count) {
-    int sec = ctx->cmd_ticks;
+    unsigned int ticks = sys_ticks();
+    int sec = (int)(ticks / 100);
     int h, m, s;
-    (void)args; (void)arg_count;
+    (void)ctx; (void)args; (void)arg_count;
     if (sec < 0) sec = 0;
     h = sec / 3600;
     m = (sec % 3600) / 60;
@@ -896,17 +1000,18 @@ static void cmd_uptime(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string(":");
     if (s < 10) putc('0');
     print_int(s);
-    print_string("  (ticks commandes: ");
-    print_int(ctx->cmd_ticks);
+    print_string("  (PIT ticks: ");
+    print_int((int)ticks);
     print_string(")\n");
 }
 
 static void cmd_date(shell_context_t* ctx, char args[][128], int arg_count) {
-    int sec = ctx->cmd_ticks % 86400;
+    unsigned int ticks = sys_ticks();
+    int sec = (int)((ticks / 100) % 86400);
     int h = 5 + (sec / 3600);
     int m = (sec % 3600) / 60;
     int s = sec % 60;
-    (void)args; (void)arg_count;
+    (void)ctx; (void)args; (void)arg_count;
     if (h >= 24) h %= 24;
     print_string("Thu Aug 13 ");
     if (h < 10) putc('0');
@@ -1035,13 +1140,21 @@ static void cmd_export(shell_context_t* ctx, char args[][128], int arg_count) {
 static int load_file_lines(shell_context_t* ctx, const char* filearg,
                            char lines[][128], int max_lines) {
     char path[RAMFS_PATH_MAX];
+    char kbuf[1024];
     const char* data;
     int size = 0;
     int pos = 0;
     int n = 0;
+    int kn;
     resolve_arg(ctx, filearg, path);
-    data = ramfs_read(path, &size);
-    if (!data) return -1;
+    kn = sys_readfile(path, kbuf, (int)sizeof(kbuf));
+    if (kn >= 0) {
+        data = kbuf;
+        size = kn;
+    } else {
+        data = ramfs_read(path, &size);
+        if (!data) return -1;
+    }
     while (pos < size && n < max_lines) {
         int len = 0;
         while (pos < size && data[pos] != '\n' && len < 127) {
@@ -1081,19 +1194,27 @@ static void cmd_grep(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static void cmd_wc(shell_context_t* ctx, char args[][128], int arg_count) {
     char path[RAMFS_PATH_MAX];
+    char kbuf[1024];
     const char* data;
     int size = 0;
     int lines = 0, words = 0, chars = 0;
     int in_word = 0;
+    int kn;
     if (arg_count == 0) {
         print_error("wc: fichier manquant");
         return;
     }
     resolve_arg(ctx, args[0], path);
-    data = ramfs_read(path, &size);
-    if (!data) {
-        print_error("wc: fichier introuvable");
-        return;
+    kn = sys_readfile(path, kbuf, (int)sizeof(kbuf));
+    if (kn >= 0) {
+        data = kbuf;
+        size = kn;
+    } else {
+        data = ramfs_read(path, &size);
+        if (!data) {
+            print_error("wc: fichier introuvable");
+            return;
+        }
     }
     chars = size;
     for (int i = 0; i < size; i++) {

@@ -2,6 +2,7 @@
 #define INITRD_H
 
 #include <stdint.h>
+#include "os_syscalls.h"
 
 // Structure pour un en-tête TAR (format POSIX)
 typedef struct {
@@ -46,6 +47,8 @@ char* initrd_read_file(const char* filename);
 uint32_t initrd_get_file_size(const char* filename);
 int initrd_file_exists(const char* filename);
 uint32_t initrd_get_file_count();
+int initrd_listdir(const char* path, os_dirent_t* out, int max_n);
+int initrd_read_into(const char* path, char* buf, uint32_t max);
 
 // Fonctions utilitaires
 int oct2bin(char *str, int size);

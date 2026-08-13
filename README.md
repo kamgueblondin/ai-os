@@ -36,11 +36,11 @@ make run-gui
 
 ## ⭐ Fonctionnalités Principales
 
-- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. Les commandes de `help` sont branchées (`mkdir`, `rm`, `grep`, `kill`, `top`, …) sur un **VFS RAM** et une table de processus simulée, pas un disque ni le scheduler.
+- **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd ; `ps`/`kill`/`mem`/`uptime` interrogent le noyau. `mkdir`/`rm` restent un VFS RAM (pas de disque persistant).
 - **🤖 Simulateur d'IA Intégré** - Réponses préprogrammées par mots-clés (`fake_ai.c`), pas un modèle ML
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
-- **💾 Système de Fichiers** - Initrd TAR en RAM uniquement (pas de disque persistant). `ls` du shell est encore une liste figée.
+- **💾 Système de Fichiers** - Initrd TAR en RAM uniquement (pas de disque persistant). `ls` liste l’initrd via `SYS_LISTDIR`.
 - **🧠 Gestion Mémoire** - VMM/PMM avec paging (cible ~128 MB RAM sous QEMU)
 - **🔌 Gestion Interruptions** - PIC, clavier PS/2, timer PIT
 
@@ -177,7 +177,7 @@ ai-os/
 - ✅ **Interruptions clavier (IRQ1) générées par QEMU**
 - ✅ **Fin des boucles infinies** sur appels système
 - ✅ **IA accessible** via interface clavier
-- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `grep`, `kill`, `top`, `ai`, etc. — VFS RAM / table simulée, voir `docs/ETAT_REEL.md`)
+- ✅ **Commandes de `help` branchées** (`mkdir`, `ls`, `grep`, `kill`, `top`, `ai`, etc. — `ls`/`ps`/`kill`/`mem` via syscalls noyau, `mkdir`/`rm` sur VFS RAM, voir `docs/ETAT_REEL.md`)
 
 ### ✅ Corrections Antérieures
 
