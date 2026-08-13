@@ -21,6 +21,25 @@ Cette version d’AI-OS contient un premier chemin d’inférence **réellement 
 
 GPT-2 est un transformeur causal, c’est-à-dire qu’un jeton ne porte attention qu’aux jetons précédents ; il convient donc à la génération auto-régressive de texte [1]. Le tokenizer de référence GPT-2 emploie un BPE au niveau des octets [1]. La présente implémentation charge bien le vocabulaire d’origine mais utilise, pour le premier chemin bare-metal, un encodage ASCII glouton simplifié : il ne reproduit pas encore toute la segmentation BPE/Unicode de référence.
 
+## Obtenir et vérifier les artefacts GPT-2
+
+Les poids ne sont pas stockés dans l’historique Git. Téléchargez `gpt2_124M.bin`, `gpt2_tokenizer.bin` et `gpt2-124m-assets.sha256` depuis la [release publique GPT-2 124M](https://github.com/kamgueblondin/ai-os/releases/tag/gpt2-124m-assets), puis placez-les dans `models/`.
+
+```bash
+mkdir -p models
+curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_124M.bin
+curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
+curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
+(cd models && sha256sum -c gpt2-124m-assets.sha256)
+```
+
+Les empreintes attendues sont les suivantes :
+
+| Fichier | SHA-256 |
+|---|---|
+| `gpt2_124M.bin` | `3da8b207584030bcdcd207cf7a99952e3421dce92da218b351071857511bf162` |
+| `gpt2_tokenizer.bin` | `6f3abc21e444e4e8300e225f4e03da48ea121cf17e30f67009b8dad7a66c2f13` |
+
 ## Contenu de l’ISO
 
 L’archive `build/ai_os.iso` contient les éléments suivants :
