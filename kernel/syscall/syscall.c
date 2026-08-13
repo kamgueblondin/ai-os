@@ -10,6 +10,13 @@
 #include "../mem/vmm.h"
 #include "../mem/pmm.h"
 #include "../timer.h"
+#include "../llm/gpt2_infer.h"
+#include "../llm/gpt2_model.h"
+#include "../llm/gpt2_tokenizer.h"
+/* Limite volontaire : le premier moteur CPU ne dispose pas encore de cache KV. */
+#define GPT2_BAREMETAL_GENERATION_STEPS 4U
+static uint32_t gpt2_rng_state = 0x6d2b79f5U;
+
 // Externs VMM
 extern vmm_directory_t* current_directory;
 extern void vmm_switch_page_directory(uint32_t phys_addr);
@@ -143,11 +150,75 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_APPEND:
             cpu->eax = (uint32_t)sys_append((const char*)cpu->ebx, (const char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_GPT2_GENERATE:
+            cpu->eax = (uint32_t)sys_gpt2_generate((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
+            break;
             
         default:
             // Syscall inconnu
             break;
     }
+}
+
+/*
+ * Generation locale GPT-2. Les tailles sont volontairement bornees : le
+ * modele s'execute dans le noyau freestanding et ne doit jamais consommer un
+ * buffer utilisateur non borne.
+ */
+int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
+    char prompt_copy[128];
+    uint32_t tokens[64];
+    uint32_t token_count = 0;
+    uint32_t written = 0;
+    const gpt2_model_t* model;
+    int rc;
+
+    if (!prompt || !out || max < 2) return -1;
+    /* Entree texte stable : ASCII imprimable, espaces normalises et prompt borne. */
+    uint32_t input_pos = 0;
+    uint32_t output_pos = 0;
+    int pending_space = 0;
+    while (input_pos < 255U && prompt[input_pos] != '\0' && output_pos + 1U < sizeof(prompt_copy)) {
+        uint8_t ch = (uint8_t)prompt[input_pos++];
+        if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+            if (output_pos > 0U) pending_space = 1;
+            continue;
+        }
+        if (ch < 32U || ch > 126U) continue;
+        if (pending_space && output_pos + 2U < sizeof(prompt_copy)) prompt_copy[output_pos++] = ' ';
+        pending_space = 0;
+        prompt_copy[output_pos++] = (char)ch;
+    }
+    prompt_copy[output_pos] = '\0';
+
+    rc = gpt2_tokenizer_encode_ascii(prompt_copy, tokens, 64, &token_count);
+    if (rc != 0) return -2;
+    /* Melange le prompt a l'etat de tirage pour eviter une reponse identique a chaque requete. */
+    for (uint32_t i = 0; i < token_count; i++) {
+        gpt2_rng_state ^= tokens[i] + 0x9e3779b9U + (gpt2_rng_state << 6) + (gpt2_rng_state >> 2);
+    }
+    model = gpt2_model_current();
+    if (!model->ready || token_count > model->config.max_seq_len) return -5;
+
+    for (uint32_t step = 0; step < GPT2_BAREMETAL_GENERATION_STEPS && token_count < 64 && token_count < model->config.max_seq_len; step++) {
+        uint32_t next_token = 0;
+        const char* piece;
+        rc = gpt2_generate_next_sampled(tokens, token_count, &next_token, &gpt2_rng_state);
+        if (rc != 0) return -30 + rc;
+        if (next_token == gpt2_tokenizer_eot()) break;
+        tokens[token_count++] = next_token;
+        piece = gpt2_tokenizer_decode(next_token);
+        if (!piece) return -4;
+        for (uint32_t i = 0; piece[i] != '\0'; i++) {
+            if (written + 1 >= max) {
+                out[written] = '\0';
+                return (int)written;
+            }
+            out[written++] = piece[i];
+        }
+    }
+    out[written] = '\0';
+    return (int)written;
 }
 
 // Cette fonction est maintenant obsolète pour l'entrée clavier

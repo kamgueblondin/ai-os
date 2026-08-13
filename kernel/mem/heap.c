@@ -2,33 +2,32 @@
 #include "pmm.h"
 #include <stdint.h>
 
-// Simple but safe allocator. For now, every allocation gets a new page.
-// This is inefficient but prevents heap corruption. A proper heap can be
-// implemented later.
+/*
+ * Allocation par plages physiques contigues. Chaque allocation est arrondie a
+ * la page; le moteur GPT-2 peut ainsi reserver ses activations sans dependre
+ * d'une bibliotheque d'execution hote. Les allocations restent non liberables
+ * par taille inconnue dans cette premiere version du noyau.
+ */
 
 void init_heap() {
-    // No-op, initialization is done on demand.
+    // No-op, the PMM is initialized before the VMM/heap.
 }
 
 void* kmalloc(size_t size) {
-    // For simplicity, we don't handle allocations larger than a page
-    if (size > PAGE_SIZE) {
-        return NULL;
-    }
-    // Allocate a full page for every request. Inefficient but safe.
-    return pmm_alloc_page();
+    if (size == 0) return NULL;
+    uint32_t pages = (uint32_t)((size + PAGE_SIZE - 1) / PAGE_SIZE);
+    return pmm_alloc_pages(pages);
 }
 
 void* kmalloc_aligned(size_t size) {
-    // For simplicity, aligned malloc just returns a new page
-    // This is not efficient, but it guarantees alignment
-    if (size > PAGE_SIZE) {
-        return NULL; // Cannot allocate more than a page
-    }
-    return pmm_alloc_page();
+    return kmalloc(size);
 }
 
 void kfree(void* ptr) {
-    // Our simple bump allocator does not support freeing memory.
-    (void)ptr; // Avoid unused parameter warning
+    /*
+     * A size-aware free API is required to return a multi-page allocation.
+     * Keep this compatibility entry point as a no-op for now; GPT-2 buffers
+     * are intentionally retained for the lifetime of the boot session.
+     */
+    (void)ptr;
 }
