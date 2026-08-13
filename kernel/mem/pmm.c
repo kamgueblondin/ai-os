@@ -97,31 +97,47 @@ void pmm_init(uint32_t memory_size, uint32_t multiboot_addr) {
 
 // Alloue une page de mémoire physique
 void* pmm_alloc_page() {
-    uint32_t page_num = pmm_find_free_page();
-    if (page_num == 0xFFFFFFFF) {
-        return NULL; // Pas de mémoire disponible
+    return pmm_alloc_pages(1);
+}
+
+// Alloue une plage physique contigue pour les buffers volumineux (modele, KV cache, activations).
+void* pmm_alloc_pages(uint32_t page_count) {
+    if (page_count == 0 || page_count > total_pages) return NULL;
+
+    uint32_t consecutive = 0;
+    uint32_t first = 0;
+    for (uint32_t page_num = 0; page_num < total_pages; page_num++) {
+        if (!pmm_test_page(page_num)) {
+            if (consecutive == 0) first = page_num;
+            consecutive++;
+            if (consecutive == page_count) {
+                for (uint32_t i = 0; i < page_count; i++) pmm_set_page(first + i);
+                used_pages += page_count;
+                return (void*)(first * PAGE_SIZE);
+            }
+        } else {
+            consecutive = 0;
+        }
     }
-    
-    pmm_set_page(page_num);
-    used_pages++;
-    
-    return (void*)(page_num * PAGE_SIZE);
+    return NULL;
 }
 
 // Libère une page de mémoire physique
 void pmm_free_page(void* page) {
-    if (page == NULL) {
-        return;
-    }
-    
+    pmm_free_pages(page, 1);
+}
+
+void pmm_free_pages(void* page, uint32_t page_count) {
+    if (page == NULL || page_count == 0) return;
+
     uint32_t page_num = (uint32_t)page / PAGE_SIZE;
-    if (page_num >= total_pages) {
-        return; // Adresse invalide
-    }
-    
-    if (pmm_test_page(page_num)) {
-        pmm_clear_page(page_num);
-        used_pages--;
+    if (page_num >= total_pages || page_count > total_pages - page_num) return;
+
+    for (uint32_t i = 0; i < page_count; i++) {
+        if (pmm_test_page(page_num + i)) {
+            pmm_clear_page(page_num + i);
+            if (used_pages > 0) used_pages--;
+        }
     }
 }
 

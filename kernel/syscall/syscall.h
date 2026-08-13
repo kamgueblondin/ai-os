@@ -36,6 +36,7 @@ int sys_stat(const char* path, os_dirent_t* out);
 int sys_rename(const char* oldpath, const char* newpath);
 int sys_copy(const char* src, const char* dst);
 int sys_append(const char* path, const char* buf, uint32_t n);
+int sys_gpt2_generate(const char* prompt, char* out, uint32_t max);
 
 void keyboard_add_char_to_buffer(char c);
 

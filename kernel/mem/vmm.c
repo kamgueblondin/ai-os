@@ -10,6 +10,13 @@ extern void print_string_serial(const char* str);
 vmm_directory_t *kernel_directory = 0;
 vmm_directory_t *current_directory = 0;
 
+/*
+ * Le premier moteur GPT-2 local charge ses poids comme module Multiboot.
+ * Le noyau reste en mode 32 bits : le plafond identite est donc borne a 1 Gio
+ * pour garder un chemin simple et verifiable avant le portage PAE/x86_64.
+ */
+#define VMM_IDENTITY_LIMIT (1024U * 1024U * 1024U)
+
 
 // Initialise le gestionnaire de mémoire virtuelle
 void vmm_init() {
@@ -34,21 +41,33 @@ void vmm_init() {
         kernel_directory->physical_dir->tablesPhysical[i] = 0x00000002; // Non présent, R/W
     }
 
-    // Mapper les 4 premiers Mo pour le noyau (identity mapping)
-    page_table_t* first_pt = (page_table_t*)pmm_alloc_page();
-    if (!first_pt) return; // Erreur critique
-    memset(first_pt, 0, sizeof(page_table_t));
+    /*
+     * Mapping identite pour le noyau, l'initrd et les modules de modele.
+     * La version precedente ne mappait que 4 Mio, insuffisant des qu'un
+     * checkpoint est place au-dessus de cette zone par Multiboot/GRUB.
+     */
+    uint32_t total_frames = pmm_get_total_pages();
+    uint32_t limit_frames = VMM_IDENTITY_LIMIT / PAGE_SIZE;
+    if (total_frames < limit_frames) limit_frames = total_frames;
+    uint32_t table_count = (limit_frames + ENTRIES_PER_TABLE - 1) / ENTRIES_PER_TABLE;
 
-    for (int i = 0; i < 1024; i++) {
-        first_pt->pages[i].present = 1;
-        first_pt->pages[i].rw = 1;
-        first_pt->pages[i].user = 0; // Mode noyau
-        first_pt->pages[i].frame = i;
+    for (uint32_t table_index = 0; table_index < table_count; table_index++) {
+        page_table_t* pt = (page_table_t*)pmm_alloc_page();
+        if (!pt) return; // Erreur critique
+        memset(pt, 0, sizeof(page_table_t));
+
+        for (uint32_t page_index = 0; page_index < ENTRIES_PER_TABLE; page_index++) {
+            uint32_t frame = table_index * ENTRIES_PER_TABLE + page_index;
+            if (frame >= limit_frames) break;
+            pt->pages[page_index].present = 1;
+            pt->pages[page_index].rw = 1;
+            pt->pages[page_index].user = 0;
+            pt->pages[page_index].frame = frame;
+        }
+
+        kernel_directory->tables[table_index] = pt;
+        kernel_directory->physical_dir->tablesPhysical[table_index] = (uint32_t)pt | 3;
     }
-    
-    // Enregistrer la table dans nos structures
-    kernel_directory->tables[0] = first_pt;
-    kernel_directory->physical_dir->tablesPhysical[0] = (uint32_t)first_pt | 3; // Présent, R/W, Sup
 
     // Charger le nouveau répertoire de pages et activer
     load_page_directory(kernel_directory->physical_addr);

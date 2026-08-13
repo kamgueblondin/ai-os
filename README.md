@@ -7,9 +7,34 @@
 
 ## 🎯 Description
 
-AI-OS est un **prototype de noyau pédagogique i386 32-bit** (hobby OS) qui boote sous QEMU, isole Ring 0/3 et lance un shell utilisateur ELF. L’orientation « OS pour l’IA » est réelle au niveau architecture (userspace, syscalls, initrd), mais l’IA embarquée est un **simulateur par mots-clés** (`ai_assistant.c` via `ai <texte>`), pas un moteur d’inférence.
+AI-OS est un **prototype de noyau pédagogique i386 32-bit** (hobby OS) qui boote sous QEMU, isole Ring 0/3 et lance un shell utilisateur ELF. Le noyau charge un initrd TAR, fournit un overlay RAM non persistant et expose une ABI de syscalls au shell utilisateur.
 
-**État réel du code (août 2026) :** [docs/ETAT_REEL.md](docs/ETAT_REEL.md) — ce qui marche, les stubs du shell, ce qui n’est pas encore codé (FS persistant, réseau, vision MOHHOS). Index de toute la doc : [docs/README.md](docs/README.md).
+**État réel du code (août 2026) :** [docs/ETAT_REEL.md](docs/ETAT_REEL.md) — source de vérité fonctionnelle. L’index de la documentation se trouve dans [docs/README.md](docs/README.md).
+
+## Mise à jour v7 — GPT-2 local bare-metal
+
+AI-OS dispose maintenant d’un **moteur d’inférence GPT-2 124M freestanding**. Quand le checkpoint `llm.c v3` et le tokenizer binaire sont placés localement dans `models/` avant le build, ils sont copiés dans l’initrd ; l’OS peut alors générer localement sans réseau, Ollama, API externe ni système hôte après démarrage.
+
+| Composant | Implémentation actuelle |
+|---|---|
+| Exécution locale | GPT-2 124M `.bin`, tokenizer binaire, syscall `SYS_GPT2_GENERATE` |
+| Attention | Cache clé/valeur persistant lors de la génération d’un même préfixe |
+| Échantillonnage | Top-k, pénalité de répétition et générateur pseudo-aléatoire |
+| Optimisation | `-O3`, SSE2, `-mfpmath=sse`, `-mstackrealign` et `-fomit-frame-pointer` |
+| Ressources | CPU SSE2 et 1 Gio de RAM QEMU requis pour le checkpoint de référence |
+| Réseau | Profil `openai` sélectionnable dans le shell, mais Ethernet, TCP/IP, DNS et TLS restent à implémenter |
+
+Les fichiers de modèle ne sont **pas versionnés** : ils sont volumineux et doivent être fournis par le constructeur de l’image. Pour une image ISO autonome sur une machine vierge, créez le répertoire suivant, puis construisez avec `make iso`.
+
+```text
+models/
+├── gpt2_124M.bin
+└── gpt2_tokenizer.bin
+```
+
+Dans le shell, utilisez `ai hello` pour une génération locale, `ai-provider local` pour sélectionner le moteur embarqué, `ai-model list` pour afficher les profils, `ai-runtime` pour les limites d’exécution et `rc` pour confirmer la reprise du shell après une réponse.
+
+> Le cache KV, SSE2 et le réalignement de pile ont réduit la latence observée de `88,835 s` à **`7,693 s`** pour `ai hello` et quatre jetons sous QEMU Pentium III sans KVM. L’objectif inférieur à une seconde n’est donc pas atteint dans cet environnement ; il requerra une exécution native ou KVM, des poids quantifiés et des kernels SIMD plus avancés. Voir [docs/kv_cache_performance_report.md](docs/kv_cache_performance_report.md).
 
 ## 🔥 MISE À JOUR v6.1 - Clavier Définitivement Corrigé (27 août 2025)
 
@@ -37,7 +62,7 @@ make run-gui
 ## ⭐ Fonctionnalités Principales
 
 - **🖥️ Shell Interactif** - Prompt `/ (-.-) :` en Ring 3. `ls`/`cat` lisent l’initrd + overlay noyau ; `mkdir`/`rm`/`cp`/`mv`/`touch`/`write`/`append` mutent l’overlay (pas de disque persistant). `ps`/`kill`/`getpid`/`mem`/`uptime` interrogent le noyau.
-- **🤖 Simulateur d'IA Intégré** - `ai hello` lance `bin/ai_assistant` (`SYS_EXEC`) ; réponses préprogrammées, pas un modèle ML
+- **🤖 GPT-2 Local Optionnel** - `ai <texte>` utilise `SYS_GPT2_GENERATE` avec un checkpoint embarqué lorsqu’il est disponible ; à défaut, le shell affiche un état d’indisponibilité et conserve les utilitaires historiques.
 - **🛡️ Espace Utilisateur Sécurisé** - Isolation Ring 0/3, chargeur ELF, syscalls
 - **⚡ Tâches et changement de contexte** - Passage kernel → shell via `jump_to_task()` ; le round-robin à chaque tick n’est pas le mode actuel (stabilité)
 - **💾 Système de Fichiers** - Initrd TAR en lecture seule + overlay RAM (`mkdir`/`rm`/`cp`/`mv` fichier et dossier). Pas de disque persistant. `ls` fusionne les deux via `SYS_LISTDIR`.
@@ -80,7 +105,7 @@ Le fichier `grub.cfg` est généré automatiquement (entrée AI-OS multiboot + m
 
 ## 🧪 Tests de Non-Régression (NOUVEAU)
 
-AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **121 tests** répartis dans `test_pmm` (17), `test_syscall` (48), `test_task` (21), `test_shell` (25), `test_ramfs` (10). Les dossiers integration / system / performance / robustness n’ont pas encore de fichiers. `make test-all` est la commande de référence.
+AI-OS inclut une suite Unity de tests unitaires (kernel + userspace). En août 2026 : **121 tests** répartis dans `test_pmm` (17), `test_syscall` (48), `test_task` (21), `test_shell` (25) et `test_ramfs` (10). `make test-all` est la commande de référence et ne requiert pas les poids du modèle. Les tests QEMU de GPT-2 sont séparés : `make gpt2-recovery` vérifie qu’une commande `rc` est exécutée après une génération réelle ; `make gpt2-benchmark` mesure la latence avec le CPU virtuel SSE2 ; `make gpt2-tests` lance les deux. Ils requièrent les fichiers sous `models/`.
 
 ### Configuration Initiale
 ```bash
@@ -137,7 +162,8 @@ ai-os/
 ├── fs/                    # Système de fichiers
 ├── userspace/             # Programmes utilisateur
 │   ├── shell.c           # Shell interactif principal
-│   ├── fake_ai.c         # Simulateur d'IA
+│   ├── fake_ai.c         # Programme historique de compatibilité
+│   └── ../kernel/llm/    # Chargeur, tokenizer et inférence GPT-2 freestanding
 │   └── test_program.c    # Programme de test
 ├── docs/                  # Documentation détaillée
 └── build/                 # Fichiers compilés
@@ -246,13 +272,15 @@ make clean && make all && make run
 
 ## 🛣️ Roadmap
 
-Cibles **non implémentées** à ce jour (le code actuel s’arrête au prototype QEMU + shell + simulateur). Le dossier [`US/`](US/README.md) détaille une vision plus large (MOHHOS, 8 phases) : spécifications uniquement.
+Le dossier [`US/`](US/README.md) détaille une vision plus large (MOHHOS, 8 phases) : ces documents sont des spécifications, non l’état du code.
 
-### Version 7.0 - IA Véritable (Prochaine)
-- [ ] Moteur d'inférence intégré
-- [ ] Support modèles légers
-- [ ] Traitement langage naturel
-- [ ] Optimisations performance
+### Version 7.0 - IA locale bare-metal
+- [x] Moteur d’inférence GPT-2 intégré
+- [x] Cache KV et vectorisation SSE2
+- [x] Sélecteur de fournisseur et de profil de modèle dans le shell
+- [ ] Tokenizer BPE complet, génération longue et format quantifié
+- [ ] Chargeur GGUF exécutable
+- [ ] Réseau, DNS, TLS et fournisseur OpenAI effectif
 
 ### Version 8.0 - Fonctionnalités Avancées
 - [ ] Système de fichiers persistant
@@ -304,8 +332,8 @@ Le projet suit une architecture modulaire facilitant l'ajout de nouvelles foncti
 
 ---
 
-**AI-OS v6.1** - *Prototype de noyau i386 avec shell userspace sous QEMU*  
-*Simulateur d’IA par mots-clés — pas un moteur d’inférence*
+**AI-OS v7 (branche GPT-2)** — *Prototype de noyau i386 avec shell userspace et inférence GPT-2 locale optionnelle sous QEMU.*
+*Le modèle est intégré à l’ISO seulement lorsqu’il est fourni localement lors de la compilation.*
 
 **Développé avec ❤️ pour l'avenir de l'IA**
 

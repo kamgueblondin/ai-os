@@ -17,6 +17,13 @@
 #define MAX_PATH_LENGTH 256
 #define MAX_ENV_VARS 32
 
+/* Fournisseurs IA : la selection est persistante pendant la session du shell. */
+#define AI_PROVIDER_LOCAL  0
+#define AI_PROVIDER_OPENAI 1
+
+/* Premier profil local cible : modele GGUF quantifie embarque sur le support de boot. */
+#define AI_DEFAULT_MODEL "gpt2_124M.bin"
+
 // Couleurs ANSI pour un affichage moderne
 #define COLOR_RESET   "\x1b[0m"
 #define COLOR_RED     "\x1b[31m"
@@ -58,6 +65,8 @@ typedef struct {
     int alias_count;
     int show_colors;
     int ai_mode;
+    int ai_provider;
+    char ai_model[128];
     int debug_mode;
     int ai_query_count;
     int cmd_ticks;
@@ -184,6 +193,12 @@ int sys_copy(const char* src, const char* dst) {
 int sys_append(const char* path, const char* buf, int n) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_APPEND), "b"(path), "c"(buf), "d"(n));
+    return result;
+}
+
+int sys_gpt2_generate(const char* prompt, char* out, int max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_GPT2_GENERATE), "b"(prompt), "c"(out), "d"(max));
     return result;
 }
 
@@ -356,7 +371,9 @@ void init_shell_context(shell_context_t* ctx) {
     ctx->env_count = 0;
     ctx->alias_count = 0;
     ctx->show_colors = 1;
-    ctx->ai_mode = 0;
+    ctx->ai_mode = 1;
+    ctx->ai_provider = AI_PROVIDER_LOCAL;
+    strcpy(ctx->ai_model, AI_DEFAULT_MODEL);
     ctx->debug_mode = 0;
     ctx->ai_query_count = 0;
     ctx->cmd_ticks = 0;
@@ -518,6 +535,9 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-mode [on|off]   - Activer/désactiver le mode IA\n");
     print_string("  ai-help            - Aide sur l'utilisation de l'IA\n");
     print_string("  ai-stats           - Statistiques de l'IA\n");
+    print_string("  ai-provider [nom]  - Choisir local ou openai\n");
+    print_string("  ai-model [action]  - Lister ou choisir le modele local\n");
+    print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
     print_string("  clear              - Effacer l'écran\n");
@@ -1069,7 +1089,7 @@ static int is_builtin(const char* cmd) {
     static const char* names[] = {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
-        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
+        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
@@ -1784,6 +1804,14 @@ static void cmd_tail(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
+static const char* ai_provider_name(const shell_context_t* ctx) {
+    return ctx->ai_provider == AI_PROVIDER_OPENAI ? "openai" : "local";
+}
+
+static const char* ai_model_name(const shell_context_t* ctx) {
+    return ctx->ai_model;
+}
+
 static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) {
     (void)args; (void)arg_count;
     print_colored("\n=== Statistiques IA ===\n", COLOR_CYAN);
@@ -1791,7 +1819,11 @@ static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) 
     print_int(ctx->ai_query_count);
     print_string("\nMode IA     : ");
     print_string(ctx->ai_mode ? "active" : "desactive");
-    print_string("\nMoteur      : simulateur mots-cles (fake_ai)\n");
+    print_string("\nFournisseur : ");
+    print_string(ai_provider_name(ctx));
+    print_string("\nModele      : ");
+    print_string(ai_model_name(ctx));
+    print_string("\nMoteur      : GPT-2 local bare-metal avec echantillonnage top-k\n");
     print_string("aistats ok ");
     print_int(ctx->ai_query_count);
     print_string("\n");
@@ -1801,6 +1833,69 @@ static void cmd_rc(shell_context_t* ctx) {
     print_string("rc ok ");
     print_int(ctx->last_rc);
     print_string("\n");
+}
+
+static void cmd_ai_provider(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0) {
+        print_string("Fournisseur IA : ");
+        print_string(ai_provider_name(ctx));
+        print_string("\nUsage: ai-provider [local|openai]\n");
+        return;
+    }
+    if (strcmp(args[0], "local") == 0) {
+        ctx->ai_provider = AI_PROVIDER_LOCAL;
+        print_success("Fournisseur local selectionne");
+        return;
+    }
+    if (strcmp(args[0], "openai") == 0) {
+        ctx->ai_provider = AI_PROVIDER_OPENAI;
+        print_warning("OpenAI selectionne : pilote reseau, DNS et TLS requis avant appel reel");
+        return;
+    }
+    print_error("Usage: ai-provider [local|openai]");
+}
+
+static void cmd_ai_model(shell_context_t* ctx, char args[][128], int arg_count) {
+    if (arg_count == 0 || strcmp(args[0], "status") == 0) {
+        print_string("Modele local courant : ");
+        print_string(ai_model_name(ctx));
+        print_string("\nUsage: ai-model [list|use <modele.bin|modele.gguf>]\n");
+        return;
+    }
+    if (strcmp(args[0], "list") == 0) {
+        print_string("Modeles locaux declares :\n");
+        print_string("  gpt2_124M.bin  [operationnel : checkpoint llm.c v3, CPU bare-metal]\n");
+        print_string("  qwen2.5-1.5b-instruct-q4_0.gguf  [profil futur : chargeur GGUF requis]\n");
+        return;
+    }
+    if (strcmp(args[0], "use") == 0 && arg_count == 2) {
+        if (strstr(args[1], ".bin") == 0 && strstr(args[1], ".gguf") == 0) {
+            print_error("Le profil local doit pointer vers un fichier .bin ou .gguf");
+            return;
+        }
+        strcpy(ctx->ai_model, args[1]);
+        if (strstr(args[1], "gpt2") != 0) {
+            print_success("Profil GPT-2 selectionne; validation par le chargeur au boot");
+        } else {
+            print_warning("Profil memorise; seul GPT-2 .bin est actuellement executable");
+        }
+        return;
+    }
+    print_error("Usage: ai-model [list|use <modele.bin|modele.gguf>]");
+}
+
+static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)args; (void)arg_count;
+    print_colored("\n=== Runtime IA bare-metal ===\n", COLOR_CYAN);
+    print_string("Architecture active : PC i386 Multiboot, CPU, 1 Gio RAM requis pour GPT-2\n");
+    print_string("Fournisseur actif  : ");
+    print_string(ai_provider_name(ctx));
+    print_string("\nModele declare     : ");
+    print_string(ai_model_name(ctx));
+    print_string("\nLocal              : GPT-2 124M .bin + tokenizer .bin, generation top-k\n");
+    print_string("Limite locale      : 64 jetons de contexte, 4 jetons generes, cache KV actif\n");
+    print_string("En ligne           : pilote Ethernet, TCP/IP, DNS et TLS a integrer\n");
+    print_string("Secrets OpenAI     : jamais integres a l'image de boot\n\n");
 }
 
 static void cmd_reboot(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1839,8 +1934,28 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 // ==============================================================================
 
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
-    (void)ctx;
-    // Lancer le vrai binaire IA en tache non-bloquante
+    if (ctx->ai_provider == AI_PROVIDER_OPENAI) {
+        print_colored("[IA] OpenAI configure mais indisponible : reseau/TLS bare-metal non integres\n", COLOR_YELLOW);
+        return;
+    }
+    print_colored("[IA] profil local : ", COLOR_CYAN);
+    print_string(ai_model_name(ctx));
+    print_string("\n");
+    if (strstr(ai_model_name(ctx), "gpt2") != 0) {
+        char generated[256];
+        int generated_len = sys_gpt2_generate(query, generated, sizeof(generated));
+        if (generated_len >= 0) {
+            print_colored("[GPT-2 local] ", COLOR_GREEN);
+            if (generated_len == 0) print_string("(fin de sequence)");
+            else print_string(generated);
+            print_string("\n");
+            return;
+        }
+        print_colored("[GPT-2 local] indisponible (code ", COLOR_YELLOW);
+        print_int(generated_len);
+        print_colored("); repli de compatibilite.\n", COLOR_YELLOW);
+    }
+    // Lancer le binaire local de compatibilite en tache bloquante pour garantir l'affichage
     char* argv[3];
     argv[0] = "ai_assistant";
     argv[1] = (char*)query;
@@ -2093,6 +2208,15 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "rc") == 0) {
         cmd_rc(ctx);
+        return 1;
+    } else if (strcmp(command, "ai-provider") == 0) {
+        cmd_ai_provider(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-model") == 0) {
+        cmd_ai_model(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-runtime") == 0) {
+        cmd_ai_runtime(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "logout") == 0) {
         cmd_exit(ctx, args, arg_count);

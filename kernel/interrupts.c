@@ -40,6 +40,8 @@ void fault_handler_c(registers_t *r) {
     print_hex_serial(r->int_no);
     print_string_serial("\nError Code: ");
     print_hex_serial(r->err_code);
+    print_string_serial("\nEIP: ");
+    print_hex_serial(r->eip);
     print_string_serial("\n");
 
     if (r->int_no == 14) { // Page Fault

@@ -10,6 +10,9 @@
 #include "elf.h"
 #include "../fs/initrd.h"
 #include "../fs/overlay.h"
+#include "llm/gpt2_model.h"
+#include "llm/gpt2_infer.h"
+#include "llm/gpt2_tokenizer.h"
 #include "keyboard.h"
 #include <stddef.h>
 
@@ -418,9 +421,25 @@ void clear_screen() {
     vga_y = 0;
 }
 
+/* Active le coprocesseur et SSE2 avant toute operation flottante du moteur GPT-2. */
+static void cpu_enable_sse(void) {
+    asm volatile(
+        "mov %%cr0, %%eax\n\t"
+        "andl $0xfffffffb, %%eax\n\t" /* clear CR0.EM */
+        "orl $0x00000002, %%eax\n\t"  /* set CR0.MP */
+        "mov %%eax, %%cr0\n\t"
+        "mov %%cr4, %%eax\n\t"
+        "orl $0x00000600, %%eax\n\t"  /* CR4.OSFXSR + CR4.OSXMMEXCPT */
+        "mov %%eax, %%cr4\n\t"
+        "fninit\n\t"
+        : : : "eax", "memory");
+}
+
 // La fonction principale de notre noyau - MISE À JOUR pour le multitâche
 void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     char color = 0x1F;
+
+    cpu_enable_sse();
 
     // Initialisation du port série
     serial_init();
@@ -491,6 +510,31 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
 
             print_string("Initrd trouve ! Initialisation...\n");
             initrd_init(initrd_location, initrd_size);
+            if (gpt2_model_load_from_initrd("models/gpt2_124M.bin") == 0) {
+                const gpt2_model_t* gpt2 = gpt2_model_current();
+                print_string("Modele GPT-2 local charge depuis l'initrd.\n");
+                if (gpt2_tokenizer_load_from_initrd("models/gpt2_tokenizer.bin") == 0) {
+                    print_string("Tokenizer GPT-2 local charge depuis l'initrd.\n");
+                } else {
+                    print_string(gpt2_tokenizer_status());
+                    print_string("\n");
+                }
+                /* Les mini-checkpoints de validation executent un jeton CPU au boot. */
+                if (gpt2->config.vocab_size <= 8 && gpt2->config.channels <= 16) {
+                    uint32_t seed_token = 0;
+                    uint32_t generated_token = 0;
+                    if (gpt2_generate_next(&seed_token, 1, &generated_token) == 0) {
+                        print_string(gpt2_infer_status());
+                        print_string("\n");
+                    } else {
+                        print_string(gpt2_infer_status());
+                        print_string("\n");
+                    }
+                }
+            } else {
+                print_string(gpt2_model_status());
+                print_string("\n");
+            }
         }
     }
 

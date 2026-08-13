@@ -2,9 +2,11 @@
 
 ## Lire en premier
 
-1. [ETAT_REEL.md](ETAT_REEL.md) — **état actuel du code** (août 2026)
-2. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) — lancement QEMU (console / GUI / nographic)
-3. [../README.md](../README.md) — compilation, tests, architecture des sources
+1. [ETAT_REEL.md](ETAT_REEL.md) — **état actuel du code**, y compris GPT-2 local et limites vérifiées
+2. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) — préparation des poids et construction d’une ISO autonome
+3. [kv_cache_performance_report.md](kv_cache_performance_report.md) — cache KV, reprise du shell et mesures de latence
+4. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) — lancement QEMU (console / GUI / nographic)
+5. [../README.md](../README.md) — compilation, tests, architecture des sources
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d’étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -12,11 +14,14 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 
 | Fichier | Contenu |
 |---|---|
-| [ETAT_REEL.md](ETAT_REEL.md) | Ce qui marche / stubs / vision non codée |
+| [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
+| [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d’une ISO GPT-2 hors ligne |
+| [kv_cache_performance_report.md](kv_cache_performance_report.md) | Cache KV, SSE2, test de reprise du shell et mesures de latence |
+| [baremetal_llm_architecture.md](baremetal_llm_architecture.md) | Architecture de référence et évolutions envisagées pour un LLM bare-metal |
 | [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) | Modes QEMU et dépannage clavier |
 | [CHANGELOG_v6.1.md](CHANGELOG_v6.1.md) | Notes de version 6.1 + correctif EOI |
 | [todo.md](todo.md) | Suivi des tâches (historique + reste à faire) |
-| [etape_7_shell_ia.md](etape_7_shell_ia.md) | Étape shell + IA simulée (liste de commandes actualisée) |
+| [etape_7_shell_ia.md](etape_7_shell_ia.md) | Étape shell et ancien simulateur IA ; lecture historique |
 | [analyse_logique_docs.md](analyse_logique_docs.md) | Logique des étapes 1–7 |
 | [etapes_3_4_specifications.md](etapes_3_4_specifications.md) | Specs mémoire / initrd |
 | [etapes_5_6_implementation.md](etapes_5_6_implementation.md) | Multitâche / userspace |
@@ -65,7 +70,7 @@ Le blocage restant (EOI IRQ0 après `schedule()` / PIC qui masque IRQ1) est docu
 - [rapport_tests_shell_ia.md](rapport_tests_shell_ia.md)
 - [rapport_stabilite_modules.md](rapport_stabilite_modules.md)
 
-Les fichiers `.log` / `.txt` du même dossier sont des captures QEMU ou de build : traces brutes, pas de spécification.
+Les fichiers `.log` / `.txt` du même dossier sont des captures QEMU ou de build : traces brutes, pas de spécification. Les scripts `tests/scripts/test_gpt2_shell_recovery.py` et `tests/scripts/benchmark_gpt2_kv_latency.py` sont les contrôles QEMU correspondants ; ils requièrent les poids locaux sous `models/`.
 
 ## Vision MOHHOS (hors code actuel)
 

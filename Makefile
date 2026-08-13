@@ -8,13 +8,17 @@ LD = ld
 # -ffreestanding : Ne pas utiliser la bibliothèque standard C
 # -nostdlib : Ne pas lier avec la bibliothèque standard C
 # -fno-pie : Produire du code indépendant de la position
-CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -I. -Iinclude -DCONFIG_UTF8_VGA=1
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -O3 -msse2 -mfpmath=sse -mstackrealign -fomit-frame-pointer -I. -Iinclude -DCONFIG_UTF8_VGA=1
 ASFLAGS = -f elf32
 
 # Nom du fichier final de notre OS
 OS_IMAGE = build/ai_os.bin
 ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
+MODEL_DIR ?= models
+GPT2_MODEL ?= $(MODEL_DIR)/gpt2_124M.bin
+# GPT-2 124M charge ses 475 Mio de poids depuis l'initrd; 1 Gio est le minimum valide.
+GPT2_RAM ?= 1024M
 
 # Variables pour la création de l'initrd
 USER_SHELL := userspace/shell
@@ -24,12 +28,12 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/gpt2_model.o build/gpt2_tokenizer.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd)
 all: $(OS_IMAGE) pack-initrd
-	@echo "=== AI-OS v5.0 - Système Complet Construit ==="
+	@echo "=== AI-OS v7 - Système avec GPT-2 local construit ==="
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
@@ -127,6 +131,21 @@ build/overlay.o: fs/overlay.c fs/overlay.h fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Chargeur GPT-2 local : valide un checkpoint dans l'initrd sans dependance hote.
+build/gpt2_model.o: kernel/llm/gpt2_model.c kernel/llm/gpt2_model.h fs/initrd.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Tokenizer GPT-2 local en lecture seule.
+build/gpt2_tokenizer.o: kernel/llm/gpt2_tokenizer.c kernel/llm/gpt2_tokenizer.h fs/initrd.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Noyau d'inference GPT-2 CPU freestanding.
+build/gpt2_infer.o: kernel/llm/gpt2_infer.c kernel/llm/gpt2_infer.h kernel/llm/gpt2_model.h kernel/mem/heap.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 # Règles pour compiler le code assembleur
 build/boot.o: boot/boot.s
 	@mkdir -p $(dir $@)
@@ -163,15 +182,28 @@ userspace-all:
 
 # Règle pour empaqueter l'initrd automatiquement
 pack-initrd: userspace-all
-	@echo "[mkinitrd] Création de l'initrd AI-OS v5.0..."
-	@mkdir -p $(BIN_DEST_DIR)
+	@echo "[mkinitrd] Création de l'initrd AI-OS v7..."
+	@mkdir -p $(BIN_DEST_DIR) $(INITRD_DIR)/models
 	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
 	@echo "Un autre fichier de demonstration." > $(INITRD_DIR)/hello.txt
-	@echo "Configuration du systeme AI-OS v5.0" > $(INITRD_DIR)/config.cfg
+	@echo "Configuration du systeme AI-OS v7" > $(INITRD_DIR)/config.cfg
 	@echo "#!/bin/sh" > $(INITRD_DIR)/startup.sh
-	@echo "echo 'Script de demarrage AI-OS v5.0'" >> $(INITRD_DIR)/startup.sh
-	@echo "Donnees pour l'intelligence artificielle simulee" > $(INITRD_DIR)/ai_data.txt
-	@echo "Base de connaissances IA - Version simulation" > $(INITRD_DIR)/ai_knowledge.txt
+	@echo "echo 'Script de demarrage AI-OS v7'" >> $(INITRD_DIR)/startup.sh
+	@echo "Donnees de demonstration pour l'intelligence artificielle locale" > $(INITRD_DIR)/ai_data.txt
+	@echo "Base de connaissances statique — pas de base vectorielle" > $(INITRD_DIR)/ai_knowledge.txt
+	@echo "# AI-OS bare-metal LLM manifest" > $(INITRD_DIR)/models/models.manifest
+	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
+	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest
+	@echo "gpt2_124M.bin|gpt2|124M|FP32|local" >> $(INITRD_DIR)/models/models.manifest
+	@echo "# Provide gpt2_124M.bin and gpt2_tokenizer.bin in models/ before build." > $(INITRD_DIR)/models/README.txt
+	@echo "# GGUF profiles are declared by the shell but are not executable yet." >> $(INITRD_DIR)/models/README.txt
+	@if [ -f "$(GPT2_MODEL)" ] && [ -f "$(MODEL_DIR)/gpt2_tokenizer.bin" ]; then \
+		echo "[mkinitrd] Inclusion du checkpoint et du tokenizer GPT-2 locaux..."; \
+		cp -f "$(GPT2_MODEL)" "$(INITRD_DIR)/models/gpt2_124M.bin"; \
+		cp -f "$(MODEL_DIR)/gpt2_tokenizer.bin" "$(INITRD_DIR)/models/gpt2_tokenizer.bin"; \
+	else \
+		echo "[mkinitrd] Checkpoint ou tokenizer GPT-2 local absent."; \
+	fi
 	@cp -f $(USER_SHELL) $(BIN_DEST_DIR)/shell
 	@cp -f userspace/fake_ai $(BIN_DEST_DIR)/fake_ai
 	@cp -f userspace/ai_assistant $(BIN_DEST_DIR)/ai_assistant
@@ -214,7 +246,7 @@ iso: check-iso-deps $(OS_IMAGE) pack-initrd
 
 # Lancer l'ISO avec QEMU (boot CD)
 run-iso: iso
-	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m 128M -no-reboot -no-shutdown
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -boot d -m $(GPT2_RAM) -cpu pentium3 -no-reboot -no-shutdown
 
 iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
@@ -226,13 +258,13 @@ user-program userspace/shell userspace/fake_ai userspace/test_program userspace/
 run: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-display curses \
-		-m 128M \
+		-m $(GPT2_RAM) -cpu pentium3 \
 		-no-reboot -no-shutdown
 
 # Cible pour exécuter l'OS dans QEMU avec interface graphique améliorée
 run-gui: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
-		-m 128M -vga std \
+		-m $(GPT2_RAM) -cpu pentium3 -vga std \
 		-display gtk \
 		-no-reboot -no-shutdown
 
@@ -243,7 +275,7 @@ run-nographic: $(OS_IMAGE) pack-initrd
 	qemu-system-i386 -kernel $(OS_IMAGE) -initrd $(INITRD_IMAGE) \
 		-nographic \
 		-chardev stdio,id=serial0 \
-		-m 128M \
+		-m $(GPT2_RAM) -cpu pentium3 \
 		-no-reboot -no-shutdown
 
 # Cible pour tester le clavier avec GUI et capture des logs série
@@ -366,6 +398,17 @@ qemu-smoke: $(OS_IMAGE) pack-initrd
 	@chmod +x tests/scripts/ci_qemu_smoke.sh
 	@tests/scripts/ci_qemu_smoke.sh
 
+# Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
+.PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
+gpt2-recovery: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/test_gpt2_shell_recovery.py
+
+gpt2-benchmark: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/benchmark_gpt2_kv_latency.py
+
+gpt2-tests: gpt2-recovery gpt2-benchmark
+	@echo "=== Vérifications GPT-2 QEMU terminées ==="
+
 # Gate CI local : image + tests unitaires + smoke QEMU
 ci: all test-all qemu-smoke
 	@echo "=== CI locale OK (build + tests + QEMU smoke) ==="
@@ -393,6 +436,9 @@ help:
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
 	@echo "  qemu-smoke      - Boot QEMU headless, vérifie le shell (log série)"
+	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
+	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"
+	@echo "  gpt2-tests      - Modèle requis : recovery + benchmark GPT-2"
 	@echo "  ci              - make all + test-all + qemu-smoke (gate PR)"
 	@echo "  test-performance - Benchmarks et tests de performance"
 	@echo "  test-valgrind   - Tests avec détection fuites mémoire"
@@ -415,5 +461,5 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # Tests complets avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke ci
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci
 

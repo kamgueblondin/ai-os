@@ -27,8 +27,10 @@
 #define SYS_RENAME   19
 #define SYS_COPY     20
 #define SYS_APPEND   21
+/* prompt (EBX), buffer de reponse (ECX), taille du buffer (EDX) */
+#define SYS_GPT2_GENERATE 22
 
-#define MAX_SYSCALLS 22
+#define MAX_SYSCALLS 23
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32

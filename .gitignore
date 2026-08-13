@@ -4,9 +4,16 @@ userspace/fake_ai
 userspace/test_program
 userspace/ai_assistant
 userspace/idle
+initrd_content/bin/idle
 userspace/*.o
 userspace/*.bin
 
 # Python
 tests/scripts/__pycache__/
 *.pyc
+
+# Artefacts locaux GPT-2 et exécutions QEMU : ne jamais versionner les poids ni les journaux.
+/models/
+/initrd_content/models/
+/my_initrd.tar
+/test_logs/
