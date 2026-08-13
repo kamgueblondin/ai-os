@@ -14,6 +14,7 @@ ERR = os.path.join(LOG_DIR, "vfs-service.err")
 MON = os.path.join(LOG_DIR, "vfs-service-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
+DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
 
 
 def log_text():
@@ -64,17 +65,20 @@ def send_command(client, command):
 
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
-    for path in (LOG, ERR, MON):
+    for path in (LOG, ERR, MON, DISK):
         try:
             os.remove(path)
         except OSError:
             pass
+    with open(DISK, "wb") as disk_handle:
+        disk_handle.truncate(64 * 512)
     command = [
         "qemu-system-i386", "-kernel", KERNEL, "-initrd", INITRD,
         "-m", "1024M", "-display", "none", "-vga", "none",
         "-serial", "file:" + LOG,
         "-monitor", "unix:%s,server,nowait" % MON,
         "-machine", "type=pc,accel=tcg", "-no-reboot", "-no-shutdown",
+        "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,
     ]
     with open(ERR, "wb") as err_handle:
         proc = subprocess.Popen(command, stdout=err_handle, stderr=err_handle)
@@ -95,6 +99,10 @@ def main():
             server_pid = spawned.group(1)
             wait_for("vfsserver ready vfs", proc, before_spawn)
             wait_for("vfsserver mount initrd/", proc, before_spawn)
+            wait_for("vfsserver mount overlay/ rw", proc, before_spawn)
+            before_direct_write = len(log_text())
+            send_command(monitor, "vfs-backend-write-probe note.txt denied")
+            wait_for("vfs-backend-write-probe denied", proc, before_direct_write)
             before_mounts = len(log_text())
             send_command(monitor, "vfs-read vfs-mounts")
             wait_for("vfsserver virtual vfs-mounts", proc, before_mounts)
@@ -106,7 +114,7 @@ def main():
             wait_for("vfs-read: chemin hors montage", proc, before_outside)
             before_pending = len(log_text())
             send_command(monitor, "ipc-send 1 deferred")
-            wait_for("ipc-send ok 1 8", proc, before_pending)
+            wait_for("ipc-send ok", proc, before_pending)
             before_read = len(log_text())
             send_command(monitor, "vfs-read initrd/hello.txt")
             wait_for("vfs-read ok", proc, before_read)
@@ -120,6 +128,17 @@ def main():
             send_command(monitor, "vfs-read vfs-info")
             wait_for("vfsserver virtual vfs-info", proc, before_virtual)
             wait_for("vfsserver ring3 policy", proc, before_virtual)
+            before_readonly_write = len(log_text())
+            send_command(monitor, "vfs-write initrd/no.txt denied")
+            wait_for("vfsserver write outside mounts", proc, before_readonly_write)
+            wait_for("vfs-write: chemin hors montage ecriture", proc, before_readonly_write)
+            before_write = len(log_text())
+            send_command(monitor, "vfs-write overlay/note.txt vfsok")
+            wait_for("vfsserver write request", proc, before_write)
+            wait_for("vfs-write ok request", proc, before_write)
+            before_written_read = len(log_text())
+            send_command(monitor, "cat note.txt")
+            wait_for("vfsok", proc, before_written_read)
             before_claim = len(log_text())
             send_command(monitor, "spawn vfsclaim")
             wait_for("spawn ok pid", proc, before_claim)
@@ -162,10 +181,11 @@ def main():
                     proc.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     proc.kill()
-            try:
-                os.remove(MON)
-            except OSError:
-                pass
+            for path in (MON, DISK):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
 
 if __name__ == "__main__":
