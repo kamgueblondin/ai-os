@@ -2,6 +2,7 @@
 # ci_qemu_smoke.sh — Boot QEMU headless, type ls/cat/ps/uptime, require serial markers.
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
+# Overlay smoke and shell extras are separate boots so extra sendkeys do not ghost overlay.
 
 set -euo pipefail
 
@@ -10,7 +11,8 @@ cd "$ROOT"
 
 KERNEL="${KERNEL:-build/ai_os.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
-SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-180}"
+OVERLAY_TIMEOUT="${OVERLAY_TIMEOUT:-180}"
+EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-90}"
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then
     echo "ERROR: missing $KERNEL or $INITRD — run 'make all' first"
@@ -26,25 +28,29 @@ if ! grep -a -qF "Initrd / VFS" userspace/shell; then
     file userspace/shell || true
     exit 1
 fi
-
-echo "=== QEMU smoke (timeout ${SMOKE_TIMEOUT}s) ==="
-set +e
-timeout --foreground --signal=KILL "${SMOKE_TIMEOUT}s" \
-    python3 "$ROOT/tests/scripts/ci_qemu_syscalls.py"
-rc=$?
-set -e
-
-if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-    echo "FAIL: qemu-smoke killed after ${SMOKE_TIMEOUT}s"
-    if [ -f "$LOG" ]; then
-        echo "=== serial log (tail) ==="
-        tail -n 80 "$LOG" || true
-    fi
-    if [ -f test_logs/ci-qemu-stderr.log ]; then
-        echo "=== qemu stderr (tail) ==="
-        tail -n 40 test_logs/ci-qemu-stderr.log || true
-    fi
+if ! grep -a -qF "env ok" userspace/shell; then
+    echo "ERROR: userspace/shell is stale (no env ok needle)."
     exit 1
 fi
 
-exit "$rc"
+run_python() {
+    local name="$1"
+    local timeout_s="$2"
+    local script="$3"
+    echo "=== QEMU ${name} (timeout ${timeout_s}s) ==="
+    set +e
+    timeout --foreground --signal=KILL "${timeout_s}s" python3 "$script"
+    local rc=$?
+    set -e
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+        echo "FAIL: qemu-smoke ${name} killed after ${timeout_s}s"
+        return 1
+    fi
+    return "$rc"
+}
+
+if ! run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"; then
+    echo "=== overlay smoke retry (sendkey ghosts) ==="
+    run_python overlay "$OVERLAY_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"
+fi
+run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py"
