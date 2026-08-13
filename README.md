@@ -24,12 +24,22 @@ AI-OS dispose maintenant d’un **moteur d’inférence GPT-2 124M freestanding*
 | Ressources | CPU SSE2 et 1 Gio de RAM QEMU requis pour le checkpoint de référence |
 | Réseau | Profil `openai` sélectionnable dans le shell, mais Ethernet, TCP/IP, DNS et TLS restent à implémenter |
 
-Les fichiers de modèle ne sont **pas versionnés** : ils sont volumineux et doivent être fournis par le constructeur de l’image. Pour une image ISO autonome sur une machine vierge, créez le répertoire suivant, puis construisez avec `make iso`.
+Les fichiers de modèle ne sont **pas versionnés** dans l’historique Git : ils sont volumineux. Les assets validés sont publiés séparément dans la [release GPT-2 124M](https://github.com/kamgueblondin/ai-os/releases/tag/gpt2-124m-assets), avec un manifeste SHA-256. Pour une image ISO autonome sur une machine vierge, téléchargez-les dans le répertoire suivant, vérifiez-les, puis construisez avec `make iso`.
 
 ```text
 models/
 ├── gpt2_124M.bin
 └── gpt2_tokenizer.bin
+```
+
+Téléchargez les deux fichiers et leur manifeste depuis la release, puis vérifiez-les avant la compilation :
+
+```bash
+mkdir -p models
+curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_124M.bin
+curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
+curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
+(cd models && sha256sum -c gpt2-124m-assets.sha256)
 ```
 
 Dans le shell, utilisez `ai hello` pour une génération locale, `ai-provider local` pour sélectionner le moteur embarqué, `ai-model list` pour afficher les profils, `ai-runtime` pour les limites d’exécution et `rc` pour confirmer la reprise du shell après une réponse.
