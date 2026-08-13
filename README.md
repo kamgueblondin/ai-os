@@ -33,7 +33,7 @@ git clone https://github.com/kamgueblondin/ai-os.git
 cd ai-os
 make deps          # ou : bash scripts/bootstrap-dev.sh
 make all
-make test-all      # 121 tests Unity, sans poids GPT-2
+make test-all      # 134 tests Unity, sans poids GPT-2
 make run           # QEMU curses ; le shell lit le clavier PS/2, pas le port série
 ```
 
@@ -94,7 +94,7 @@ make qemu-smoke    # smoke QEMU (CI)
 make ci            # même gate que GitHub Actions
 ```
 
-Unity 32-bit : **121** tests. Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affichés par d'anciens scripts ne sont pas mesurés par gcov.
+Unity 32-bit : **134** tests (`test_pmm` 17, `test_syscall` 48, `test_task` 21, `test_tokenizer` 13, `test_shell` 25, `test_ramfs` 10). Les dossiers `tests/integration`, `tests/system`, `tests/performance` et `tests/robustness` sont vides. Les pourcentages de "couverture" affiches par d'anciens scripts ne sont pas mesures par gcov.
 
 GitHub Actions (`.github/workflows/ci.yml`) : à chaque push/PR vers `master` (et `main` si la branche est renommée) - `make all`, `make test-all`, `make qemu-smoke`.
 
@@ -128,7 +128,8 @@ ai-os/
 Le dossier [`US/`](US/README.md) décrit la vision MOHHOS (spécifications, pas l'état du dépôt).
 
 - [x] Inférence GPT-2 locale + cache KV / SSE2
-- [ ] Tokenizer BPE complet, quantification, chargeur GGUF, latence &lt; 1 s
+- [x] Tokenizer BPE GPT-2 (entree et sortie)
+- [ ] Quantification, chargeur GGUF, latence &lt; 1 s
 - [ ] Réseau, DNS, TLS, fournisseur OpenAI effectif
 - [ ] Système de fichiers persistant
 

@@ -1942,7 +1942,7 @@ void call_ai_assistant(shell_context_t* ctx, const char* query) {
     print_string(ai_model_name(ctx));
     print_string("\n");
     if (strstr(ai_model_name(ctx), "gpt2") != 0) {
-        char generated[256];
+        char generated[384];
         int generated_len = sys_gpt2_generate(query, generated, sizeof(generated));
         if (generated_len >= 0) {
             print_colored("[GPT-2 local] ", COLOR_GREEN);
