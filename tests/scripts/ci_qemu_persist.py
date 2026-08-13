@@ -18,7 +18,7 @@ MON_SOCK = os.environ.get("PERSIST_MON_SOCK", os.path.join(LOG_DIR, "qemu-persis
 DISK = os.environ.get("PERSIST_DISK", os.path.join(ROOT, "build", "overlay-persist.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "40"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.40"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.55"))
 
 
 def say(message):

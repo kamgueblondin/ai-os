@@ -156,6 +156,50 @@ static void test_write_rejects_oversize_and_unexpected_reply(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_write_reply(&message, &reply, 4U));
 }
 
+static void test_remove_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_remove_reply_t reply;
+    char path[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_remove_request(&payload, "overlay/note.txt", 51U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_REMOVE, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_PATH_MAX, payload.size);
+    TEST_ASSERT_EQUAL(51, payload.request_id);
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_remove_request(&message, path));
+    TEST_ASSERT_EQUAL_STRING("overlay/note.txt", path);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_remove_reply(&payload, OS_VFS_STATUS_OK, 51U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_remove_reply(&message, &reply, 51U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, reply.status);
+}
+
+static void test_remove_rejects_unsafe_path_and_unexpected_reply(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_remove_reply_t reply;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_remove_request(&payload, "overlay/../secret", 1U));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_remove_reply(&payload, OS_VFS_STATUS_NOT_MOUNTED, 9U));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_remove_reply(&message, &reply, 10U));
+    message.size = OS_VFS_WRITE_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_remove_reply(&message, &reply, 9U));
+}
+
 static void test_reply_with_unexpected_request_id_is_rejected(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -182,6 +226,8 @@ int main(void) {
     RUN_TEST(test_grant_request_is_bounded_and_validated);
     RUN_TEST(test_write_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_write_rejects_oversize_and_unexpected_reply);
+    RUN_TEST(test_remove_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_remove_rejects_unsafe_path_and_unexpected_reply);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     unity_print_results();
     unity_cleanup();

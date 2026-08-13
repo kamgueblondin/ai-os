@@ -51,8 +51,10 @@
 #define SYS_VFS_INITRD_READ 32
 /* EBX = chemin overlay relatif, ECX = buffer, EDX = taille ; réservé au propriétaire de `vfs`. */
 #define SYS_VFS_OVERLAY_READ 33
+/* EBX = chemin overlay relatif ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_OVERLAY_UNLINK 34
 
-#define MAX_SYSCALLS 34
+#define MAX_SYSCALLS 35
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

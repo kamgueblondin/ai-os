@@ -236,6 +236,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_overlay_read((const char*)cpu->ebx,
                                                        (char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_VFS_OVERLAY_UNLINK:
+            cpu->eax = (uint32_t)sys_vfs_overlay_unlink((const char*)cpu->ebx);
+            break;
         default:
 
             // Syscall inconnu
@@ -354,6 +357,15 @@ int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
     }
     if (!path || !buffer || max == 0U) return -1;
     return overlay_read(path, buffer, max);
+}
+
+int sys_vfs_overlay_unlink(const char* path) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path) return -1;
+    return overlay_unlink(path);
 }
 
 /*
