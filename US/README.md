@@ -4,8 +4,8 @@ Deux couches distinctes. Ne pas les mélanger.
 
 | Couche | Document | Statut |
 |---|---|---|
-| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | Fait / suite proche |
-| **Vision MOHHOS** | fichiers `mohhos_*.md` + [individual_us/](individual_us/INDEX.md) | Spécifications uniquement |
+| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-025 et IPC Foundation MOHHOS vérifiés |
+| **Vision MOHHOS** | fichiers `mohhos_*.md` + [individual_us/](individual_us/INDEX.md) | Spécifications, sauf incrément Foundation IPC documenté |
 
 En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
 
@@ -21,9 +21,9 @@ Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). **Aucune phase n'est livrée** dans le noyau.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). La première tranche de **Foundation** est maintenant livrée : une boîte aux lettres IPC locale, bornée et testée entre tâches Ring 3. Elle prépare US-001/US-003/US-013, mais ne migre encore aucun service vers un espace d’adressage séparé ; le noyau reste monolithique.
 
-Quelques fichiers MOHHOS **chevauchent** le prototype (mémoire, tests, moteur IA local, assistant). Le recouvrement est accidentel et partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l'index MOHHOS signifie « fichier de spec présent », **pas** « implémenté ».
+Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant et désormais IPC local) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
 
 ### Fichiers MOHHOS
 
@@ -31,7 +31,8 @@ Quelques fichiers MOHHOS **chevauchent** le prototype (mémoire, tests, moteur I
 |---|---|
 | [mohhos_user_stories_master.md](mohhos_user_stories_master.md) | Index historique des 120 titres (numérotation parfois **différente** des fichiers) |
 | [recherche_technologies_mohhos.md](recherche_technologies_mohhos.md) | Veille (P2P, federated learning, navigateur-OS) |
-| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée (microkernel) — non commencée dans le code |
+| [mohhos_us_phase1_foundation.md](mohhos_us_phase1_foundation.md) | Phase 1 détaillée : incrément IPC livré, microkernel/services séparés non commencés |
+| [../docs/mohhos_foundation_increment_01_ipc.md](../docs/mohhos_foundation_increment_01_ipc.md) | Conception et contrat de l’incrément IPC Foundation livré |
 | [mohhos_us_phase2_ai_core.md](mohhos_us_phase2_ai_core.md) | Phase 2 (TensorFlow Lite, NLU, fédéré) — non livrée ; l'IA réelle est GPT-2 freestanding |
 | [mohhos_us_phase3_web_runtime.md](mohhos_us_phase3_web_runtime.md) | Phase 3 navigateur-OS — absente |
 | [mohhos_us_phases_4_8_synthese.md](mohhos_us_phases_4_8_synthese.md) | Phases 4-8 (PromptMessage, P2P, etc.) — absentes |
@@ -48,7 +49,7 @@ Quelques fichiers MOHHOS **chevauchent** le prototype (mémoire, tests, moteur I
 7. Collaborative (points)  
 8. Production  
 
-Ne pas planifier un sprint « US-001 microkernel » comme suite d'AI-OS. La suite proche est dans [ai_os_us.md](ai_os_us.md) (GGUF, BPE unicode, FS disque, tests d'intégration).
+La migration complète de US-001 reste une refonte à haut risque : l’incrément actuel fournit seulement le mécanisme IPC local. La suite doit externaliser un service précis derrière ce contrat, sans affirmer prématurément que les fichiers, pilotes ou le réseau sont déjà hors du noyau.
 
 ## Contribution
 

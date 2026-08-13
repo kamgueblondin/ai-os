@@ -33,7 +33,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
-          build/keyboard.o build/timer.o build/multiboot.o build/kernel.o build/kbd_buffer.o
+          build/keyboard.o build/timer.o build/ipc.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
 all: $(OS_IMAGE) pack-initrd disk
@@ -104,6 +104,10 @@ build/kbd_buffer.o: kernel/input/kbd_buffer.c kernel/input/kbd_buffer.h
 
 
 build/timer.o: kernel/timer.c kernel/timer.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/ipc.o: kernel/ipc.c kernel/ipc.h include/os_syscalls.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -255,6 +259,7 @@ pack-initrd: userspace-all
 	@cp -f userspace/test_program $(BIN_DEST_DIR)/user_program
 	@cp -f userspace/idle $(BIN_DEST_DIR)/idle
 	@cp -f userspace/spin $(BIN_DEST_DIR)/spin
+	@cp -f userspace/ipcserver $(BIN_DEST_DIR)/ipcserver
 	@cp -f userspace/ok $(BIN_DEST_DIR)/ok
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
@@ -299,7 +304,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/spin userspace/ok: userspace-all
+user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/spin userspace/ipcserver userspace/ok: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd disk
@@ -455,17 +460,21 @@ qemu-smoke: $(OS_IMAGE) pack-initrd disk
 
 # Contrats d’intégration QEMU versionnés : boot, shell/overlay, préemption IRQ0
 # et absence réseau OpenAI explicitement vérifiable.
-.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider
+.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ipc-foundation
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
 qemu-ai-provider: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/test_ai_provider_commands.py
 
+qemu-ipc-foundation: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/integration/test_qemu_ipc_foundation.py
+
 integration-qemu: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_core_contract.py
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 	@python3 tests/scripts/test_ai_provider_commands.py
+	@python3 tests/integration/test_qemu_ipc_foundation.py
 
 # Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
 .PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
@@ -510,6 +519,7 @@ help:
 	@echo "  integration-qemu - Contrats QEMU : boot, shell/overlay, IRQ0 et fournisseur IA"
 	@echo "  qemu-irq0-preemption - Prouve la reprise du shell après spawn spin"
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
+	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"

@@ -34,6 +34,7 @@ void tasking_init() {
     current_task->vmm_dir = kernel_directory;
     current_task->kernel_stack_p = 0;
     current_task->waiter_pid = 0;
+    ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
     current_task->name[2] = 'r';
@@ -242,6 +243,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->type = TASK_TYPE_USER;
     new_task->vmm_dir = vmm_dir;
     new_task->waiter_pid = 0;
+    ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
         const char* n = name_src ? name_src : "user";

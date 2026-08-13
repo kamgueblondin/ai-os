@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "kernel/mem/vmm.h" // Inclure pour vmm_directory_t
 #include "os_syscalls.h"
+#include "../ipc.h"
 
 // États possibles d'une tâche
 typedef enum {
@@ -43,6 +44,7 @@ typedef struct task {
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
     char name[32];
     int waiter_pid;            // Parent TASK_WAITING (SYS_EXEC), 0 sinon
+    ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
 } task_t;

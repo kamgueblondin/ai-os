@@ -29,8 +29,19 @@
 #define SYS_APPEND   21
 /* prompt (EBX), buffer de reponse (ECX), taille du buffer (EDX) */
 #define SYS_GPT2_GENERATE 22
+/* EBX = PID cible, ECX = os_ipc_payload_t* */
+#define SYS_IPC_SEND      23
+/* EBX = os_ipc_message_t* */
+#define SYS_IPC_RECV      24
 
-#define MAX_SYSCALLS 23
+#define MAX_SYSCALLS 25
+
+/* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
+#define OS_IPC_MAX_DATA 96U
+#define OS_IPC_EMPTY       (-40)
+#define OS_IPC_FULL        (-41)
+#define OS_IPC_BAD_TARGET  (-42)
+#define OS_IPC_BAD_MESSAGE (-43)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -64,5 +75,20 @@ typedef struct {
     uint32_t used_pages;
     uint32_t free_pages;
 } os_meminfo_t;
+
+/* Charge fournie par l'émetteur : son identité est ajoutée par le noyau. */
+typedef struct {
+    uint32_t type;
+    uint32_t size;
+    uint8_t data[OS_IPC_MAX_DATA];
+} os_ipc_payload_t;
+
+/* Message délivré au destinataire depuis sa boîte aux lettres noyau. */
+typedef struct {
+    int32_t sender_pid;
+    uint32_t type;
+    uint32_t size;
+    uint8_t data[OS_IPC_MAX_DATA];
+} os_ipc_message_t;
 
 #endif
