@@ -1,5 +1,9 @@
 # Documentation AI-OS
 
+## Pour démarrer
+
+Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](../scripts/bootstrap-dev.sh)), puis `make all` et `make test-all`. Détail des paquets et du GPT-2 optionnel : [../README.md](../README.md).
+
 ## Lire en premier
 
 1. [ETAT_REEL.md](ETAT_REEL.md) — **état actuel du code**, y compris GPT-2 local et limites vérifiées
