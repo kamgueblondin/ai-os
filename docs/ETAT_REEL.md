@@ -124,9 +124,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
+make qemu-smoke   # boot QEMU headless, exige le prompt dans le log série
+make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Les anciens workflows `tests.yml` / `cmake-test.yml` visaient `main`/`develop` et ne s’exécutaient donc pas.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

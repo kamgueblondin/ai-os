@@ -357,6 +357,16 @@ ci-tests: $(OS_IMAGE) pack-initrd
 	@echo "=== Tests d'intégration continue ==="
 	@$(MAKE) -C tests ci-test
 
+# Boot QEMU sans affichage et exige le prompt shell dans le log série.
+# timeout est attendu (-no-shutdown) : l'échec vient d'un log vide / marqueurs absents.
+qemu-smoke: $(OS_IMAGE) pack-initrd
+	@chmod +x tests/scripts/ci_qemu_smoke.sh
+	@tests/scripts/ci_qemu_smoke.sh
+
+# Gate CI local : image + tests unitaires + smoke QEMU
+ci: all test-all qemu-smoke
+	@echo "=== CI locale OK (build + tests + QEMU smoke) ==="
+
 # Cible pour afficher l'aide
 help:
 	@echo "=== AI-OS v6.1 - Cibles de Compilation Disponibles ==="
@@ -379,6 +389,8 @@ help:
 	@echo "  test-kernel     - Tests des modules kernel uniquement"
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
+	@echo "  qemu-smoke      - Boot QEMU headless, vérifie le shell (log série)"
+	@echo "  ci              - make all + test-all + qemu-smoke (gate PR)"
 	@echo "  test-performance - Benchmarks et tests de performance"
 	@echo "  test-valgrind   - Tests avec détection fuites mémoire"
 	@echo "  pre-commit-tests - Tests rapides avant commit"
@@ -400,5 +412,5 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # Tests complets avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke ci
 

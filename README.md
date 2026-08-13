@@ -117,11 +117,10 @@ make pre-commit-tests
 ```
 
 ### Framework de Test
-- **Unity** : Framework de test C léger et efficace
-- **156 tests** couvrant tous les modules critiques
-- **Mocks hardware** pour tests isolés
-- **Benchmarks automatisés** pour détecter les régressions de performance
-- **Intégration CI/CD** avec GitHub Actions
+- **Unity** : Framework de test C léger
+- **Tests unitaires 32-bit** : `make test-all` (`test_pmm`, `test_syscall`, `test_task`, `test_shell`, `test_ramfs`)
+- **CI GitHub Actions** : à chaque push/PR vers `master` — compilation, `make test-all`, smoke boot QEMU (log série jusqu’au prompt shell)
+- **Mocks hardware** pour tests isolés du noyau
 
 Voir <a href="docs/guide_tests_regression.md">📋 Guide Complet des Tests</a> pour plus de détails.
 
