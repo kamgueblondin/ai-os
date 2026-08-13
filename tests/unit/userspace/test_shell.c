@@ -160,10 +160,11 @@ int parse_command(const char* input, char* command, char args[][64], int* argc) 
     // Skip leading spaces
     while (input[input_pos] == ' ') input_pos++;
     
-    // Extract command
-    while (input[input_pos] != '\0' && input[input_pos] != ' ') {
+    // Extract command (leave room for NUL)
+    while (input[input_pos] != '\0' && input[input_pos] != ' ' && cmd_pos < 63) {
         command[cmd_pos++] = input[input_pos++];
     }
+    while (input[input_pos] != '\0' && input[input_pos] != ' ') input_pos++;
     command[cmd_pos] = '\0';
     
     // Extract arguments
@@ -175,9 +176,10 @@ int parse_command(const char* input, char* command, char args[][64], int* argc) 
         
         // Extract argument
         int arg_pos = 0;
-        while (input[input_pos] != '\0' && input[input_pos] != ' ') {
+        while (input[input_pos] != '\0' && input[input_pos] != ' ' && arg_pos < 63) {
             args[*argc][arg_pos++] = input[input_pos++];
         }
+        while (input[input_pos] != '\0' && input[input_pos] != ' ') input_pos++;
         args[*argc][arg_pos] = '\0';
         (*argc)++;
     }
