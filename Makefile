@@ -468,7 +468,7 @@ help:
 	@echo "  test-kernel     - Tests des modules kernel uniquement"
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
-	@echo "  qemu-smoke      - Boots QEMU : overlay, extras shell, persist disque"
+	@echo "  qemu-smoke      - Boots QEMU : overlay, extras, persist, spawn/yield"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"

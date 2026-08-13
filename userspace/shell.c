@@ -508,7 +508,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     
     print_colored("\nCOMMANDES PROCESSUS :\n", COLOR_YELLOW);
     print_string("  ps                 - Afficher les processus\n");
-    print_string("  spawn <prog>       - Lancer un programme en arriere-plan\n");
+    print_string("  spawn <prog>       - Lancer un programme (cede le CPU une fois)\n");
+    print_string("  yield              - Ceder le CPU (SYS_YIELD, cooperatif)\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1091,7 +1092,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1355,6 +1356,14 @@ static void cmd_spawn(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string(" ");
     print_string(args[0]);
     print_string("\n");
+}
+
+static void cmd_yield(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)args;
+    (void)arg_count;
+    yield();
+    print_string("yield ok\n");
+    ctx->last_rc = 0;
 }
 
 static void cmd_jobs(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2160,6 +2169,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "spawn") == 0) {
         cmd_spawn(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "yield") == 0) {
+        cmd_yield(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "jobs") == 0) {
         cmd_jobs(ctx, args, arg_count);

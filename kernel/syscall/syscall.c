@@ -88,8 +88,10 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
             
         case SYS_YIELD:
-            // Cède volontairement le CPU
-            asm volatile("int $0x30");
+            /* Cooperative switch from the int 0x80 user frame (safe).
+             * Nested int 0x30 / IRQ0 is not used: that frame has no SS/ESP. */
+            cpu->eax = 0;
+            schedule(cpu);
             break;
             
         // SYS_GETS - Lire une ligne depuis le clavier
@@ -106,6 +108,9 @@ void syscall_handler(cpu_state_t* cpu) {
             print_string_serial("[SPAWN] starting child\n");
             cpu->eax = sys_spawn((const char*)cpu->ebx, (char**)cpu->ecx);
             print_string_serial("[SPAWN] child created\n");
+            if ((int)cpu->eax >= 0) {
+                schedule(cpu);
+            }
             break;
         case SYS_LISTDIR:
             cpu->eax = (uint32_t)sys_listdir((const char*)cpu->ebx, (os_dirent_t*)cpu->ecx, (int)cpu->edx);
@@ -266,8 +271,8 @@ int sys_exec(const char* path, char* argv[]) {
     return 0; // Succès
 }
 
-// Non-bloquant: cree la tache et retourne son pid, -1 sinon.
-// Pas de reschedule : le shell garde le CPU (tache fille en TASK_READY).
+/* Cree la tache et retourne son pid. Le handler appelle schedule() pour
+ * laisser tourner l'enfant jusqu'au prochain SYS_YIELD (cadre user, pas IRQ0). */
 int sys_spawn(const char* path, char* argv[]) {
     task_t* new_task = create_task_from_initrd_file(path);
     if (!new_task) {

@@ -53,6 +53,7 @@
 - [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + `task.c` + PIT + PMM)
 - [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` (fichier et dossier via `SYS_COPY`) / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`) / `touch` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
 - [x] Overlay persisté : snapshot ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; pas un FS général
+- [x] `spawn` / `yield` coopératifs (cadre syscall user ; pas de round-robin IRQ0)
 - [ ] Préemption round-robin continue (aujourd'hui limitée pour la stabilité)
 - [ ] Réseau, vrai moteur IA - voir roadmap README / dossier `US/`
 
