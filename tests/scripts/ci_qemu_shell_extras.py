@@ -115,6 +115,13 @@ def dump_logs():
         say(err[-2000:])
 
 
+def qemu_disk_args():
+    disk = os.environ.get("OVERLAY_DISK", os.path.join(ROOT, "build", "overlay.img"))
+    if os.path.isfile(disk):
+        return ["-drive", "file=%s,format=raw,if=ide,cache=writethrough" % disk]
+    return []
+
+
 def kill_qemu(proc):
     if proc.poll() is not None:
         return
@@ -154,7 +161,7 @@ def main():
         "-machine", "type=pc,accel=tcg",
         "-no-reboot",
         "-no-shutdown",
-    ]
+    ] + qemu_disk_args()
     say("=== QEMU shell extras (history/jobs/top/env/date/echo/rc/which idle/aistats) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(

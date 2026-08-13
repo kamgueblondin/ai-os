@@ -1,5 +1,6 @@
 #include "overlay.h"
 #include "initrd.h"
+#include "kernel/ata.h"
 
 #define OV_MAX_NODES 32
 #define OV_PATH_MAX  64
@@ -208,6 +209,7 @@ int overlay_mkdir(const char* path) {
     n->size = 0;
     n->data[0] = '\0';
     ov_copy(n->path, want, OV_PATH_MAX);
+    overlay_save_disk();
     return OV_OK;
 }
 
@@ -231,6 +233,7 @@ int overlay_write(const char* path, const char* data, uint32_t n) {
     if (n > OV_DATA_MAX) n = OV_DATA_MAX;
     for (i = 0; i < n; i++) node->data[i] = data[i];
     node->size = n;
+    overlay_save_disk();
     return (int)n;
 }
 
@@ -265,6 +268,7 @@ int overlay_append(const char* path, const char* data, uint32_t n) {
     if (node->size + n > OV_DATA_MAX) return OV_ERR_NOSPACE;
     for (i = 0; i < n; i++) node->data[node->size + i] = data[i];
     node->size += n;
+    overlay_save_disk();
     return (int)n;
 }
 
@@ -296,6 +300,7 @@ int overlay_unlink(const char* path) {
     n->used = 0;
     n->path[0] = '\0';
     n->size = 0;
+    overlay_save_disk();
     return OV_OK;
 }
 
@@ -357,6 +362,7 @@ int overlay_rename(const char* oldpath, const char* newpath) {
             g_ov[i].path[newn + k] = '\0';
         }
     }
+    overlay_save_disk();
     return OV_OK;
 }
 
@@ -436,6 +442,7 @@ int overlay_copy(const char* src, const char* dst) {
             n->data[b] = g_ov[i].data[b];
         }
     }
+    overlay_save_disk();
     return OV_OK;
 }
 
@@ -468,4 +475,126 @@ int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n) {
         count++;
     }
     return count;
+}
+
+#define OV_DISK_SECTORS 24
+#define OV_DISK_BYTES   (OV_DISK_SECTORS * 512)
+
+static uint8_t g_ov_disk_buf[OV_DISK_BYTES];
+
+static void ov_put_u32(uint8_t* p, uint32_t v) {
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
+}
+
+static uint32_t ov_get_u32(const uint8_t* p) {
+    return (uint32_t)p[0]
+        | ((uint32_t)p[1] << 8)
+        | ((uint32_t)p[2] << 16)
+        | ((uint32_t)p[3] << 24);
+}
+
+int overlay_snapshot(uint8_t* buf, uint32_t max, uint32_t* out_size) {
+    uint32_t off;
+    int i;
+    int used = 0;
+
+    if (!buf || max < OV_SNAP_SIZE) return -1;
+
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        if (g_ov[i].used) used++;
+    }
+
+    ov_put_u32(buf + 0, OV_SNAP_MAGIC);
+    ov_put_u32(buf + 4, OV_SNAP_VERSION);
+    ov_put_u32(buf + 8, OV_SNAP_NODES);
+    ov_put_u32(buf + 12, (uint32_t)used);
+
+    off = 16;
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        uint32_t b;
+        buf[off + 0] = g_ov[i].used ? 1 : 0;
+        buf[off + 1] = g_ov[i].is_dir ? 1 : 0;
+        buf[off + 2] = 0;
+        buf[off + 3] = 0;
+        ov_put_u32(buf + off + 4, g_ov[i].used ? g_ov[i].size : 0);
+        for (b = 0; b < OV_PATH_MAX; b++) {
+            buf[off + 8 + b] = (uint8_t)g_ov[i].path[b];
+        }
+        for (b = 0; b < OV_DATA_MAX; b++) {
+            buf[off + 8 + OV_PATH_MAX + b] = (uint8_t)g_ov[i].data[b];
+        }
+        off += OV_SNAP_NODE;
+    }
+
+    if (out_size) *out_size = OV_SNAP_SIZE;
+    return 0;
+}
+
+int overlay_restore(const uint8_t* buf, uint32_t n) {
+    uint32_t off;
+    uint32_t used_count;
+    uint32_t seen;
+    int i;
+
+    if (!buf || n < OV_SNAP_SIZE) return -1;
+    if (ov_get_u32(buf + 0) != OV_SNAP_MAGIC) return -1;
+    if (ov_get_u32(buf + 4) != OV_SNAP_VERSION) return -1;
+    if (ov_get_u32(buf + 8) != OV_SNAP_NODES) return -1;
+
+    used_count = ov_get_u32(buf + 12);
+    if (used_count > OV_SNAP_NODES) return -1;
+
+    seen = 0;
+    off = 16;
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        uint8_t used = buf[off];
+        uint8_t is_dir = buf[off + 1];
+        uint32_t size = ov_get_u32(buf + off + 4);
+        if (used > 1 || is_dir > 1) return -1;
+        if (used) {
+            if (size > OV_DATA_MAX) return -1;
+            seen++;
+        }
+        off += OV_SNAP_NODE;
+    }
+    if (seen != used_count) return -1;
+
+    overlay_init();
+    off = 16;
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        uint32_t b;
+        if (buf[off]) {
+            g_ov[i].used = 1;
+            g_ov[i].is_dir = buf[off + 1] ? 1 : 0;
+            g_ov[i].size = ov_get_u32(buf + off + 4);
+            for (b = 0; b < OV_PATH_MAX; b++) {
+                g_ov[i].path[b] = (char)buf[off + 8 + b];
+            }
+            g_ov[i].path[OV_PATH_MAX - 1] = '\0';
+            for (b = 0; b < OV_DATA_MAX; b++) {
+                g_ov[i].data[b] = (char)buf[off + 8 + OV_PATH_MAX + b];
+            }
+        }
+        off += OV_SNAP_NODE;
+    }
+    return 0;
+}
+
+int overlay_save_disk(void) {
+    uint32_t sz = 0;
+    uint32_t i;
+
+    if (!ata_present()) return 0;
+    if (overlay_snapshot(g_ov_disk_buf, sizeof(g_ov_disk_buf), &sz) != 0) return -1;
+    for (i = sz; i < sizeof(g_ov_disk_buf); i++) g_ov_disk_buf[i] = 0;
+    return ata_write_sectors(0, OV_DISK_SECTORS, g_ov_disk_buf);
+}
+
+int overlay_load_disk(void) {
+    if (!ata_present()) return -1;
+    if (ata_read_sectors(0, OV_DISK_SECTORS, g_ov_disk_buf) != 0) return -1;
+    return overlay_restore(g_ov_disk_buf, sizeof(g_ov_disk_buf));
 }

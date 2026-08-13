@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Short deterministic QEMU smoke test for boot, shell, GPT-2 runtime and RAM overlay."""
+"""Two QEMU boots: write overlay file, kill, reboot, cat the same file from disk."""
 from __future__ import print_function
 
 import os
@@ -12,10 +12,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "ai_os.bin"))
 INITRD = os.environ.get("INITRD", os.path.join(ROOT, "my_initrd.tar"))
 LOG_DIR = os.path.join(ROOT, "test_logs")
-LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
-QEMU_ERR = os.environ.get("QEMU_ERR", os.path.join(LOG_DIR, "ci-qemu-stderr.log"))
-MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-monitor.sock"))
-BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
+LOG = os.environ.get("PERSIST_LOG", os.path.join(LOG_DIR, "ci-qemu-persist-serial.log"))
+QEMU_ERR = os.environ.get("PERSIST_ERR", os.path.join(LOG_DIR, "ci-qemu-persist-stderr.log"))
+MON_SOCK = os.environ.get("PERSIST_MON_SOCK", os.path.join(LOG_DIR, "qemu-persist-monitor.sock"))
+DISK = os.environ.get("PERSIST_DISK", os.path.join(ROOT, "build", "overlay-persist.img"))
+BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "40"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
 
 
@@ -38,7 +39,6 @@ def wait_for(proc, needle, timeout, start=0):
         if proc.poll() is not None:
             raise RuntimeError("QEMU stopped unexpectedly; log tail:\n%s" % log_text()[-2000:])
         if needle in log_text()[start:]:
-            # Let the shell reach the next SYS_GETS before the next command.
             time.sleep(0.35)
             return
         time.sleep(0.15)
@@ -64,19 +64,25 @@ def monitor_connect():
     raise RuntimeError("QEMU monitor unavailable")
 
 
-def qemu_disk_args():
-    disk = os.environ.get("OVERLAY_DISK", os.path.join(ROOT, "build", "overlay.img"))
-    if os.path.isfile(disk):
-        return ["-drive", "file=%s,format=raw,if=ide,cache=writethrough" % disk]
-    return []
+def drain_monitor(client):
+    client.settimeout(0.05)
+    while True:
+        try:
+            data = client.recv(8192)
+            if not data:
+                break
+        except socket.timeout:
+            break
 
 
 def send_command(client, command):
     aliases = {" ": "spc", "-": "minus", ".": "dot"}
     for char in command:
         client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.25)
+        drain_monitor(client)
+        time.sleep(0.20)
     client.sendall(b"sendkey ret\n")
+    drain_monitor(client)
 
 
 def terminate(proc):
@@ -89,48 +95,33 @@ def terminate(proc):
         proc.kill()
 
 
-def main():
-    if not os.path.isfile(KERNEL) or not os.path.isfile(INITRD):
-        raise RuntimeError("missing build artefacts; run make all first")
-    os.makedirs(LOG_DIR, exist_ok=True)
-    for path in (LOG, QEMU_ERR, MON_SOCK):
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+def qemu_cmd():
+    return [
+        "qemu-system-i386", "-cpu", "pentium3", "-kernel", KERNEL,
+        "-initrd", INITRD, "-m", "1024M", "-display", "none", "-vga", "none",
+        "-serial", "file:" + LOG, "-monitor", "unix:%s,server,nowait" % MON_SOCK,
+        "-machine", "type=pc,accel=tcg", "-no-reboot", "-no-shutdown",
+        "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,
+    ]
 
+
+def boot_and_type(command, marker):
     proc = None
     monitor = None
     try:
-        with open(QEMU_ERR, "wb") as err:
-            proc = subprocess.Popen([
-                "qemu-system-i386", "-cpu", "pentium3", "-kernel", KERNEL,
-                "-initrd", INITRD, "-m", "1024M", "-display", "none", "-vga", "none",
-                "-serial", "file:" + LOG, "-monitor", "unix:%s,server,nowait" % MON_SOCK,
-                "-machine", "type=pc,accel=tcg", "-no-reboot", "-no-shutdown",
-            ] + qemu_disk_args(), cwd=ROOT, stdout=err, stderr=err)
+        os.remove(MON_SOCK)
+    except OSError:
+        pass
+    try:
+        with open(QEMU_ERR, "ab") as err:
+            proc = subprocess.Popen(qemu_cmd(), cwd=ROOT, stdout=err, stderr=err)
             wait_for(proc, "(-.-)", BOOT_TIMEOUT)
             wait_for(proc, "SYS_GETS: Debut", BOOT_TIMEOUT)
             monitor = monitor_connect()
-
-            commands = (
-                ("ls", "Initrd / VFS"),
-                ("ai-runtime", "cache KV actif"),
-                ("mkdir qd", "mkdir ok qd"),
-                ("cp hello.txt qd", "cp ok hello.txt"),
-                ("cp qd qc", "cp ok qc"),
-                ("ls qc", "hello.txt"),
-                ("append q.txt ok", "append ok q.txt"),
-                ("cat q.txt", "ok"),
-                ("rc", "rc ok 0"),
-            )
-            for command, marker in commands:
-                say("typing %s ..." % command)
-                start = len(log_text())
-                send_command(monitor, command)
-                wait_for(proc, marker, CMD_TIMEOUT, start)
-        say("QEMU core smoke passed.")
-        return 0
+            say("typing %s ..." % command)
+            start = len(log_text())
+            send_command(monitor, command)
+            wait_for(proc, marker, CMD_TIMEOUT, start)
     finally:
         if monitor is not None:
             monitor.close()
@@ -141,9 +132,34 @@ def main():
             pass
 
 
+def prepare_disk():
+    os.makedirs(os.path.dirname(DISK), exist_ok=True)
+    with open(DISK, "wb") as handle:
+        handle.write(b"\x00" * (512 * 64))
+
+
+def main():
+    if not os.path.isfile(KERNEL) or not os.path.isfile(INITRD):
+        raise RuntimeError("missing build artefacts; run make all first")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    prepare_disk()
+    for path in (LOG, QEMU_ERR, MON_SOCK):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    say("=== QEMU overlay persist boot 1 (write) ===")
+    boot_and_type("write k.txt v7ok", "write ok k.txt")
+    say("=== QEMU overlay persist boot 2 (cat after reboot) ===")
+    boot_and_type("cat k.txt", "v7ok")
+    say("QEMU overlay persist smoke passed.")
+    return 0
+
+
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("QEMU core smoke failed: %s" % error, file=sys.stderr)
+        print("QEMU persist smoke failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)

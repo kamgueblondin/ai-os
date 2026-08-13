@@ -1,7 +1,7 @@
 # État réel d'AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** branche `master` (`origin/master`, commit `8006019` - fusion PR #76, documentation release GPT-2)
+**Code de référence :** branche de travail overlay persisté sur IDE (snapshot ATA PIO)
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -16,7 +16,7 @@ AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU
 | Inference GPT-2 locale de démonstration | Fonctionnelle avec checkpoint externe, contexte et sortie bornés |
 | Vision MOHHOS (120 US, 8 phases) | ~1-2 % (spécifications ; ne décrit pas le moteur GPT-2 actuel) |
 
-Ce n'est **pas** un système d'exploitation utilisable au quotidien (pas de FS persistant, pas de réseau, pas d'interface graphique native, pas de vrais pilotes hors QEMU/i8042).
+Ce n'est **pas** un système d'exploitation utilisable au quotidien (pas de FS disque général, pas de réseau, pas d'interface graphique native, pas de vrais pilotes hors QEMU/i8042/ATA PIO).
 
 ## Ce qui fonctionne (vérifié)
 
@@ -31,7 +31,7 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - Chargeur ELF 32-bit
 - Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3)
 - Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY`, `SYS_APPEND` et `SYS_GPT2_GENERATE` (ABI : `include/os_syscalls.h`)
-- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`, concatène sans écraser) / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l'initrd reste en lecture seule ; `rmdir` d'un dossier non vide échoue
+- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`, concatène sans écraser) / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l'initrd reste en lecture seule ; `rmdir` d'un dossier non vide échoue. Après chaque mutation réussie, un snapshot binaire (magic `AIOV`, 32 nœuds, 24 secteurs) est écrit en ATA PIO LBA28 sur le maître IDE primaire (`kernel/ata.c`, ports `0x1F0`, sans IRQ14). Au boot, si IDENTIFY réussit, l'overlay est restauré. Sans disque QEMU, IDENTIFY échoue tout de suite et l'overlay reste volatile.
 
 ### Espace utilisateur
 
@@ -59,11 +59,12 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | `test_pmm` | 17/17 |
 | `test_syscall` | 48/48 |
 | `test_task` | 21/21 |
+| `test_overlay` | 6/6 |
 | `test_tokenizer` | 13/13 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des six binaires (**134** = 17+48+21+13+25+10).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé "Total Tests" de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des sept binaires (**140** = 17+48+21+6+13+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
@@ -111,7 +112,7 @@ La configuration mesurée avec QEMU sans KVM est de 7,693 s pour `ai hello` et q
 Malgré la roadmap README v7/v8 et le dossier `US/` :
 
 - Apprentissage fédéré, cloud-edge et les autres services IA décrits par les anciennes spécifications MOHHOS
-- Système de fichiers persistant (disque)
+- Système de fichiers disque général (ext2/FAT) ; seul un snapshot overlay ATA PIO (32 nœuds, 256 octets par fichier) survit au reboot QEMU
 - Pile TCP/IP, services réseau
 - Interface graphique du OS (seul QEMU affiche du VGA texte)
 - Architecture microkernel, IPC, plugins
@@ -135,7 +136,7 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke       # deux boots QEMU : overlay (#73) + extras env/history/jobs/top/rc/which
+make qemu-smoke       # trois boots QEMU : overlay (#73) + extras + persist write/reboot/cat
 make gpt2-recovery    # modèle requis : réponse GPT-2, puis validation de `rc`
 make gpt2-benchmark   # modèle requis : mesure avec CPU QEMU Pentium III SSE2
 make gpt2-tests       # modèle requis : reprise shell + benchmark
@@ -144,7 +145,7 @@ make run              # console curses (recommandé en local)
 make run-gui          # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **deux boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d'un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`). Le scénario cœur attend le retour du shell après chaque commande afin d'éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU fait **trois boots** : un scénario cœur (`ls`, `ai-runtime`, création et copie récursive d'un répertoire overlay, `append`, `cat`, `rc`) puis les extras (`which idle`, `history`, `jobs`, `top`, `env`, `date`, `echo hi`, `rc`, `test no zz`, `aistats`/`aimode`/`aihelp`), puis une persistance disque (`write k.txt v7ok`, kill QEMU, reboot, `cat k.txt` voit `v7ok`). Le disque cœur/extras est remis à zéro entre ces deux premiers boots. Le scénario cœur attend le retour du shell après chaque commande afin d'éviter les touches fantômes. Timeouts : 120 s cœur + 90 s extras + 180 s persist.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n'atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 
