@@ -17,7 +17,7 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Utilisateur | Shell ELF Ring 3, syscalls 0–28, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` opaque ; pas de capabilities |
-| VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC et réponse corrélée ; backend encore noyau |
+| VFS Foundation | `vfsserver` Ring 3, lecture initrd/overlay médiée par IPC, réponse corrélée et source virtuelle `vfs-info` ; backend encore noyau |
 | Découverte Foundation | Registre volatile de 8 services ; retrait, transfert par propriétaire et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
@@ -112,6 +112,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Corrélation requête-réponse locale : `request_id` IPC, réponse VFS filtrée et contrat QEMU
 - [x] Transfert limité de publication : propriétaire, bénéficiaire Ring 3 et nettoyage après `kill`
 - [x] Conservation locale bornée des messages IPC non corrélés pendant `vfs-read`
+- [x] Première source virtuelle VFS (`vfs-info`) construite par `vfsserver` Ring 3
 - [ ] Capabilities, révocation, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
