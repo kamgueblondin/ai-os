@@ -448,6 +448,11 @@ int sys_rename(const char* oldpath, const char* newpath) {
     return overlay_rename(oldpath, newpath);
 }
 
+int sys_copy(const char* src, const char* dst) {
+    if (!src || !dst) return -1;
+    return overlay_copy(src, dst);
+}
+
 int sys_getpid(void) {
     return current_task ? current_task->id : 0;
 }
@@ -550,6 +555,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_RENAME:
             state->eax = (uint32_t)sys_rename((const char*)state->ebx, (const char*)state->ecx);
+            break;
+        case SYS_COPY:
+            state->eax = (uint32_t)sys_copy((const char*)state->ebx, (const char*)state->ecx);
             break;
         default:
             break;

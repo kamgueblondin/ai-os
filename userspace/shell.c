@@ -174,6 +174,12 @@ int sys_rename(const char* oldpath, const char* newpath) {
     return result;
 }
 
+int sys_copy(const char* src, const char* dst) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_COPY), "b"(src), "c"(dst));
+    return result;
+}
+
 static void print_fs_err(const char* cmd, int rc);
 
 // ==============================================================================
@@ -469,7 +475,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
     print_string("  rmdir <dir>        - Supprimer un répertoire vide\n");
-    print_string("  cp <src> <dest>    - Copier un fichier (overlay noyau)\n");
+    print_string("  cp <src> <dest>    - Copier fichier ou dossier overlay\n");
     print_string("  mv <src> <dest>    - Deplacer fichier ou dossier overlay\n");
     print_string("  rm <file>          - Supprimer un fichier\n");
     
@@ -1058,21 +1064,16 @@ static void fs_join(char* out, int max, const char* dir, const char* name) {
     out[i] = '\0';
 }
 
-static int kernel_copy_file(const char* src, char* dest, int dest_max) {
+static int kernel_copy_file_to(const char* src, const char* dest) {
     os_dirent_t st;
     char buf[256];
     int n;
     int w;
-    (void)dest_max;
     if (sys_stat(src, &st) != 0) return -1;
     if (st.flags == OS_DIRENT_DIR) return -4;
     n = sys_readfile(src, buf, (int)sizeof(buf));
     if (n < 0) return n;
-    if (sys_stat(dest, &st) == 0 && st.flags == OS_DIRENT_DIR) {
-        char joined[RAMFS_PATH_MAX];
-        fs_join(joined, RAMFS_PATH_MAX, dest, fs_basename(src));
-        strcpy(dest, joined);
-    }
+    if (sys_stat(dest, &st) == 0 && st.flags == OS_DIRENT_DIR) return -4;
     w = sys_writefile(dest, buf, n);
     if (w < 0) return w;
     return 0;
@@ -1081,6 +1082,8 @@ static int kernel_copy_file(const char* src, char* dest, int dest_max) {
 static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
     char src[RAMFS_PATH_MAX];
     char dst[RAMFS_PATH_MAX];
+    os_dirent_t st;
+    int src_dir;
     int rc;
     if (arg_count < 2) {
         print_error("cp: usage cp <src> <dest>");
@@ -1088,8 +1091,19 @@ static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     resolve_arg(ctx, args[0], src);
     resolve_arg(ctx, args[1], dst);
-    rc = kernel_copy_file(src, dst, RAMFS_PATH_MAX);
-    if (rc == 0) {
+    if (sys_stat(src, &st) == 0) {
+        src_dir = (st.flags == OS_DIRENT_DIR);
+        if (sys_stat(dst, &st) == 0 && st.flags == OS_DIRENT_DIR) {
+            char joined[RAMFS_PATH_MAX];
+            fs_join(joined, RAMFS_PATH_MAX, dst, fs_basename(src));
+            strcpy(dst, joined);
+        }
+        if (src_dir) rc = sys_copy(src, dst);
+        else rc = kernel_copy_file_to(src, dst);
+        if (rc != 0) {
+            print_fs_err("cp", rc);
+            return;
+        }
         print_string("cp ok ");
         print_string(fs_basename(dst));
         print_string("\n");

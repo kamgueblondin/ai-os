@@ -326,6 +326,85 @@ int overlay_rename(const char* oldpath, const char* newpath) {
     return OV_OK;
 }
 
+static int ov_used_count(void) {
+    int n = 0;
+    int i;
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        if (g_ov[i].used) n++;
+    }
+    return n;
+}
+
+int overlay_copy(const char* src, const char* dst) {
+    ov_node_t* srcnode;
+    char oldp[OV_PATH_MAX];
+    char newp[OV_PATH_MAX];
+    int oldn;
+    int newn;
+    int i;
+    int need = 0;
+    int free_n;
+
+    ov_normalize(src, oldp, OV_PATH_MAX);
+    ov_normalize(dst, newp, OV_PATH_MAX);
+    if (!oldp[0] || !newp[0]) return OV_ERR_INVAL;
+    if (ov_eq(oldp, newp)) return OV_ERR_EXISTS;
+
+    srcnode = ov_find(oldp);
+    if (!srcnode) {
+        if (initrd_is_file(oldp) || initrd_is_dir(oldp)) return OV_ERR_PROTECTED;
+        return OV_ERR_NOTFOUND;
+    }
+    if (ov_find(newp)) return OV_ERR_EXISTS;
+    if (initrd_is_file(newp) || initrd_is_dir(newp)) return OV_ERR_EXISTS;
+    if (!ov_parent_is_dir(newp)) return OV_ERR_NOTDIR;
+
+    oldn = ov_len(oldp);
+    newn = ov_len(newp);
+    if (ov_under(newp, oldp, oldn) && newp[oldn] == '/') return OV_ERR_INVAL;
+
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        int rest;
+        if (!g_ov[i].used) continue;
+        if (!ov_under(g_ov[i].path, oldp, oldn)) continue;
+        rest = ov_len(g_ov[i].path) - oldn;
+        if (newn + rest >= OV_PATH_MAX) return OV_ERR_INVAL;
+        need++;
+    }
+    free_n = OV_MAX_NODES - ov_used_count();
+    if (need > free_n) return OV_ERR_NOSPACE;
+
+    for (i = 0; i < OV_MAX_NODES; i++) {
+        ov_node_t* n;
+        char rest[OV_PATH_MAX];
+        int r = 0;
+        int k;
+        uint32_t b;
+        if (!g_ov[i].used) continue;
+        if (!ov_under(g_ov[i].path, oldp, oldn)) continue;
+        n = ov_alloc();
+        if (!n) return OV_ERR_NOSPACE;
+        n->used = 1;
+        while (g_ov[i].path[oldn + r]) {
+            rest[r] = g_ov[i].path[oldn + r];
+            r++;
+        }
+        rest[r] = '\0';
+        ov_copy(n->path, newp, OV_PATH_MAX);
+        for (k = 0; rest[k] && newn + k < OV_PATH_MAX - 1; k++) {
+            n->path[newn + k] = rest[k];
+        }
+        n->path[newn + k] = '\0';
+        n->used = 1;
+        n->is_dir = g_ov[i].is_dir;
+        n->size = g_ov[i].size;
+        for (b = 0; b < n->size && b < OV_DATA_MAX; b++) {
+            n->data[b] = g_ov[i].data[b];
+        }
+    }
+    return OV_OK;
+}
+
 int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n) {
     char prefix[OV_PATH_MAX];
     int count = start;

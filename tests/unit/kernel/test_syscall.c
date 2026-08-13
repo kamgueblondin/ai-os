@@ -1013,6 +1013,121 @@ void test_sys_overlay_rename_file_and_dir(void) {
     TEST_ASSERT_EQUAL(OV_ERR_INVAL, (int)cpu.eax);
 }
 
+void test_sys_overlay_copy_dir_tree(void) {
+    char payload[] = "copied\n";
+    char buf[32];
+    os_dirent_t ents[16];
+    os_dirent_t st;
+    cpu_state_t cpu = {0};
+    int n;
+    int found_old;
+    int found_new;
+    int found_child;
+    int i;
+
+    overlay_init();
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"oldd";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_MKDIR;
+    cpu.ebx = (uint32_t)"oldd/sub";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"oldd/sub/f.txt";
+    cpu.ecx = (uint32_t)payload;
+    cpu.edx = 7;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(7, (int)cpu.eax);
+
+    cpu.eax = SYS_COPY;
+    cpu.ebx = (uint32_t)"oldd";
+    cpu.ecx = (uint32_t)"newd";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"oldd";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_DIR, (int)st.flags);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"newd";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_DIR, (int)st.flags);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"/";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found_old = 0;
+    found_new = 0;
+    for (i = 0; i < n; i++) {
+        if (strcmp(ents[i].name, "oldd") == 0) found_old = 1;
+        if (strcmp(ents[i].name, "newd") == 0) found_new = 1;
+    }
+    TEST_ASSERT(found_old);
+    TEST_ASSERT(found_new);
+
+    cpu.eax = SYS_LISTDIR;
+    cpu.ebx = (uint32_t)"newd";
+    cpu.ecx = (uint32_t)ents;
+    cpu.edx = 16;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found_child = 0;
+    for (i = 0; i < n; i++) {
+        if (strcmp(ents[i].name, "sub") == 0 && ents[i].flags == OS_DIRENT_DIR) {
+            found_child = 1;
+        }
+    }
+    TEST_ASSERT(found_child);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"newd/sub/f.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(7, (int)cpu.eax);
+    buf[7] = '\0';
+    TEST_ASSERT_EQUAL_STRING("copied\n", buf);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"oldd/sub/f.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(7, (int)cpu.eax);
+
+    cpu.eax = SYS_COPY;
+    cpu.ebx = (uint32_t)"hello.txt";
+    cpu.ecx = (uint32_t)"from-initrd.txt";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_PROTECTED, (int)cpu.eax);
+
+    cpu.eax = SYS_COPY;
+    cpu.ebx = (uint32_t)"oldd";
+    cpu.ecx = (uint32_t)"oldd/nested";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_INVAL, (int)cpu.eax);
+
+    cpu.eax = SYS_COPY;
+    cpu.ebx = (uint32_t)"oldd";
+    cpu.ecx = (uint32_t)"newd";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OV_ERR_EXISTS, (int)cpu.eax);
+}
+
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
@@ -1075,6 +1190,7 @@ int main(void) {
     RUN_TEST(test_sys_overlay_copy_from_initrd);
     RUN_TEST(test_sys_overlay_nested_mkdir_notempty);
     RUN_TEST(test_sys_overlay_rename_file_and_dir);
+    RUN_TEST(test_sys_overlay_copy_dir_tree);
     
     unity_print_results();
     unity_cleanup();

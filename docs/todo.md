@@ -51,7 +51,7 @@
 ### Reste ouvert (hors périmètre « shell qui démarre »)
 - [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (VFS RAM + table processus simulée)
 - [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + `task.c` + PIT + PMM)
-- [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
+- [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` (fichier et dossier via `SYS_COPY`) / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
 - [ ] FS persistant sur disque (l’overlay RAM n’est pas persisté)
 - [ ] Préemption round-robin continue (aujourd’hui limitée pour la stabilité)
 - [ ] Réseau, vrai moteur IA — voir roadmap README / dossier `US/`
