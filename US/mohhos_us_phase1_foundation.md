@@ -1,6 +1,6 @@
 # MOHHOS - Phase 1 Foundation - User Stories Détaillées
 
-> **État réel (août 2026).** Les incréments Foundation 01 à 03 ont livré une boîte aux lettres IPC locale, un médiateur VFS Ring 3 de lecture et le registre nommé `vfs` ; voir les notes [IPC](../docs/mohhos_foundation_increment_01_ipc.md), [VFS](../docs/mohhos_foundation_increment_02_vfs_service.md) et [registre](../docs/mohhos_foundation_increment_03_service_registry.md). Le noyau reste monolithique (`kernel/kernel.c`) : le backend VFS, les pilotes et le réseau n’ont pas encore été déplacés dans des services isolés, et le registre ne délivre aucune capability. Les critères complets de microkernel ci-dessous restent à réaliser. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Les incréments Foundation 01 à 04 ont livré une boîte aux lettres IPC locale, un médiateur VFS Ring 3, le registre nommé `vfs` et son nettoyage de cycle de vie ; voir les notes [IPC](../docs/mohhos_foundation_increment_01_ipc.md), [VFS](../docs/mohhos_foundation_increment_02_vfs_service.md), [registre](../docs/mohhos_foundation_increment_03_service_registry.md) et [cycle de vie](../docs/mohhos_foundation_increment_04_service_lifecycle.md). Le noyau reste monolithique (`kernel/kernel.c`) : le backend VFS, les pilotes et le réseau n’ont pas encore été déplacés dans des services isolés, et le registre ne délivre aucune capability. Les critères complets de microkernel ci-dessous restent à réaliser. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble de la Phase 1
 

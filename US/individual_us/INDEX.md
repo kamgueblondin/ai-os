@@ -14,14 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | **Livraison partielle :** endpoints FIFO IPC, médiateur VFS et découverte `vfs` nommée ; noyau monolithique, backend non externalisé |
+| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, médiateur VFS, découverte `vfs` et retrait à la terminaison ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
 | US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 176 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS nommé) + GitHub Actions ; pas de framework distribué |
+| US-008 | Framework de tests IA | Unity 177 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS et cycle de vie) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (27 syscalls), dont IPC et registre `SYS_SERVICE_REGISTER`/`SYS_SERVICE_LOOKUP` |
-| US-013 | Communication inter-services | **Livraison partielle :** IPC, requête/réponse VFS locale et registre nommé ; pas de corrélation ni de capabilities |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (28 syscalls), dont IPC et registre avec retrait propriétaire |
+| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local, registre nommé et retrait à la terminaison ; pas de corrélation ni de capabilities |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |

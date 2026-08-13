@@ -38,6 +38,7 @@ void syscall_handler(cpu_state_t* cpu) {
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
         case SYS_EXIT:
+            (void)service_registry_remove_pid(current_task->id);
             task_wake_waiter(current_task);
             current_task->state = TASK_TERMINATED;
             print_string_serial("[EXIT] task terminated, scheduling...\n");
@@ -181,6 +182,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_SERVICE_LOOKUP:
             cpu->eax = (uint32_t)sys_service_lookup((const char*)cpu->ebx);
             break;
+        case SYS_SERVICE_UNREGISTER:
+            cpu->eax = (uint32_t)sys_service_unregister((const char*)cpu->ebx);
+            break;
             
         default:
             // Syscall inconnu
@@ -231,6 +235,11 @@ int sys_service_lookup(const char* name) {
         return OS_SERVICE_NOT_FOUND;
     }
     return owner_pid;
+}
+
+int sys_service_unregister(const char* name) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    return service_registry_remove(name, current_task->id);
 }
 
 /*
@@ -492,7 +501,9 @@ int sys_ps(os_proc_t* out, int max_n) {
 }
 
 int sys_kill(int pid) {
-    return task_kill(pid);
+    int rc = task_kill(pid);
+    if (rc == 0) (void)service_registry_remove_pid(pid);
+    return rc;
 }
 
 uint32_t sys_ticks(void) {

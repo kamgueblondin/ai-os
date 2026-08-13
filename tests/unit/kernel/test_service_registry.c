@@ -43,6 +43,14 @@ static void test_registry_removal_allows_reuse(void) {
     TEST_ASSERT_EQUAL(9, service_registry_lookup("vfs"));
 }
 
+static void test_registry_refuses_removal_by_other_owner(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 4));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_remove("vfs", 5));
+    TEST_ASSERT_EQUAL(4, service_registry_lookup("vfs"));
+    TEST_ASSERT_EQUAL(0, service_registry_remove("vfs", 4));
+}
+
 static void test_remove_pid_clears_all_services_owned_by_task(void) {
     service_registry_init();
     TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
@@ -58,6 +66,7 @@ int main(void) {
     RUN_TEST(test_registry_binds_name_to_owner_and_is_idempotent);
     RUN_TEST(test_registry_handles_capacity);
     RUN_TEST(test_registry_removal_allows_reuse);
+    RUN_TEST(test_registry_refuses_removal_by_other_owner);
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     unity_print_results();
     unity_cleanup();
