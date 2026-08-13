@@ -180,7 +180,8 @@ int sys_exec(const char* path, char* argv[]) {
     return 0; // Succès
 }
 
-// Non-bloquant: cree la tache et retourne immediatement 0 si ok, -1 sinon
+// Non-bloquant: cree la tache et retourne son pid, -1 sinon.
+// Pas de reschedule : le shell garde le CPU (tache fille en TASK_READY).
 int sys_spawn(const char* path, char* argv[]) {
     task_t* new_task = create_task_from_initrd_file(path);
     if (!new_task) {
@@ -211,10 +212,7 @@ int sys_spawn(const char* path, char* argv[]) {
             new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
         }
     }
-    // Demander un reschedule immediat pour afficher rapidement la sortie
-    extern volatile int g_reschedule_needed;
-    g_reschedule_needed = 1;
-    return 0;
+    return new_task->id;
 }
 
 

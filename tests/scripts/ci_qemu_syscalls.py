@@ -42,7 +42,7 @@ def err_text():
         return f.read()
 
 
-def wait_needle(needle, timeout, proc):
+def wait_needle_from(needle, timeout, proc, start):
     t0 = time.time()
     while time.time() - t0 < timeout:
         if proc.poll() is not None:
@@ -50,10 +50,15 @@ def wait_needle(needle, timeout, proc):
                 "QEMU exited early with code %s\nstderr: %s"
                 % (proc.returncode, err_text()[-1500:])
             )
-        if needle in log_text():
-            return
+        text = log_text()
+        if needle in text[start:]:
+            return len(text)
         time.sleep(0.15)
     raise RuntimeError("timeout waiting for %r in serial log" % needle)
+
+
+def wait_needle(needle, timeout, proc):
+    wait_needle_from(needle, timeout, proc, 0)
 
 
 def monitor_connect(retries=50):
@@ -137,7 +142,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/ps/uptime) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/ps/spawn/kill/uptime) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -159,12 +164,38 @@ def main():
              "demonstration"),
             ("ls bin", ["l", "s", "spc", "b", "i", "n", "ret"], "fake_ai"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
-            ("uptime", ["u", "p", "t", "i", "m", "e", "ret"], "PIT ticks"),
         ]
         for name, keys, needle in commands:
             say("typing %s ..." % name)
             sendkeys(mon, keys)
             wait_needle(needle, CMD_TIMEOUT, proc)
+
+        say("typing spawn idle ...")
+        mark = len(log_text())
+        sendkeys(mon, ["s", "p", "a", "w", "n", "spc", "i", "d", "l", "e", "ret"])
+        wait_needle_from("spawn ok pid", CMD_TIMEOUT, proc, mark)
+
+        say("typing ps (after spawn) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["p", "s", "ret"])
+        wait_needle_from("user  idle", CMD_TIMEOUT, proc, mark)
+
+        say("typing kill 2 ...")
+        mark = len(log_text())
+        sendkeys(mon, ["k", "i", "l", "l", "spc", "2", "ret"])
+        wait_needle_from("Processus 2 termine", CMD_TIMEOUT, proc, mark)
+
+        say("typing ps (after kill) ...")
+        mark = len(log_text())
+        sendkeys(mon, ["p", "s", "ret"])
+        wait_needle_from("Processus (noyau)", CMD_TIMEOUT, proc, mark)
+        after_kill_ps = log_text()[mark:]
+        if "user  idle" in after_kill_ps:
+            raise RuntimeError("idle still listed in ps after kill 2")
+
+        say("typing uptime ...")
+        sendkeys(mon, ["u", "p", "t", "i", "m", "e", "ret"])
+        wait_needle("PIT ticks", CMD_TIMEOUT, proc)
 
         text = log_text()
         checks = [
@@ -176,6 +207,9 @@ def main():
             ("ps kernel table", "Processus (noyau)"),
             ("ps kernel", "kern"),
             ("ps shell", "shell"),
+            ("spawn idle", "spawn ok pid"),
+            ("ps shows idle", "user  idle"),
+            ("kill 2", "Processus 2 termine"),
             ("uptime", "PIT ticks"),
         ]
         fail = 0

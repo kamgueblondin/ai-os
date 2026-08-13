@@ -583,6 +583,54 @@ void test_sys_kill_unknown_pid(void) {
     TEST_ASSERT_EQUAL(-1, (int)cpu.eax);
 }
 
+void test_sys_kill_removes_ready_task(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* shell;
+    task_t* child;
+    os_proc_t procs[8];
+    cpu_state_t cpu = {0};
+    int n;
+    int found_child;
+
+    task_queue = NULL;
+    current_task = NULL;
+    shell = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(shell);
+    TEST_ASSERT_NOT_NULL(child);
+    shell->id = 1;
+    child->id = 2;
+    child->type = TASK_TYPE_USER;
+    child->name[0] = 'i';
+    child->name[1] = 'd';
+    child->name[2] = 'l';
+    child->name[3] = 'e';
+    child->name[4] = '\0';
+    add_task_to_queue(shell);
+    add_task_to_queue(child);
+    current_task = shell;
+
+    cpu.eax = SYS_KILL;
+    cpu.ebx = 2;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_PS;
+    cpu.ebx = (uint32_t)procs;
+    cpu.ecx = 8;
+    syscall_handler(&cpu);
+    n = (int)cpu.eax;
+    found_child = 0;
+    for (int i = 0; i < n; i++) {
+        if (procs[i].pid == 2) found_child = 1;
+    }
+    TEST_ASSERT_EQUAL(0, found_child);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 // === RUNNER PRINCIPAL ===
 
 int main(void) {
@@ -637,6 +685,7 @@ int main(void) {
     RUN_TEST(test_sys_meminfo);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);
+    RUN_TEST(test_sys_kill_removes_ready_task);
     
     unity_print_results();
     unity_cleanup();

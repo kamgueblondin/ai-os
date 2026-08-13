@@ -442,6 +442,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     
     print_colored("\nCOMMANDES PROCESSUS :\n", COLOR_YELLOW);
     print_string("  ps                 - Afficher les processus\n");
+    print_string("  spawn <prog>       - Lancer un programme en arriere-plan\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -829,7 +830,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats",
         "cd", "pwd", "cat", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "jobs", "top", "uptime", "date", "whoami",
+        "kill", "spawn", "jobs", "top", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -935,6 +936,36 @@ static void cmd_kill(shell_context_t* ctx, char args[][128], int arg_count) {
         print_int(pid);
         print_string(" termine\n");
     }
+}
+
+static void cmd_spawn(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    (void)ctx;
+    if (arg_count == 0) {
+        print_error("spawn: programme manquant");
+        return;
+    }
+    pid = spawn(args[0], 0);
+    if (pid < 0) {
+        char alt[80];
+        int i = 0;
+        alt[0] = 'b'; alt[1] = 'i'; alt[2] = 'n'; alt[3] = '/';
+        while (args[0][i] && i < 70) {
+            alt[4 + i] = args[0][i];
+            i++;
+        }
+        alt[4 + i] = '\0';
+        pid = spawn(alt, 0);
+    }
+    if (pid < 0) {
+        print_error("spawn: programme introuvable");
+        return;
+    }
+    print_string("spawn ok pid ");
+    print_int(pid);
+    print_string(" ");
+    print_string(args[0]);
+    print_string("\n");
 }
 
 static void cmd_jobs(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1473,7 +1504,7 @@ static void cmd_ai_test(shell_context_t* ctx) {
     print_colored("\n[AI-TEST] Starting healthcheck...\n", COLOR_CYAN);
     char* argv[2]; argv[0] = "healthcheck"; argv[1] = 0;
     int rc = spawn("bin/ai_assistant", argv);
-    if (rc == 0) {
+    if (rc >= 0) {
         print_string("AI HEALTH: OK\n");
         print_colored("[AI-TEST] OK\n", COLOR_GREEN);
     } else {
@@ -1562,6 +1593,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "kill") == 0) {
         cmd_kill(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "spawn") == 0) {
+        cmd_spawn(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "jobs") == 0) {
         cmd_jobs(ctx, args, arg_count);
