@@ -153,7 +153,7 @@ def main():
         mon = monitor_connect()
 
         commands = [
-            ("ls", ["l", "s", "ret"], "hello.txt"),
+            ("ls", ["l", "s", "ret"], "Initrd / VFS"),
             ("cat hello.txt",
              ["c", "a", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "demonstration"),
@@ -168,10 +168,12 @@ def main():
 
         text = log_text()
         checks = [
+            ("syscall ls", "Initrd / VFS"),
             ("initrd ls", "hello.txt"),
             ("initrd ls", "startup.sh"),
             ("cat hello.txt", "Un autre fichier de demonstration"),
             ("ls bin", "fake_ai"),
+            ("ps kernel table", "Processus (noyau)"),
             ("ps kernel", "kern"),
             ("ps shell", "shell"),
             ("uptime", "PIT ticks"),

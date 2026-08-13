@@ -21,6 +21,12 @@ export KERNEL INITRD
 export LOG="${LOG:-test_logs/ci-qemu-serial.log}"
 export PYTHONUNBUFFERED=1
 
+if ! strings userspace/shell | grep -q "Initrd / VFS"; then
+    echo "ERROR: userspace/shell is stale (no syscall ls). Expected 'make -C userspace all'."
+    file userspace/shell || true
+    exit 1
+fi
+
 echo "=== QEMU smoke (timeout ${SMOKE_TIMEOUT}s) ==="
 set +e
 timeout --foreground --signal=KILL "${SMOKE_TIMEOUT}s" \
