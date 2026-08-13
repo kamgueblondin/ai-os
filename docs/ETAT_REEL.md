@@ -1,7 +1,7 @@
 # État réel d’AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** `master` (CI `mem` / `SYS_MEMINFO` ; `ai hello` via SYS_EXEC ; head/tail/sort ; overlay SYS_COPY/RENAME)  
+**Code de référence :** `master` (CI `getpid` / `touch` ; `mem` / `SYS_MEMINFO` ; `ai hello` via SYS_EXEC ; head/tail/sort ; overlay SYS_COPY/RENAME)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
 Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
@@ -31,7 +31,7 @@ Constaté par compilation `make all`, boot QEMU (nographic et GTK), saisie clavi
 - Chargeur ELF 32-bit
 - Tâches kernel + utilisateur, `jump_to_task()` (iret vers Ring 3)
 - Syscalls : `SYS_EXIT`, `SYS_PUTC`, `SYS_GETC`, `SYS_PUTS`, `SYS_YIELD`, `SYS_GETS`, `SYS_EXEC`, `SYS_SPAWN`, `SYS_LISTDIR`, `SYS_READFILE`, `SYS_GETPID`, `SYS_PS`, `SYS_KILL`, `SYS_TICKS`, `SYS_MEMINFO`, `SYS_MKDIR`, `SYS_UNLINK`, `SYS_WRITEFILE`, `SYS_STAT`, `SYS_RENAME`, `SYS_COPY` (ABI : `include/os_syscalls.h`)
-- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `echo >` visibles par `ls`/`cat` ; l’initrd reste en lecture seule ; `rmdir` d’un dossier non vide échoue
+- Overlay RAM (`fs/overlay.c`) : `mkdir` (y compris imbriqué) / `rm` / `cp` (fichier, vers un dossier, **ou arborescence overlay** via `SYS_COPY`) / `mv` (fichier **et** dossier, enfants inclus via `SYS_RENAME`) / `write` / `touch` (fichier vide) / `echo >` visibles par `ls`/`cat` ; l’initrd reste en lecture seule ; `rmdir` d’un dossier non vide échoue
 
 ### Espace utilisateur
 
@@ -57,18 +57,18 @@ Après ce correctif : IRQ1 livrée, `help` / `ls` / `sysinfo` / `ai bonjour` re�
 | Binaire | Tests unitaires |
 |---|---|
 | `test_pmm` | 17/17 |
-| `test_syscall` | 45/45 |
+| `test_syscall` | 46/46 |
 | `test_task` | 21/21 |
 | `test_shell` | 25/25 |
 | `test_ramfs` | 10/10 |
 
-Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**118** = 17+45+21+25+10).
+Pas de fichiers de tests dans `tests/integration`, `tests/system`, `tests/performance`, `tests/robustness`. Le résumé « Total Tests » de `run_all_tests.sh` additionne les lignes Unity `Tests Run:` des cinq binaires (**119** = 17+46+21+25+10).
 
 Dépendance de compilation 32-bit : paquet `gcc-multilib` / `libc6-dev-i386` (en plus de `nasm` et `qemu-system-i386`).
 
 ## Shell : commandes réelles vs affichées
 
-Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `stat` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `grep` / `wc` / `ps` / `kill` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write` écrivent dans l’overlay noyau. `procsim.c` n’est plus utilisé par `ps`/`kill`.
+Les commandes listées par `help` sont branchées dans `execute_builtin_command()`. `ls` / `cat` / `stat` / `mkdir` / `rmdir` / `rm` / `cp` / `mv` / `write` / `touch` / `grep` / `wc` / `ps` / `kill` / `getpid` / `mem` / `uptime` parlent au **noyau**. `echo >` et `write`/`touch` écrivent dans l’overlay noyau. `procsim.c` n’est plus utilisé par `ps`/`kill`.
 
 | Commande | Comportement réel |
 |---|---|
@@ -80,8 +80,9 @@ Les commandes listées par `help` sont branchées dans `execute_builtin_command(
 | `stat` | Type et taille (`SYS_STAT`) : `stat file hello.txt 35` / `stat dir mydir 0` |
 | `echo` | Affichage ; `echo texte > fichier` écrit dans l’overlay noyau (le `>` n’est pas tapable en CI sendkey) |
 | `write` | `write <fichier> <texte>` → overlay (`SYS_WRITEFILE`), sans redirection. Succès : `write ok <fichier>` |
+| `touch` | `touch <fichier>` → fichier overlay vide (`SYS_WRITEFILE` taille 0). Succès : `touch ok <fichier>` ; un fichier existant n’est pas tronqué |
 | `cd` / `pwd` | Chemin shell ; `cd` accepte overlay/initrd (`SYS_STAT`) **ou** VFS RAM (`cd bin`). Succès : `cd ok <arg>` |
-| `ps` / `jobs` / `top` / `kill` / `spawn` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`) |
+| `ps` / `jobs` / `top` / `kill` / `spawn` / `getpid` | Table des tâches **noyau**. `spawn <prog>` crée une tâche READY (pas de changement de contexte). pid 0 protégé ; le shell courant refuse `kill` (utiliser `exit`). `getpid` affiche `getpid ok <pid>` (`SYS_GETPID`) |
 | `sysinfo` / `info` / `mem` / `memory` | Pages PMM (`SYS_MEMINFO`) + uptime PIT. `mem` affiche `mem ok <total> <used> <free>` |
 | `uptime` / `date` | Ticks PIT 100 Hz (`SYS_TICKS`) ; `date` reste pédagogique (pas de RTC) |
 | `whoami` / `env` / `export` | Variables d’environnement du shell (`USER=root` par défaut) |
@@ -128,13 +129,13 @@ Ces fichiers restent utiles (chronologie, extraits, hypothèses). Leur conclusio
 sudo apt-get install -y build-essential gcc-multilib nasm qemu-system-i386
 make clean && make all
 make test-all
-make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/rmdir/uptime/mem
+make qemu-smoke   # QEMU headless + sendkey ls/cat/head/tail/sort/ai/ps/spawn/kill/mkdir/cd/cp/mv/write/touch/rmdir/uptime/mem/getpid
 make ci           # all + test-all + qemu-smoke (même gate que GitHub Actions)
 make run          # console curses (recommandé en local)
 make run-gui      # fenêtre GTK
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
+GitHub Actions (`.github/workflows/ci.yml`) lance ce gate sur chaque push et pull request vers `master`. Le smoke QEMU tape aussi `stat`, `head`, `tail`, `sort`, `ai hello` (`SYS_EXEC`), `mem` (`SYS_MEMINFO`), `getpid` (`SYS_GETPID`), `touch`, `grep`, `wc`, `cp mydir cpd` et `mv mydir newd` via `sendkey`.
 
 En nographic, le shell lit le **clavier PS/2**, pas le port série : la saisie TTY hôte n’atteint souvent pas `SYS_GETS`. Préférer curses/GTK, ou QEMU `sendkey` / moniteur.
 

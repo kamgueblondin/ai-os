@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot QEMU, type ls/cat/ps/uptime/mem via HMP sendkey, assert serial output.
+"""Boot QEMU, type ls/cat/ps/uptime/mem/getpid via HMP sendkey, assert serial output.
 
 Used by ci_qemu_smoke.sh so GitHub Actions actually exercises the initrd and
 kernel syscalls, not only the boot prompt.
@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/mkdir/cd/cp/mv/write/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -249,6 +249,11 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["m", "e", "m", "ret"])
         wait_needle_from("mem ok", CMD_TIMEOUT, proc, mark)
+
+        say("typing getpid ...")
+        mark = len(log_text())
+        sendkeys(mon, ["g", "e", "t", "p", "i", "d", "ret"])
+        wait_needle_from("getpid ok", CMD_TIMEOUT, proc, mark)
 
         say("typing mkdir mydir ...")
         mark = len(log_text())
@@ -481,6 +486,25 @@ def main():
         if "cpd" in after_rmdir_cpd:
             raise RuntimeError("cpd still listed in ls after rmdir")
 
+        say("typing touch z.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "o", "u", "c", "h", "spc", "z", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("touch ok z.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing stat z.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "s", "t", "a", "t", "spc", "z", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("stat file z.txt 0", CMD_TIMEOUT, proc, mark)
+
+        say("typing rm z.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, ["r", "m", "spc", "z", "dot", "t", "x", "t", "ret"])
+        wait_needle_from("rm ok z.txt", CMD_TIMEOUT, proc, mark)
+
         say("typing write hi.txt ping ...")
         mark = len(log_text())
         sendkeys(mon, [
@@ -538,6 +562,7 @@ def main():
             ("kill idle", "Processus %s termine" % idle_pid),
             ("uptime", "PIT ticks"),
             ("mem pmm", "mem ok"),
+            ("getpid", "getpid ok"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
             ("pwd overlay", "/mydir"),
@@ -555,6 +580,8 @@ def main():
             ("cd copied dir", "cd ok cpd"),
             ("rmdir copied dir", "rmdir ok cpd"),
             ("write overlay", "write ok hi.txt"),
+            ("touch overlay", "touch ok z.txt"),
+            ("stat empty", "stat file z.txt 0"),
             ("grep overlay", "grep hits 1"),
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
             ("rm write", "rm ok hi.txt"),

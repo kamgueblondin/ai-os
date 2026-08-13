@@ -723,6 +723,36 @@ void test_sys_overlay_write_read(void) {
     TEST_ASSERT_EQUAL(0, (int)cpu.eax);
 }
 
+void test_sys_overlay_write_empty(void) {
+    os_dirent_t st;
+    char buf[8];
+    cpu_state_t cpu = {0};
+
+    overlay_init();
+
+    cpu.eax = SYS_WRITEFILE;
+    cpu.ebx = (uint32_t)"empty.txt";
+    cpu.ecx = (uint32_t)"";
+    cpu.edx = 0;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_STAT;
+    cpu.ebx = (uint32_t)"empty.txt";
+    cpu.ecx = (uint32_t)&st;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_DIRENT_FILE, (int)st.flags);
+    TEST_ASSERT_EQUAL(0, (int)st.size);
+
+    cpu.eax = SYS_READFILE;
+    cpu.ebx = (uint32_t)"empty.txt";
+    cpu.ecx = (uint32_t)buf;
+    cpu.edx = sizeof(buf);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+}
+
 void test_sys_overlay_protects_initrd(void) {
     cpu_state_t cpu = {0};
     overlay_init();
@@ -1185,6 +1215,7 @@ int main(void) {
     RUN_TEST(test_sys_kill_removes_ready_task);
     RUN_TEST(test_sys_overlay_mkdir_listdir_unlink);
     RUN_TEST(test_sys_overlay_write_read);
+    RUN_TEST(test_sys_overlay_write_empty);
     RUN_TEST(test_sys_overlay_protects_initrd);
     RUN_TEST(test_sys_stat_initrd_file_and_overlay_dir);
     RUN_TEST(test_sys_overlay_copy_from_initrd);
