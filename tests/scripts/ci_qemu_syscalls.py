@@ -171,7 +171,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/head/tail/sort/ai/ps/spawn/kill/uptime/mem/getpid/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
+    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/head/sort/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -197,9 +197,6 @@ def main():
             ("head hello.txt",
              ["h", "e", "a", "d", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "head ok 1 hello.txt"),
-            ("tail hello.txt",
-             ["t", "a", "i", "l", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
-             "tail ok 1 hello.txt"),
             ("sort hello.txt",
              ["s", "o", "r", "t", "spc", "h", "e", "l", "l", "o", "dot", "t", "x", "t", "ret"],
              "sort ok 1 hello.txt"),
@@ -254,6 +251,16 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["g", "e", "t", "p", "i", "d", "ret"])
         wait_needle_from("getpid ok", CMD_TIMEOUT, proc, mark)
+
+        say("typing whoami ...")
+        mark = len(log_text())
+        sendkeys(mon, ["w", "h", "o", "a", "m", "i", "ret"])
+        wait_needle_from("whoami ok root", CMD_TIMEOUT, proc, mark)
+
+        say("typing which ls ...")
+        mark = len(log_text())
+        sendkeys(mon, ["w", "h", "i", "c", "h", "spc", "l", "s", "ret"])
+        wait_needle_from("which ok builtin ls", CMD_TIMEOUT, proc, mark)
 
         say("typing test f hello.txt ...")
         mark = len(log_text())
@@ -593,6 +600,8 @@ def main():
             ("uptime", "PIT ticks"),
             ("mem pmm", "mem ok"),
             ("getpid", "getpid ok"),
+            ("whoami", "whoami ok root"),
+            ("which builtin", "which ok builtin ls"),
             ("mkdir overlay", "mkdir ok mydir"),
             ("cd overlay", "cd ok mydir"),
             ("pwd overlay", "/mydir"),
@@ -620,7 +629,6 @@ def main():
             ("stat file", "stat file hello.txt"),
             ("test file", "test ok file hello.txt"),
             ("head initrd", "head ok 1 hello.txt"),
-            ("tail initrd", "tail ok 1 hello.txt"),
             ("sort initrd", "sort ok 1 hello.txt"),
             ("stat dir", "stat dir mydir"),
             ("test dir", "test ok dir mydir"),

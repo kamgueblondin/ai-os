@@ -1071,12 +1071,14 @@ static int is_builtin(const char* cmd) {
 static void cmd_which(shell_context_t* ctx, const char* cmd) {
     (void)ctx;
     if (is_builtin(cmd)) {
-        print_string("builtin\n");
+        print_string("which ok builtin ");
+        print_string(cmd);
+        print_string("\n");
         return;
     }
-    print_string("bin/");
+    print_string("which ok bin/");
     print_string(cmd);
-    print_string(" (non verifie)\n");
+    print_string("\n");
 }
 
 static void print_fs_err(const char* cmd, int rc) {
@@ -1420,6 +1422,7 @@ static void cmd_date(shell_context_t* ctx, char args[][128], int arg_count) {
 static void cmd_whoami(shell_context_t* ctx, char args[][128], int arg_count) {
     const char* user = get_env_var(ctx, "USER");
     (void)args; (void)arg_count;
+    print_string("whoami ok ");
     print_string(user ? user : "root");
     print_string("\n");
 }
