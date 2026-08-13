@@ -1,5 +1,7 @@
 # US-012 : Framework d'APIs Unifiées
 
+> **AI-OS :** `include/os_syscalls.h` (23 appels). Pas d'API unifiée MOHHOS. Voir AOS-006 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-012  

@@ -1,6 +1,6 @@
 # Recherche Approfondie - Technologies pour MOHHOS
 
-> **État réel (août 2026).** Veille / spécification. Ces technologies (TFLite, P2P, navigateur-OS, …) **ne sont pas** dans le dépôt AI-OS actuel. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Veille / spécification MOHHOS. TFLite, P2P, navigateur-OS, etc. **ne sont pas** dans le dépôt. Prototype : [ai_os_us.md](ai_os_us.md) et [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble du Projet MOHHOS
 

@@ -1,6 +1,6 @@
 # MOHHOS - Phase 1 Foundation - User Stories Détaillées
 
-> **État réel (août 2026).** Phase **non commencée dans le code** : le noyau reste monolithique (`kernel/kernel.c`). Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Phase **non commencée dans le code** : le noyau reste monolithique (`kernel/kernel.c`). Ce n'est pas la suite du prototype (voir [ai_os_us.md](ai_os_us.md)). Specs conservées. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble de la Phase 1
 

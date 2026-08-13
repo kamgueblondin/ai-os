@@ -1,5 +1,7 @@
 # US-016 : Moteur IA Local TensorFlow Lite
 
+> **AI-OS :** chevauchement GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), **pas** TensorFlow Lite. Voir AOS-010 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-016  

@@ -1,5 +1,7 @@
 # US-017 : Système de Compréhension du Langage Naturel
 
+> **AI-OS :** pas de NLU. Encodeur BPE + complétion 12 jetons. Voir AOS-010 / AOS-011 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-017  

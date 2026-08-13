@@ -1,5 +1,7 @@
 # US-010 : Gestionnaire de Pilotes Modulaires
 
+> **AI-OS :** PIC / PIT / PS/2 / ATA PIO seulement, pas de framework de drivers. Voir [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-010  

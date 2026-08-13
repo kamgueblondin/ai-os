@@ -1,6 +1,6 @@
 # MOHHOS - Phase 3 Web Runtime - User Stories Détaillées
 
-> **État réel (août 2026).** Phase **non implémentée** (pas de navigateur-OS). Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Phase **non implémentée** (pas de navigateur-OS). Hors suite proche du prototype ([ai_os_us.md](ai_os_us.md)). Specs conservées. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble de la Phase 3
 

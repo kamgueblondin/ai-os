@@ -1,5 +1,7 @@
 # US-066 : Gestion Mémoire et Ressources
 
+> **AI-OS :** PMM / VMM / heap / `SYS_MEMINFO` seulement. Voir AOS-002 dans [../ai_os_us.md](../ai_os_us.md).
+
 ## Description
 En tant que développeur système, je veux un gestionnaire avancé de mémoire et ressources qui optimise l'allocation, détecte les fuites, gère la fragmentation et applique des stratégies de nettoyage intelligent, afin de maintenir des performances stables et une utilisation efficace des ressources système de MOHHOS.
 

@@ -1,5 +1,7 @@
 # US-007 : Système de Monitoring Temps Réel
 
+> **AI-OS :** `ps` / `mem` / `uptime` / `SYS_TICKS` seulement. Voir [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-007  

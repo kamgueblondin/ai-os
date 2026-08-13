@@ -1,10 +1,10 @@
 # État réel d'AI-OS
 
 **Date de constat :** 13 août 2026  
-**Code de référence :** branche de travail overlay persisté sur IDE (snapshot ATA PIO)
+**Code de référence :** prototype i386 (overlay ATA, spawn/yield/exec coopératifs, GPT-2 top-k borné)  
 **Rôle de ce document :** source de vérité sur ce qui **tourne réellement**, par rapport aux diagnostics historiques et à la vision MOHHOS.
 
-Les rapports, TODO et user stories plus anciens restent utiles (pistes de debug, extraits de code, spécifications). Ils ne décrivent plus forcément le comportement actuel. En cas de contradiction, **ce fichier prime**.
+Les rapports, TODO et user stories **MOHHOS** restent utiles (pistes, extraits, vision). Ils ne décrivent pas le hobby OS actuel. Backlog aligné sur le code : [US/ai_os_us.md](../US/ai_os_us.md). En cas de contradiction, **ce fichier prime**.
 
 ## Synthèse
 
@@ -14,7 +14,7 @@ AI-OS est un **prototype de noyau pédagogique i386 32-bit**. Il boote sous QEMU
 |---|---|
 | Hobby OS minimal (boot -> shell sous QEMU) | ~60-70 % |
 | Inference GPT-2 locale de démonstration | Fonctionnelle avec checkpoint externe, contexte et sortie bornés |
-| Vision MOHHOS (120 US, 8 phases) | ~1-2 % (spécifications ; ne décrit pas le moteur GPT-2 actuel) |
+| Vision MOHHOS (120 US, 8 phases) | Specs seulement ; backlog réel : [US/ai_os_us.md](../US/ai_os_us.md) |
 
 Ce n'est **pas** un système d'exploitation utilisable au quotidien (pas de FS disque général, pas de réseau, pas d'interface graphique native, pas de vrais pilotes hors QEMU/i8042/ATA PIO).
 
@@ -118,7 +118,7 @@ Malgré la roadmap README v7/v8 et le dossier `US/` :
 - Interface graphique du OS (seul QEMU affiche du VGA texte)
 - Architecture microkernel, IPC, plugins
 - Réseau P2P, multi-plateforme, économie collaborative
-- Les 120 User Stories MOHHOS : **spécifications**, pas d'implémentation (sauf recouvrement accidentel avec le noyau actuel : mémoire, tests unitaires partiels)
+- Les User Stories MOHHOS : **spécifications**, pas d'implémentation. Recouvrement partiel (PMM, Unity, GPT-2, commande `ai`) : [US/individual_us/INDEX.md](../US/individual_us/INDEX.md). Suite proche du prototype : [US/ai_os_us.md](../US/ai_os_us.md)
 
 Le préemptif "à chaque tick" est volontairement **limité** : après le premier passage au shell, le timer n'appelle plus `schedule()` sauf `g_reschedule_needed` (premier saut vers le shell). `spawn`, `yield` et `exec` basculent depuis le syscall, sans round-robin IRQ0 (stabilité clavier).
 

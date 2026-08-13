@@ -1,6 +1,6 @@
 # MOHHOS - Phase 2 AI Core - User Stories Détaillées
 
-> **État réel (août 2026).** Phase **non implémentée**. L’IA actuelle est `userspace/fake_ai.c` (mots-clés), pas TensorFlow Lite. Spécifications conservées. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Phase **non implémentée** (pas de TensorFlow Lite, pas de NLU, pas d'apprentissage fédéré). L'IA du prototype est un **GPT-2 124M freestanding** optionnel (`SYS_GPT2_GENERATE`, commande `ai`) ; `fake_ai` / `ai_assistant` sont des binaires historiques. Suite proche : [ai_os_us.md](ai_os_us.md). Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble de la Phase 2
 

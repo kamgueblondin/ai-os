@@ -1,5 +1,7 @@
 # US-002 : Gestionnaire de Ressources Intelligent
 
+> **AI-OS :** chevauchement PMM / VMM / heap / `SYS_MEMINFO` seulement — pas de gestionnaire IA. Voir [../ai_os_us.md](../ai_os_us.md) AOS-002.
+
 ## Informations Générales
 
 **ID** : US-002  

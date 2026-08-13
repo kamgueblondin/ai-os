@@ -1,5 +1,7 @@
 # US-001 : Migration vers Architecture Microkernel
 
+> **AI-OS :** spec uniquement. Le noyau est monolithique. Backlog réel : [../ai_os_us.md](../ai_os_us.md).
+
 ## Informations Générales
 
 **ID** : US-001  

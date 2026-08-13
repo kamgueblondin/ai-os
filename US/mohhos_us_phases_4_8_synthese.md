@@ -1,6 +1,6 @@
 # MOHHOS - Phases 4-8 - Synthèse des User Stories
 
-> **État réel (août 2026).** Phases 4 à 8 **non implémentées** (PromptMessage, P2P, multi-plateforme, économie, production). Synthèse de conception conservée. Voir [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Phases 4 à 8 **non implémentées** (PromptMessage, P2P, multi-plateforme, économie, production). Hors suite proche ([ai_os_us.md](ai_os_us.md)). Synthèse conservée. Runtime : [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
 
 ## Vue d'Ensemble des Phases Avancées
 
