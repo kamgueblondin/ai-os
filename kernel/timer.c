@@ -56,16 +56,10 @@ void timer_handler(cpu_state_t* cpu) {
         print_string_serial("\n");
     }
     
-    // Vérifier que le système de tâches est initialisé avant de faire du scheduling
-    extern task_t* current_task;
-    extern task_t* task_queue;
-    
-    // EOI déjà envoyé par irq0 avant cet appel. Ne pas le renvoyer ici :
-    // schedule() saute par iret et n'atteint jamais un EOI placé après.
-    // Un EOI ici casserait aussi INT 0x30 (yield), qui n'est pas une IRQ PIC.
-
-    // CORRECTION: Activer le scheduler dès que possible pour lancer le shell utilisateur
-    if (g_reschedule_needed || (current_task && task_queue && timer_ticks > 2)) {
+    // Un seul changement de contexte quand il est demandé (lancement du shell,
+    // exec/spawn). Planifier à chaque tick après EOI provoque un page fault :
+    // jump_to_task() ne revient pas, et l'état IRQ du kernel devient invalide.
+    if (g_reschedule_needed) {
         g_reschedule_needed = 0;
         schedule(cpu);
     }
