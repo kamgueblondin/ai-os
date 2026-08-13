@@ -1,1 +1,1 @@
-Base de connaissances IA - Version simulation
+Base de connaissances statique - pas de base vectorielle

@@ -27,7 +27,7 @@ static int load_synthetic_vocab(void) {
     memset(header, 0, sizeof(header));
     header[0] = 20240328U;
     header[1] = 2;
-    header[2] = 21;
+    header[2] = 29;
     header[3] = 20; /* EOT */
     memcpy(g_blob, header, sizeof(header));
     offset = 1024;
@@ -52,6 +52,14 @@ static int load_synthetic_vocab(void) {
     blob_put_piece(&offset, "\xC3\xA9", 2);
     blob_put_piece(&offset, "\x01", 1);
     blob_put_piece(&offset, "E", 1);
+    blob_put_piece(&offset, "\xCE", 1);
+    blob_put_piece(&offset, "\xB1", 1);
+    blob_put_piece(&offset, "\xCE\xB1", 2);
+    blob_put_piece(&offset, "\xF0", 1);
+    blob_put_piece(&offset, "\x9F", 1);
+    blob_put_piece(&offset, "\x98", 1);
+    blob_put_piece(&offset, "\x80", 1);
+    blob_put_piece(&offset, "\xF0\x9F\x98\x80\xCE\xB1", 6);
     return gpt2_tokenizer_load_from_buffer(g_blob, offset);
 }
 
@@ -163,6 +171,30 @@ static void test_encode_utf8_letter_chunk(void) {
     TEST_ASSERT_EQUAL(18, tokens[0]);
 }
 
+static void test_encode_greek_letter_uses_utf8_bpe_piece(void) {
+    uint32_t tokens[8];
+    uint32_t count = 0;
+    setUp();
+    TEST_ASSERT_EQUAL(0, gpt2_tokenizer_encode("\xCE\xB1", tokens, 8, &count));
+    TEST_ASSERT_EQUAL(1, count);
+    TEST_ASSERT_EQUAL(23, tokens[0]);
+}
+
+static void test_emoji_is_not_merged_with_following_unicode_letter(void) {
+    uint32_t tokens[8];
+    uint32_t count = 0;
+    setUp();
+    TEST_ASSERT_EQUAL(0, gpt2_tokenizer_encode("\xF0\x9F\x98\x80\xCE\xB1", tokens, 8, &count));
+    /* The six-byte cross-class token exists in the vocabulary but must not be
+     * selected: emoji is punctuation, alpha is a Unicode letter. */
+    TEST_ASSERT_EQUAL(5, count);
+    TEST_ASSERT_EQUAL(24, tokens[0]);
+    TEST_ASSERT_EQUAL(25, tokens[1]);
+    TEST_ASSERT_EQUAL(26, tokens[2]);
+    TEST_ASSERT_EQUAL(27, tokens[3]);
+    TEST_ASSERT_EQUAL(23, tokens[4]);
+}
+
 static void test_encode_ascii_wrapper(void) {
     uint32_t tokens[8];
     uint32_t count = 0;
@@ -186,6 +218,8 @@ int main(void) {
     RUN_TEST(test_decode_keeps_utf8);
     RUN_TEST(test_decode_drops_control_bytes);
     RUN_TEST(test_encode_utf8_letter_chunk);
+    RUN_TEST(test_encode_greek_letter_uses_utf8_bpe_piece);
+    RUN_TEST(test_emoji_is_not_merged_with_following_unicode_letter);
     RUN_TEST(test_encode_ascii_wrapper);
     unity_print_results();
     unity_cleanup();

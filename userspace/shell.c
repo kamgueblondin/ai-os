@@ -539,6 +539,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-provider [nom]  - Choisir local ou openai\n");
     print_string("  ai-model [action]  - Lister ou choisir le modele local\n");
     print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
+    print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
     print_string("  clear              - Effacer l'écran\n");
@@ -1090,7 +1091,7 @@ static int is_builtin(const char* cmd) {
     static const char* names[] = {
         "help", "ls", "dir", "ps", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
-        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime",
+        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "yield", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
@@ -1907,6 +1908,16 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
     print_string("Secrets OpenAI     : jamais integres a l'image de boot\n\n");
 }
 
+static void cmd_net_status(shell_context_t* ctx, char args[][128], int arg_count) {
+    (void)ctx; (void)args; (void)arg_count;
+    print_colored("\n=== Reseau bare-metal ===\n", COLOR_CYAN);
+    print_string("Carte Ethernet : absente (aucun pilote NIC initialise)\n");
+    print_string("ARP / IPv4 / DHCP : absents\n");
+    print_string("DNS / TCP / TLS   : absents\n");
+    print_string("OpenAI en ligne   : bloque, aucune requete n'est emise\n");
+    print_string("net-status ok stub AOS-025\n");
+}
+
 static void cmd_reboot(shell_context_t* ctx, char args[][128], int arg_count) {
     (void)ctx; (void)args; (void)arg_count;
     print_warning("reboot: simule (QEMU reste actif, tapez exit pour quitter le shell)");
@@ -2229,6 +2240,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-runtime") == 0) {
         cmd_ai_runtime(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "net-status") == 0) {
+        cmd_net_status(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "logout") == 0) {
         cmd_exit(ctx, args, arg_count);

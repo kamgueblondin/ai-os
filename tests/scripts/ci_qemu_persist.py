@@ -80,7 +80,7 @@ def send_command(client, command):
     for char in command:
         client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
         drain_monitor(client)
-        time.sleep(0.20)
+        time.sleep(0.25)
     client.sendall(b"sendkey ret\n")
     drain_monitor(client)
 

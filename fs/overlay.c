@@ -2,9 +2,9 @@
 #include "initrd.h"
 #include "kernel/ata.h"
 
-#define OV_MAX_NODES 32
-#define OV_PATH_MAX  64
-#define OV_DATA_MAX  256
+#define OV_MAX_NODES OV_SNAP_NODES
+#define OV_PATH_MAX  OV_SNAP_PATH
+#define OV_DATA_MAX  OV_SNAP_DATA
 
 typedef struct {
     int used;
@@ -477,7 +477,7 @@ int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n) {
     return count;
 }
 
-#define OV_DISK_SECTORS 24
+#define OV_DISK_SECTORS 64
 #define OV_DISK_BYTES   (OV_DISK_SECTORS * 512)
 
 static uint8_t g_ov_disk_buf[OV_DISK_BYTES];
@@ -537,48 +537,68 @@ int overlay_restore(const uint8_t* buf, uint32_t n) {
     uint32_t off;
     uint32_t used_count;
     uint32_t seen;
+    uint32_t version;
+    uint32_t stored_nodes;
+    uint32_t stored_path;
+    uint32_t stored_data;
+    uint32_t stored_node;
+    uint32_t stored_size;
     int i;
 
-    if (!buf || n < OV_SNAP_SIZE) return -1;
-    if (ov_get_u32(buf + 0) != OV_SNAP_MAGIC) return -1;
-    if (ov_get_u32(buf + 4) != OV_SNAP_VERSION) return -1;
-    if (ov_get_u32(buf + 8) != OV_SNAP_NODES) return -1;
+    if (!buf || n < 16U || ov_get_u32(buf + 0) != OV_SNAP_MAGIC) return -1;
+    version = ov_get_u32(buf + 4);
+    if (version == OV_SNAP_VERSION) {
+        stored_nodes = OV_SNAP_NODES;
+        stored_path = OV_SNAP_PATH;
+        stored_data = OV_SNAP_DATA;
+        stored_node = OV_SNAP_NODE;
+        stored_size = OV_SNAP_SIZE;
+    } else if (version == OV_SNAP_V1_VERSION) {
+        stored_nodes = OV_SNAP_V1_NODES;
+        stored_path = OV_SNAP_V1_PATH;
+        stored_data = OV_SNAP_V1_DATA;
+        stored_node = OV_SNAP_V1_NODE;
+        stored_size = OV_SNAP_V1_SIZE;
+    } else {
+        return -1;
+    }
+    if (n < stored_size || ov_get_u32(buf + 8) != stored_nodes) return -1;
 
     used_count = ov_get_u32(buf + 12);
-    if (used_count > OV_SNAP_NODES) return -1;
+    if (used_count > stored_nodes) return -1;
 
     seen = 0;
-    off = 16;
-    for (i = 0; i < OV_MAX_NODES; i++) {
+    off = 16U;
+    for (i = 0; i < (int)stored_nodes; i++) {
         uint8_t used = buf[off];
-        uint8_t is_dir = buf[off + 1];
-        uint32_t size = ov_get_u32(buf + off + 4);
-        if (used > 1 || is_dir > 1) return -1;
+        uint8_t is_dir = buf[off + 1U];
+        uint32_t size = ov_get_u32(buf + off + 4U);
+        if (used > 1U || is_dir > 1U) return -1;
         if (used) {
-            if (size > OV_DATA_MAX) return -1;
+            if (size > stored_data) return -1;
             seen++;
         }
-        off += OV_SNAP_NODE;
+        off += stored_node;
     }
     if (seen != used_count) return -1;
 
     overlay_init();
-    off = 16;
-    for (i = 0; i < OV_MAX_NODES; i++) {
+    off = 16U;
+    for (i = 0; i < (int)stored_nodes && i < OV_MAX_NODES; i++) {
         uint32_t b;
         if (buf[off]) {
             g_ov[i].used = 1;
-            g_ov[i].is_dir = buf[off + 1] ? 1 : 0;
-            g_ov[i].size = ov_get_u32(buf + off + 4);
-            for (b = 0; b < OV_PATH_MAX; b++) {
-                g_ov[i].path[b] = (char)buf[off + 8 + b];
+            g_ov[i].is_dir = buf[off + 1U] ? 1 : 0;
+            g_ov[i].size = ov_get_u32(buf + off + 4U);
+            for (b = 0U; b + 1U < OV_PATH_MAX && b < stored_path; b++) {
+                g_ov[i].path[b] = (char)buf[off + 8U + b];
             }
-            g_ov[i].path[OV_PATH_MAX - 1] = '\0';
-            for (b = 0; b < OV_DATA_MAX; b++) {
-                g_ov[i].data[b] = (char)buf[off + 8 + OV_PATH_MAX + b];
+            g_ov[i].path[OV_PATH_MAX - 1U] = '\0';
+            for (b = 0U; b < g_ov[i].size && b < stored_data; b++) {
+                g_ov[i].data[b] = (char)buf[off + 8U + stored_path + b];
             }
         }
-        off += OV_SNAP_NODE;
+        off += stored_node;
     }
     return 0;
 }

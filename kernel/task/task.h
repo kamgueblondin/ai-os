@@ -68,7 +68,9 @@ task_t* get_task_by_id(int id);
 void remove_task(task_t* task);
 void add_task_to_queue(task_t* task);
 int get_task_count();
-task_t* find_task_waiting_for_input();
+task_t* find_task_waiting_for_input(void);
+/* Vrai lorsqu’une autre tâche Ring 3 prête peut recevoir un quantum IRQ0. */
+int task_has_other_ready_user(void);
 int task_kill(int pid);
 int task_fill_ps(os_proc_t* out, int max_n);
 void task_wake_waiter(task_t* child);
