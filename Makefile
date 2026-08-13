@@ -260,6 +260,7 @@ pack-initrd: userspace-all
 	@cp -f userspace/idle $(BIN_DEST_DIR)/idle
 	@cp -f userspace/spin $(BIN_DEST_DIR)/spin
 	@cp -f userspace/ipcserver $(BIN_DEST_DIR)/ipcserver
+	@cp -f userspace/vfsserver $(BIN_DEST_DIR)/vfsserver
 	@cp -f userspace/ok $(BIN_DEST_DIR)/ok
 	@tar -C $(INITRD_DIR) -cf $(INITRD_IMAGE) .
 	@echo "[mkinitrd] Packed executables into $(INITRD_IMAGE)"
@@ -304,7 +305,7 @@ iso-clean:
 	@rm -rf build/isodir $(ISO_IMAGE)
 
 # Compile tous les programmes utilisateur
-user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/spin userspace/ipcserver userspace/ok: userspace-all
+user-program userspace/shell userspace/fake_ai userspace/test_program userspace/ai_assistant userspace/idle userspace/spin userspace/ipcserver userspace/vfsserver userspace/ok: userspace-all
 
 # Cible pour exécuter l'OS dans QEMU avec initrd (mode console corrigé)
 run: $(OS_IMAGE) pack-initrd disk
@@ -460,7 +461,7 @@ qemu-smoke: $(OS_IMAGE) pack-initrd disk
 
 # Contrats d’intégration QEMU versionnés : boot, shell/overlay, préemption IRQ0
 # et absence réseau OpenAI explicitement vérifiable.
-.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ipc-foundation
+.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ipc-foundation qemu-vfs-service
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
@@ -470,11 +471,15 @@ qemu-ai-provider: $(OS_IMAGE) pack-initrd disk
 qemu-ipc-foundation: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_ipc_foundation.py
 
+qemu-vfs-service: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/integration/test_qemu_vfs_service.py
+
 integration-qemu: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_core_contract.py
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 	@python3 tests/scripts/test_ai_provider_commands.py
 	@python3 tests/integration/test_qemu_ipc_foundation.py
+	@python3 tests/integration/test_qemu_vfs_service.py
 
 # Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
 .PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
@@ -520,6 +525,7 @@ help:
 	@echo "  qemu-irq0-preemption - Prouve la reprise du shell après spawn spin"
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
+	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"

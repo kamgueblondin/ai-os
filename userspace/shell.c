@@ -6,6 +6,7 @@
 #include "ramfs.h"
 #include "procsim.h"
 #include "os_syscalls.h"
+#include "os_vfs_service.h"
 
 // ==============================================================================
 // STRUCTURES ET DÉFINITIONS
@@ -524,6 +525,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  yield              - Ceder le CPU (SYS_YIELD, cooperatif)\n");
     print_string("  ipc-send <pid> <txt> - Envoyer un message IPC borne\n");
     print_string("  ipc-recv           - Lire un message IPC non bloquant\n");
+    print_string("  vfs-read <pid> <f> - Lire un fichier via le service VFS\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1107,7 +1109,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "vfs-read", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1435,6 +1437,52 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
     print_string(" data ");
     for (i = 0U; i < message.size; i++) putc((char)message.data[i]);
     print_string("\n");
+}
+
+static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_ipc_message_t message;
+    os_vfs_read_reply_t reply;
+    int pid;
+    int rc;
+    uint32_t i;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-read <pid> <chemin>");
+        return;
+    }
+    pid = parse_int(args[0]);
+    if (pid <= 0) {
+        print_error("vfs-read: pid invalide");
+        return;
+    }
+    rc = os_vfs_make_read_request(&request, args[1]);
+    if (rc != 0) {
+        print_error("vfs-read: chemin invalide ou trop long");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-read: service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = sys_ipc_receive(&message);
+    if (rc != 0 || os_vfs_parse_read_reply(&message, &reply) != 0) {
+        print_error("vfs-read: reponse VFS absente ou invalide");
+        ctx->last_rc = rc != 0 ? rc : OS_VFS_STATUS_INVALID;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK) {
+        print_error("vfs-read: lecture refusee ou fichier absent");
+        return;
+    }
+    print_string("vfs-read ok ");
+    print_int((int)reply.size);
+    print_string(" data ");
+    for (i = 0U; i < reply.size; i++) putc((char)reply.data[i]);
+    if (reply.size == 0U || reply.data[reply.size - 1U] != '\n') print_string("\n");
 }
 
 static void cmd_yield(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2264,6 +2312,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ipc-recv") == 0) {
         cmd_ipc_recv(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-read") == 0) {
+        cmd_vfs_read(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "yield") == 0) {
         cmd_yield(ctx, args, arg_count);
