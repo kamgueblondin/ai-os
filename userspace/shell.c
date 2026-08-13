@@ -462,8 +462,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  pwd                - Afficher le répertoire courant\n");
     print_string("  mkdir <dir>        - Créer un répertoire (overlay noyau)\n");
     print_string("  rmdir <dir>        - Supprimer un répertoire vide\n");
-    print_string("  cp <src> <dest>    - Copier un fichier\n");
-    print_string("  mv <src> <dest>    - Déplacer/renommer un fichier\n");
+    print_string("  cp <src> <dest>    - Copier un fichier (overlay noyau)\n");
+    print_string("  mv <src> <dest>    - Déplacer un fichier overlay\n");
     print_string("  rm <file>          - Supprimer un fichier\n");
     
     print_colored("\nCOMMANDES PROCESSUS :\n", COLOR_YELLOW);
@@ -509,7 +509,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  reboot             - Redémarrer le système\n");
     print_string("  shutdown           - Arrêter le système\n");
     
-    print_colored("\nTIP: ls/cat/mkdir/rm parlent au noyau (initrd + overlay RAM). cp/mv restent un VFS local.\n", COLOR_GREEN);
+    print_colored("\nTIP: ls/cat/mkdir/rm/cp/mv parlent au noyau (initrd + overlay RAM).\n", COLOR_GREEN);
     print_colored("    Si le mode IA est activé, posez des questions sans 'ai'.\n\n", COLOR_GREEN);
 }
 
@@ -818,6 +818,10 @@ static void cmd_cd(shell_context_t* ctx, char args[][128], int arg_count) {
         }
     }
     strcpy(ctx->current_dir, newdir);
+    print_string("cd ok ");
+    if (arg_count == 0) print_string(ctx->current_dir);
+    else print_string(args[0]);
+    print_string("\n");
 }
 
 static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -956,10 +960,57 @@ static void cmd_rm(shell_context_t* ctx, char args[][128], int arg_count) {
             print_fs_err("rm", rc);
             return;
         }
+        print_string("rm ok ");
+        print_string(args[0]);
+        print_string("\n");
         return;
     }
     rc = ramfs_rm(path);
     if (rc != RAMFS_OK) print_ramfs_err("rm", rc);
+}
+
+static const char* fs_basename(const char* path) {
+    const char* b = path ? path : "";
+    int i = 0;
+    while (path && path[i]) {
+        if (path[i] == '/') b = path + i + 1;
+        i++;
+    }
+    return (b && b[0]) ? b : "/";
+}
+
+static void fs_join(char* out, int max, const char* dir, const char* name) {
+    int i = 0;
+    int j = 0;
+    if (!dir) dir = "/";
+    if (!name) name = "";
+    while (dir[i] && i < max - 2) {
+        out[i] = dir[i];
+        i++;
+    }
+    if (i > 0 && out[i - 1] != '/') out[i++] = '/';
+    while (name[j] && i < max - 1) out[i++] = name[j++];
+    out[i] = '\0';
+}
+
+static int kernel_copy_file(const char* src, char* dest, int dest_max) {
+    os_dirent_t st;
+    char buf[256];
+    int n;
+    int w;
+    (void)dest_max;
+    if (sys_stat(src, &st) != 0) return -1;
+    if (st.flags == OS_DIRENT_DIR) return -4;
+    n = sys_readfile(src, buf, (int)sizeof(buf));
+    if (n < 0) return n;
+    if (sys_stat(dest, &st) == 0 && st.flags == OS_DIRENT_DIR) {
+        char joined[RAMFS_PATH_MAX];
+        fs_join(joined, RAMFS_PATH_MAX, dest, fs_basename(src));
+        strcpy(dest, joined);
+    }
+    w = sys_writefile(dest, buf, n);
+    if (w < 0) return w;
+    return 0;
 }
 
 static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -972,6 +1023,13 @@ static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     resolve_arg(ctx, args[0], src);
     resolve_arg(ctx, args[1], dst);
+    rc = kernel_copy_file(src, dst, RAMFS_PATH_MAX);
+    if (rc == 0) {
+        print_string("cp ok ");
+        print_string(fs_basename(dst));
+        print_string("\n");
+        return;
+    }
     rc = ramfs_cp(src, dst);
     if (rc != RAMFS_OK) print_ramfs_err("cp", rc);
 }
@@ -979,6 +1037,7 @@ static void cmd_cp(shell_context_t* ctx, char args[][128], int arg_count) {
 static void cmd_mv(shell_context_t* ctx, char args[][128], int arg_count) {
     char src[RAMFS_PATH_MAX];
     char dst[RAMFS_PATH_MAX];
+    os_dirent_t st;
     int rc;
     if (arg_count < 2) {
         print_error("mv: usage mv <src> <dest>");
@@ -986,6 +1045,31 @@ static void cmd_mv(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     resolve_arg(ctx, args[0], src);
     resolve_arg(ctx, args[1], dst);
+    if (sys_stat(src, &st) == 0) {
+        if (st.flags == OS_DIRENT_DIR) {
+            print_error("mv: repertoire non supporte");
+            return;
+        }
+        rc = kernel_copy_file(src, dst, RAMFS_PATH_MAX);
+        if (rc != 0) {
+            print_fs_err("mv", rc);
+            return;
+        }
+        rc = sys_unlink(src);
+        if (rc == -8) {
+            sys_unlink(dst);
+            print_fs_err("mv", rc);
+            return;
+        }
+        if (rc != 0) {
+            print_fs_err("mv", rc);
+            return;
+        }
+        print_string("mv ok ");
+        print_string(fs_basename(dst));
+        print_string("\n");
+        return;
+    }
     rc = ramfs_mv(src, dst);
     if (rc != RAMFS_OK) print_ramfs_err("mv", rc);
 }
