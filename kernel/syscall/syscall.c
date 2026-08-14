@@ -247,6 +247,14 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_overlay_rename((const char*)cpu->ebx,
                                                          (const char*)cpu->ecx);
             break;
+        case SYS_VFS_INITRD_STAT:
+            cpu->eax = (uint32_t)sys_vfs_initrd_stat((const char*)cpu->ebx,
+                                                      (os_dirent_t*)cpu->ecx);
+            break;
+        case SYS_VFS_OVERLAY_STAT:
+            cpu->eax = (uint32_t)sys_vfs_overlay_stat((const char*)cpu->ebx,
+                                                       (os_dirent_t*)cpu->ecx);
+            break;
         default:
 
             // Syscall inconnu
@@ -406,6 +414,24 @@ int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
     }
     if (!oldpath || !newpath) return -1;
     return overlay_rename(oldpath, newpath);
+}
+
+int sys_vfs_initrd_stat(const char* path, os_dirent_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !out) return -1;
+    return initrd_stat(path, out);
+}
+
+int sys_vfs_overlay_stat(const char* path, os_dirent_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !out) return -1;
+    return overlay_stat(path, out);
 }
 
 /*
