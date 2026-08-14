@@ -75,8 +75,10 @@
 #define SYS_VFS_OVERLAY_RMDIR 44
 /* EBX = nom de service, ECX = PID bénéficiaire ; capacité backend déléguée par le propriétaire. */
 #define SYS_SERVICE_BACKEND_GRANT 45
+/* EBX = nom de service, ECX = PID bénéficiaire ; révocation par le propriétaire. */
+#define SYS_SERVICE_BACKEND_REVOKE 46
 
-#define MAX_SYSCALLS 46
+#define MAX_SYSCALLS 47
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

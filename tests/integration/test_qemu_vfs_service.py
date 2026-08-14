@@ -128,6 +128,12 @@ def main():
             wait_for("vfscapclaim backend granted", proc, before_cap_grant)
             before_owner_after_cap = len(log_text())
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
+            before_cap_revoke = len(log_text())
+            send_command_until(monitor, "vfs-backend-revoke %s" % cap_claim_pid,
+                               "vfsserver backend revoke request", proc)
+            wait_for("vfs-backend-revoke ok request", proc, before_cap_revoke)
+            wait_for("vfscapclaim backend revoked", proc, before_cap_revoke)
+            send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_initrd_list = len(log_text())
             send_command_until(monitor, "vfs-list initrd/", "vfsserver list request", proc)
             wait_for("vfs-list partiel count 4", proc, before_initrd_list)

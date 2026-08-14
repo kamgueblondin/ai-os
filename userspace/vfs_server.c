@@ -40,6 +40,12 @@ static int service_backend_grant(const char* name, int target_pid) {
     return result;
 }
 
+static int service_backend_revoke(const char* name, int target_pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_REVOKE), "b"(name), "c"(target_pid));
+    return result;
+}
+
 static void print_int(int value) {
     char digits[12];
     int n = 0;
@@ -687,6 +693,15 @@ void main(void) {
             status = os_vfs_parse_backend_grant_request(&message, &target_pid);
             if (status == 0) status = service_backend_grant("vfs", target_pid);
             if (os_vfs_make_backend_grant_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_REVOKE) {
+            int target_pid;
+            int status;
+            puts("vfsserver backend revoke request\n");
+            status = os_vfs_parse_backend_revoke_request(&message, &target_pid);
+            if (status == 0) status = service_backend_revoke("vfs", target_pid);
+            if (os_vfs_make_backend_revoke_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {
