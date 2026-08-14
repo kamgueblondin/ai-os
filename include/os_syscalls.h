@@ -55,8 +55,10 @@
 #define SYS_VFS_OVERLAY_UNLINK 34
 /* EBX = ancien chemin overlay relatif, ECX = nouveau chemin relatif ; réservé au propriétaire de `vfs`. */
 #define SYS_VFS_OVERLAY_RENAME 35
+/* EBX = nom de service, ECX = os_service_status_t* ; état public borné. */
+#define SYS_SERVICE_STATUS 36
 
-#define MAX_SYSCALLS 36
+#define MAX_SYSCALLS 37
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -105,6 +107,15 @@ typedef struct {
     int32_t type;
     char name[OS_PROC_NAME_MAX];
 } os_proc_t;
+
+/* Instantané local d’un endpoint propriétaire de service. Il n’est ni
+ * atomique, ni réservé, ni une capability. */
+typedef struct {
+    int32_t owner_pid;
+    uint32_t queued_messages;
+    uint32_t client_capacity;
+    uint32_t endpoint_capacity;
+} os_service_status_t;
 
 typedef struct {
     uint32_t total_pages;

@@ -44,6 +44,7 @@ int sys_service_lookup(const char* name);
 int sys_service_unregister(const char* name);
 int sys_service_grant(const char* name, int target_pid);
 int sys_service_notify(const char* name);
+int sys_service_status(const char* name, os_service_status_t* out);
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_backend_write(const char* path, const char* data, uint32_t size);
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max);

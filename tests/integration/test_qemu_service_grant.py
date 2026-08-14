@@ -58,7 +58,7 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.20)
+        time.sleep(0.55)
     client.sendall(b"sendkey ret\n")
 
 
@@ -86,12 +86,20 @@ def main():
             before_publish = len(log_text())
             send_command(monitor, "service-publish demo")
             wait_for("service-publish ok demo", proc, before_publish)
+            before_status_empty = len(log_text())
+            send_command(monitor, "service-status demo")
+            wait_for("service-status ok demo pid 1 queued 0 client-capacity 2 endpoint-capacity 4",
+                     proc, before_status_empty)
             before_capacity_first = len(log_text())
             send_command(monitor, "ipc-send 1 one")
             wait_for("ipc-send ok 1 3", proc, before_capacity_first)
             before_capacity_second = len(log_text())
             send_command(monitor, "ipc-send 1 two")
             wait_for("ipc-send ok 1 3", proc, before_capacity_second)
+            before_status_full = len(log_text())
+            send_command(monitor, "service-status demo")
+            wait_for("service-status ok demo pid 1 queued 2 client-capacity 2 endpoint-capacity 4",
+                     proc, before_status_full)
             before_capacity_full = len(log_text())
             send_command(monitor, "ipc-send 1 three")
             wait_for("ipc-send: capacite du service atteinte", proc, before_capacity_full)
@@ -101,6 +109,10 @@ def main():
             before_capacity_drain_two = len(log_text())
             send_command(monitor, "ipc-recv")
             wait_for("ipc-recv from 1 type 0 data two", proc, before_capacity_drain_two)
+            before_status_drained = len(log_text())
+            send_command(monitor, "service-status demo")
+            wait_for("service-status ok demo pid 1 queued 0 client-capacity 2 endpoint-capacity 4",
+                     proc, before_status_drained)
             before_watch = len(log_text())
             send_command(monitor, "service-watch demo")
             wait_for("service-watch ok demo", proc, before_watch)
@@ -111,6 +123,7 @@ def main():
             if not spawned:
                 raise RuntimeError("client de revendication non lance")
             claimant_pid = spawned.group(1)
+            send_command(monitor, "yield")
             wait_for("serviceclaim waiting demo", proc, before_spawn)
             before_grant = len(log_text())
             send_command(monitor, "service-grant demo %s" % claimant_pid)
