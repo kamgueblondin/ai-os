@@ -66,6 +66,7 @@ void syscall_handler(cpu_state_t* cpu) {
     switch (cpu->eax) {
         case SYS_EXIT:
             service_notify_purge_pid(current_task->id);
+            service_registry_backend_remove_pid(current_task->id);
             (void)service_registry_remove_watcher_pid(current_task->id);
             task_wake_waiter(current_task);
             current_task->state = TASK_TERMINATED;
@@ -217,6 +218,10 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_service_grant((const char*)cpu->ebx, (int)cpu->ecx);
             if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
             break;
+        case SYS_SERVICE_BACKEND_GRANT:
+            cpu->eax = (uint32_t)sys_service_backend_grant((const char*)cpu->ebx, (int)cpu->ecx);
+            if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
+            break;
         case SYS_SERVICE_NOTIFY:
             cpu->eax = (uint32_t)sys_service_notify((const char*)cpu->ebx);
             break;
@@ -366,6 +371,16 @@ int sys_service_grant(const char* name, int target_pid) {
     return rc;
 }
 
+int sys_service_backend_grant(const char* name, int target_pid) {
+    task_t* target;
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) {
+        return OS_SERVICE_BAD_GRANTEE;
+    }
+    return service_registry_backend_grant(name, current_task->id, target_pid);
+}
+
 int sys_service_notify(const char* name) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
     return service_registry_subscribe(name, current_task->id);
@@ -390,25 +405,28 @@ int sys_service_status(const char* name, os_service_status_t* out) {
     return 0;
 }
 
+static int vfs_backend_allowed(void) {
+    return current_task && current_task->type == TASK_TYPE_USER &&
+        (service_registry_lookup("vfs") == current_task->id ||
+         service_registry_backend_allowed("vfs", current_task->id));
+}
+
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_readfile(path, buffer, max);
 }
 
 int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_writefile(path, data, size);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !buffer || max == 0U) return -1;
@@ -416,8 +434,7 @@ int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {
 }
 
 int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !buffer || max == 0U) return -1;
@@ -425,8 +442,7 @@ int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
 }
 
 int sys_vfs_overlay_unlink(const char* path) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path) return -1;
@@ -434,8 +450,7 @@ int sys_vfs_overlay_unlink(const char* path) {
 }
 
 int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!oldpath || !newpath) return -1;
@@ -443,8 +458,7 @@ int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
 }
 
 int sys_vfs_initrd_stat(const char* path, os_dirent_t* out) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out) return -1;
@@ -452,8 +466,7 @@ int sys_vfs_initrd_stat(const char* path, os_dirent_t* out) {
 }
 
 int sys_vfs_overlay_stat(const char* path, os_dirent_t* out) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out) return -1;
@@ -461,8 +474,7 @@ int sys_vfs_overlay_stat(const char* path, os_dirent_t* out) {
 }
 
 int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || max_n <= 0 || !initrd_is_dir(path)) return -1;
@@ -470,8 +482,7 @@ int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
 }
 
 int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || max_n <= 0 || !overlay_is_dir(path)) return -1;
@@ -479,8 +490,7 @@ int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
 }
 
 int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || !initrd_is_dir(path)) return -1;
@@ -488,8 +498,7 @@ int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t sta
 }
 
 int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || !overlay_is_dir(path)) return -1;
@@ -497,8 +506,7 @@ int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t st
 }
 
 int sys_vfs_overlay_mkdir(const char* path) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path) return -1;
@@ -506,8 +514,7 @@ int sys_vfs_overlay_mkdir(const char* path) {
 }
 
 int sys_vfs_overlay_rmdir(const char* path) {
-    if (!current_task || current_task->type != TASK_TYPE_USER ||
-        service_registry_lookup("vfs") != current_task->id) {
+    if (!vfs_backend_allowed()) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !overlay_is_dir(path)) return -1;
@@ -776,6 +783,7 @@ int sys_kill(int pid) {
     int rc = task_kill(pid);
     if (rc == 0) {
         service_notify_purge_pid(pid);
+        service_registry_backend_remove_pid(pid);
         (void)service_registry_remove_watcher_pid(pid);
     }
     return rc;

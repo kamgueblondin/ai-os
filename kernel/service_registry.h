@@ -6,6 +6,7 @@
 
 #define SERVICE_REGISTRY_CAPACITY 8U
 #define SERVICE_REGISTRY_WATCH_CAPACITY 8U
+#define SERVICE_REGISTRY_BACKEND_CAPACITY 4U
 
 typedef struct {
     int32_t pid;
@@ -29,5 +30,9 @@ int service_registry_remove_watcher_pid(int32_t pid);
 int service_registry_collect_owned(int32_t pid, service_registry_entry_t* out, uint32_t max);
 int service_registry_pid_is_owner(int32_t pid);
 int service_registry_name_valid(const char* name);
+int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t grantee_pid);
+int service_registry_backend_allowed(const char* name, int32_t pid);
+void service_registry_backend_remove_name(const char* name);
+void service_registry_backend_remove_pid(int32_t pid);
 
 #endif
