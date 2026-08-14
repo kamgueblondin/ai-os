@@ -169,6 +169,18 @@ static void test_backend_capability_is_revoked_on_transfer_and_pid_cleanup(void)
     TEST_ASSERT_FALSE(service_registry_backend_allowed("vfs", 7));
 }
 
+static void test_backend_capability_can_be_explicitly_revoked_without_name_transfer(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant("vfs", 3, 7));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed("vfs", 7));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_revoke("vfs", 3, 7));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed("vfs", 7));
+    TEST_ASSERT_EQUAL(3, service_registry_lookup("vfs"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_backend_revoke("vfs", 3, 7));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_OWNER, service_registry_backend_revoke("vfs", 9, 7));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_registry_rejects_invalid_names);
@@ -186,6 +198,7 @@ int main(void) {
     RUN_TEST(test_service_event_is_bounded_and_parsed);
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     RUN_TEST(test_backend_capability_is_revoked_on_transfer_and_pid_cleanup);
+    RUN_TEST(test_backend_capability_can_be_explicitly_revoked_without_name_transfer);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

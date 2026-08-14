@@ -12,16 +12,19 @@ static int backend_read(const char* path, char* buffer, uint32_t max) {
 
 void main(void) {
     char data[16];
-    int announced = 0;
+    int announced_waiting = 0;
+    int had_access = 0;
     for (;;) {
         int rc = backend_read("hello.txt", data, sizeof(data));
         if (rc >= 0) {
-            puts("vfscapclaim backend granted\n");
+            if (!had_access) puts("vfscapclaim backend granted\n");
+            had_access = 1;
+        } else if (had_access) {
+            puts("vfscapclaim backend revoked\n");
             for (;;) yield();
-        }
-        if (!announced) {
+        } else if (!announced_waiting) {
             puts("vfscapclaim waiting backend\n");
-            announced = 1;
+            announced_waiting = 1;
         }
         yield();
     }
