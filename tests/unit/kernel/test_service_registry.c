@@ -191,7 +191,10 @@ static void test_backend_capability_scoped_read_only_enforces_least_privilege(vo
     TEST_ASSERT_EQUAL(0, service_registry_backend_grant("vfs", 3, 8));
     TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 8, SERVICE_BACKEND_RIGHT_READ));
     TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 8, SERVICE_BACKEND_RIGHT_MUTATE));
-    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped("vfs", 3, 9, 4U));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 9, SERVICE_BACKEND_RIGHT_MUTATE));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for("vfs", 9, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 9, SERVICE_BACKEND_RIGHT_MUTATE));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped("vfs", 3, 10, 4U));
 }
 
 int main(void) {

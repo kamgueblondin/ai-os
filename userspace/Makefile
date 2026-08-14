@@ -8,7 +8,7 @@ LDFLAGS = -nostdlib -Ttext=0x40000000
 ASFLAGS = --32
 
 # Programmes à compiler
-PROGRAMS = shell fake_ai test_program ai_assistant idle spin ipcserver vfsserver serviceclaim vfsclaim vfscapclaim vfsreadclaim ok
+PROGRAMS = shell fake_ai test_program ai_assistant idle spin ipcserver vfsserver serviceclaim vfsclaim vfscapclaim vfsreadclaim vfsmutateclaim ok
 USER_HEADERS = ../include/os_syscalls.h ../include/os_vfs_service.h ../include/os_ipc_deferred.h
 
 all: $(PROGRAMS)
@@ -59,6 +59,10 @@ vfscapclaim: vfs_backend_claim.o start.o
 
 vfsreadclaim: vfs_read_claim.o start.o
 	@echo "Linking vfsreadclaim..."
+	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
+
+vfsmutateclaim: vfs_mutate_claim.o start.o
+	@echo "Linking vfsmutateclaim..."
 	$(LD) -m elf_i386 $(LDFLAGS) -o $@ $^
 
 ok: ok.o start.o
