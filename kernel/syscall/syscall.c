@@ -230,6 +230,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_service_backend_grant_scoped((const char*)cpu->ebx, (int)cpu->ecx, cpu->edx);
             if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
             break;
+        case SYS_SERVICE_BACKEND_STATUS:
+            cpu->eax = (uint32_t)sys_service_backend_status((const char*)cpu->ebx, (int)cpu->ecx, (uint32_t*)cpu->edx);
+            break;
         case SYS_SERVICE_NOTIFY:
             cpu->eax = (uint32_t)sys_service_notify((const char*)cpu->ebx);
             break;
@@ -403,6 +406,14 @@ int sys_service_backend_revoke(const char* name, int target_pid) {
     target = get_task_by_id(target_pid);
     if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
     return service_registry_backend_revoke(name, current_task->id, target_pid);
+}
+
+int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_rights) {
+    task_t* target;
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out_rights) return OS_SERVICE_BAD_NAME;
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
+    return service_registry_backend_rights(name, current_task->id, target_pid, out_rights);
 }
 
 int sys_service_notify(const char* name) {

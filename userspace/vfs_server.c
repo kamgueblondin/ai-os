@@ -52,6 +52,12 @@ static int service_backend_revoke(const char* name, int target_pid) {
     return result;
 }
 
+static int service_backend_status(const char* name, int target_pid, uint32_t* rights) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_STATUS), "b"(name), "c"(target_pid), "d"(rights));
+    return result;
+}
+
 static void print_int(int value) {
     char digits[12];
     int n = 0;
@@ -718,6 +724,17 @@ void main(void) {
             status = os_vfs_parse_backend_revoke_request(&message, &target_pid);
             if (status == 0) status = service_backend_revoke("vfs", target_pid);
             if (os_vfs_make_backend_revoke_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_STATUS) {
+            int target_pid;
+            int status;
+            uint32_t rights = 0U;
+            puts("vfsserver backend status request\n");
+            status = os_vfs_parse_backend_status_request(&message, &target_pid);
+            if (status == 0) status = service_backend_status("vfs", target_pid, &rights);
+            if (status != 0) rights = 0U;
+            if (os_vfs_make_backend_status_reply(&reply_payload, status, rights, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

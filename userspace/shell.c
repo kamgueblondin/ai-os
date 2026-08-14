@@ -604,6 +604,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-backend-grant-read <pid> - Deleguer lecture backend VFS seulement\n");
     print_string("  vfs-backend-grant-mutate <pid> - Deleguer mutation backend VFS seulement\n");
     print_string("  vfs-backend-revoke <pid> - Retirer explicitement un acces backend VFS\n");
+    print_string("  vfs-backend-status <pid> - Consulter le profil backend VFS d'un PID\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
     print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
@@ -1825,6 +1826,27 @@ static void cmd_vfs_backend_revoke(shell_context_t* ctx, char args[][128], int a
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_REVOKE_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_revoke_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-revoke: revocation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-revoke ok request "); print_int((int)request_id); print_string("\n");
+}
+
+static void cmd_vfs_backend_status(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message;
+    int pid, target_pid, rc, status, attempts; uint32_t request_id, rights;
+    if (arg_count != 1 || (target_pid = parse_int(args[0])) <= 0) { print_error("Usage: vfs-backend-status <pid>"); return; }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-backend-status: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id(); rc = os_vfs_make_backend_status_request(&request, target_pid, request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-backend-status: demande refusee"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_STATUS_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_backend_status_reply(&message, &status, &rights, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_STATUS_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_status_reply(&message, &status, &rights, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    if (rc != 0 || status != 0) { print_error("vfs-backend-status: capacite absente ou refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
+    ctx->last_rc = 0; print_string("vfs-backend-status ok rights ");
+    if (rights == OS_VFS_BACKEND_RIGHT_READ) print_string("read");
+    else if (rights == OS_VFS_BACKEND_RIGHT_MUTATE) print_string("mutate");
+    else if (rights == OS_VFS_BACKEND_RIGHT_ALL) print_string("full");
+    else { print_error("vfs-backend-status: masque invalide"); ctx->last_rc = OS_VFS_STATUS_INVALID; return; }
+    print_string(" request "); print_int((int)request_id); print_string("\n");
 }
 
 static void cmd_vfs_write(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -3388,6 +3410,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-backend-revoke") == 0) {
         cmd_vfs_backend_revoke(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-backend-status") == 0) {
+        cmd_vfs_backend_status(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);

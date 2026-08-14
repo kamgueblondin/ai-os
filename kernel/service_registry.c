@@ -224,6 +224,20 @@ int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t
     return OS_SERVICE_NOT_FOUND;
 }
 
+int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t* out_rights) {
+    uint32_t i;
+    if (!service_registry_name_valid(name) || owner_pid <= 0 || grantee_pid <= 0 || !out_rights) return OS_SERVICE_BAD_NAME;
+    if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
+    for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
+        if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid &&
+            name_equal(service_backend_caps[i].name, name)) {
+            *out_rights = service_backend_caps[i].rights;
+            return 0;
+        }
+    }
+    return OS_SERVICE_NOT_FOUND;
+}
+
 int service_registry_subscribe(const char* name, int32_t pid) {
     uint32_t i;
     int free_slot = -1;
