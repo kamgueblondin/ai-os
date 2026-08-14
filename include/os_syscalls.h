@@ -57,8 +57,12 @@
 #define SYS_VFS_OVERLAY_RENAME 35
 /* EBX = nom de service, ECX = os_service_status_t* ; état public borné. */
 #define SYS_SERVICE_STATUS 36
+/* EBX = chemin initrd relatif, ECX = os_dirent_t* ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_INITRD_STAT 37
+/* EBX = chemin overlay relatif, ECX = os_dirent_t* ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_OVERLAY_STAT 38
 
-#define MAX_SYSCALLS 37
+#define MAX_SYSCALLS 39
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

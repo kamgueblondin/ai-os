@@ -57,6 +57,18 @@ static int backend_overlay_read(const char* path, char* buffer, uint32_t max) {
     return result;
 }
 
+static int backend_initrd_stat(const char* path, os_dirent_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_STAT), "b"(path), "c"(out));
+    return result;
+}
+
+static int backend_overlay_stat(const char* path, os_dirent_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_STAT), "b"(path), "c"(out));
+    return result;
+}
+
 static int backend_write(const char* path, const uint8_t* data, uint32_t size) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_WRITE), "b"(path), "c"(data), "d"(size));
@@ -229,6 +241,19 @@ static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size)
 }
 
 /* Les mutations restent limitées aux entrées de source overlay. */
+static int stat_mounted_backend(const char* path, os_dirent_t* out) {
+    uint32_t i;
+    for (i = 0U; i < vfs_mount_count; i++) {
+        const char* relative = 0;
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            return vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
+                ? backend_initrd_stat(relative, out)
+                : backend_overlay_stat(relative, out);
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
@@ -275,6 +300,7 @@ void main(void) {
     char new_path[OS_VFS_PATH_MAX];
     uint8_t data[OS_VFS_READ_MAX];
     uint8_t write_data[OS_VFS_WRITE_MAX];
+    os_dirent_t metadata;
     if (service_register("vfs") != 0) {
         puts("vfsserver register failed\n");
         for (;;) yield();
@@ -284,7 +310,23 @@ void main(void) {
     puts("vfsserver mount overlay/ rw\n");
     for (;;) {
         int received = ipc_receive(&message);
-        if (received == 0 && message.type == OS_IPC_VFS_READ) {
+        if (received == 0 && message.type == OS_IPC_VFS_STAT) {
+            int status;
+            puts("vfsserver stat request\n");
+            status = os_vfs_parse_stat_request(&message, path);
+            if (status == 0) {
+                status = stat_mounted_backend(path, &metadata);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) {
+                    puts("vfsserver stat outside mounts\n");
+                }
+            }
+            if (os_vfs_make_stat_reply(&reply_payload, status,
+                                       status == 0 ? metadata.size : 0U,
+                                       status == 0 ? metadata.flags : 0U,
+                                       message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_READ) {
             int status;
             vfs_read_requests++;
             puts("vfsserver read request\n");
