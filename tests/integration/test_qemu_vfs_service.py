@@ -59,8 +59,22 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.55)
+        time.sleep(0.90)
     client.sendall(b"sendkey ret\n")
+
+
+def send_command_until(client, command, needle, proc, attempts=3):
+    error = None
+    for _ in range(attempts):
+        start = len(log_text())
+        send_command(client, command)
+        try:
+            wait_for(needle, proc, start)
+            return
+        except RuntimeError as caught:
+            error = caught
+            time.sleep(0.5)
+    raise error
 
 
 def main():
@@ -73,7 +87,7 @@ def main():
     with open(DISK, "wb") as disk_handle:
         disk_handle.truncate(64 * 512)
     command = [
-        "qemu-system-i386", "-kernel", KERNEL, "-initrd", INITRD,
+        "qemu-system-i386", "-cpu", "pentium3", "-kernel", KERNEL, "-initrd", INITRD,
         "-m", "1024M", "-display", "none", "-vga", "none",
         "-serial", "file:" + LOG,
         "-monitor", "unix:%s,server,nowait" % MON,
@@ -91,9 +105,8 @@ def main():
             send_command(monitor, "vfs-backend-probe hello.txt")
             wait_for("vfs-backend-probe denied", proc, before_probe)
             before_spawn = len(log_text())
-            send_command(monitor, "spawn vfsserver")
-            wait_for("spawn ok pid", proc, before_spawn)
-            spawned = re.search(r"spawn ok pid (\d+) vfsserver", log_text()[before_spawn:])
+            send_command_until(monitor, "spawn vfsserver", "spawn ok pid", proc)
+            spawned = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsserver", log_text()[before_spawn:])
             if not spawned:
                 raise RuntimeError("serveur VFS non lance")
             server_pid = spawned.group(1)
@@ -110,20 +123,46 @@ def main():
             before_direct_write = len(log_text())
             send_command(monitor, "vfs-backend-write-probe note.txt denied")
             wait_for("vfs-backend-write-probe denied", proc, before_direct_write)
-            before_direct_remove = len(log_text())
-            send_command(monitor, "vfs-backend-remove-probe note.txt")
-            wait_for("vfs-backend-remove-probe denied", proc, before_direct_remove)
+            send_command_until(monitor, "vfs-backend-remove-probe note.txt",
+                               "vfs-backend-remove-probe denied", proc)
             before_direct_rename = len(log_text())
             send_command(monitor, "vfs-backend-rename-probe note.txt moved.txt")
             wait_for("vfs-backend-rename-probe denied", proc, before_direct_rename)
+            before_add_assets = len(log_text())
+            send_command_until(monitor, "vfs-mount-add assets/ initrd",
+                               "vfsserver mount added assets/ initrd", proc)
+            wait_for("vfs-mount-add ok request", proc, before_add_assets)
+            before_add_work = len(log_text())
+            send_command_until(monitor, "vfs-mount-add work/ overlay",
+                               "vfsserver mount added work/ overlay", proc)
+            wait_for("vfs-mount-add ok request", proc, before_add_work)
+            before_add_temp = len(log_text())
+            send_command_until(monitor, "vfs-mount-add temp/ initrd",
+                               "vfsserver mount added temp/ initrd", proc)
+            wait_for("vfs-mount-add ok request", proc, before_add_temp)
+            before_full = len(log_text())
+            send_command(monitor, "vfs-mount-add full/ overlay")
+            wait_for("vfsserver mount add rc -62", proc, before_full)
+            wait_for("vfs-mount-add: table de montages pleine", proc, before_full)
+            before_protected = len(log_text())
+            send_command(monitor, "vfs-mount-remove initrd/")
+            wait_for("vfsserver mount remove rc -60", proc, before_protected)
+            wait_for("vfs-mount-remove: montage protege ou refuse", proc, before_protected)
             before_mounts = len(log_text())
             send_command(monitor, "vfs-read vfs-mounts")
             wait_for("vfsserver virtual vfs-mounts", proc, before_mounts)
             wait_for("vfs-read ok", proc, before_mounts)
             wait_for("initrd/", proc, before_mounts)
+            wait_for("assets/ ro", proc, before_mounts)
+            wait_for("work/ rw", proc, before_mounts)
+            wait_for("temp/ ro", proc, before_mounts)
+            before_alias_read = len(log_text())
+            send_command(monitor, "vfs-read assets/hello.txt")
+            wait_for("vfs-read ok", proc, before_alias_read)
+            wait_for("Un autre fichier de demonstration.", proc, before_alias_read)
             before_outside = len(log_text())
-            send_command(monitor, "vfs-read hello.txt")
-            wait_for("vfsserver path outside mounts", proc, before_outside)
+            send_command_until(monitor, "vfs-read hello.txt",
+                               "vfsserver path outside mounts", proc)
             wait_for("vfs-read: chemin hors montage", proc, before_outside)
             before_pending = len(log_text())
             send_command(monitor, "ipc-send 1 deferred")
@@ -131,7 +170,7 @@ def main():
             before_read = len(log_text())
             send_command(monitor, "vfs-read initrd/hello.txt")
             wait_for("vfs-read ok", proc, before_read)
-            wait_for("request 4 data", proc, before_read)
+            wait_for("request 10 data", proc, before_read)
             wait_for("Un autre fichier de demonstration.", proc, before_read)
             before_receive = len(log_text())
             send_command(monitor, "ipc-recv")
@@ -153,6 +192,23 @@ def main():
             send_command(monitor, "vfs-rename initrd/no.txt overlay/moved.txt")
             wait_for("vfsserver rename outside mounts", proc, before_readonly_rename)
             wait_for("vfs-rename: chemins hors montage ecriture", proc, before_readonly_rename)
+            before_alias_write = len(log_text())
+            send_command(monitor, "vfs-write work/alias.txt workok")
+            wait_for("vfs-write ok request", proc, before_alias_write)
+            before_alias_written_read = len(log_text())
+            send_command(monitor, "vfs-read work/alias.txt")
+            wait_for("vfs-read ok", proc, before_alias_written_read)
+            wait_for("workok", proc, before_alias_written_read)
+            before_alias_remove = len(log_text())
+            send_command(monitor, "vfs-mount-remove work/")
+            wait_for("vfsserver mount removed work/", proc, before_alias_remove)
+            wait_for("vfs-mount-remove ok request", proc, before_alias_remove)
+            before_alias_revoked = len(log_text())
+            send_command(monitor, "vfs-read work/alias.txt")
+            wait_for("vfs-read: chemin hors montage", proc, before_alias_revoked)
+            before_alias_missing = len(log_text())
+            send_command(monitor, "vfs-mount-remove work/")
+            wait_for("vfs-mount-remove: montage absent", proc, before_alias_missing)
             before_write = len(log_text())
             send_command(monitor, "vfs-write overlay/note.txt vfsok")
             wait_for("vfsserver write request", proc, before_write)
@@ -181,14 +237,13 @@ def main():
             wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_removed_read)
             before_final_stats = len(log_text())
             send_command(monitor, "vfs-stats")
-            wait_for("reads=10", proc, before_final_stats)
-            wait_for("writes=2", proc, before_final_stats)
+            wait_for("reads=13", proc, before_final_stats)
+            wait_for("writes=3", proc, before_final_stats)
             wait_for("removes=2", proc, before_final_stats)
             wait_for("renames=2", proc, before_final_stats)
             before_claim = len(log_text())
-            send_command(monitor, "spawn vfsclaim")
-            wait_for("spawn ok pid", proc, before_claim)
-            claimed = re.search(r"spawn ok pid (\d+) vfsclaim", log_text()[before_claim:])
+            send_command_until(monitor, "spawn vfsclaim", "spawn ok pid", proc)
+            claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsclaim", log_text()[before_claim:])
             if not claimed:
                 raise RuntimeError("beneficiaire VFS non lance")
             claim_pid = claimed.group(1)

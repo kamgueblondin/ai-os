@@ -88,20 +88,66 @@ static int string_equal(const char* left, const char* right) {
     return left[i] == right[i];
 }
 
-/* Sources VFS isolées : métadonnées synthétiques fournies par le service. */
-#define VFS_READ_SOURCE_INITRD 1U
-#define VFS_READ_SOURCE_OVERLAY 2U
+/* Table locale de montages : les entrées de démarrage sont protégées ; trois
+ * alias dynamiques restent possibles. Les noms dynamiques sont bornés pour
+ * que la source virtuelle `vfs-mounts` tienne toujours dans 80 octets. */
+#define VFS_MOUNT_MAX 5U
+#define VFS_BOOT_MOUNT_COUNT 2U
+#define VFS_DYNAMIC_MOUNT_MAX 13U
 typedef struct {
-    const char* mount;
+    char prefix[OS_VFS_PATH_MAX];
     uint32_t source;
-} vfs_read_mount_t;
-static const vfs_read_mount_t vfs_read_mounts[] = {
-    { "initrd/", VFS_READ_SOURCE_INITRD },
-    { "overlay/", VFS_READ_SOURCE_OVERLAY },
+    uint32_t protected_mount;
+} vfs_mount_t;
+static vfs_mount_t vfs_mounts[VFS_MOUNT_MAX] = {
+    { "initrd/", OS_VFS_MOUNT_SOURCE_INITRD, 1U },
+    { "overlay/", OS_VFS_MOUNT_SOURCE_OVERLAY, 1U },
 };
-static const char* const vfs_write_mounts[] = { "overlay/" };
-#define VFS_READ_MOUNT_COUNT (sizeof(vfs_read_mounts) / sizeof(vfs_read_mounts[0]))
-#define VFS_WRITE_MOUNT_COUNT (sizeof(vfs_write_mounts) / sizeof(vfs_write_mounts[0]))
+static uint32_t vfs_mount_count = VFS_BOOT_MOUNT_COUNT;
+
+static uint32_t string_length(const char* text) {
+    uint32_t i = 0U;
+    while (text[i] != '\0') i++;
+    return i;
+}
+
+static int mount_prefixes_overlap(const char* left, const char* right) {
+    uint32_t i = 0U;
+    while (left[i] != '\0' && right[i] != '\0' && left[i] == right[i]) i++;
+    return left[i] == '\0' || right[i] == '\0';
+}
+
+static int vfs_mount_add(const char* prefix, uint32_t source) {
+    uint32_t i;
+    if (string_length(prefix) > VFS_DYNAMIC_MOUNT_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < vfs_mount_count; i++) {
+        if (string_equal(prefix, vfs_mounts[i].prefix)) return OS_VFS_STATUS_MOUNT_EXISTS;
+        if (mount_prefixes_overlap(prefix, vfs_mounts[i].prefix)) return OS_VFS_STATUS_INVALID;
+    }
+    if (vfs_mount_count >= VFS_MOUNT_MAX) return OS_VFS_STATUS_MOUNT_FULL;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) vfs_mounts[vfs_mount_count].prefix[i] = prefix[i];
+    vfs_mounts[vfs_mount_count].source = source;
+    vfs_mounts[vfs_mount_count].protected_mount = 0U;
+    vfs_mount_count++;
+    return OS_VFS_STATUS_OK;
+}
+
+static int vfs_mount_remove(const char* prefix) {
+    uint32_t i;
+    for (i = 0U; i < vfs_mount_count; i++) {
+        if (string_equal(prefix, vfs_mounts[i].prefix)) {
+            uint32_t j;
+            if (vfs_mounts[i].protected_mount) return OS_VFS_STATUS_INVALID;
+            for (j = i; j + 1U < vfs_mount_count; j++) vfs_mounts[j] = vfs_mounts[j + 1U];
+            vfs_mount_count--;
+            vfs_mounts[vfs_mount_count].prefix[0] = '\0';
+            vfs_mounts[vfs_mount_count].source = 0U;
+            vfs_mounts[vfs_mount_count].protected_mount = 0U;
+            return OS_VFS_STATUS_OK;
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
 
 /* Observabilité locale : compteurs volatils, remis à zéro au démarrage du
  * service. Toute requête VFS reconnue est comptée avant sa validation afin
@@ -134,12 +180,19 @@ static uint32_t append_uint(uint8_t* data, uint32_t offset, uint32_t value) {
 
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     static const char info[] = "vfsserver ring3 policy\n";
-    static const char mounts[] = "initrd/ ro\noverlay/ rw\n";
     const char* source = 0;
     uint32_t i;
     if (string_equal(path, "vfs-info")) source = info;
-    else if (string_equal(path, "vfs-mounts")) source = mounts;
-    else if (string_equal(path, "vfs-stats")) {
+    else if (string_equal(path, "vfs-mounts")) {
+        i = 0U;
+        for (uint32_t mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
+            i = append_text(data, i, vfs_mounts[mount_index].prefix);
+            i = append_text(data, i, vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_OVERLAY
+                              ? " rw\n" : " ro\n");
+        }
+        *size = i;
+        return 1;
+    } else if (string_equal(path, "vfs-stats")) {
         i = append_text(data, 0U, "reads=");
         i = append_uint(data, i, vfs_read_requests);
         i = append_text(data, i, "\nwrites=");
@@ -161,15 +214,12 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
  * montage déclaré par ce médiateur. */
 static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size) {
     uint32_t i;
-    for (i = 0U; i < VFS_READ_MOUNT_COUNT; i++) {
+    for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (os_vfs_match_mount(path, vfs_read_mounts[i].mount, &relative)) {
-            int read;
-            if (vfs_read_mounts[i].source == VFS_READ_SOURCE_INITRD) {
-                read = backend_initrd_read(relative, (char*)data, OS_VFS_READ_MAX);
-            } else {
-                read = backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX);
-            }
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            int read = vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
+                ? backend_initrd_read(relative, (char*)data, OS_VFS_READ_MAX)
+                : backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX);
             if (read < 0) return read;
             *size = (uint32_t)read;
             return OS_VFS_STATUS_OK;
@@ -178,12 +228,13 @@ static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size)
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
-/* Une écriture ne peut atteindre que le montage explicite `overlay/`. */
+/* Les mutations restent limitées aux entrées de source overlay. */
 static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size) {
     uint32_t i;
-    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+    for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (os_vfs_match_mount(path, vfs_write_mounts[i], &relative)) {
+        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
+            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
             int written = backend_write(relative, data, size);
             return written < 0 ? written : OS_VFS_STATUS_OK;
         }
@@ -193,9 +244,10 @@ static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t
 
 static int remove_mounted_backend(const char* path) {
     uint32_t i;
-    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+    for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (os_vfs_match_mount(path, vfs_write_mounts[i], &relative)) {
+        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
+            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
             return backend_remove(relative);
         }
     }
@@ -204,11 +256,12 @@ static int remove_mounted_backend(const char* path) {
 
 static int rename_mounted_backend(const char* oldpath, const char* newpath) {
     uint32_t i;
-    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+    for (i = 0U; i < vfs_mount_count; i++) {
         const char* old_relative = 0;
         const char* new_relative = 0;
-        if (os_vfs_match_mount(oldpath, vfs_write_mounts[i], &old_relative) &&
-            os_vfs_match_mount(newpath, vfs_write_mounts[i], &new_relative)) {
+        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
+            os_vfs_match_mount(oldpath, vfs_mounts[i].prefix, &old_relative) &&
+            os_vfs_match_mount(newpath, vfs_mounts[i].prefix, &new_relative)) {
             return backend_rename(old_relative, new_relative);
         }
     }
@@ -294,6 +347,43 @@ void main(void) {
                 }
             }
             if (os_vfs_make_rename_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_MOUNT_ADD) {
+            uint32_t source;
+            int status;
+            puts("vfsserver mount add request\n");
+            status = os_vfs_parse_mount_add_request(&message, path, &source);
+            if (status == 0) status = vfs_mount_add(path, source);
+            if (status == 0) {
+                puts("vfsserver mount added ");
+                puts(path);
+                puts(source == OS_VFS_MOUNT_SOURCE_OVERLAY ? " overlay\n" : " initrd\n");
+            } else {
+                puts("vfsserver mount add rc ");
+                print_int(status);
+                puts("\n");
+            }
+            if (os_vfs_make_mount_reply(&reply_payload, OS_IPC_VFS_MOUNT_ADD_REPLY,
+                                        status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_MOUNT_REMOVE) {
+            int status;
+            puts("vfsserver mount remove request\n");
+            status = os_vfs_parse_mount_remove_request(&message, path);
+            if (status == 0) status = vfs_mount_remove(path);
+            if (status == 0) {
+                puts("vfsserver mount removed ");
+                puts(path);
+                puts("\n");
+            } else {
+                puts("vfsserver mount remove rc ");
+                print_int(status);
+                puts("\n");
+            }
+            if (os_vfs_make_mount_reply(&reply_payload, OS_IPC_VFS_MOUNT_REMOVE_REPLY,
+                                        status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

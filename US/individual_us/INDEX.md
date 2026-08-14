@@ -14,14 +14,14 @@ Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décr
 
 | US fichier | Spec MOHHOS | Dans le prototype |
 |---|---|---|
-| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS Ring 3 lecture-écriture-suppression-renommage avec lectures initrd/overlay distinctes, statistiques locales, découverte `vfs`, cycle de vie, corrélation, conservation différée, transfert, révocation, montages `initrd/ ro` et `overlay/ rw` bornés et notifications best-effort ; noyau monolithique, backend non externalisé |
+| US-001 | Microkernel + IPC | **Livraison partielle :** IPC, VFS Ring 3 lecture-écriture-suppression-renommage avec lectures initrd/overlay distinctes, statistiques locales, trois alias de montage dynamiques au plus, découverte `vfs`, cycle de vie, corrélation, conservation différée, transfert, révocation et notifications best-effort ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |
 | US-003 | Sécurité adaptative IA | Isolation Ring 0/3 et PID d’émetteur IPC attribué par le noyau ; pas de capabilities ni de détection de menaces |
 | US-007 | Monitoring temps réel | `ps` / `mem` / `uptime` / `SYS_TICKS`, pas de télémétrie |
-| US-008 | Framework de tests IA | Unity 198 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé lecture-écriture-suppression-renommage et statistiques, cycle de vie, transfert, révocation et notifications) + GitHub Actions ; pas de framework distribué |
+| US-008 | Framework de tests IA | Unity 200 + contrats QEMU (cœur, IRQ0, fournisseur IA, IPC, VFS corrélé avec alias dynamiques, capacité, lecture-écriture-suppression-renommage et statistiques, cycle de vie, transfert, révocation et notifications) + GitHub Actions ; pas de framework distribué |
 | US-010 | Pilotes modulaires | PIC, PIT, PS/2, ATA PIO ; pas de framework de drivers |
-| US-012 | APIs unifiées | `include/os_syscalls.h` (36 syscalls), IPC avec `request_id` opaque, événements noyau de service, VFS lecture-écriture-suppression-renommage corrélé, statistiques via source virtuelle et lectures backend source-spécifiques, registre avec retrait et transfert par propriétaire |
-| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local de lecture-écriture-suppression-renommage avec sources distinctes et statistiques volatiles, registre, cycle de vie, corrélation, conservation bornée des réponses, transfert, révocation, montages statiques et notifications best-effort ; pas de capabilities, d’identité vérifiée ni de garantie de livraison |
+| US-012 | APIs unifiées | `include/os_syscalls.h` (36 syscalls), IPC avec `request_id` opaque, événements noyau de service, VFS lecture-écriture-suppression-renommage corrélé, gestion de montages par IPC, statistiques via source virtuelle et lectures backend source-spécifiques, registre avec retrait et transfert par propriétaire |
+| US-013 | Communication inter-services | **Livraison partielle :** IPC, VFS local de lecture-écriture-suppression-renommage avec sources distinctes, statistiques volatiles et alias de montage bornés, registre, cycle de vie, corrélation, conservation bornée des réponses, transfert, révocation et notifications best-effort ; pas de capabilities, d’identité vérifiée, de persistance ni de garantie de livraison |
 | US-016 | Moteur TensorFlow Lite | GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), pas TFLite |
 | US-017 | NLU 90 % d'intentions | BPE + complétion 12 jetons, pas d'analyse d'intention |
 | US-021 | Assistant IA proactif | Builtin `ai <texte>` synchrone et borné |
