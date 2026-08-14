@@ -595,6 +595,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
+    print_string("  vfs-mount-add <prefixe/> <initrd|overlay> - Ajouter un alias VFS\n");
+    print_string("  vfs-mount-remove <prefixe/> - Retirer un alias VFS dynamique\n");
     print_string("  vfs-write <chemin> <texte> - Ecrire via le montage VFS overlay/\n");
     print_string("  vfs-remove <chemin>  - Supprimer via le montage VFS overlay/\n");
     print_string("  vfs-rename <src> <dst> - Renommer via le montage VFS overlay/\n");
@@ -1181,7 +1183,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stats", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stats", "vfs-mount-add", "vfs-mount-remove", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1917,6 +1919,119 @@ static void cmd_vfs_rename(shell_context_t* ctx, char args[][128], int arg_count
         return;
     }
     print_string("vfs-rename ok request ");
+    print_int((int)request_id);
+    print_string("\n");
+}
+
+static int wait_vfs_mount_reply(uint32_t type, uint32_t request_id,
+                                os_vfs_mount_reply_t* reply) {
+    os_ipc_message_t message;
+    int rc;
+    int attempts;
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, type, request_id, &message);
+    if (rc == 0) return os_vfs_parse_mount_reply(&message, type, reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved;
+        yield();
+        rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == type && message.request_id == request_id) {
+                return os_vfs_parse_mount_reply(&message, type, reply, request_id);
+            }
+            saved = os_ipc_deferred_push(&ipc_deferred, &message);
+            rc = saved == 0 ? OS_IPC_EMPTY : saved;
+        }
+    }
+    return rc;
+}
+
+static void cmd_vfs_mount_add(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_vfs_mount_reply_t reply;
+    uint32_t source;
+    uint32_t request_id;
+    int pid;
+    int rc;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-mount-add <prefixe/> <initrd|overlay>");
+        return;
+    }
+    if (strcmp(args[1], "initrd") == 0) source = OS_VFS_MOUNT_SOURCE_INITRD;
+    else if (strcmp(args[1], "overlay") == 0) source = OS_VFS_MOUNT_SOURCE_OVERLAY;
+    else {
+        print_error("vfs-mount-add: source invalide");
+        ctx->last_rc = OS_VFS_STATUS_INVALID;
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-mount-add: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_mount_add_request(&request, args[0], source, request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-mount-add: prefixe invalide ou service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = wait_vfs_mount_reply(OS_IPC_VFS_MOUNT_ADD_REPLY, request_id, &reply);
+    if (rc != 0) {
+        print_error("vfs-mount-add: reponse VFS absente ou invalide");
+        ctx->last_rc = rc;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK) {
+        if (reply.status == OS_VFS_STATUS_MOUNT_FULL) print_error("vfs-mount-add: table de montages pleine");
+        else if (reply.status == OS_VFS_STATUS_MOUNT_EXISTS) print_error("vfs-mount-add: montage deja present");
+        else print_error("vfs-mount-add: montage refuse");
+        return;
+    }
+    print_string("vfs-mount-add ok request ");
+    print_int((int)request_id);
+    print_string("\n");
+}
+
+static void cmd_vfs_mount_remove(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_vfs_mount_reply_t reply;
+    uint32_t request_id;
+    int pid;
+    int rc;
+    if (arg_count != 1) {
+        print_error("Usage: vfs-mount-remove <prefixe/>");
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-mount-remove: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_mount_remove_request(&request, args[0], request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-mount-remove: prefixe invalide ou service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = wait_vfs_mount_reply(OS_IPC_VFS_MOUNT_REMOVE_REPLY, request_id, &reply);
+    if (rc != 0) {
+        print_error("vfs-mount-remove: reponse VFS absente ou invalide");
+        ctx->last_rc = rc;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK) {
+        if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) print_error("vfs-mount-remove: montage absent");
+        else print_error("vfs-mount-remove: montage protege ou refuse");
+        return;
+    }
+    print_string("vfs-mount-remove ok request ");
     print_int((int)request_id);
     print_string("\n");
 }
@@ -2862,6 +2977,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-stats") == 0) {
         cmd_vfs_stats(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-mount-add") == 0) {
+        cmd_vfs_mount_add(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-mount-remove") == 0) {
+        cmd_vfs_mount_remove(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-write") == 0) {
         cmd_vfs_write(ctx, args, arg_count);

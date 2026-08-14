@@ -13,6 +13,10 @@
 #define OS_IPC_VFS_REMOVE_REPLY 0x56465307U
 #define OS_IPC_VFS_RENAME       0x56465308U
 #define OS_IPC_VFS_RENAME_REPLY 0x56465309U
+#define OS_IPC_VFS_MOUNT_ADD       0x5646530aU
+#define OS_IPC_VFS_MOUNT_ADD_REPLY 0x5646530bU
+#define OS_IPC_VFS_MOUNT_REMOVE       0x5646530cU
+#define OS_IPC_VFS_MOUNT_REMOVE_REPLY 0x5646530dU
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -21,10 +25,17 @@
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
 #define OS_VFS_RENAME_REQUEST_SIZE (OS_VFS_PATH_MAX * 2U)
+#define OS_VFS_MOUNT_ADD_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U)
+#define OS_VFS_MOUNT_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_MOUNT_REPLY_SIZE 4U
+#define OS_VFS_MOUNT_SOURCE_INITRD 1U
+#define OS_VFS_MOUNT_SOURCE_OVERLAY 2U
 
 #define OS_VFS_STATUS_OK          0
 #define OS_VFS_STATUS_INVALID    (-60)
 #define OS_VFS_STATUS_NOT_MOUNTED (-61)
+#define OS_VFS_STATUS_MOUNT_FULL  (-62)
+#define OS_VFS_STATUS_MOUNT_EXISTS (-63)
 #define OS_VFS_STATUS_TRUNCATED   1
 
 typedef struct {
@@ -49,6 +60,10 @@ typedef struct {
     int32_t status;
 } os_vfs_rename_reply_t;
 
+typedef struct {
+    int32_t status;
+} os_vfs_mount_reply_t;
+
 static inline int os_vfs_path_is_safe(const char* path) {
     uint32_t i;
     if (!path || path[0] == '\0') return 0;
@@ -62,6 +77,17 @@ static inline int os_vfs_path_is_safe(const char* path) {
 /* Un montage est un préfixe de répertoire terminé par '/'. Le chemin relatif
  * retourné ne peut pas être vide : lire la racine d'un montage n'est pas une
  * opération de lecture de fichier. */
+static inline int os_vfs_mount_prefix_is_valid(const char* mount) {
+    uint32_t i = 0U;
+    if (!os_vfs_path_is_safe(mount)) return 0;
+    while (mount[i] != '\0') i++;
+    return i > 0U && mount[i - 1U] == '/';
+}
+
+static inline int os_vfs_mount_source_is_valid(uint32_t source) {
+    return source == OS_VFS_MOUNT_SOURCE_INITRD || source == OS_VFS_MOUNT_SOURCE_OVERLAY;
+}
+
 static inline int os_vfs_match_mount(const char* path, const char* mount,
                                      const char** relative_out) {
     uint32_t i = 0U;
@@ -294,6 +320,79 @@ static inline int os_vfs_parse_rename_reply(const os_ipc_message_t* message,
         message->size != OS_VFS_WRITE_REPLY_SIZE || message->request_id != expected_request_id) {
         return OS_VFS_STATUS_INVALID;
     }
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    return 0;
+}
+
+static inline int os_vfs_make_mount_add_request(os_ipc_payload_t* payload,
+                                                const char* mount, uint32_t source,
+                                                uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_mount_prefix_is_valid(mount) || !os_vfs_mount_source_is_valid(source)) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    payload->type = OS_IPC_VFS_MOUNT_ADD;
+    payload->size = OS_VFS_MOUNT_ADD_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)mount[i];
+    os_vfs_encode_u32(&payload->data[OS_VFS_PATH_MAX], source);
+    for (i = OS_VFS_MOUNT_ADD_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_mount_add_request(const os_ipc_message_t* message,
+                                                 char* mount_out, uint32_t* source_out) {
+    uint32_t i;
+    if (!message || !mount_out || !source_out || message->type != OS_IPC_VFS_MOUNT_ADD ||
+        message->size != OS_VFS_MOUNT_ADD_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) mount_out[i] = (char)message->data[i];
+    *source_out = os_vfs_decode_u32(&message->data[OS_VFS_PATH_MAX]);
+    return os_vfs_mount_prefix_is_valid(mount_out) && os_vfs_mount_source_is_valid(*source_out)
+        ? 0 : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_mount_remove_request(os_ipc_payload_t* payload,
+                                                    const char* mount, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_mount_prefix_is_valid(mount)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_MOUNT_REMOVE;
+    payload->size = OS_VFS_MOUNT_REMOVE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)mount[i];
+    for (i = OS_VFS_PATH_MAX; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_mount_remove_request(const os_ipc_message_t* message,
+                                                    char* mount_out) {
+    uint32_t i;
+    if (!message || !mount_out || message->type != OS_IPC_VFS_MOUNT_REMOVE ||
+        message->size != OS_VFS_MOUNT_REMOVE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) mount_out[i] = (char)message->data[i];
+    return os_vfs_mount_prefix_is_valid(mount_out) ? 0 : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_mount_reply(os_ipc_payload_t* payload, uint32_t type,
+                                          int32_t status, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || (type != OS_IPC_VFS_MOUNT_ADD_REPLY && type != OS_IPC_VFS_MOUNT_REMOVE_REPLY)) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    payload->type = type;
+    payload->size = OS_VFS_MOUNT_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    for (i = OS_VFS_MOUNT_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_mount_reply(const os_ipc_message_t* message, uint32_t type,
+                                           os_vfs_mount_reply_t* reply_out,
+                                           uint32_t expected_request_id) {
+    if (!message || !reply_out ||
+        (type != OS_IPC_VFS_MOUNT_ADD_REPLY && type != OS_IPC_VFS_MOUNT_REMOVE_REPLY) ||
+        message->type != type || message->size != OS_VFS_MOUNT_REPLY_SIZE ||
+        message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
     reply_out->status = os_vfs_decode_i32(&message->data[0]);
     return 0;
 }

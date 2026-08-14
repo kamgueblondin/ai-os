@@ -248,6 +248,72 @@ static void test_rename_rejects_invalid_path_and_reply(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_rename_reply(&message, &reply, 12U));
 }
 
+static void test_mount_add_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_mount_reply_t reply;
+    char mount[OS_VFS_PATH_MAX];
+    uint32_t source;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_mount_add_request(&payload, "assets/",
+                      OS_VFS_MOUNT_SOURCE_INITRD, 83U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_MOUNT_ADD, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_MOUNT_ADD_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(83, payload.request_id);
+    TEST_ASSERT_EQUAL(OS_VFS_MOUNT_SOURCE_INITRD,
+                      os_vfs_decode_u32(&payload.data[OS_VFS_PATH_MAX]));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_mount_add_request(&message, mount, &source));
+    TEST_ASSERT_EQUAL_STRING("assets/", mount);
+    TEST_ASSERT_EQUAL(OS_VFS_MOUNT_SOURCE_INITRD, source);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_mount_reply(&payload, OS_IPC_VFS_MOUNT_ADD_REPLY,
+                                                  OS_VFS_STATUS_OK, 83U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_mount_reply(&message, OS_IPC_VFS_MOUNT_ADD_REPLY,
+                                                   &reply, 83U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, reply.status);
+}
+
+static void test_mount_requests_reject_invalid_prefix_source_and_reply(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_mount_reply_t reply;
+    char mount[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_mount_add_request(&payload, "assets",
+                      OS_VFS_MOUNT_SOURCE_INITRD, 1U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_mount_add_request(&payload, "assets/", 99U, 1U));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_mount_remove_request(&payload, "cache/", 89U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_MOUNT_REMOVE, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_MOUNT_REMOVE_REQUEST_SIZE, payload.size);
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_mount_remove_request(&message, mount));
+    TEST_ASSERT_EQUAL_STRING("cache/", mount);
+    message.size = OS_VFS_MOUNT_REMOVE_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_mount_remove_request(&message, mount));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_mount_reply(&payload, OS_IPC_VFS_MOUNT_REMOVE_REPLY,
+                                                  OS_VFS_STATUS_NOT_MOUNTED, 89U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_mount_reply(&message,
+                      OS_IPC_VFS_MOUNT_REMOVE_REPLY, &reply, 90U));
+}
+
 static void test_reply_with_unexpected_request_id_is_rejected(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -278,6 +344,8 @@ int main(void) {
     RUN_TEST(test_remove_rejects_unsafe_path_and_unexpected_reply);
     RUN_TEST(test_rename_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_rename_rejects_invalid_path_and_reply);
+    RUN_TEST(test_mount_add_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_mount_requests_reject_invalid_prefix_source_and_reply);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     unity_print_results();
     unity_cleanup();

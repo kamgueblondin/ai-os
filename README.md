@@ -17,15 +17,15 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | Utilisateur | Shell ELF Ring 3, syscalls 0–35, `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets, `request_id` opaque et événements de service best-effort ; pas de capabilities |
-| VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`/`vfs-stats`, montages `initrd/ ro` et `overlay/ rw`, lectures source-spécifiques, écriture, suppression et renommage médiés, compteurs volatils, transfert contrôlé de `vfs` et backend réservé au propriétaire publié courant ; initrd/overlay encore noyau |
+| VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`/`vfs-stats`, deux montages protégés et trois alias dynamiques initrd/overlay au plus, lectures source-spécifiques, écriture, suppression et renommage médiés, compteurs volatils, transfert contrôlé de `vfs` et backend réservé au propriétaire publié courant ; initrd/overlay encore noyau |
 | Découverte Foundation | Registre volatile de 8 services et 8 abonnements ; retrait, transfert par propriétaire, notifications et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
 | GGUF | Sonde structurelle GGUF v3 et primitives Q8_0 ; pas encore d’inférence quantifiée |
 | Réseau | `net-status` et profil OpenAI explicitement bloqué ; aucune pile réseau noyau |
 
-Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `service-watch`, `vfs-backend-probe <fichier>`, `vfs-backend-write-probe <fichier> <texte>`, `vfs-backend-remove-probe <fichier>`, `vfs-backend-rename-probe <src> <dst>`, `vfs-grant <pid>`, `vfs-read <chemin>`, `vfs-stats`, `vfs-write <chemin> <texte>`, `vfs-remove <chemin>`, `vfs-rename <src> <dst>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`.
- `service-watch <nom>` abonne le shell à un service et `ipc-recv` affiche les transitions avec l’ancien PID, le nouveau PID et la raison ; la livraison est best-effort si la boîte IPC est pleine. `vfs-read` résout le service `vfs` au lieu d’accepter un PID ; le médiateur expose `vfs-read vfs-mounts`, sert `initrd/` depuis l’archive initrd exclusivement et `overlay/` depuis l’overlay ATA exclusivement, puis autorise `vfs-write overlay/note.txt texte`, `vfs-remove overlay/note.txt` et `vfs-rename overlay/note.txt overlay/moved.txt` sur le seul montage modifiable. `vfs-stats` réutilise une lecture corrélée de la source virtuelle du même nom et affiche les compteurs 32 bits volatils `reads`, `writes`, `removes` et `renames`, y compris les requêtes refusées. Les chemins globaux, les écritures, suppressions et renommages sous `initrd/` sont refusés par la politique de montage ; une requête d’écriture est bornée à 44 octets.
+Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `service-watch`, `vfs-backend-probe <fichier>`, `vfs-backend-write-probe <fichier> <texte>`, `vfs-backend-remove-probe <fichier>`, `vfs-backend-rename-probe <src> <dst>`, `vfs-grant <pid>`, `vfs-read <chemin>`, `vfs-stats`, `vfs-mount-add <prefixe/> <initrd|overlay>`, `vfs-mount-remove <prefixe/>`, `vfs-write <chemin> <texte>`, `vfs-remove <chemin>`, `vfs-rename <src> <dst>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime` et `net-status`.
+ `service-watch <nom>` abonne le shell à un service et `ipc-recv` affiche les transitions avec l’ancien PID, le nouveau PID et la raison ; la livraison est best-effort si la boîte IPC est pleine. `vfs-read` résout le service `vfs` au lieu d’accepter un PID ; le médiateur expose `vfs-read vfs-mounts`, sert `initrd/` depuis l’archive initrd exclusivement et `overlay/` depuis l’overlay ATA exclusivement. `vfs-mount-add assets/ initrd` ou `vfs-mount-add work/ overlay` ajoutent un alias local non recouvrant ; `vfs-mount-remove work/` le retire. La table contient cinq entrées au plus, protège `initrd/` et `overlay/`, ne persiste pas et ne survit pas à un nouveau serveur VFS. Un alias overlay autorise les mutations médiées existantes, alors qu’un alias initrd reste en lecture seule. `vfs-stats` réutilise une lecture corrélée de la source virtuelle du même nom et affiche les compteurs 32 bits volatils `reads`, `writes`, `removes` et `renames`, y compris les requêtes refusées. Une requête d’écriture est bornée à 44 octets.
  Les programmes initrd incluent `shell`, `idle`, `spin`, `ipcserver`, `vfsserver`, `serviceclaim`, `vfsclaim`, `ok`, `fake_ai`, `ai_assistant` et `user_program`.
 
 ## Démarrage rapide
@@ -45,13 +45,13 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 198 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 200 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
-| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS lecture-écriture-suppression-renommage médié, révocation, notifications, cycle de vie et transfert Foundation |
+| `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS avec montages dynamiques, mutations médiées, révocation, notifications, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
-| `make qemu-vfs-service` | Lance `vfsserver`, vérifie `initrd/ ro`, `overlay/ rw`, les refus, la lecture-écriture-suppression-renommage corrélée, le transfert et la révocation |
+| `make qemu-vfs-service` | Lance `vfsserver`, vérifie les alias dynamiques initrd/overlay, la capacité, les refus, les mutations corrélées, le transfert et la révocation |
 | `make qemu-service-grant` | Publie `demo`, observe l’événement de transfert et de purge, puis vérifie son nettoyage |
 | `make iso` | Produit l’ISO BIOS/GRUB bootable |
 | `make run` / `make run-gui` | Session QEMU interactive curses ou GTK |
@@ -93,7 +93,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **198/198** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (14), registre de services (13), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé avec conservation locale, montages `initrd/ ro` et `overlay/ rw` lus par sources distinctes, écriture, suppression et renommage médiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras et 0,55 s pour le contrat VFS.
+`make test-all` a validé **200/200** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (16), registre de services (13), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, médiateur VFS corrélé avec conservation locale, alias dynamiques initrd/overlay, capacité et protection de la table, écriture, suppression et renommage médiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras et 0,90 s pour le contrat VFS ; ce dernier relance au plus trois commandes longues jusqu’à leur marqueur fonctionnel attendu.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -124,6 +124,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Suppression VFS médiée : `vfs-remove overlay/<fichier>` est corrélé et réservé au propriétaire de `vfs`
 - [x] Renommage VFS médié : source et destination `overlay/` sont corrélées et réservées au propriétaire de `vfs`
 - [x] Statistiques VFS : compteurs volatils lecture-écriture-suppression-renommage exposés par `vfs-stats`
+- [x] Montages VFS dynamiques : trois alias initrd/overlay non recouvrants, volatils et corrélés au plus
 - [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
