@@ -27,6 +27,8 @@
 #define OS_IPC_VFS_LIST_OBSERVE_REPLY 0x56465315U
 #define OS_IPC_VFS_MKDIR       0x56465316U
 #define OS_IPC_VFS_MKDIR_REPLY 0x56465317U
+#define OS_IPC_VFS_RMDIR       0x56465318U
+#define OS_IPC_VFS_RMDIR_REPLY 0x56465319U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -39,6 +41,7 @@
 #define OS_VFS_MOUNT_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_MOUNT_REPLY_SIZE 4U
 #define OS_VFS_MKDIR_REPLY_SIZE 4U
+#define OS_VFS_RMDIR_REPLY_SIZE 4U
 #define OS_VFS_STAT_REPLY_SIZE 12U
 /* Réponse LIST : statut (4), nombre d’entrées retournées (4) et texte
  * NUL-paddé de noms séparés par '\n' (72), soit 80 octets au total. */
@@ -53,6 +56,7 @@
 #define OS_VFS_LIST_OBSERVE_DATA_MAX 64U
 #define OS_VFS_LIST_OBSERVE_REPLY_SIZE (16U + OS_VFS_LIST_OBSERVE_DATA_MAX)
 #define OS_VFS_STATUS_STALE (-64)
+#define OS_VFS_STATUS_NOT_EMPTY (-5)
 #define OS_VFS_MOUNT_SOURCE_INITRD 1U
 #define OS_VFS_MOUNT_SOURCE_OVERLAY 2U
 
@@ -270,6 +274,42 @@ static inline int os_vfs_make_mkdir_reply(os_ipc_payload_t* payload, int32_t sta
 static inline int os_vfs_parse_mkdir_reply(const os_ipc_message_t* message, int32_t* status_out, uint32_t expected_request_id) {
     if (!message || !status_out || message->type != OS_IPC_VFS_MKDIR_REPLY ||
         message->size != OS_VFS_MKDIR_REPLY_SIZE || message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
+    *status_out = (int32_t)((uint32_t)message->data[0] | ((uint32_t)message->data[1] << 8) |
+                            ((uint32_t)message->data[2] << 16) | ((uint32_t)message->data[3] << 24));
+    return 0;
+}
+
+static inline int os_vfs_make_rmdir_request(os_ipc_payload_t* payload, const char* path,
+                                            uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(path)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_RMDIR; payload->size = OS_VFS_PATH_MAX; payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    for (i = OS_VFS_PATH_MAX; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_rmdir_request(const os_ipc_message_t* message, char* path_out) {
+    uint32_t i;
+    if (!message || !path_out || message->type != OS_IPC_VFS_RMDIR || message->size != OS_VFS_PATH_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_path_is_safe(path_out) ? 0 : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_rmdir_reply(os_ipc_payload_t* payload, int32_t status, uint32_t request_id) {
+    uint32_t i;
+    uint32_t raw = (uint32_t)status;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_RMDIR_REPLY; payload->size = OS_VFS_RMDIR_REPLY_SIZE; payload->request_id = request_id;
+    payload->data[0] = (uint8_t)(raw & 0xffU); payload->data[1] = (uint8_t)((raw >> 8) & 0xffU);
+    payload->data[2] = (uint8_t)((raw >> 16) & 0xffU); payload->data[3] = (uint8_t)((raw >> 24) & 0xffU);
+    for (i = OS_VFS_RMDIR_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_rmdir_reply(const os_ipc_message_t* message, int32_t* status_out, uint32_t expected_request_id) {
+    if (!message || !status_out || message->type != OS_IPC_VFS_RMDIR_REPLY ||
+        message->size != OS_VFS_RMDIR_REPLY_SIZE || message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
     *status_out = (int32_t)((uint32_t)message->data[0] | ((uint32_t)message->data[1] << 8) |
                             ((uint32_t)message->data[2] << 16) | ((uint32_t)message->data[3] << 24));
     return 0;

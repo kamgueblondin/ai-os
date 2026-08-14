@@ -71,8 +71,10 @@
 #define SYS_VFS_OVERLAY_LISTDIR_PAGE 42
 /* EBX = chemin overlay relatif ; réservé au propriétaire de `vfs`. */
 #define SYS_VFS_OVERLAY_MKDIR 43
+/* EBX = chemin overlay relatif ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_OVERLAY_RMDIR 44
 
-#define MAX_SYSCALLS 44
+#define MAX_SYSCALLS 45
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
