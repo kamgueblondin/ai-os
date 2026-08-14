@@ -112,6 +112,18 @@ static void test_owned_snapshot_survives_removal_for_notification(void) {
     TEST_ASSERT_EQUAL('l', owned[1].name[0]);
 }
 
+static void test_owner_predicate_tracks_register_grant_and_remove(void) {
+    service_registry_init();
+    TEST_ASSERT_FALSE(service_registry_pid_is_owner(3));
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 3));
+    TEST_ASSERT_TRUE(service_registry_pid_is_owner(3));
+    TEST_ASSERT_EQUAL(0, service_registry_grant("demo", 3, 8));
+    TEST_ASSERT_FALSE(service_registry_pid_is_owner(3));
+    TEST_ASSERT_TRUE(service_registry_pid_is_owner(8));
+    TEST_ASSERT_EQUAL(0, service_registry_remove_pid(8));
+    TEST_ASSERT_FALSE(service_registry_pid_is_owner(8));
+}
+
 static void test_service_event_is_bounded_and_parsed(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -157,6 +169,7 @@ int main(void) {
     RUN_TEST(test_watchers_are_collected_and_idempotent);
     RUN_TEST(test_watcher_capacity_and_cleanup_are_bounded);
     RUN_TEST(test_owned_snapshot_survives_removal_for_notification);
+    RUN_TEST(test_owner_predicate_tracks_register_grant_and_remove);
     RUN_TEST(test_service_event_is_bounded_and_parsed);
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     unity_print_results();

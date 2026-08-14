@@ -121,6 +121,15 @@ int service_registry_collect_owned(int32_t pid, service_registry_entry_t* out, u
     return (int)count;
 }
 
+int service_registry_pid_is_owner(int32_t pid) {
+    uint32_t i;
+    if (pid <= 0) return 0;
+    for (i = 0U; i < SERVICE_REGISTRY_CAPACITY; i++) {
+        if (service_entries[i].pid == pid) return 1;
+    }
+    return 0;
+}
+
 int service_registry_remove_pid(int32_t pid) {
     uint32_t i;
     int removed = 0;

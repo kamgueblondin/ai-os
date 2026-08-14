@@ -6,6 +6,9 @@
 
 /* Une capacité réduite évite qu'une tâche monopolise le tas noyau. */
 #define IPC_ENDPOINT_CAPACITY 4U
+/* Les propriétaires de services publiés gardent deux emplacements clients ;
+ * les notifications noyau continuent d’utiliser la capacité brute. */
+#define IPC_SERVICE_ENDPOINT_CAPACITY 2U
 
 typedef struct {
     os_ipc_message_t messages[IPC_ENDPOINT_CAPACITY];

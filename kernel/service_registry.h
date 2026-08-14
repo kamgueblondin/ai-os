@@ -27,6 +27,7 @@ int service_registry_subscribe(const char* name, int32_t pid);
 int service_registry_collect_watchers(const char* name, int32_t* out, uint32_t max);
 int service_registry_remove_watcher_pid(int32_t pid);
 int service_registry_collect_owned(int32_t pid, service_registry_entry_t* out, uint32_t max);
+int service_registry_pid_is_owner(int32_t pid);
 int service_registry_name_valid(const char* name);
 
 #endif
