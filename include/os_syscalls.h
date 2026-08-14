@@ -69,8 +69,10 @@
 #define SYS_VFS_INITRD_LISTDIR_PAGE 41
 /* EBX = chemin overlay relatif, ECX = os_dirent_t*, EDX = index logique ; page de cinq entrées. */
 #define SYS_VFS_OVERLAY_LISTDIR_PAGE 42
+/* EBX = chemin overlay relatif ; réservé au propriétaire de `vfs`. */
+#define SYS_VFS_OVERLAY_MKDIR 43
 
-#define MAX_SYSCALLS 43
+#define MAX_SYSCALLS 44
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

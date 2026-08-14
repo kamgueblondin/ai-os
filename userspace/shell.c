@@ -603,6 +603,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
     print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
+    print_string("  vfs-mkdir <chemin> - Creer un repertoire via un montage overlay VFS\n");
     print_string("  vfs-list-page <repertoire/> <depart> - Lire une page VFS mediee\n");
     print_string("  vfs-list-observe <repertoire/> <depart> <generation> - Lire une page coherente\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
@@ -2147,6 +2148,33 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     if (reply.size == 0U || reply.data[reply.size - 1U] != '\n') print_string("\n");
 }
 
+static void cmd_vfs_mkdir(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message;
+    int pid, rc, status, attempts; uint32_t request_id;
+    if (arg_count != 1) { print_error("Usage: vfs-mkdir <chemin>"); return; }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-mkdir: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id(); rc = os_vfs_make_mkdir_request(&request, args[0], request_id);
+    if (rc != 0) { print_error("vfs-mkdir: chemin invalide ou trop long"); ctx->last_rc = rc; return; }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-mkdir: service indisponible"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_MKDIR_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_mkdir_reply(&message, &status, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved; yield(); rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_MKDIR_REPLY && message.request_id == request_id)
+                rc = os_vfs_parse_mkdir_reply(&message, &status, request_id);
+            else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
+        }
+    }
+    if (rc != 0) { print_error("vfs-mkdir: reponse VFS absente ou invalide"); ctx->last_rc = rc; return; }
+    ctx->last_rc = status;
+    if (status == OS_VFS_STATUS_OK) { print_string("vfs-mkdir ok request "); print_int((int)request_id); print_string("\n"); }
+    else if (status == OS_VFS_STATUS_NOT_MOUNTED) print_error("vfs-mkdir: chemin hors montage overlay");
+    else print_error("vfs-mkdir: creation refusee");
+}
+
 static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request;
     os_ipc_message_t message;
@@ -3258,6 +3286,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-stat") == 0) {
         cmd_vfs_stat(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-mkdir") == 0) {
+        cmd_vfs_mkdir(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-list") == 0) {
         cmd_vfs_list(ctx, args, arg_count);
