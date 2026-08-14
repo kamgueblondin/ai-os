@@ -604,6 +604,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
     print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
     print_string("  vfs-mkdir <chemin> - Creer un repertoire via un montage overlay VFS\n");
+    print_string("  vfs-rmdir <chemin> - Supprimer un repertoire vide via un montage overlay VFS\n");
     print_string("  vfs-list-page <repertoire/> <depart> - Lire une page VFS mediee\n");
     print_string("  vfs-list-observe <repertoire/> <depart> <generation> - Lire une page coherente\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
@@ -1195,7 +1196,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-status", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stat", "vfs-stats", "vfs-mount-add", "vfs-mount-remove", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-status", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stat", "vfs-stats", "vfs-mount-add", "vfs-mount-remove", "vfs-write", "vfs-remove", "vfs-rename", "vfs-mkdir", "vfs-rmdir", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -2173,6 +2174,34 @@ static void cmd_vfs_mkdir(shell_context_t* ctx, char args[][128], int arg_count)
     if (status == OS_VFS_STATUS_OK) { print_string("vfs-mkdir ok request "); print_int((int)request_id); print_string("\n"); }
     else if (status == OS_VFS_STATUS_NOT_MOUNTED) print_error("vfs-mkdir: chemin hors montage overlay");
     else print_error("vfs-mkdir: creation refusee");
+}
+
+static void cmd_vfs_rmdir(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message;
+    int pid, rc, status, attempts; uint32_t request_id;
+    if (arg_count != 1) { print_error("Usage: vfs-rmdir <chemin>"); return; }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-rmdir: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id(); rc = os_vfs_make_rmdir_request(&request, args[0], request_id);
+    if (rc != 0) { print_error("vfs-rmdir: chemin invalide ou trop long"); ctx->last_rc = rc; return; }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-rmdir: service indisponible"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_RMDIR_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_rmdir_reply(&message, &status, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved; yield(); rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_RMDIR_REPLY && message.request_id == request_id)
+                rc = os_vfs_parse_rmdir_reply(&message, &status, request_id);
+            else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
+        }
+    }
+    if (rc != 0) { print_error("vfs-rmdir: reponse VFS absente ou invalide"); ctx->last_rc = rc; return; }
+    ctx->last_rc = status;
+    if (status == OS_VFS_STATUS_OK) { print_string("vfs-rmdir ok request "); print_int((int)request_id); print_string("\n"); }
+    else if (status == OS_VFS_STATUS_NOT_MOUNTED) print_error("vfs-rmdir: chemin hors montage overlay");
+    else if (status == OS_VFS_STATUS_NOT_EMPTY) print_error("vfs-rmdir: repertoire non vide");
+    else print_error("vfs-rmdir: suppression refusee ou repertoire absent");
 }
 
 static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -3289,6 +3318,8 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-mkdir") == 0) {
         cmd_vfs_mkdir(ctx, args, arg_count);
+    } else if (strcmp(command, "vfs-rmdir") == 0) {
+        cmd_vfs_rmdir(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-list") == 0) {
         cmd_vfs_list(ctx, args, arg_count);

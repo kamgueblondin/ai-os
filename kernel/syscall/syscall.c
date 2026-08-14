@@ -278,6 +278,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_VFS_OVERLAY_MKDIR:
             cpu->eax = (uint32_t)sys_vfs_overlay_mkdir((const char*)cpu->ebx);
             break;
+        case SYS_VFS_OVERLAY_RMDIR:
+            cpu->eax = (uint32_t)sys_vfs_overlay_rmdir((const char*)cpu->ebx);
+            break;
         default:
 
             // Syscall inconnu
@@ -500,6 +503,15 @@ int sys_vfs_overlay_mkdir(const char* path) {
     }
     if (!path) return -1;
     return overlay_mkdir(path);
+}
+
+int sys_vfs_overlay_rmdir(const char* path) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !overlay_is_dir(path)) return -1;
+    return overlay_unlink(path);
 }
 
 /*

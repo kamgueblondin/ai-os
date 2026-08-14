@@ -45,13 +45,13 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 207 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 210 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS avec montages dynamiques, mutations médiées, révocation, notifications, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
-| `make qemu-vfs-service` | Lance `vfsserver`, vérifie listage source-spécifique de racine et sous-répertoire, alias dynamiques initrd/overlay, capacité, refus, mutations corrélées, transfert et révocation |
+| `make qemu-vfs-service` | Lance `vfsserver`, vérifie listage source-spécifique, alias dynamiques initrd/overlay, capacité, refus, création et suppression de répertoire vide, mutations corrélées, transfert et révocation |
 | `make qemu-service-grant` | Publie `demo`, observe l’événement de transfert et de purge, puis vérifie son nettoyage |
 | `make iso` | Produit l’ISO BIOS/GRUB bootable |
 | `make run` / `make run-gui` | Session QEMU interactive curses ou GTK |
@@ -93,7 +93,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **207/207** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (22), registre de services (14), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, capacité et instantanés de profondeur d’un propriétaire de service publié, médiateur VFS corrélé avec conservation locale, alias dynamiques initrd/overlay, capacité et protection de la table, métadonnées et listage source-spécifiques de racine ou de sous-répertoire, écriture, suppression et renommage médiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras, 0,90 s pour le contrat VFS et 0,55 s pour le contrat de service ; ces contrats relancent au plus trois commandes jusqu’à leur marqueur fonctionnel attendu, notamment pour les chemins IPC, VFS et service sensibles aux doubles frappes PS/2.
+`make test-all` a validé **210/210** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (25), registre de services (14), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, capacité et instantanés de profondeur d’un propriétaire de service publié, médiateur VFS corrélé avec conservation locale, alias dynamiques initrd/overlay, capacité et protection de la table, métadonnées et listage source-spécifiques de racine ou de sous-répertoire, écriture, suppression de fichier, suppression de répertoire vide et renommage médiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras, 1,10 s pour le contrat VFS et 0,55 s pour le contrat de service ; ces contrats relancent au plus trois commandes jusqu’à leur marqueur fonctionnel attendu, notamment pour les chemins IPC, VFS et service sensibles aux doubles frappes PS/2.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -129,6 +129,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] État de capacité de service : instantané public PID/profondeur/limites via `service-status`
 - [x] Métadonnées VFS médiées : taille et type source-spécifiques via `vfs-stat`
 - [x] Listage VFS médié : racine ou sous-répertoire sûr, page de quatre noms au plus par source déclarée via `vfs-list <repertoire/>`
+- [x] Création et suppression VFS de répertoire vide : `vfs-mkdir` et `vfs-rmdir` corrélés, limités aux montages overlay déclarés
 - [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde

@@ -109,6 +109,12 @@ static int backend_mkdir(const char* path) {
     return result;
 }
 
+static int backend_rmdir(const char* path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_RMDIR), "b"(path));
+    return result;
+}
+
 static int backend_remove(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_UNLINK), "b"(path));
@@ -415,6 +421,16 @@ static int mkdir_mounted_backend(const char* path) {
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int rmdir_mounted_backend(const char* path) {
+    uint32_t i;
+    for (i = 0U; i < vfs_mount_count; i++) {
+        const char* relative = 0;
+        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
+            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) return backend_rmdir(relative);
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static int remove_mounted_backend(const char* path) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
@@ -575,6 +591,18 @@ void main(void) {
             }
             if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_mkdir_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_RMDIR) {
+            int status;
+            puts("vfsserver rmdir request\n");
+            status = os_vfs_parse_rmdir_request(&message, path);
+            if (status == 0) {
+                status = rmdir_mounted_backend(path);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver rmdir outside mounts\n");
+            }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
+            if (os_vfs_make_rmdir_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_REMOVE) {
