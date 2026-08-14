@@ -36,6 +36,7 @@ int service_registry_name_valid(const char* name);
 int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t grantee_pid);
 int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights);
 int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t grantee_pid);
+int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t* out_rights);
 int service_registry_backend_allowed(const char* name, int32_t pid);
 int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right);
 void service_registry_backend_remove_name(const char* name);

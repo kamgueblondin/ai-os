@@ -79,8 +79,10 @@
 #define SYS_SERVICE_BACKEND_REVOKE 46
 /* EBX = nom de service, ECX = PID bénéficiaire, EDX = masque de droits backend. */
 #define SYS_SERVICE_BACKEND_GRANT_SCOPED 47
+/* EBX = nom de service, ECX = PID bénéficiaire, EDX = uint32_t* ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_STATUS       48
 
-#define MAX_SYSCALLS 48
+#define MAX_SYSCALLS 49
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

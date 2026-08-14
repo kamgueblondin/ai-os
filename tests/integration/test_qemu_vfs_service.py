@@ -126,6 +126,10 @@ def main():
                                "vfsserver backend grant request", proc)
             wait_for("vfs-backend-grant ok request", proc, before_cap_grant)
             wait_for("vfscapclaim backend granted", proc, before_cap_grant)
+            before_full_status = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % cap_claim_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status ok rights full", proc, before_full_status)
             before_owner_after_cap = len(log_text())
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_cap_revoke = len(log_text())
@@ -133,6 +137,10 @@ def main():
                                "vfsserver backend revoke request", proc)
             wait_for("vfs-backend-revoke ok request", proc, before_cap_revoke)
             wait_for("vfscapclaim backend revoked", proc, before_cap_revoke)
+            before_absent_status = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % cap_claim_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status: capacite absente ou refusee", proc, before_absent_status)
             send_command_until(monitor, "kill %s" % cap_claim_pid,
                                "Processus %s termine" % cap_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
@@ -148,6 +156,10 @@ def main():
                                "vfsserver backend scoped grant request", proc)
             wait_for("vfs-backend-grant-read ok request", proc, before_read_grant)
             wait_for("vfsreadclaim read-only enforced", proc, before_read_grant)
+            before_read_status = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % read_claim_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status ok rights read", proc, before_read_status)
             send_command_until(monitor, "kill %s" % read_claim_pid,
                                "Processus %s termine" % read_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
@@ -163,6 +175,10 @@ def main():
                                "vfsserver backend scoped grant request", proc)
             wait_for("vfs-backend-grant-mutate ok request", proc, before_mutate_grant)
             wait_for("vfsmutateclaim mutate-only enforced", proc, before_mutate_grant)
+            before_mutate_status = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % mutate_claim_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status ok rights mutate", proc, before_mutate_status)
             send_command_until(monitor, "kill %s" % mutate_claim_pid,
                                "Processus %s termine" % mutate_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
