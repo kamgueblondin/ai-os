@@ -58,6 +58,12 @@ static int service_backend_status(const char* name, int target_pid, uint32_t* ri
     return result;
 }
 
+static int service_backend_list(const char* name, os_service_backend_list_t* list) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_LIST), "b"(name), "c"(list));
+    return result;
+}
+
 static void print_int(int value) {
     char digits[12];
     int n = 0;
@@ -735,6 +741,17 @@ void main(void) {
             if (status == 0) status = service_backend_status("vfs", target_pid, &rights);
             if (status != 0) rights = 0U;
             if (os_vfs_make_backend_status_reply(&reply_payload, status, rights, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_LIST) {
+            os_service_backend_list_t list;
+            int status;
+            puts("vfsserver backend list request\n");
+            status = os_vfs_parse_backend_list_request(&message);
+            if (status == 0) status = service_backend_list("vfs", &list);
+            if (os_vfs_make_backend_list_reply(&reply_payload, status,
+                                               status == 0 ? &list : (const os_service_backend_list_t*)0,
+                                               message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

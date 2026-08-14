@@ -81,8 +81,10 @@
 #define SYS_SERVICE_BACKEND_GRANT_SCOPED 47
 /* EBX = nom de service, ECX = PID bénéficiaire, EDX = uint32_t* ; réservé au propriétaire. */
 #define SYS_SERVICE_BACKEND_STATUS       48
+/* EBX = nom de service, ECX = os_service_backend_list_t* ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_LIST         49
 
-#define MAX_SYSCALLS 49
+#define MAX_SYSCALLS 50
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -96,6 +98,7 @@
 
 /* Registre Foundation : simple découverte de nom, pas une capability. */
 #define OS_SERVICE_NAME_MAX 16U
+#define OS_SERVICE_BACKEND_CAPACITY 4U
 #define OS_SERVICE_BAD_NAME  (-50)
 #define OS_SERVICE_FULL      (-51)
 #define OS_SERVICE_TAKEN     (-52)
@@ -124,6 +127,16 @@ typedef struct {
     uint32_t size;
     uint32_t flags; /* OS_DIRENT_FILE / OS_DIRENT_DIR */
 } os_dirent_t;
+
+typedef struct {
+    int32_t pid;
+    uint32_t rights;
+} os_service_backend_entry_t;
+
+typedef struct {
+    uint32_t count;
+    os_service_backend_entry_t entries[OS_SERVICE_BACKEND_CAPACITY];
+} os_service_backend_list_t;
 
 typedef struct {
     int32_t pid;

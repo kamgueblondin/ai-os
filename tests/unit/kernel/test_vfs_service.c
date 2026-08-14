@@ -551,6 +551,39 @@ static void test_rmdir_request_and_reply_are_bounded_and_correlated(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_rmdir_reply(&message, &status, 110U));
 }
 
+static void test_backend_list_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_service_backend_list_t list;
+    os_vfs_backend_list_reply_t reply;
+    uint32_t i;
+    list.count = 2U;
+    list.entries[0].pid = 7; list.entries[0].rights = OS_VFS_BACKEND_RIGHT_READ;
+    list.entries[1].pid = 9; list.entries[1].rights = OS_VFS_BACKEND_RIGHT_ALL;
+    for (i = 2U; i < OS_SERVICE_BACKEND_CAPACITY; i++) { list.entries[i].pid = 0; list.entries[i].rights = 0U; }
+    TEST_ASSERT_EQUAL(0, os_vfs_make_backend_list_request(&payload, 113U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_BACKEND_LIST, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_BACKEND_LIST_REQUEST_SIZE, payload.size);
+    message.sender_pid = 2; message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_backend_list_request(&message));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_backend_list_reply(&payload, OS_VFS_STATUS_OK, &list, 113U));
+    TEST_ASSERT_EQUAL(OS_VFS_BACKEND_LIST_REPLY_SIZE, payload.size);
+    message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_backend_list_reply(&message, &reply, 113U));
+    TEST_ASSERT_EQUAL(2U, reply.count);
+    TEST_ASSERT_EQUAL(7, reply.entries[0].pid); TEST_ASSERT_EQUAL(OS_VFS_BACKEND_RIGHT_READ, reply.entries[0].rights);
+    TEST_ASSERT_EQUAL(9, reply.entries[1].pid); TEST_ASSERT_EQUAL(OS_VFS_BACKEND_RIGHT_ALL, reply.entries[1].rights);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_backend_list_reply(&payload, OS_SERVICE_NOT_FOUND, 0, 114U));
+    message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_backend_list_reply(&message, &reply, 114U));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, reply.status); TEST_ASSERT_EQUAL(0U, reply.count);
+    message.data[8U] = 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_backend_list_reply(&message, &reply, 114U));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -578,6 +611,7 @@ int main(void) {
     RUN_TEST(test_mkdir_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_rmdir_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_stat_rejects_invalid_request_and_reply);
+    RUN_TEST(test_backend_list_request_and_reply_are_bounded_and_correlated);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

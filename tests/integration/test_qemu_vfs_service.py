@@ -130,6 +130,10 @@ def main():
             send_command_until(monitor, "vfs-backend-status %s" % cap_claim_pid,
                                "vfsserver backend status request", proc)
             wait_for("vfs-backend-status ok rights full", proc, before_full_status)
+            before_full_list = len(log_text())
+            send_command_until(monitor, "vfs-backend-list", "vfsserver backend list request", proc)
+            wait_for("vfs-backend-list ok count 1", proc, before_full_list)
+            wait_for("vfs-backend-list pid %s rights full" % cap_claim_pid, proc, before_full_list)
             before_owner_after_cap = len(log_text())
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_cap_revoke = len(log_text())
@@ -141,6 +145,9 @@ def main():
             send_command_until(monitor, "vfs-backend-status %s" % cap_claim_pid,
                                "vfsserver backend status request", proc)
             wait_for("vfs-backend-status: capacite absente ou refusee", proc, before_absent_status)
+            before_empty_list = len(log_text())
+            send_command_until(monitor, "vfs-backend-list", "vfsserver backend list request", proc)
+            wait_for("vfs-backend-list ok count 0", proc, before_empty_list)
             send_command_until(monitor, "kill %s" % cap_claim_pid,
                                "Processus %s termine" % cap_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
@@ -160,6 +167,10 @@ def main():
             send_command_until(monitor, "vfs-backend-status %s" % read_claim_pid,
                                "vfsserver backend status request", proc)
             wait_for("vfs-backend-status ok rights read", proc, before_read_status)
+            before_read_list = len(log_text())
+            send_command_until(monitor, "vfs-backend-list", "vfsserver backend list request", proc)
+            wait_for("vfs-backend-list ok count 1", proc, before_read_list)
+            wait_for("vfs-backend-list pid %s rights read" % read_claim_pid, proc, before_read_list)
             send_command_until(monitor, "kill %s" % read_claim_pid,
                                "Processus %s termine" % read_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
@@ -179,6 +190,10 @@ def main():
             send_command_until(monitor, "vfs-backend-status %s" % mutate_claim_pid,
                                "vfsserver backend status request", proc)
             wait_for("vfs-backend-status ok rights mutate", proc, before_mutate_status)
+            before_mutate_list = len(log_text())
+            send_command_until(monitor, "vfs-backend-list", "vfsserver backend list request", proc)
+            wait_for("vfs-backend-list ok count 1", proc, before_mutate_list)
+            wait_for("vfs-backend-list pid %s rights mutate" % mutate_claim_pid, proc, before_mutate_list)
             send_command_until(monitor, "kill %s" % mutate_claim_pid,
                                "Processus %s termine" % mutate_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
@@ -209,8 +224,7 @@ def main():
             send_command_until(monitor, "vfs-list overlay/", "vfsserver list request", proc)
             wait_for("newdir", proc, before_overlay_dir_list)
             before_rmdir = len(log_text())
-            send_command_until(monitor, "vfs-rmdir overlay/newdir", "vfsserver rmdir request", proc)
-            wait_for("vfs-rmdir ok request", proc, before_rmdir)
+            send_command_until(monitor, "vfs-rmdir overlay/newdir", "vfs-rmdir ok request", proc)
             before_overlay_after_rmdir = len(log_text())
             send_command_until(monitor, "vfs-list overlay/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 0", proc, before_overlay_after_rmdir)

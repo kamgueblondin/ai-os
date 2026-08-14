@@ -209,6 +209,26 @@ static void test_backend_capability_rights_are_owner_scoped_and_revocable(void) 
     TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_backend_rights("vfs", 3, 7, &rights));
 }
 
+static void test_backend_capability_list_is_owner_scoped_and_tracks_revocation(void) {
+    os_service_backend_list_t list;
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 8, SERVICE_BACKEND_RIGHT_MUTATE));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant("vfs", 3, 9));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_list("vfs", 3, &list));
+    TEST_ASSERT_EQUAL(3U, list.count);
+    TEST_ASSERT_EQUAL(7, list.entries[0].pid); TEST_ASSERT_EQUAL(SERVICE_BACKEND_RIGHT_READ, list.entries[0].rights);
+    TEST_ASSERT_EQUAL(8, list.entries[1].pid); TEST_ASSERT_EQUAL(SERVICE_BACKEND_RIGHT_MUTATE, list.entries[1].rights);
+    TEST_ASSERT_EQUAL(9, list.entries[2].pid); TEST_ASSERT_EQUAL(SERVICE_BACKEND_RIGHT_ALL, list.entries[2].rights);
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_OWNER, service_registry_backend_list("vfs", 4, &list));
+    TEST_ASSERT_EQUAL(0U, list.count); TEST_ASSERT_EQUAL(0, list.entries[0].pid); TEST_ASSERT_EQUAL(0U, list.entries[0].rights);
+    TEST_ASSERT_EQUAL(0, service_registry_backend_revoke("vfs", 3, 8));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_list("vfs", 3, &list));
+    TEST_ASSERT_EQUAL(2U, list.count);
+    TEST_ASSERT_EQUAL(7, list.entries[0].pid); TEST_ASSERT_EQUAL(9, list.entries[1].pid);
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_registry_rejects_invalid_names);
@@ -229,6 +249,7 @@ int main(void) {
     RUN_TEST(test_backend_capability_can_be_explicitly_revoked_without_name_transfer);
     RUN_TEST(test_backend_capability_scoped_read_only_enforces_least_privilege);
     RUN_TEST(test_backend_capability_rights_are_owner_scoped_and_revocable);
+    RUN_TEST(test_backend_capability_list_is_owner_scoped_and_tracks_revocation);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

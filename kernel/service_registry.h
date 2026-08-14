@@ -6,7 +6,7 @@
 
 #define SERVICE_REGISTRY_CAPACITY 8U
 #define SERVICE_REGISTRY_WATCH_CAPACITY 8U
-#define SERVICE_REGISTRY_BACKEND_CAPACITY 4U
+#define SERVICE_REGISTRY_BACKEND_CAPACITY OS_SERVICE_BACKEND_CAPACITY
 #define SERVICE_BACKEND_RIGHT_READ 1U
 #define SERVICE_BACKEND_RIGHT_MUTATE 2U
 #define SERVICE_BACKEND_RIGHT_ALL (SERVICE_BACKEND_RIGHT_READ | SERVICE_BACKEND_RIGHT_MUTATE)
@@ -37,6 +37,7 @@ int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t 
 int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights);
 int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t grantee_pid);
 int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t* out_rights);
+int service_registry_backend_list(const char* name, int32_t owner_pid, os_service_backend_list_t* out_list);
 int service_registry_backend_allowed(const char* name, int32_t pid);
 int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right);
 void service_registry_backend_remove_name(const char* name);
