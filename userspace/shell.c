@@ -594,6 +594,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-backend-rename-probe <src> <dst> - Verifier le renommage backend reserve\n");
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
+    print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
     print_string("  vfs-write <chemin> <texte> - Ecrire via le montage VFS overlay/\n");
     print_string("  vfs-remove <chemin>  - Supprimer via le montage VFS overlay/\n");
     print_string("  vfs-rename <src> <dst> - Renommer via le montage VFS overlay/\n");
@@ -1180,7 +1181,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stats", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1989,6 +1990,16 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     print_string(" data ");
     for (i = 0U; i < reply.size; i++) putc((char)reply.data[i]);
     if (reply.size == 0U || reply.data[reply.size - 1U] != '\n') print_string("\n");
+}
+
+static void cmd_vfs_stats(shell_context_t* ctx, char args[][128], int arg_count) {
+    char stats_args[1][128] = { "vfs-stats" };
+    (void)args;
+    if (arg_count != 0) {
+        print_error("Usage: vfs-stats");
+        return;
+    }
+    cmd_vfs_read(ctx, stats_args, 1);
 }
 
 static void cmd_yield(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2848,6 +2859,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-read") == 0) {
         cmd_vfs_read(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-stats") == 0) {
+        cmd_vfs_stats(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-write") == 0) {
         cmd_vfs_write(ctx, args, arg_count);

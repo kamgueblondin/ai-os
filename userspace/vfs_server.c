@@ -103,6 +103,35 @@ static const char* const vfs_write_mounts[] = { "overlay/" };
 #define VFS_READ_MOUNT_COUNT (sizeof(vfs_read_mounts) / sizeof(vfs_read_mounts[0]))
 #define VFS_WRITE_MOUNT_COUNT (sizeof(vfs_write_mounts) / sizeof(vfs_write_mounts[0]))
 
+/* Observabilité locale : compteurs volatils, remis à zéro au démarrage du
+ * service. Toute requête VFS reconnue est comptée avant sa validation afin
+ * que les refus de politique restent visibles. */
+static uint32_t vfs_read_requests;
+static uint32_t vfs_write_requests;
+static uint32_t vfs_remove_requests;
+static uint32_t vfs_rename_requests;
+
+static uint32_t append_text(uint8_t* data, uint32_t offset, const char* text) {
+    uint32_t i = 0U;
+    while (text[i] != '\0') data[offset++] = (uint8_t)text[i++];
+    return offset;
+}
+
+static uint32_t append_uint(uint8_t* data, uint32_t offset, uint32_t value) {
+    char digits[10];
+    uint32_t count = 0U;
+    if (value == 0U) {
+        data[offset++] = (uint8_t)'0';
+        return offset;
+    }
+    while (value > 0U) {
+        digits[count++] = (char)('0' + (value % 10U));
+        value /= 10U;
+    }
+    while (count > 0U) data[offset++] = (uint8_t)digits[--count];
+    return offset;
+}
+
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     static const char info[] = "vfsserver ring3 policy\n";
     static const char mounts[] = "initrd/ ro\noverlay/ rw\n";
@@ -110,7 +139,19 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     uint32_t i;
     if (string_equal(path, "vfs-info")) source = info;
     else if (string_equal(path, "vfs-mounts")) source = mounts;
-    else return 0;
+    else if (string_equal(path, "vfs-stats")) {
+        i = append_text(data, 0U, "reads=");
+        i = append_uint(data, i, vfs_read_requests);
+        i = append_text(data, i, "\nwrites=");
+        i = append_uint(data, i, vfs_write_requests);
+        i = append_text(data, i, "\nremoves=");
+        i = append_uint(data, i, vfs_remove_requests);
+        i = append_text(data, i, "\nrenames=");
+        i = append_uint(data, i, vfs_rename_requests);
+        data[i++] = (uint8_t)'\n';
+        *size = i;
+        return 1;
+    } else return 0;
     for (i = 0U; source[i] != '\0'; i++) data[i] = (uint8_t)source[i];
     *size = i;
     return 1;
@@ -192,13 +233,15 @@ void main(void) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_READ) {
             int status;
+            vfs_read_requests++;
             puts("vfsserver read request\n");
             status = os_vfs_parse_read_request(&message, path);
             uint32_t size = 0U;
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
                     if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info\n");
-                    else puts("vfsserver virtual vfs-mounts\n");
+                    else if (string_equal(path, "vfs-mounts")) puts("vfsserver virtual vfs-mounts\n");
+                    else puts("vfsserver virtual vfs-stats\n");
                 } else {
                     status = read_mounted_backend(path, data, &size);
                     if (status == OS_VFS_STATUS_NOT_MOUNTED) {
@@ -213,6 +256,7 @@ void main(void) {
         } else if (received == 0 && message.type == OS_IPC_VFS_WRITE) {
             int status;
             uint32_t size = 0U;
+            vfs_write_requests++;
             puts("vfsserver write request\n");
             status = os_vfs_parse_write_request(&message, path, write_data, &size);
             if (status == 0) {
@@ -226,6 +270,7 @@ void main(void) {
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_REMOVE) {
             int status;
+            vfs_remove_requests++;
             puts("vfsserver remove request\n");
             status = os_vfs_parse_remove_request(&message, path);
             if (status == 0) {
@@ -239,6 +284,7 @@ void main(void) {
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_RENAME) {
             int status;
+            vfs_rename_requests++;
             puts("vfsserver rename request\n");
             status = os_vfs_parse_rename_request(&message, path, new_path);
             if (status == 0) {
