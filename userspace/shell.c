@@ -602,6 +602,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
+    print_string("  vfs-list <prefixe/>  - Lister une source de montage via le service VFS\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
     print_string("  vfs-mount-add <prefixe/> <initrd|overlay> - Ajouter un alias VFS\n");
     print_string("  vfs-mount-remove <prefixe/> - Retirer un alias VFS dynamique\n");
@@ -2144,6 +2145,81 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     if (reply.size == 0U || reply.data[reply.size - 1U] != '\n') print_string("\n");
 }
 
+static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_ipc_message_t message;
+    os_vfs_list_reply_t reply;
+    int pid;
+    int rc;
+    int attempts;
+    uint32_t request_id;
+    uint32_t i;
+    if (arg_count != 1) {
+        print_error("Usage: vfs-list <prefixe/>");
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-list: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_list_request(&request, args[0], request_id);
+    if (rc != 0) {
+        print_error("vfs-list: prefixe de montage invalide ou trop long");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-list: service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_LIST_REPLY,
+                                       request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_list_reply(&message, &reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved;
+        yield();
+        rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_LIST_REPLY && message.request_id == request_id) {
+                rc = os_vfs_parse_list_reply(&message, &reply, request_id);
+            } else {
+                saved = os_ipc_deferred_push(&ipc_deferred, &message);
+                rc = saved == 0 ? OS_IPC_EMPTY : saved;
+            }
+        }
+    }
+    if (rc != 0) {
+        print_error("vfs-list: reponse VFS absente ou invalide");
+        ctx->last_rc = rc;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK && reply.status != OS_VFS_STATUS_TRUNCATED) {
+        if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) {
+            print_error("vfs-list: montage absent");
+        } else {
+            print_error("vfs-list: listage refuse");
+        }
+        return;
+    }
+    print_string("vfs-list ");
+    print_string(reply.status == OS_VFS_STATUS_TRUNCATED ? "partiel" : "ok");
+    print_string(" count ");
+    print_int((int)reply.count);
+    print_string(" request ");
+    print_int((int)request_id);
+    print_string("\n");
+    for (i = 0U; i < OS_VFS_LIST_DATA_MAX && reply.data[i] != 0U; i++) {
+        putc((char)reply.data[i]);
+    }
+    if (i == 0U || reply.data[i - 1U] != '\n') print_string("\n");
+}
+
 static void cmd_vfs_stat(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request;
     os_ipc_message_t message;
@@ -3087,6 +3163,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-stat") == 0) {
         cmd_vfs_stat(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-list") == 0) {
+        cmd_vfs_list(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-stats") == 0) {
         cmd_vfs_stats(ctx, args, arg_count);
