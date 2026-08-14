@@ -602,7 +602,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
-    print_string("  vfs-list <prefixe/>  - Lister une source de montage via le service VFS\n");
+    print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
     print_string("  vfs-mount-add <prefixe/> <initrd|overlay> - Ajouter un alias VFS\n");
     print_string("  vfs-mount-remove <prefixe/> - Retirer un alias VFS dynamique\n");
@@ -2155,7 +2155,7 @@ static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) 
     uint32_t request_id;
     uint32_t i;
     if (arg_count != 1) {
-        print_error("Usage: vfs-list <prefixe/>");
+        print_error("Usage: vfs-list <repertoire/>");
         return;
     }
     pid = sys_service_lookup("vfs");
@@ -2167,7 +2167,7 @@ static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) 
     request_id = next_vfs_request_id();
     rc = os_vfs_make_list_request(&request, args[0], request_id);
     if (rc != 0) {
-        print_error("vfs-list: prefixe de montage invalide ou trop long");
+        print_error("vfs-list: repertoire invalide ou trop long");
         ctx->last_rc = rc;
         return;
     }
@@ -2201,7 +2201,7 @@ static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) 
     ctx->last_rc = reply.status;
     if (reply.status != OS_VFS_STATUS_OK && reply.status != OS_VFS_STATUS_TRUNCATED) {
         if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) {
-            print_error("vfs-list: montage absent");
+            print_error("vfs-list: repertoire hors montage");
         } else {
             print_error("vfs-list: listage refuse");
         }

@@ -268,31 +268,53 @@ static int stat_mounted_backend(const char* path, os_dirent_t* out) {
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
-/* Le listage reçoit un préfixe exact, pas un chemin de fichier. Chaque
- * backend voit sa propre racine et la réponse reste une page texte bornée.
- * La cinquième entrée ne sert qu’à détecter une page incomplète. */
-static int list_mounted_backend(const char* mount, uint8_t* data, uint32_t* size,
+/* Le listage accepte la racine d’un montage ou un sous-répertoire qui lui
+ * appartient. Chaque backend ne voit que son suffixe relatif ; la réponse
+ * demeure une page texte bornée et la cinquième entrée détecte une page
+ * incomplète. */
+static int list_path_matches_mount(const char* path, const char* mount,
+                                   const char** relative_out) {
+    uint32_t i = 0U;
+    if (!os_vfs_list_path_is_valid(path) || !os_vfs_mount_prefix_is_valid(mount)) return 0;
+    while (mount[i] != '\0') {
+        if (path[i] == '\0' || path[i] != mount[i]) return 0;
+        i++;
+    }
+    if (path[i] == '\0') {
+        if (relative_out) *relative_out = "/";
+        return 1;
+    }
+    if (relative_out) *relative_out = path + i;
+    return 1;
+}
+
+static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
                                 uint32_t* count) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
-    uint32_t i;
+    uint32_t mount_index;
     uint32_t written = 0U;
     uint32_t emitted = 0U;
     int listed;
     int status = OS_VFS_STATUS_OK;
-    if (!mount || !data || !size || !count) return OS_VFS_STATUS_INVALID;
-    for (i = 0U; i < vfs_mount_count; i++) {
-        if (string_equal(mount, vfs_mounts[i].prefix)) {
-            listed = vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
-                ? backend_initrd_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
-                : backend_overlay_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
+    if (!path || !data || !size || !count) return OS_VFS_STATUS_INVALID;
+    for (mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
+        const char* relative = 0;
+        if (list_path_matches_mount(path, vfs_mounts[mount_index].prefix, &relative)) {
+            listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
+                ? backend_initrd_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+                : backend_overlay_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
             if (listed < 0) return listed;
-            for (i = 0U; i < (uint32_t)listed && i < OS_VFS_LIST_ENTRY_MAX; i++) {
-                uint32_t name_size = string_length(entries[i].name);
+            for (uint32_t entry_index = 0U;
+                 entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
+                 entry_index++) {
+                uint32_t name_size = string_length(entries[entry_index].name);
                 if (written + name_size + 1U > OS_VFS_LIST_DATA_MAX) {
                     status = OS_VFS_STATUS_TRUNCATED;
                     break;
                 }
-                for (uint32_t j = 0U; j < name_size; j++) data[written++] = (uint8_t)entries[i].name[j];
+                for (uint32_t j = 0U; j < name_size; j++) {
+                    data[written++] = (uint8_t)entries[entry_index].name[j];
+                }
                 data[written++] = (uint8_t)'\n';
                 emitted++;
             }
