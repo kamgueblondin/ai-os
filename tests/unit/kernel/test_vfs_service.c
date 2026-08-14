@@ -200,6 +200,54 @@ static void test_remove_rejects_unsafe_path_and_unexpected_reply(void) {
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_remove_reply(&message, &reply, 9U));
 }
 
+static void test_rename_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_rename_reply_t reply;
+    char old_path[OS_VFS_PATH_MAX];
+    char new_path[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_rename_request(&payload, "overlay/note.txt",
+                                                     "overlay/moved.txt", 73U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_RENAME, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_RENAME_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(73, payload.request_id);
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_rename_request(&message, old_path, new_path));
+    TEST_ASSERT_EQUAL_STRING("overlay/note.txt", old_path);
+    TEST_ASSERT_EQUAL_STRING("overlay/moved.txt", new_path);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_rename_reply(&payload, OS_VFS_STATUS_OK, 73U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_rename_reply(&message, &reply, 73U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, reply.status);
+}
+
+static void test_rename_rejects_invalid_path_and_reply(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_rename_reply_t reply;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_rename_request(&payload, "overlay/note.txt",
+                                                 "overlay/../moved.txt", 1U));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_rename_reply(&payload, OS_VFS_STATUS_NOT_MOUNTED, 12U));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_rename_reply(&message, &reply, 13U));
+    message.size = OS_VFS_WRITE_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_rename_reply(&message, &reply, 12U));
+}
+
 static void test_reply_with_unexpected_request_id_is_rejected(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -228,6 +276,8 @@ int main(void) {
     RUN_TEST(test_write_rejects_oversize_and_unexpected_reply);
     RUN_TEST(test_remove_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_remove_rejects_unsafe_path_and_unexpected_reply);
+    RUN_TEST(test_rename_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_rename_rejects_invalid_path_and_reply);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     unity_print_results();
     unity_cleanup();

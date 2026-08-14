@@ -69,6 +69,12 @@ static int backend_remove(const char* path) {
     return result;
 }
 
+static int backend_rename(const char* oldpath, const char* newpath) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_RENAME), "b"(oldpath), "c"(newpath));
+    return result;
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -155,10 +161,24 @@ static int remove_mounted_backend(const char* path) {
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int rename_mounted_backend(const char* oldpath, const char* newpath) {
+    uint32_t i;
+    for (i = 0U; i < VFS_WRITE_MOUNT_COUNT; i++) {
+        const char* old_relative = 0;
+        const char* new_relative = 0;
+        if (os_vfs_match_mount(oldpath, vfs_write_mounts[i], &old_relative) &&
+            os_vfs_match_mount(newpath, vfs_write_mounts[i], &new_relative)) {
+            return backend_rename(old_relative, new_relative);
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 void main(void) {
     os_ipc_message_t message;
     os_ipc_payload_t reply_payload;
     char path[OS_VFS_PATH_MAX];
+    char new_path[OS_VFS_PATH_MAX];
     uint8_t data[OS_VFS_READ_MAX];
     uint8_t write_data[OS_VFS_WRITE_MAX];
     if (service_register("vfs") != 0) {
@@ -215,6 +235,19 @@ void main(void) {
                 }
             }
             if (os_vfs_make_remove_reply(&reply_payload, status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_RENAME) {
+            int status;
+            puts("vfsserver rename request\n");
+            status = os_vfs_parse_rename_request(&message, path, new_path);
+            if (status == 0) {
+                status = rename_mounted_backend(path, new_path);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) {
+                    puts("vfsserver rename outside mounts\n");
+                }
+            }
+            if (os_vfs_make_rename_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {
