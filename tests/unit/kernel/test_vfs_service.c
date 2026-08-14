@@ -392,6 +392,25 @@ static void test_list_request_and_reply_are_bounded_and_correlated(void) {
     TEST_ASSERT_EQUAL('\n', reply.data[10]);
 }
 
+static void test_list_accepts_subdirectory_and_rejects_non_directory_path(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char path[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_list_request(&payload, "initrd/bin/", 104U));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_list_request(&message, path));
+    TEST_ASSERT_EQUAL_STRING("initrd/bin/", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_list_request(&payload, "initrd/bin", 105U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_list_request(&payload, "initrd/bin/shell", 105U));
+}
+
 static void test_list_rejects_invalid_mount_and_reply(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -464,6 +483,7 @@ int main(void) {
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     RUN_TEST(test_stat_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_list_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_list_accepts_subdirectory_and_rejects_non_directory_path);
     RUN_TEST(test_list_rejects_invalid_mount_and_reply);
     RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     unity_print_results();

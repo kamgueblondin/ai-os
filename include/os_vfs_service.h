@@ -110,6 +110,15 @@ static inline int os_vfs_mount_source_is_valid(uint32_t source) {
     return source == OS_VFS_MOUNT_SOURCE_INITRD || source == OS_VFS_MOUNT_SOURCE_OVERLAY;
 }
 
+/* Le listage cible un répertoire : il accepte la racine du montage ou un
+ * sous-répertoire, mais impose toujours le séparateur terminal. */
+static inline int os_vfs_list_path_is_valid(const char* path) {
+    uint32_t i = 0U;
+    if (!os_vfs_path_is_safe(path)) return 0;
+    while (path[i] != '\0') i++;
+    return i > 0U && path[i - 1U] == '/';
+}
+
 static inline int os_vfs_match_mount(const char* path, const char* mount,
                                      const char** relative_out) {
     uint32_t i = 0U;
@@ -147,16 +156,16 @@ static inline int os_vfs_parse_read_request(const os_ipc_message_t* message, cha
     return 0;
 }
 
-static inline int os_vfs_make_list_request(os_ipc_payload_t* payload, const char* mount,
+static inline int os_vfs_make_list_request(os_ipc_payload_t* payload, const char* path,
                                            uint32_t request_id) {
     uint32_t i;
-    if (!payload || !os_vfs_mount_prefix_is_valid(mount)) return OS_VFS_STATUS_INVALID;
+    if (!payload || !os_vfs_list_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
     payload->type = OS_IPC_VFS_LIST;
     payload->size = OS_VFS_PATH_MAX;
     payload->request_id = request_id;
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
-        payload->data[i] = (uint8_t)mount[i];
-        if (mount[i] == '\0') {
+        payload->data[i] = (uint8_t)path[i];
+        if (path[i] == '\0') {
             for (i++; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
             break;
         }
@@ -164,12 +173,12 @@ static inline int os_vfs_make_list_request(os_ipc_payload_t* payload, const char
     return 0;
 }
 
-static inline int os_vfs_parse_list_request(const os_ipc_message_t* message, char* mount_out) {
+static inline int os_vfs_parse_list_request(const os_ipc_message_t* message, char* path_out) {
     uint32_t i;
-    if (!message || !mount_out || message->type != OS_IPC_VFS_LIST ||
+    if (!message || !path_out || message->type != OS_IPC_VFS_LIST ||
         message->size != OS_VFS_PATH_MAX) return OS_VFS_STATUS_INVALID;
-    for (i = 0U; i < OS_VFS_PATH_MAX; i++) mount_out[i] = (char)message->data[i];
-    return os_vfs_mount_prefix_is_valid(mount_out) ? 0 : OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_list_path_is_valid(path_out) ? 0 : OS_VFS_STATUS_INVALID;
 }
 
 static inline void os_vfs_encode_i32(uint8_t* out, int32_t value) {

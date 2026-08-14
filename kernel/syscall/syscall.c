@@ -449,7 +449,7 @@ int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
         service_registry_lookup("vfs") != current_task->id) {
         return OS_VFS_BACKEND_DENIED;
     }
-    if (!path || !out || max_n <= 0) return -1;
+    if (!path || !out || max_n <= 0 || !initrd_is_dir(path)) return -1;
     return initrd_listdir(path, out, max_n);
 }
 
@@ -458,7 +458,7 @@ int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
         service_registry_lookup("vfs") != current_task->id) {
         return OS_VFS_BACKEND_DENIED;
     }
-    if (!path || !out || max_n <= 0) return -1;
+    if (!path || !out || max_n <= 0 || !overlay_is_dir(path)) return -1;
     return overlay_listdir(path, out, 0, max_n);
 }
 

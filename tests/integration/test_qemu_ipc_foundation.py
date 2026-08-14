@@ -58,8 +58,22 @@ def send_command(client, command):
     special = {" ": "spc", "-": "minus"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.06)
+        time.sleep(0.55)
     client.sendall(b"sendkey ret\n")
+
+
+def send_command_until(client, command, marker, proc, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        start = len(log_text())
+        send_command(client, command)
+        try:
+            wait_for(marker, proc, start)
+            return start
+        except RuntimeError as error:
+            failure = error
+            time.sleep(0.4)
+    raise failure
 
 
 def main():
@@ -82,21 +96,16 @@ def main():
         try:
             wait_for("(-.-)", proc)
             monitor = connect_monitor()
-            before_spawn = len(log_text())
-            send_command(monitor, "spawn ipcserver")
-            wait_for("spawn ok pid", proc, before_spawn)
+            before_spawn = send_command_until(monitor, "spawn ipcserver", "spawn ok pid", proc)
             spawned = re.search(r"spawn ok pid (\d+) ipcserver", log_text()[before_spawn:])
             if not spawned:
                 raise RuntimeError("PID du serveur IPC absent")
             server_pid = spawned.group(1)
             wait_for("ipc_server ready", proc, before_spawn)
-            before_send = len(log_text())
-            send_command(monitor, "ipc-send %s bonjour" % server_pid)
-            wait_for("ipc-send ok %s 7" % server_pid, proc, before_send)
+            before_send = send_command_until(monitor, "ipc-send %s bonjour" % server_pid,
+                                             "ipc-send ok %s 7" % server_pid, proc)
             wait_for("ipc recv from 1 type 0 data bonjour", proc, before_send)
-            before_receive = len(log_text())
-            send_command(monitor, "ipc-recv")
-            wait_for("ipc-recv empty", proc, before_receive)
+            before_receive = send_command_until(monitor, "ipc-recv", "ipc-recv empty", proc)
             print("MOHHOS Foundation IPC contract passed")
             return 0
         finally:

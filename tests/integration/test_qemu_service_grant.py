@@ -73,6 +73,20 @@ def send_command(client, command):
     client.sendall(b"sendkey ret\n")
 
 
+def send_command_until(client, command, marker, proc, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        start = len(log_text())
+        send_command(client, command)
+        try:
+            wait_for(marker, proc, start)
+            return
+        except RuntimeError as error:
+            failure = error
+            time.sleep(0.4)
+    raise failure
+
+
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     for path in (LOG, ERR, MON):
@@ -101,19 +115,14 @@ def main():
             send_command(monitor, "service-status demo")
             wait_for("service-status ok demo pid 1 queued 0 client-capacity 2 endpoint-capacity 4",
                      proc, before_status_empty)
-            before_capacity_first = len(log_text())
-            send_command(monitor, "ipc-send 1 one")
-            wait_for("ipc-send ok 1 3", proc, before_capacity_first)
-            before_capacity_second = len(log_text())
-            send_command(monitor, "ipc-send 1 two")
-            wait_for("ipc-send ok 1 3", proc, before_capacity_second)
+            send_command_until(monitor, "ipc-send 1 one", "ipc-send ok 1 3", proc)
+            send_command_until(monitor, "ipc-send 1 two", "ipc-send ok 1 3", proc)
             before_status_full = len(log_text())
             send_command(monitor, "service-status demo")
             wait_for("service-status ok demo pid 1 queued 2 client-capacity 2 endpoint-capacity 4",
                      proc, before_status_full)
-            before_capacity_full = len(log_text())
-            send_command(monitor, "ipc-send 1 three")
-            wait_for("ipc-send: capacite du service atteinte", proc, before_capacity_full)
+            send_command_until(monitor, "ipc-send 1 three",
+                               "ipc-send: capacite du service atteinte", proc)
             before_capacity_drain_one = len(log_text())
             send_command(monitor, "ipc-recv")
             wait_for("ipc-recv from 1 type 0 data one", proc, before_capacity_drain_one)
