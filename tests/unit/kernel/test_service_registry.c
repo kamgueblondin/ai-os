@@ -181,6 +181,19 @@ static void test_backend_capability_can_be_explicitly_revoked_without_name_trans
     TEST_ASSERT_EQUAL(OS_SERVICE_NOT_OWNER, service_registry_backend_revoke("vfs", 9, 7));
 }
 
+static void test_backend_capability_scoped_read_only_enforces_least_privilege(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 7, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for("vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed("vfs", 7));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant("vfs", 3, 8));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 8, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 8, SERVICE_BACKEND_RIGHT_MUTATE));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped("vfs", 3, 9, 4U));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_registry_rejects_invalid_names);
@@ -199,6 +212,7 @@ int main(void) {
     RUN_TEST(test_remove_pid_clears_all_services_owned_by_task);
     RUN_TEST(test_backend_capability_is_revoked_on_transfer_and_pid_cleanup);
     RUN_TEST(test_backend_capability_can_be_explicitly_revoked_without_name_transfer);
+    RUN_TEST(test_backend_capability_scoped_read_only_enforces_least_privilege);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;
