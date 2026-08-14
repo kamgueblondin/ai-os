@@ -220,6 +220,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_SERVICE_NOTIFY:
             cpu->eax = (uint32_t)sys_service_notify((const char*)cpu->ebx);
             break;
+        case SYS_SERVICE_STATUS:
+            cpu->eax = (uint32_t)sys_service_status((const char*)cpu->ebx,
+                                                    (os_service_status_t*)cpu->ecx);
+            break;
         case SYS_VFS_BACKEND_READ:
             cpu->eax = (uint32_t)sys_vfs_backend_read((const char*)cpu->ebx,
                                                        (char*)cpu->ecx, cpu->edx);
@@ -331,6 +335,25 @@ int sys_service_grant(const char* name, int target_pid) {
 int sys_service_notify(const char* name) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
     return service_registry_subscribe(name, current_task->id);
+}
+
+int sys_service_status(const char* name, os_service_status_t* out) {
+    int owner_pid;
+    task_t* owner;
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) {
+        return OS_SERVICE_BAD_NAME;
+    }
+    owner_pid = sys_service_lookup(name);
+    if (owner_pid < 0) return owner_pid;
+    owner = get_task_by_id(owner_pid);
+    if (!owner || owner->type != TASK_TYPE_USER || owner->state == TASK_TERMINATED) {
+        return OS_SERVICE_NOT_FOUND;
+    }
+    out->owner_pid = owner_pid;
+    out->queued_messages = owner->ipc_endpoint.count;
+    out->client_capacity = IPC_SERVICE_ENDPOINT_CAPACITY;
+    out->endpoint_capacity = IPC_ENDPOINT_CAPACITY;
+    return 0;
 }
 
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
