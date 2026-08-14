@@ -604,6 +604,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
     print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
     print_string("  vfs-list-page <repertoire/> <depart> - Lire une page VFS mediee\n");
+    print_string("  vfs-list-observe <repertoire/> <depart> <generation> - Lire une page coherente\n");
     print_string("  vfs-stats            - Afficher les compteurs volatils du serveur VFS\n");
     print_string("  vfs-mount-add <prefixe/> <initrd|overlay> - Ajouter un alias VFS\n");
     print_string("  vfs-mount-remove <prefixe/> - Retirer un alias VFS dynamique\n");
@@ -2275,6 +2276,45 @@ static void cmd_vfs_list_page(shell_context_t* ctx, char args[][128], int arg_co
     if (i == 0U || reply.data[i - 1U] != '\n') print_string("\n");
 }
 
+static void cmd_vfs_list_observe(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message; os_vfs_list_observe_reply_t reply;
+    int pid, rc, attempts, start, generation; uint32_t request_id, i;
+    if (arg_count != 3 || (start = parse_int(args[1])) < 0 || (generation = parse_int(args[2])) < 0) {
+        print_error("Usage: vfs-list-observe <repertoire/> <depart> <generation>"); return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-list-observe: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_list_observe_request(&request, args[0], (uint32_t)start, (uint32_t)generation, request_id);
+    if (rc != 0) { print_error("vfs-list-observe: argument invalide"); ctx->last_rc = rc; return; }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-list-observe: service indisponible"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_LIST_OBSERVE_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_list_observe_reply(&message, &reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved; yield(); rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_LIST_OBSERVE_REPLY && message.request_id == request_id)
+                rc = os_vfs_parse_list_observe_reply(&message, &reply, request_id);
+            else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
+        }
+    }
+    if (rc != 0) { print_error("vfs-list-observe: reponse VFS absente ou invalide"); ctx->last_rc = rc; return; }
+    ctx->last_rc = reply.status;
+    if (reply.status == OS_VFS_STATUS_STALE) {
+        print_string("vfs-list-observe obsolete generation "); print_int((int)reply.generation); print_string("\n"); return;
+    }
+    if (reply.status != OS_VFS_STATUS_OK && reply.status != OS_VFS_STATUS_TRUNCATED) {
+        print_error("vfs-list-observe: listage refuse"); return;
+    }
+    print_string("vfs-list-observe "); print_string(reply.status == OS_VFS_STATUS_TRUNCATED ? "partiel" : "ok");
+    print_string(" count "); print_int((int)reply.count); print_string(" next ");
+    if (reply.next_start == OS_VFS_LIST_PAGE_END) print_string("end"); else print_int((int)reply.next_start);
+    print_string(" generation "); print_int((int)reply.generation); print_string(" request "); print_int((int)request_id); print_string("\n");
+    for (i = 0U; i < OS_VFS_LIST_OBSERVE_DATA_MAX && reply.data[i] != 0U; i++) putc((char)reply.data[i]);
+    if (i == 0U || reply.data[i - 1U] != '\n') print_string("\n");
+}
+
 static void cmd_vfs_stat(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request;
     os_ipc_message_t message;
@@ -3223,6 +3263,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         cmd_vfs_list(ctx, args, arg_count);
     } else if (strcmp(command, "vfs-list-page") == 0) {
         cmd_vfs_list_page(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-list-observe") == 0) {
+        cmd_vfs_list_observe(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-stats") == 0) {
         cmd_vfs_stats(ctx, args, arg_count);

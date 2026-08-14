@@ -196,6 +196,10 @@ static uint32_t vfs_read_requests;
 static uint32_t vfs_write_requests;
 static uint32_t vfs_remove_requests;
 static uint32_t vfs_rename_requests;
+/* Génération volatile des contenus et de la table de montages. Elle n’est ni
+ * persistante ni atomique : elle avertit seulement le client d’une mutation
+ * visible entre deux pages. */
+static uint32_t vfs_list_generation = 1U;
 
 static uint32_t append_text(uint8_t* data, uint32_t offset, const char* text) {
     uint32_t i = 0U;
@@ -342,14 +346,15 @@ static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
 }
 
 static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* data,
-                                     uint32_t* size, uint32_t* count, uint32_t* next_start) {
+                                     uint32_t data_max, uint32_t* size, uint32_t* count,
+                                     uint32_t* next_start) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
     uint32_t mount_index;
     uint32_t written = 0U;
     uint32_t emitted = 0U;
     int listed;
     int status = OS_VFS_STATUS_OK;
-    if (!path || !data || !size || !count || !next_start) return OS_VFS_STATUS_INVALID;
+    if (!path || !data || data_max == 0U || !size || !count || !next_start) return OS_VFS_STATUS_INVALID;
     *next_start = OS_VFS_LIST_PAGE_END;
     for (mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
         const char* relative = 0;
@@ -362,7 +367,7 @@ static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* 
              entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
              entry_index++) {
             uint32_t name_size = string_length(entries[entry_index].name);
-            if (written + name_size + 1U > OS_VFS_LIST_PAGE_DATA_MAX) {
+            if (written + name_size + 1U > data_max) {
                 status = OS_VFS_STATUS_TRUNCATED;
                 break;
             }
@@ -460,11 +465,34 @@ void main(void) {
             puts("vfsserver list page request\n");
             status = os_vfs_parse_list_page_request(&message, path, &start);
             if (status == 0) {
-                status = list_mounted_backend_page(path, start, data, &size, &count, &next_start);
+                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                                   &size, &count, &next_start);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list page outside mounts\n");
             }
             if (os_vfs_make_list_page_reply(&reply_payload, status, count, next_start,
                                             data, size, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_LIST_OBSERVE) {
+            int status;
+            uint32_t size = 0U;
+            uint32_t count = 0U;
+            uint32_t start = 0U;
+            uint32_t expected_generation = 0U;
+            uint32_t next_start = OS_VFS_LIST_PAGE_END;
+            puts("vfsserver list observe request\n");
+            status = os_vfs_parse_list_observe_request(&message, path, &start, &expected_generation);
+            if (status == 0 && expected_generation != 0U && expected_generation != vfs_list_generation) {
+                status = OS_VFS_STATUS_STALE;
+            }
+            if (status == 0) {
+                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                                   &size, &count, &next_start);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list observe outside mounts\n");
+            }
+            if (os_vfs_make_list_observe_reply(&reply_payload, status, count, next_start,
+                                               vfs_list_generation, data, size,
+                                               message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_STAT) {
@@ -517,6 +545,7 @@ void main(void) {
                     puts("vfsserver write outside mounts\n");
                 }
             }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_write_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
@@ -531,6 +560,7 @@ void main(void) {
                     puts("vfsserver remove outside mounts\n");
                 }
             }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_remove_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
@@ -545,6 +575,7 @@ void main(void) {
                     puts("vfsserver rename outside mounts\n");
                 }
             }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_rename_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
@@ -563,6 +594,7 @@ void main(void) {
                 print_int(status);
                 puts("\n");
             }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_mount_reply(&reply_payload, OS_IPC_VFS_MOUNT_ADD_REPLY,
                                         status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
@@ -581,6 +613,7 @@ void main(void) {
                 print_int(status);
                 puts("\n");
             }
+            if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_mount_reply(&reply_payload, OS_IPC_VFS_MOUNT_REMOVE_REPLY,
                                         status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
