@@ -259,6 +259,10 @@ int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload) {
     if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) {
         return OS_IPC_BAD_TARGET;
     }
+    if (service_registry_pid_is_owner(target_pid) &&
+        target->ipc_endpoint.count >= IPC_SERVICE_ENDPOINT_CAPACITY) {
+        return OS_IPC_SERVICE_FULL;
+    }
     return ipc_endpoint_send(&target->ipc_endpoint, current_task->id, payload);
 }
 

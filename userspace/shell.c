@@ -1477,7 +1477,8 @@ static void cmd_ipc_send(shell_context_t* ctx, char args[][128], int arg_count) 
     while (i < OS_IPC_MAX_DATA) payload.data[i++] = 0U;
     rc = sys_ipc_send(pid, &payload);
     ctx->last_rc = rc;
-    if (rc == OS_IPC_FULL) print_error("ipc-send: boite aux lettres pleine");
+    if (rc == OS_IPC_SERVICE_FULL) print_error("ipc-send: capacite du service atteinte");
+    else if (rc == OS_IPC_FULL) print_error("ipc-send: boite aux lettres pleine");
     else if (rc == OS_IPC_BAD_TARGET) print_error("ipc-send: cible utilisateur introuvable");
     else if (rc != 0) print_error("ipc-send: message invalide");
     else {

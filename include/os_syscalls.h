@@ -64,6 +64,9 @@
 #define OS_IPC_FULL        (-41)
 #define OS_IPC_BAD_TARGET  (-42)
 #define OS_IPC_BAD_MESSAGE (-43)
+/* L’endpoint d’un propriétaire de service est saturé par la politique de
+ * service avant la capacité brute de la tâche. */
+#define OS_IPC_SERVICE_FULL (-44)
 
 /* Registre Foundation : simple découverte de nom, pas une capability. */
 #define OS_SERVICE_NAME_MAX 16U
