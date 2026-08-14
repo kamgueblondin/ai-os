@@ -133,6 +133,8 @@ def main():
                                "vfsserver backend revoke request", proc)
             wait_for("vfs-backend-revoke ok request", proc, before_cap_revoke)
             wait_for("vfscapclaim backend revoked", proc, before_cap_revoke)
+            send_command_until(monitor, "kill %s" % cap_claim_pid,
+                               "Processus %s termine" % cap_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_read_claim = len(log_text())
             send_command_until(monitor, "spawn vfsreadclaim", "spawn ok pid", proc)
@@ -146,6 +148,23 @@ def main():
                                "vfsserver backend scoped grant request", proc)
             wait_for("vfs-backend-grant-read ok request", proc, before_read_grant)
             wait_for("vfsreadclaim read-only enforced", proc, before_read_grant)
+            send_command_until(monitor, "kill %s" % read_claim_pid,
+                               "Processus %s termine" % read_claim_pid, proc)
+            send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
+            before_mutate_claim = len(log_text())
+            send_command_until(monitor, "spawn vfsmutateclaim", "spawn ok pid", proc)
+            mutate_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsmutateclaim", log_text()[before_mutate_claim:])
+            if not mutate_claimed:
+                raise RuntimeError("beneficiaire mutation seule VFS non lance")
+            mutate_claim_pid = mutate_claimed.group(1)
+            wait_for("vfsmutateclaim waiting mutate", proc, before_mutate_claim)
+            before_mutate_grant = len(log_text())
+            send_command_until(monitor, "vfs-backend-grant-mutate %s" % mutate_claim_pid,
+                               "vfsserver backend scoped grant request", proc)
+            wait_for("vfs-backend-grant-mutate ok request", proc, before_mutate_grant)
+            wait_for("vfsmutateclaim mutate-only enforced", proc, before_mutate_grant)
+            send_command_until(monitor, "kill %s" % mutate_claim_pid,
+                               "Processus %s termine" % mutate_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_initrd_list = len(log_text())
             send_command_until(monitor, "vfs-list initrd/", "vfsserver list request", proc)
