@@ -238,6 +238,30 @@ int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t
     return OS_SERVICE_NOT_FOUND;
 }
 
+int service_registry_backend_list(const char* name, int32_t owner_pid, os_service_backend_list_t* out_list) {
+    uint32_t i;
+    uint32_t count = 0U;
+    if (!out_list) return OS_SERVICE_BAD_NAME;
+    out_list->count = 0U;
+    for (i = 0U; i < OS_SERVICE_BACKEND_CAPACITY; i++) {
+        out_list->entries[i].pid = 0;
+        out_list->entries[i].rights = 0U;
+    }
+    if (!service_registry_name_valid(name) || owner_pid <= 0) return OS_SERVICE_BAD_NAME;
+    if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
+    for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
+        if (service_backend_caps[i].owner_pid == owner_pid &&
+            service_backend_caps[i].grantee_pid > 0 &&
+            name_equal(service_backend_caps[i].name, name)) {
+            out_list->entries[count].pid = service_backend_caps[i].grantee_pid;
+            out_list->entries[count].rights = service_backend_caps[i].rights;
+            count++;
+        }
+    }
+    out_list->count = count;
+    return 0;
+}
+
 int service_registry_subscribe(const char* name, int32_t pid) {
     uint32_t i;
     int free_slot = -1;
