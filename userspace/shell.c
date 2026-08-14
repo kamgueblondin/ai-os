@@ -601,6 +601,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-backend-rename-probe <src> <dst> - Verifier le renommage backend reserve\n");
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-backend-grant <pid> - Deleguer sans transfert un acces backend VFS\n");
+    print_string("  vfs-backend-grant-read <pid> - Deleguer lecture backend VFS seulement\n");
     print_string("  vfs-backend-revoke <pid> - Retirer explicitement un acces backend VFS\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
@@ -1775,6 +1776,22 @@ static void cmd_vfs_backend_grant(shell_context_t* ctx, char args[][128], int ar
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_grant_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-grant: delegation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-grant ok request "); print_int((int)request_id); print_string("\n");
+}
+
+static void cmd_vfs_backend_grant_read(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message;
+    int pid, target_pid, rc, status, attempts; uint32_t request_id;
+    if (arg_count != 1 || (target_pid = parse_int(args[0])) <= 0) { print_error("Usage: vfs-backend-grant-read <pid>"); return; }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-backend-grant-read: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id(); rc = os_vfs_make_backend_grant_scoped_request(&request, target_pid, OS_VFS_BACKEND_RIGHT_READ, request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-backend-grant-read: demande refusee"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    if (rc != 0 || status != 0) { print_error("vfs-backend-grant-read: delegation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
+    ctx->last_rc = 0; print_string("vfs-backend-grant-read ok request "); print_int((int)request_id); print_string("\n");
 }
 
 static void cmd_vfs_backend_revoke(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -3345,6 +3362,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         cmd_vfs_grant(ctx, args, arg_count);
     } else if (strcmp(command, "vfs-backend-grant") == 0) {
         cmd_vfs_backend_grant(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-backend-grant-read") == 0) {
+        cmd_vfs_backend_grant_read(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-backend-revoke") == 0) {
         cmd_vfs_backend_revoke(ctx, args, arg_count);

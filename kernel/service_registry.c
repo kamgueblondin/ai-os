@@ -2,7 +2,7 @@
 
 static service_registry_entry_t service_entries[SERVICE_REGISTRY_CAPACITY];
 static service_registry_watch_t service_watches[SERVICE_REGISTRY_WATCH_CAPACITY];
-typedef struct { int32_t owner_pid; int32_t grantee_pid; char name[OS_SERVICE_NAME_MAX]; } service_backend_cap_t;
+typedef struct { int32_t owner_pid; int32_t grantee_pid; uint32_t rights; char name[OS_SERVICE_NAME_MAX]; } service_backend_cap_t;
 static service_backend_cap_t service_backend_caps[SERVICE_REGISTRY_BACKEND_CAPACITY];
 
 static int name_equal(const char* left, const char* right) {
@@ -50,6 +50,7 @@ void service_registry_init(void) {
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         service_backend_caps[i].owner_pid = 0;
         service_backend_caps[i].grantee_pid = 0;
+        service_backend_caps[i].rights = 0U;
         service_backend_caps[i].name[0] = '\0';
     }
 }
@@ -159,7 +160,7 @@ void service_registry_backend_remove_name(const char* name) {
     if (!service_registry_name_valid(name)) return;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].owner_pid > 0 && name_equal(service_backend_caps[i].name, name)) {
-            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].name[0] = '\0';
+            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].rights = 0U; service_backend_caps[i].name[0] = '\0';
         }
     }
 }
@@ -169,31 +170,44 @@ void service_registry_backend_remove_pid(int32_t pid) {
     if (pid <= 0) return;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].owner_pid == pid || service_backend_caps[i].grantee_pid == pid) {
-            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].name[0] = '\0';
+            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].rights = 0U; service_backend_caps[i].name[0] = '\0';
         }
     }
 }
 
-int service_registry_backend_allowed(const char* name, int32_t pid) {
+int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right) {
     uint32_t i;
+    if (right == 0U || (right & ~SERVICE_BACKEND_RIGHT_ALL) != 0U) return 0;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].grantee_pid == pid && name_equal(service_backend_caps[i].name, name) &&
-            service_registry_lookup(name) == service_backend_caps[i].owner_pid) return 1;
+            service_registry_lookup(name) == service_backend_caps[i].owner_pid &&
+            (service_backend_caps[i].rights & right) == right) return 1;
     }
     return 0;
 }
 
+int service_registry_backend_allowed(const char* name, int32_t pid) {
+    return service_registry_backend_allowed_for(name, pid, SERVICE_BACKEND_RIGHT_ALL);
+}
+
 int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t grantee_pid) {
+    return service_registry_backend_grant_scoped(name, owner_pid, grantee_pid, SERVICE_BACKEND_RIGHT_ALL);
+}
+
+int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights) {
     uint32_t i; int free_slot = -1;
-    if (!service_registry_name_valid(name) || owner_pid <= 0 || grantee_pid <= 0) return OS_SERVICE_BAD_NAME;
+    if (!service_registry_name_valid(name) || owner_pid <= 0 || grantee_pid <= 0 || rights == 0U ||
+        (rights & ~SERVICE_BACKEND_RIGHT_ALL) != 0U) return OS_SERVICE_BAD_NAME;
     if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
-        if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid && name_equal(service_backend_caps[i].name, name)) return 0;
+        if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid && name_equal(service_backend_caps[i].name, name)) {
+            service_backend_caps[i].rights = rights; return 0;
+        }
         if (service_backend_caps[i].owner_pid == 0 && free_slot < 0) free_slot = (int)i;
     }
     if (free_slot < 0) return OS_SERVICE_FULL;
     service_backend_caps[free_slot].owner_pid = owner_pid; service_backend_caps[free_slot].grantee_pid = grantee_pid;
-    copy_name(service_backend_caps[free_slot].name, name); return 0;
+    service_backend_caps[free_slot].rights = rights; copy_name(service_backend_caps[free_slot].name, name); return 0;
 }
 
 int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t grantee_pid) {
@@ -203,7 +217,7 @@ int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid &&
             name_equal(service_backend_caps[i].name, name)) {
-            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].name[0] = '\0';
+            service_backend_caps[i].owner_pid = 0; service_backend_caps[i].grantee_pid = 0; service_backend_caps[i].rights = 0U; service_backend_caps[i].name[0] = '\0';
             return 0;
         }
     }
