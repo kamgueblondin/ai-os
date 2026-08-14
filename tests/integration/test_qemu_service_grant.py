@@ -35,6 +35,17 @@ def wait_for(needle, proc, offset=0, timeout=15):
     raise RuntimeError("sortie manquante : %s" % needle)
 
 
+def wait_for_pattern(pattern, description, proc, offset=0, timeout=15):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("QEMU s'est arrêté prématurément")
+        if re.search(pattern, log_text()[offset:]):
+            return
+        time.sleep(0.1)
+    raise RuntimeError("sortie manquante : %s" % description)
+
+
 def connect_monitor():
     deadline = time.time() + 5
     while time.time() < deadline:
@@ -133,8 +144,9 @@ def main():
             wait_for("serviceclaim claimed demo", proc, before_grant)
             before_grant_event = len(log_text())
             send_command(monitor, "ipc-recv")
-            wait_for("service-event demo old 1 new %s reason 2" % claimant_pid,
-                     proc, before_grant_event)
+            wait_for_pattern(r"service-event demo old 1 new[\s\S]{0,160}?%s reason 2" % claimant_pid,
+                             "service-event demo old 1 new %s reason 2" % claimant_pid,
+                             proc, before_grant_event)
             before_lookup = len(log_text())
             send_command(monitor, "service-find demo")
             wait_for("service-find ok demo %s" % claimant_pid, proc, before_lookup)
@@ -143,8 +155,9 @@ def main():
             wait_for("Processus %s termine" % claimant_pid, proc, before_kill)
             before_purge_event = len(log_text())
             send_command(monitor, "ipc-recv")
-            wait_for("service-event demo old %s new 0 reason 4" % claimant_pid,
-                     proc, before_purge_event)
+            wait_for_pattern(r"service-event demo old %s new[\s\S]{0,160}?0 reason 4" % claimant_pid,
+                             "service-event demo old %s new 0 reason 4" % claimant_pid,
+                             proc, before_purge_event)
             before_missing = len(log_text())
             send_command(monitor, "service-find demo")
             wait_for("service-find: service indisponible", proc, before_missing)

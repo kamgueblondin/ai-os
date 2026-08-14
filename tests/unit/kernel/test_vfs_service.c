@@ -358,6 +358,69 @@ static void test_stat_request_and_reply_are_bounded_and_correlated(void) {
     TEST_ASSERT_EQUAL(OS_DIRENT_FILE, reply.flags);
 }
 
+static void test_list_request_and_reply_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_list_reply_t reply;
+    char mount[OS_VFS_PATH_MAX];
+    uint8_t data[11] = {'s', 'h', 'e', 'l', 'l', '\n', 'i', 'd', 'l', 'e', '\n'};
+    uint32_t i;
+    TEST_ASSERT_EQUAL(0, os_vfs_make_list_request(&payload, "initrd/", 101U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_LIST, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_PATH_MAX, payload.size);
+    TEST_ASSERT_EQUAL(101, payload.request_id);
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_list_request(&message, mount));
+    TEST_ASSERT_EQUAL_STRING("initrd/", mount);
+    TEST_ASSERT_EQUAL(0, os_vfs_make_list_reply(&payload, OS_VFS_STATUS_OK, 2U,
+                                                 data, 11U, 101U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_LIST_REPLY, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_LIST_REPLY_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(0, payload.data[8U + 11U]);
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(0, os_vfs_parse_list_reply(&message, &reply, 101U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, reply.status);
+    TEST_ASSERT_EQUAL(2, reply.count);
+    TEST_ASSERT_EQUAL('s', reply.data[0]);
+    TEST_ASSERT_EQUAL('\n', reply.data[10]);
+}
+
+static void test_list_rejects_invalid_mount_and_reply(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_list_reply_t reply;
+    char mount[OS_VFS_PATH_MAX];
+    uint8_t data[1] = {'x'};
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_list_request(&payload, "initrd", 1U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_list_request(&payload, "initrd/../", 1U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_list_reply(&payload, OS_VFS_STATUS_OK,
+                                             OS_VFS_LIST_ENTRY_MAX + 1U, data, 1U, 1U));
+    TEST_ASSERT_EQUAL(0, os_vfs_make_list_reply(&payload, OS_VFS_STATUS_TRUNCATED,
+                                                 1U, data, 1U, 102U));
+    message.sender_pid = 2;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_list_reply(&message, &reply, 103U));
+    message.size = OS_VFS_LIST_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_list_reply(&message, &reply, 102U));
+    message.type = OS_IPC_VFS_LIST;
+    message.size = OS_VFS_PATH_MAX - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_list_request(&message, mount));
+}
+
 static void test_stat_rejects_invalid_request_and_reply(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -400,6 +463,8 @@ int main(void) {
     RUN_TEST(test_mount_requests_reject_invalid_prefix_source_and_reply);
     RUN_TEST(test_reply_with_unexpected_request_id_is_rejected);
     RUN_TEST(test_stat_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_list_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_list_rejects_invalid_mount_and_reply);
     RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     unity_print_results();
     unity_cleanup();

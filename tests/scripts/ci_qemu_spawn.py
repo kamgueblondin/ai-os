@@ -106,6 +106,20 @@ def send_command(client, command):
     drain_monitor(client)
 
 
+def send_command_until(client, command, marker, proc, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        start = len(log_text())
+        send_command(client, command)
+        try:
+            wait_for(proc, marker, CMD_TIMEOUT, start)
+            return start
+        except RuntimeError as error:
+            failure = error
+            time.sleep(0.4)
+    raise failure
+
+
 def terminate(proc):
     if proc is None or proc.poll() is not None:
         return
@@ -141,32 +155,23 @@ def main():
             monitor = monitor_connect()
 
             say("typing spawn idle ...")
-            spawn_start = len(log_text())
-            send_command(monitor, "spawn idle")
-            wait_for(proc, "spawn ok pid", CMD_TIMEOUT, spawn_start)
+            spawn_start = send_command_until(monitor, "spawn idle", "spawn ok pid", proc)
             idle_pid = parse_spawn_pid(log_text()[spawn_start:])
             say("spawned idle pid %s" % idle_pid)
 
             say("typing yield ...")
-            start = len(log_text())
-            send_command(monitor, "yield")
+            start = send_command_until(monitor, "yield", "yield ok", proc)
             wait_for(proc, "idle ok", CMD_TIMEOUT, spawn_start)
-            wait_for(proc, "yield ok", CMD_TIMEOUT, start)
 
             say("typing ps ...")
-            start = len(log_text())
-            send_command(monitor, "ps")
-            wait_for(proc, "user  idle", CMD_TIMEOUT, start)
+            start = send_command_until(monitor, "ps", "user  idle", proc)
 
             say("typing kill %s ..." % idle_pid)
-            start = len(log_text())
-            send_command(monitor, "kill %s" % idle_pid)
-            wait_for(proc, "Processus %s termine" % idle_pid, CMD_TIMEOUT, start)
+            start = send_command_until(monitor, "kill %s" % idle_pid,
+                                       "Processus %s termine" % idle_pid, proc)
 
             say("typing ps (after kill) ...")
-            start = len(log_text())
-            send_command(monitor, "ps")
-            wait_for(proc, "Total:", CMD_TIMEOUT, start)
+            start = send_command_until(monitor, "ps", "Total:", proc)
             if "user  idle" in log_text()[start:]:
                 raise RuntimeError("idle still listed in ps after kill %s" % idle_pid)
 

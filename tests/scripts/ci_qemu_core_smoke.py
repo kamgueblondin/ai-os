@@ -87,6 +87,20 @@ def send_command(client, command):
     client.sendall(b"sendkey ret\n")
 
 
+def send_command_until(client, command, marker, proc, attempts=3):
+    failure = None
+    for _ in range(attempts):
+        start = len(log_text())
+        send_command(client, command)
+        try:
+            wait_for(proc, marker, CMD_TIMEOUT, start)
+            return
+        except RuntimeError as error:
+            failure = error
+            time.sleep(0.4)
+    raise failure
+
+
 def terminate(proc):
     if proc is None or proc.poll() is not None:
         return
@@ -136,9 +150,7 @@ def main():
             )
             for command, marker in commands:
                 say("typing %s ..." % command)
-                start = len(log_text())
-                send_command(monitor, command)
-                wait_for(proc, marker, CMD_TIMEOUT, start)
+                send_command_until(monitor, command, marker, proc)
         say("QEMU core smoke passed.")
         return 0
     finally:

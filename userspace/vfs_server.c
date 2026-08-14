@@ -69,6 +69,20 @@ static int backend_overlay_stat(const char* path, os_dirent_t* out) {
     return result;
 }
 
+static int backend_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_LISTDIR),
+                 "b"(path), "c"(out), "d"(max_n));
+    return result;
+}
+
+static int backend_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_LISTDIR),
+                 "b"(path), "c"(out), "d"(max_n));
+    return result;
+}
+
 static int backend_write(const char* path, const uint8_t* data, uint32_t size) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_WRITE), "b"(path), "c"(data), "d"(size));
@@ -254,6 +268,43 @@ static int stat_mounted_backend(const char* path, os_dirent_t* out) {
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+/* Le listage reçoit un préfixe exact, pas un chemin de fichier. Chaque
+ * backend voit sa propre racine et la réponse reste une page texte bornée.
+ * La cinquième entrée ne sert qu’à détecter une page incomplète. */
+static int list_mounted_backend(const char* mount, uint8_t* data, uint32_t* size,
+                                uint32_t* count) {
+    os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
+    uint32_t i;
+    uint32_t written = 0U;
+    uint32_t emitted = 0U;
+    int listed;
+    int status = OS_VFS_STATUS_OK;
+    if (!mount || !data || !size || !count) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < vfs_mount_count; i++) {
+        if (string_equal(mount, vfs_mounts[i].prefix)) {
+            listed = vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
+                ? backend_initrd_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+                : backend_overlay_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
+            if (listed < 0) return listed;
+            for (i = 0U; i < (uint32_t)listed && i < OS_VFS_LIST_ENTRY_MAX; i++) {
+                uint32_t name_size = string_length(entries[i].name);
+                if (written + name_size + 1U > OS_VFS_LIST_DATA_MAX) {
+                    status = OS_VFS_STATUS_TRUNCATED;
+                    break;
+                }
+                for (uint32_t j = 0U; j < name_size; j++) data[written++] = (uint8_t)entries[i].name[j];
+                data[written++] = (uint8_t)'\n';
+                emitted++;
+            }
+            if ((uint32_t)listed > OS_VFS_LIST_ENTRY_MAX) status = OS_VFS_STATUS_TRUNCATED;
+            *size = written;
+            *count = emitted;
+            return status;
+        }
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
@@ -310,7 +361,21 @@ void main(void) {
     puts("vfsserver mount overlay/ rw\n");
     for (;;) {
         int received = ipc_receive(&message);
-        if (received == 0 && message.type == OS_IPC_VFS_STAT) {
+        if (received == 0 && message.type == OS_IPC_VFS_LIST) {
+            int status;
+            uint32_t size = 0U;
+            uint32_t count = 0U;
+            puts("vfsserver list request\n");
+            status = os_vfs_parse_list_request(&message, path);
+            if (status == 0) {
+                status = list_mounted_backend(path, data, &size, &count);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list outside mounts\n");
+            }
+            if (os_vfs_make_list_reply(&reply_payload, status, count, data, size,
+                                       message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_STAT) {
             int status;
             puts("vfsserver stat request\n");
             status = os_vfs_parse_stat_request(&message, path);
