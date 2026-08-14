@@ -34,6 +34,12 @@ static int service_grant(const char* name, int target_pid) {
     return result;
 }
 
+static int service_backend_grant(const char* name, int target_pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_GRANT), "b"(name), "c"(target_pid));
+    return result;
+}
+
 static void print_int(int value) {
     char digits[12];
     int n = 0;
@@ -672,6 +678,15 @@ void main(void) {
             if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
             if (os_vfs_make_mount_reply(&reply_payload, OS_IPC_VFS_MOUNT_REMOVE_REPLY,
                                         status, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_GRANT) {
+            int target_pid;
+            int status;
+            puts("vfsserver backend grant request\n");
+            status = os_vfs_parse_backend_grant_request(&message, &target_pid);
+            if (status == 0) status = service_backend_grant("vfs", target_pid);
+            if (os_vfs_make_backend_grant_reply(&reply_payload, status, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_GRANT) {

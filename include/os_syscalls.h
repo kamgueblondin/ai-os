@@ -73,8 +73,10 @@
 #define SYS_VFS_OVERLAY_MKDIR 43
 /* EBX = chemin overlay relatif ; réservé au propriétaire de `vfs`. */
 #define SYS_VFS_OVERLAY_RMDIR 44
+/* EBX = nom de service, ECX = PID bénéficiaire ; capacité backend déléguée par le propriétaire. */
+#define SYS_SERVICE_BACKEND_GRANT 45
 
-#define MAX_SYSCALLS 45
+#define MAX_SYSCALLS 46
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
