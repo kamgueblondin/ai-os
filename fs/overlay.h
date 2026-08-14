@@ -40,6 +40,7 @@ int overlay_copy(const char* src, const char* dst);
 int overlay_read(const char* path, char* buf, uint32_t max);
 int overlay_stat(const char* path, os_dirent_t* out);
 int overlay_listdir(const char* path, os_dirent_t* out, int start, int max_n);
+int overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start, int max_n);
 int overlay_is_dir(const char* path);
 
 int overlay_snapshot(uint8_t* buf, uint32_t max, uint32_t* out_size);

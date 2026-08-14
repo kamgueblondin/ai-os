@@ -7,7 +7,9 @@ extern void print_string_vga(const char* str, char color);
 
 // Variables globales
 initrd_t* current_initrd = 0;
-static initrd_file_t files_array[64]; // Support jusqu'à 64 fichiers
+#define INITRD_FILE_MAX 64U
+static initrd_file_t files_array[INITRD_FILE_MAX]; // Support jusqu'à 64 fichiers
+static os_dirent_t initrd_page_entries[INITRD_FILE_MAX];
 
 // Fonctions utilitaires pour les chaînes de caractères
 int strlen(const char* str) {
@@ -401,6 +403,27 @@ int initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
         }
     }
     return count;
+}
+
+int initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start, int max_n) {
+    int total;
+    int emitted;
+    int i;
+    if (!out || max_n <= 0) return -1;
+    total = initrd_listdir(path, initrd_page_entries, (int)INITRD_FILE_MAX);
+    if (total < 0) return total;
+    if (start >= (uint32_t)total) return 0;
+    emitted = total - (int)start;
+    if (emitted > max_n) emitted = max_n;
+    for (i = 0; i < emitted; i++) {
+        uint32_t j;
+        for (j = 0U; j < OS_NAME_MAX; j++) {
+            out[i].name[j] = initrd_page_entries[start + (uint32_t)i].name[j];
+        }
+        out[i].size = initrd_page_entries[start + (uint32_t)i].size;
+        out[i].flags = initrd_page_entries[start + (uint32_t)i].flags;
+    }
+    return emitted;
 }
 
 int initrd_is_file(const char* path) {

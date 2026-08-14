@@ -262,8 +262,18 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_VFS_OVERLAY_LISTDIR:
             cpu->eax = (uint32_t)sys_vfs_overlay_listdir((const char*)cpu->ebx,
-                                                          (os_dirent_t*)cpu->ecx,
-                                                          (int)cpu->edx);
+                                                           (os_dirent_t*)cpu->ecx,
+                                                           (int)cpu->edx);
+            break;
+        case SYS_VFS_INITRD_LISTDIR_PAGE:
+            cpu->eax = (uint32_t)sys_vfs_initrd_listdir_page((const char*)cpu->ebx,
+                                                               (os_dirent_t*)cpu->ecx,
+                                                               cpu->edx);
+            break;
+        case SYS_VFS_OVERLAY_LISTDIR_PAGE:
+            cpu->eax = (uint32_t)sys_vfs_overlay_listdir_page((const char*)cpu->ebx,
+                                                                (os_dirent_t*)cpu->ecx,
+                                                                cpu->edx);
             break;
         default:
 
@@ -460,6 +470,24 @@ int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
     }
     if (!path || !out || max_n <= 0 || !overlay_is_dir(path)) return -1;
     return overlay_listdir(path, out, 0, max_n);
+}
+
+int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !out || !initrd_is_dir(path)) return -1;
+    return initrd_listdir_page(path, out, start, 5);
+}
+
+int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!path || !out || !overlay_is_dir(path)) return -1;
+    return overlay_listdir_page(path, out, start, 5);
 }
 
 /*

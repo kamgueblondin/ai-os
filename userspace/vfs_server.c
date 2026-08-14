@@ -83,6 +83,20 @@ static int backend_overlay_listdir(const char* path, os_dirent_t* out, int max_n
     return result;
 }
 
+static int backend_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_LISTDIR_PAGE),
+                 "b"(path), "c"(out), "d"(start));
+    return result;
+}
+
+static int backend_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_LISTDIR_PAGE),
+                 "b"(path), "c"(out), "d"(start));
+    return result;
+}
+
 static int backend_write(const char* path, const uint8_t* data, uint32_t size) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_BACKEND_WRITE), "b"(path), "c"(data), "d"(size));
@@ -327,6 +341,46 @@ static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* data,
+                                     uint32_t* size, uint32_t* count, uint32_t* next_start) {
+    os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
+    uint32_t mount_index;
+    uint32_t written = 0U;
+    uint32_t emitted = 0U;
+    int listed;
+    int status = OS_VFS_STATUS_OK;
+    if (!path || !data || !size || !count || !next_start) return OS_VFS_STATUS_INVALID;
+    *next_start = OS_VFS_LIST_PAGE_END;
+    for (mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
+        const char* relative = 0;
+        if (!list_path_matches_mount(path, vfs_mounts[mount_index].prefix, &relative)) continue;
+        listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
+            ? backend_initrd_listdir_page(relative, entries, start)
+            : backend_overlay_listdir_page(relative, entries, start);
+        if (listed < 0) return listed;
+        for (uint32_t entry_index = 0U;
+             entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
+             entry_index++) {
+            uint32_t name_size = string_length(entries[entry_index].name);
+            if (written + name_size + 1U > OS_VFS_LIST_PAGE_DATA_MAX) {
+                status = OS_VFS_STATUS_TRUNCATED;
+                break;
+            }
+            for (uint32_t j = 0U; j < name_size; j++) data[written++] = (uint8_t)entries[entry_index].name[j];
+            data[written++] = (uint8_t)'\n';
+            emitted++;
+        }
+        if ((uint32_t)listed > emitted) {
+            status = OS_VFS_STATUS_TRUNCATED;
+            *next_start = start + (emitted == 0U ? 1U : emitted);
+        }
+        *size = written;
+        *count = emitted;
+        return status;
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
@@ -395,6 +449,22 @@ void main(void) {
             }
             if (os_vfs_make_list_reply(&reply_payload, status, count, data, size,
                                        message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_LIST_PAGE) {
+            int status;
+            uint32_t size = 0U;
+            uint32_t count = 0U;
+            uint32_t start = 0U;
+            uint32_t next_start = OS_VFS_LIST_PAGE_END;
+            puts("vfsserver list page request\n");
+            status = os_vfs_parse_list_page_request(&message, path, &start);
+            if (status == 0) {
+                status = list_mounted_backend_page(path, start, data, &size, &count, &next_start);
+                if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list page outside mounts\n");
+            }
+            if (os_vfs_make_list_page_reply(&reply_payload, status, count, next_start,
+                                            data, size, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_STAT) {

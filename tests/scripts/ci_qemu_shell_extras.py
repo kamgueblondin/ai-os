@@ -105,6 +105,22 @@ def sendkeys(mon, keys):
         time.sleep(KEY_DELAY)
 
 
+def send_command_until(mon, name, keys, needle, proc, attempts=3):
+    last_error = None
+    for attempt in range(attempts):
+        start = len(log_text())
+        sendkeys(mon, keys)
+        try:
+            wait_needle_from(needle, CMD_TIMEOUT, proc, start)
+            return
+        except RuntimeError as e:
+            last_error = e
+            if attempt + 1 < attempts:
+                say("retrying %s (%d/%d) ..." % (name, attempt + 2, attempts))
+                time.sleep(0.25)
+    raise last_error
+
+
 def dump_logs():
     text = log_text()
     if text:
@@ -200,8 +216,7 @@ def main():
         ]
         for name, keys, needle in commands:
             say("typing %s ..." % name)
-            sendkeys(mon, keys)
-            wait_needle(needle, CMD_TIMEOUT, proc)
+            send_command_until(mon, name, keys, needle, proc)
             time.sleep(0.2)
 
         text = log_text()

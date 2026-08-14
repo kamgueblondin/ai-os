@@ -48,6 +48,7 @@ uint32_t initrd_get_file_size(const char* filename);
 int initrd_file_exists(const char* filename);
 uint32_t initrd_get_file_count();
 int initrd_listdir(const char* path, os_dirent_t* out, int max_n);
+int initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start, int max_n);
 int initrd_read_into(const char* path, char* buf, uint32_t max);
 int initrd_is_dir(const char* path);
 int initrd_is_file(const char* path);

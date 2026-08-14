@@ -55,6 +55,8 @@ int sys_vfs_initrd_stat(const char* path, os_dirent_t* out);
 int sys_vfs_overlay_stat(const char* path, os_dirent_t* out);
 int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n);
 int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n);
+int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start);
+int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start);
 
 void keyboard_add_char_to_buffer(char c);
 
