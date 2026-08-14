@@ -100,6 +100,7 @@ def main():
             before_grant = len(log_text())
             send_command(monitor, "service-grant demo %s" % claimant_pid)
             wait_for("service-grant ok demo %s" % claimant_pid, proc, before_grant)
+            send_command(monitor, "yield")
             wait_for("serviceclaim notified demo", proc, before_grant)
             wait_for("serviceclaim claimed demo", proc, before_grant)
             before_grant_event = len(log_text())

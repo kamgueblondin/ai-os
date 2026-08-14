@@ -258,6 +258,12 @@ int sys_vfs_overlay_unlink(const char* path) {
     return result;
 }
 
+int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_RENAME), "b"(oldpath), "c"(newpath));
+    return result;
+}
+
 static uint32_t vfs_request_counter = 0U;
 static os_ipc_deferred_t ipc_deferred;
 
@@ -585,10 +591,12 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-backend-probe <fichier> - Verifier le backend VFS reserve\n");
     print_string("  vfs-backend-write-probe <fichier> <texte> - Verifier l'ecriture backend reservee\n");
     print_string("  vfs-backend-remove-probe <fichier> - Verifier la suppression backend reservee\n");
+    print_string("  vfs-backend-rename-probe <src> <dst> - Verifier le renommage backend reserve\n");
     print_string("  vfs-grant <pid>      - Demander au serveur VFS de transferer son nom\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-write <chemin> <texte> - Ecrire via le montage VFS overlay/\n");
     print_string("  vfs-remove <chemin>  - Supprimer via le montage VFS overlay/\n");
+    print_string("  vfs-rename <src> <dst> - Renommer via le montage VFS overlay/\n");
     print_string("  kill <pid>         - Terminer un processus\n");
     print_string("  jobs               - Afficher les tâches\n");
     print_string("  top                - Moniteur système\n");
@@ -1172,7 +1180,7 @@ static int is_builtin(const char* cmd) {
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
-        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-grant", "vfs-read", "vfs-write", "vfs-remove", "jobs", "top", "getpid", "uptime", "date", "whoami",
+        "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-write", "vfs-remove", "vfs-rename", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
         "grep", "wc", "sort", "head", "tail",
         "logout", "reboot", "shutdown",
@@ -1655,6 +1663,23 @@ static void cmd_vfs_backend_remove_probe(shell_context_t* ctx, char args[][128],
     }
 }
 
+static void cmd_vfs_backend_rename_probe(shell_context_t* ctx, char args[][128], int arg_count) {
+    int rc;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-backend-rename-probe <src> <dst>");
+        return;
+    }
+    rc = sys_vfs_overlay_rename(args[0], args[1]);
+    ctx->last_rc = rc;
+    if (rc == OS_VFS_BACKEND_DENIED) {
+        print_string("vfs-backend-rename-probe denied\n");
+    } else if (rc == 0) {
+        print_string("vfs-backend-rename-probe unexpectedly allowed\n");
+    } else {
+        print_error("vfs-backend-rename-probe: erreur backend");
+    }
+}
+
 static void cmd_vfs_grant(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request;
     int pid;
@@ -1825,6 +1850,72 @@ static void cmd_vfs_remove(shell_context_t* ctx, char args[][128], int arg_count
         return;
     }
     print_string("vfs-remove ok request ");
+    print_int((int)request_id);
+    print_string("\n");
+}
+
+static void cmd_vfs_rename(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_ipc_message_t message;
+    os_vfs_rename_reply_t reply;
+    int pid;
+    int rc;
+    int attempts;
+    uint32_t request_id;
+    if (arg_count != 2) {
+        print_error("Usage: vfs-rename <src> <dst>");
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) {
+        print_error("vfs-rename: service vfs indisponible");
+        ctx->last_rc = pid;
+        return;
+    }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_rename_request(&request, args[0], args[1], request_id);
+    if (rc != 0) {
+        print_error("vfs-rename: chemin invalide ou trop long");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = sys_ipc_send(pid, &request);
+    if (rc != 0) {
+        print_error("vfs-rename: service indisponible");
+        ctx->last_rc = rc;
+        return;
+    }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_RENAME_REPLY,
+                                       request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_rename_reply(&message, &reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+        int saved;
+        yield();
+        rc = sys_ipc_receive(&message);
+        if (rc == 0) {
+            if (message.type == OS_IPC_VFS_RENAME_REPLY && message.request_id == request_id) {
+                rc = os_vfs_parse_rename_reply(&message, &reply, request_id);
+            } else {
+                saved = os_ipc_deferred_push(&ipc_deferred, &message);
+                rc = saved == 0 ? OS_IPC_EMPTY : saved;
+            }
+        }
+    }
+    if (rc != 0) {
+        print_error("vfs-rename: reponse VFS absente ou invalide");
+        ctx->last_rc = rc;
+        return;
+    }
+    ctx->last_rc = reply.status;
+    if (reply.status != OS_VFS_STATUS_OK) {
+        if (reply.status == OS_VFS_STATUS_NOT_MOUNTED) {
+            print_error("vfs-rename: chemins hors montage ecriture");
+        } else {
+            print_error("vfs-rename: renommage refuse ou fichier absent");
+        }
+        return;
+    }
+    print_string("vfs-rename ok request ");
     print_int((int)request_id);
     print_string("\n");
 }
@@ -2749,6 +2840,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "vfs-backend-remove-probe") == 0) {
         cmd_vfs_backend_remove_probe(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "vfs-backend-rename-probe") == 0) {
+        cmd_vfs_backend_rename_probe(ctx, args, arg_count);
+        return 1;
     } else if (strcmp(command, "vfs-grant") == 0) {
         cmd_vfs_grant(ctx, args, arg_count);
         return 1;
@@ -2760,6 +2854,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-remove") == 0) {
         cmd_vfs_remove(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-rename") == 0) {
+        cmd_vfs_rename(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "yield") == 0) {
         cmd_yield(ctx, args, arg_count);

@@ -239,6 +239,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_VFS_OVERLAY_UNLINK:
             cpu->eax = (uint32_t)sys_vfs_overlay_unlink((const char*)cpu->ebx);
             break;
+        case SYS_VFS_OVERLAY_RENAME:
+            cpu->eax = (uint32_t)sys_vfs_overlay_rename((const char*)cpu->ebx,
+                                                         (const char*)cpu->ecx);
+            break;
         default:
 
             // Syscall inconnu
@@ -366,6 +370,15 @@ int sys_vfs_overlay_unlink(const char* path) {
     }
     if (!path) return -1;
     return overlay_unlink(path);
+}
+
+int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
+    if (!current_task || current_task->type != TASK_TYPE_USER ||
+        service_registry_lookup("vfs") != current_task->id) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!oldpath || !newpath) return -1;
+    return overlay_rename(oldpath, newpath);
 }
 
 /*

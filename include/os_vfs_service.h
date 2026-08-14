@@ -11,6 +11,8 @@
 #define OS_IPC_VFS_WRITE_REPLY 0x56465305U
 #define OS_IPC_VFS_REMOVE      0x56465306U
 #define OS_IPC_VFS_REMOVE_REPLY 0x56465307U
+#define OS_IPC_VFS_RENAME       0x56465308U
+#define OS_IPC_VFS_RENAME_REPLY 0x56465309U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -18,6 +20,7 @@
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
+#define OS_VFS_RENAME_REQUEST_SIZE (OS_VFS_PATH_MAX * 2U)
 
 #define OS_VFS_STATUS_OK          0
 #define OS_VFS_STATUS_INVALID    (-60)
@@ -41,6 +44,10 @@ typedef struct {
 typedef struct {
     int32_t status;
 } os_vfs_remove_reply_t;
+
+typedef struct {
+    int32_t status;
+} os_vfs_rename_reply_t;
 
 static inline int os_vfs_path_is_safe(const char* path) {
     uint32_t i;
@@ -221,6 +228,69 @@ static inline int os_vfs_parse_remove_reply(const os_ipc_message_t* message,
                                             os_vfs_remove_reply_t* reply_out,
                                             uint32_t expected_request_id) {
     if (!message || !reply_out || message->type != OS_IPC_VFS_REMOVE_REPLY ||
+        message->size != OS_VFS_WRITE_REPLY_SIZE || message->request_id != expected_request_id) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    return 0;
+}
+
+static inline int os_vfs_make_rename_request(os_ipc_payload_t* payload,
+                                             const char* old_path, const char* new_path,
+                                             uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(old_path) || !os_vfs_path_is_safe(new_path)) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    payload->type = OS_IPC_VFS_RENAME;
+    payload->size = OS_VFS_RENAME_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        payload->data[i] = (uint8_t)old_path[i];
+        if (old_path[i] == '\0') {
+            for (i++; i < OS_VFS_PATH_MAX; i++) payload->data[i] = 0U;
+            break;
+        }
+    }
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        payload->data[OS_VFS_PATH_MAX + i] = (uint8_t)new_path[i];
+        if (new_path[i] == '\0') {
+            for (i++; i < OS_VFS_PATH_MAX; i++) payload->data[OS_VFS_PATH_MAX + i] = 0U;
+            break;
+        }
+    }
+    return 0;
+}
+
+static inline int os_vfs_parse_rename_request(const os_ipc_message_t* message,
+                                              char* old_path_out, char* new_path_out) {
+    uint32_t i;
+    if (!message || !old_path_out || !new_path_out || message->type != OS_IPC_VFS_RENAME ||
+        message->size != OS_VFS_RENAME_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        old_path_out[i] = (char)message->data[i];
+        new_path_out[i] = (char)message->data[OS_VFS_PATH_MAX + i];
+    }
+    return os_vfs_path_is_safe(old_path_out) && os_vfs_path_is_safe(new_path_out)
+        ? 0 : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_rename_reply(os_ipc_payload_t* payload, int32_t status,
+                                           uint32_t request_id) {
+    uint32_t i;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_RENAME_REPLY;
+    payload->size = OS_VFS_WRITE_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    for (i = OS_VFS_WRITE_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_rename_reply(const os_ipc_message_t* message,
+                                            os_vfs_rename_reply_t* reply_out,
+                                            uint32_t expected_request_id) {
+    if (!message || !reply_out || message->type != OS_IPC_VFS_RENAME_REPLY ||
         message->size != OS_VFS_WRITE_REPLY_SIZE || message->request_id != expected_request_id) {
         return OS_VFS_STATUS_INVALID;
     }
