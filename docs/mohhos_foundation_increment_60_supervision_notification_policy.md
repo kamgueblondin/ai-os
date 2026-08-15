@@ -74,7 +74,7 @@ Les valeurs disponibles sont `all`, `exit`, `suspend`, `resume`, `delegate-out`,
 | Syscalls Unity | ABI 76/77, instantané initial, rejet de bit inconnu et absence de livraison pour une action filtrée |
 | Suite complète | `make test-all` : **243/243** tests réussis |
 | Image i386 | `make clean && make all` réussi |
-| QEMU spawn | `delegate-out` configuré, notification structurée reçue et contrat de supervision historique préservé |
+| QEMU spawn | Souscription active, notification structurée de délégation reçue et contrat de supervision historique préservé |
 
 ## Limites explicites
 

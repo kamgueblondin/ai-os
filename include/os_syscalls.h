@@ -139,8 +139,12 @@
 #define SYS_TASK_SUPERVISION_NOTIFY_FILTER 76
 /* EBX = os_task_supervision_notify_status_t* ; instantané local de souscription. */
 #define SYS_TASK_SUPERVISION_NOTIFY_STATUS 77
+/* EBX = PID enfant (0 avec ECX=0 pour désactiver/vider) ; ECX = 0 retire ou 1 ajoute. */
+#define SYS_TASK_SUPERVISION_WATCH 78
+/* EBX = os_task_supervision_watch_status_t* ; instantané local de la watchlist. */
+#define SYS_TASK_SUPERVISION_WATCH_STATUS 79
 
-#define MAX_SYSCALLS 78
+#define MAX_SYSCALLS 80
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -192,6 +196,12 @@
 #define OS_TASK_BAD_NOTIFY (-75)
 /* Le masque de notifications contient un bit inconnu. */
 #define OS_TASK_BAD_NOTIFY_FILTER (-76)
+/* La commande de watchlist ou son argument d’activation est invalide. */
+#define OS_TASK_BAD_WATCH (-77)
+/* La watchlist locale de supervision a atteint sa capacité bornée. */
+#define OS_TASK_WATCH_FULL (-78)
+/* Le PID demandé n’est pas retenu dans la watchlist locale. */
+#define OS_TASK_NO_SUPERVISION_WATCH (-79)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -217,6 +227,7 @@
 #define OS_TASK_PRIORITY_HIGH    3U
 #define OS_TASK_CHILD_CAPACITY   4U
 #define OS_TASK_SUPERVISION_EVENT_CAPACITY 4U
+#define OS_TASK_SUPERVISION_WATCH_CAPACITY OS_TASK_CHILD_CAPACITY
 
 #define OS_TASK_SUPERVISION_EXIT          1U
 #define OS_TASK_SUPERVISION_SUSPEND       2U
@@ -317,6 +328,14 @@ typedef struct {
     uint32_t enabled;
     uint32_t mask;
 } os_task_supervision_notify_status_t;
+
+/* Watchlist locale de notifications détaillées. Si enabled vaut zéro, tous les
+ * enfants directs restent admissibles ; s’il vaut un, seuls les PID retenus le sont. */
+typedef struct {
+    uint32_t enabled;
+    uint32_t count;
+    int32_t pids[OS_TASK_SUPERVISION_WATCH_CAPACITY];
+} os_task_supervision_watch_status_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */
