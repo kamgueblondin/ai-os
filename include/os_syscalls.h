@@ -119,8 +119,10 @@
 #define SYS_TASK_WAIT_ANY                66
 /* EBX = os_task_child_exit_count_t* ; compteur cumulatif local de départs directs. */
 #define SYS_TASK_CHILD_EXIT_COUNT        67
+/* EBX = PID enfant direct, ECX = PID nouveau superviseur utilisateur. */
+#define SYS_TASK_DELEGATE_CHILD          68
 
-#define MAX_SYSCALLS 68
+#define MAX_SYSCALLS 69
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -164,6 +166,8 @@
 #define OS_TASK_BAD_STATE (-71)
 /* Le parent appelant ne possède aucun enfant direct actif à superviser. */
 #define OS_TASK_NO_DIRECT_CHILD (-72)
+/* Le nouveau superviseur créerait une filiation invalide ou cyclique. */
+#define OS_TASK_BAD_DELEGATE (-73)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U

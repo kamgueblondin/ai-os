@@ -228,6 +228,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_CHILD_EXIT_COUNT:
             cpu->eax = (uint32_t)sys_task_child_exit_count((os_task_child_exit_count_t*)cpu->ebx);
             break;
+        case SYS_TASK_DELEGATE_CHILD:
+            cpu->eax = (uint32_t)sys_task_delegate_child((int)cpu->ebx, (int)cpu->ecx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -1013,4 +1016,9 @@ int sys_task_wait_any(void) {
 int sys_task_child_exit_count(os_task_child_exit_count_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_get_child_exit_count(current_task->id, &out->count);
+}
+
+int sys_task_delegate_child(int child_pid, int supervisor_pid) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_delegate_child(current_task->id, child_pid, supervisor_pid);
 }

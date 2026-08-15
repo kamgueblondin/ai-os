@@ -909,6 +909,52 @@ void test_task_child_exit_count(void) {
     TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_get_child_exit_count(parent->id, NULL));
 }
 
+void test_task_supervision_delegation(void) {
+    task_t* parent;
+    task_t* supervisor;
+    task_t* child;
+    task_t* descendant;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    supervisor = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    descendant = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(supervisor);
+    TEST_ASSERT_NOT_NULL(child);
+    TEST_ASSERT_NOT_NULL(descendant);
+    parent->type = TASK_TYPE_USER;
+    supervisor->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    descendant->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    descendant->parent_pid = child->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(supervisor);
+    add_task_to_queue(child);
+    add_task_to_queue(descendant);
+
+    TEST_ASSERT_EQUAL(0, task_wait_for_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_STATE,
+                      task_delegate_child(parent->id, child->id, supervisor->id));
+    parent->state = TASK_READY;
+    child->waiter_pid = 0;
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_DELEGATE,
+                      task_delegate_child(parent->id, child->id, descendant->id));
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_DELEGATE,
+                      task_delegate_child(parent->id, child->id, parent->id));
+    TEST_ASSERT_EQUAL(0, task_delegate_child(parent->id, child->id, supervisor->id));
+    TEST_ASSERT_EQUAL(supervisor->id, child->parent_pid);
+    TEST_ASSERT_EQUAL(0, task_count_direct_children(parent->id));
+    TEST_ASSERT_EQUAL(1, task_count_direct_children(supervisor->id));
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(supervisor->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_resume_child(supervisor->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_kill(supervisor->id, child->id));
+    TEST_ASSERT_EQUAL(supervisor->id, descendant->parent_pid);
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -1004,6 +1050,7 @@ int main(void) {
     RUN_TEST(test_task_kill_direct_children_snapshot);
     RUN_TEST(test_task_direct_children_and_wait_any);
     RUN_TEST(test_task_child_exit_count);
+    RUN_TEST(test_task_supervision_delegation);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

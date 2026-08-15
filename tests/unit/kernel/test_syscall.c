@@ -761,6 +761,63 @@ void test_sys_task_name_and_capacity(void) {
     current_task = old_current;
 }
 
+void test_sys_task_delegate_child(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* supervisor;
+    task_t* child;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    supervisor = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(supervisor);
+    TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER;
+    supervisor->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(supervisor);
+    add_task_to_queue(child);
+
+    current_task = parent;
+    cpu.eax = SYS_TASK_DELEGATE_CHILD;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)supervisor->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(supervisor->id, child->parent_pid);
+
+    cpu.eax = SYS_TASK_DELEGATE_CHILD;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)parent->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_CHILD, (int)cpu.eax);
+
+    current_task = supervisor;
+    cpu.eax = SYS_TASK_DELEGATE_CHILD;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)parent->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(parent->id, child->parent_pid);
+
+    current_task = parent;
+    cpu.eax = SYS_TASK_DELEGATE_CHILD;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_DELEGATE, (int)cpu.eax);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_wait_child(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1594,6 +1651,7 @@ int main(void) {
     RUN_TEST(test_sys_meminfo);
     RUN_TEST(test_sys_task_priority_and_metrics);
     RUN_TEST(test_sys_task_name_and_capacity);
+    RUN_TEST(test_sys_task_delegate_child);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);

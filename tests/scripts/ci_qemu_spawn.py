@@ -272,6 +272,26 @@ def main():
             say("typing task-metrics 1 (no child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)
 
+            say("typing spawn idle (delegated supervisor) ...")
+            spawn_start = send_command_until(monitor, "spawn idle", "spawn ok pid", proc)
+            supervisor_pid = parse_spawn_pid(log_text()[spawn_start:], "idle")
+            say("spawned delegated supervisor pid %s" % supervisor_pid)
+            say("typing spawn idle (delegated child) ...")
+            spawn_start = send_command_until(monitor, "spawn idle", "spawn ok pid", proc)
+            delegated_pid = parse_spawn_pid(log_text()[spawn_start:], "idle")
+            say("spawned delegated child pid %s" % delegated_pid)
+            say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
+            send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
+                               "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
+            say("typing children (after delegation) ...")
+            delegated_children_start = send_command_until(monitor, "children", "children ok 1", proc)
+            wait_for(proc, "child-entry %s" % supervisor_pid, CMD_TIMEOUT, delegated_children_start)
+            if "child-entry %s" % delegated_pid in log_text()[delegated_children_start:]:
+                raise RuntimeError("delegated child still listed under original parent %s" % delegated_pid)
+            say("typing task-metrics %s (delegated parent) ..." % delegated_pid)
+            send_command_until(monitor, "task-metrics %s" % delegated_pid,
+                               "Parent : %s" % supervisor_pid, proc)
+
         say("QEMU spawn/yield/wait smoke passed.")
         return 0
     finally:
