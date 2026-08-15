@@ -8,6 +8,7 @@
 #include "kernel/mem/heap.h"
 #include "fs/initrd.h"
 #include "kernel/gdt.h"
+#include "kernel/timer.h"
 
 // Variables globales
 task_t* current_task = NULL;
@@ -34,6 +35,10 @@ void tasking_init() {
     current_task->vmm_dir = kernel_directory;
     current_task->kernel_stack_p = 0;
     current_task->waiter_pid = 0;
+    current_task->created_ticks = timer_get_ticks();
+    current_task->last_scheduled_ticks = current_task->created_ticks;
+    current_task->run_ticks = 0U;
+    current_task->switch_count = 1U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -79,6 +84,7 @@ static void unlink_task(task_t* task) {
 }
 
 void schedule(cpu_state_t* cpu) {
+    uint32_t now = timer_get_ticks();
     asm volatile("cli"); // Désactiver les interruptions pour la planification
     if (!current_task) {
         asm volatile("sti");
@@ -88,6 +94,7 @@ void schedule(cpu_state_t* cpu) {
     // Si la tache courante est terminee, ne pas sauver l'etat; retirer de la file
     if (current_task->state != TASK_TERMINATED) {
         // Sauvegarder l'état de la tâche actuelle
+        if (now >= current_task->last_scheduled_ticks) current_task->run_ticks += now - current_task->last_scheduled_ticks;
         memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
     } else {
         print_string_serial("[SCHED] removing terminated task\n");
@@ -144,6 +151,8 @@ void schedule(cpu_state_t* cpu) {
     write_serial('0' + (current_task->id % 10));
     print_string_serial("\n");
     current_task->state = TASK_RUNNING;
+    current_task->last_scheduled_ticks = now;
+    current_task->switch_count++;
 
     // Mettre à jour le TSS avec la pile noyau de la nouvelle tâche
     if (current_task->type == TASK_TYPE_USER) {
@@ -243,6 +252,10 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->type = TASK_TYPE_USER;
     new_task->vmm_dir = vmm_dir;
     new_task->waiter_pid = 0;
+    new_task->created_ticks = timer_get_ticks();
+    new_task->last_scheduled_ticks = new_task->created_ticks;
+    new_task->run_ticks = 0U;
+    new_task->switch_count = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -468,4 +481,27 @@ int task_fill_ps(os_proc_t* out, int max_n) {
         t = t->next;
     } while (t && t != task_queue);
     return count;
+}
+
+int task_fill_metrics(int pid, os_task_metrics_t* out) {
+    task_t* t;
+    uint32_t now;
+    uint32_t run;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    t = get_task_by_id(pid);
+    if (!t) return OS_TASK_NOT_FOUND;
+    now = timer_get_ticks();
+    run = t->run_ticks;
+    if (t == current_task && t->state == TASK_RUNNING && now >= t->last_scheduled_ticks) {
+        run += now - t->last_scheduled_ticks;
+    }
+    out->pid = t->id;
+    out->state = map_task_state(t->state);
+    out->type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+    out->created_ticks = t->created_ticks;
+    out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
+    out->run_ticks = run;
+    out->switch_count = t->switch_count;
+    return 0;
 }

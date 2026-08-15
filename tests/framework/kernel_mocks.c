@@ -12,6 +12,7 @@
 // === GESTION MÉMOIRE MOCKS ===
 extern void* test_malloc(size_t size);
 extern void test_free(void* ptr);
+extern uint32_t mock_timer_get_ticks(void);
 
 // === TASK MANAGEMENT MOCK SIMULATION (LINEAR DOUBLE-LINKED LIST) ===
 task_t* current_task = NULL;
@@ -38,6 +39,10 @@ task_t* create_task(void (*entry_point)(void)) {
     task->type = TASK_TYPE_KERNEL;
     task->vmm_dir = (vmm_directory_t*)test_malloc(sizeof(vmm_directory_t));
     task->kernel_stack_p = 0;
+    task->created_ticks = mock_timer_get_ticks();
+    task->last_scheduled_ticks = task->created_ticks;
+    task->run_ticks = 0U;
+    task->switch_count = 0U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -136,6 +141,31 @@ int task_fill_ps(os_proc_t* out, int max_n) {
         t = t->next;
     }
     return count;
+}
+
+int task_fill_metrics(int pid, os_task_metrics_t* out) {
+    task_t* t;
+    uint32_t now;
+    uint32_t run;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    t = get_task_by_id(pid);
+    if (!t) return OS_TASK_NOT_FOUND;
+    now = mock_timer_get_ticks();
+    run = t->run_ticks;
+    if (t == current_task && t->state == TASK_RUNNING && now >= t->last_scheduled_ticks) {
+        run += now - t->last_scheduled_ticks;
+    }
+    out->pid = t->id;
+    out->state = (t->state == TASK_RUNNING) ? OS_TASK_RUNNING :
+                 (t->state == TASK_READY) ? OS_TASK_READY :
+                 (t->state == TASK_TERMINATED) ? OS_TASK_TERMINATED : OS_TASK_WAITING;
+    out->type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+    out->created_ticks = t->created_ticks;
+    out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
+    out->run_ticks = run;
+    out->switch_count = t->switch_count;
+    return 0;
 }
 
 void schedule(cpu_state_t* cpu) {

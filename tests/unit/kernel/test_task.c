@@ -445,6 +445,34 @@ void test_task_cleanup_on_termination(void) {
     }
 }
 
+// === TESTS DE TÉLÉMÉTRIE ===
+
+void test_task_metrics_snapshot_and_missing_pid(void) {
+    task_t* task;
+    os_task_metrics_t metrics;
+
+    tasking_init();
+    mock_timer.tick_count = 100U;
+    task = create_task(dummy_task_function);
+    add_task_to_queue(task);
+    task->state = TASK_RUNNING;
+    task->run_ticks = 17U;
+    task->last_scheduled_ticks = 140U;
+    task->switch_count = 3U;
+    current_task = task;
+    mock_timer.tick_count = 200U;
+
+    TEST_ASSERT_EQUAL(0, task_fill_metrics(task->id, &metrics));
+    TEST_ASSERT_EQUAL(task->id, metrics.pid);
+    TEST_ASSERT_EQUAL(OS_TASK_RUNNING, metrics.state);
+    TEST_ASSERT_EQUAL(OS_TASK_KERNEL, metrics.type);
+    TEST_ASSERT_EQUAL(100, metrics.created_ticks);
+    TEST_ASSERT_EQUAL(100, metrics.age_ticks);
+    TEST_ASSERT_EQUAL(77, metrics.run_ticks);
+    TEST_ASSERT_EQUAL(3, metrics.switch_count);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_fill_metrics(999, &metrics));
+}
+
 // === TESTS D'INTEGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -526,6 +554,9 @@ int main(void) {
     RUN_TEST(test_task_queue_integrity);
     RUN_TEST(test_task_cleanup_on_termination);
     
+    // Tests de télémétrie
+    RUN_TEST(test_task_metrics_snapshot_and_missing_pid);
+
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);
     RUN_TEST(test_multitask_execution_simulation);
