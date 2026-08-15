@@ -587,6 +587,44 @@ void test_sys_task_priority_and_metrics(void) {
     current_task = old_current;
 }
 
+void test_sys_task_wait_child(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    task_t* unrelated;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    unrelated = create_task(dummy_task_function);
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(unrelated);
+    current_task = parent;
+
+    cpu.eax = SYS_TASK_WAIT;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(TASK_WAITING, parent->state);
+    TEST_ASSERT_EQUAL(parent->id, child->waiter_pid);
+    task_wake_waiter(child);
+    TEST_ASSERT_EQUAL(TASK_READY, parent->state);
+
+    current_task = unrelated;
+    cpu.eax = SYS_TASK_WAIT;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_CHILD, (int)cpu.eax);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_ps_lists_task(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1381,6 +1419,7 @@ int main(void) {
     RUN_TEST(test_sys_kill_protects_kernel);
     RUN_TEST(test_sys_meminfo);
     RUN_TEST(test_sys_task_priority_and_metrics);
+    RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);
     RUN_TEST(test_sys_kill_removes_ready_task);

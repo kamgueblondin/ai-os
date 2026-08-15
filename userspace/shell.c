@@ -168,6 +168,12 @@ int sys_task_set_priority(int pid, unsigned int priority) {
     return result;
 }
 
+int sys_task_wait(int pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_WAIT), "b"(pid));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -641,6 +647,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  sysinfo            - Informations système\n");
     print_string("  task-metrics <pid> - Télémétrie d’une tâche\n");
     print_string("  task-priority <pid> <1|2|3> - Politique CPU locale\n");
+    print_string("  wait <pid>         - Attendre la sortie d’un enfant direct\n");
     print_string("  mem                - Utilisation mémoire\n");
     print_string("  uptime             - Temps de fonctionnement\n");
     print_string("  date               - Date et heure\n");
@@ -812,7 +819,8 @@ void cmd_task_metrics(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\nPriorité CPU : "); print_int((int)metrics.priority);
     print_string("\nÂge : "); print_int((int)metrics.age_ticks); print_string(" ticks");
     print_string("\nExécution cumulée : "); print_int((int)metrics.run_ticks); print_string(" ticks");
-    print_string("\nCommutations : "); print_int((int)metrics.switch_count); print_string("\n");
+    print_string("\nCommutations : "); print_int((int)metrics.switch_count);
+    print_string("\nEnfants directs : "); print_int((int)metrics.direct_children); print_string("\n");
     if (sys_meminfo(&mem) == 0) {
         print_string("PMM pages total/utilisées/libres : "); print_int((int)mem.total_pages);
         print_string("/"); print_int((int)mem.used_pages); print_string("/"); print_int((int)mem.free_pages); print_string("\n");
@@ -849,6 +857,30 @@ void cmd_task_priority(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     print_string("task-priority ok "); print_int(pid); print_string(" "); print_int(priority); print_string("\n");
+}
+
+void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: wait <pid>");
+        return;
+    }
+    rc = sys_task_wait(pid);
+    if (rc == OS_TASK_NOT_FOUND) {
+        print_error("wait: PID absent");
+        return;
+    }
+    if (rc == OS_TASK_NOT_CHILD) {
+        print_error("wait: cible non enfant direct");
+        return;
+    }
+    if (rc != 0) {
+        print_error("wait: syscall indisponible");
+        return;
+    }
+    print_string("wait ok "); print_int(pid); print_string("\n");
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1277,7 +1309,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "wait", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3421,6 +3453,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-priority") == 0) {
         cmd_task_priority(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "wait") == 0) {
+        cmd_task_wait(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "sysinfo") == 0 || strcmp(command, "info") == 0) {
         cmd_sysinfo(ctx, args, arg_count);

@@ -599,6 +599,33 @@ void test_task_reparents_children_on_departure(void) {
     TEST_ASSERT_EQUAL(-1, orphan->parent_pid);
 }
 
+void test_task_supervision_wait_and_children(void) {
+    task_t* parent;
+    task_t* child;
+    task_t* unrelated;
+    os_task_metrics_t metrics;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    unrelated = create_task(dummy_task_function);
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(unrelated);
+
+    TEST_ASSERT_EQUAL(0, task_fill_metrics(parent->id, &metrics));
+    TEST_ASSERT_EQUAL(1, metrics.direct_children);
+    TEST_ASSERT_EQUAL(0, task_wait_for_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(TASK_WAITING, parent->state);
+    TEST_ASSERT_EQUAL(parent->id, child->waiter_pid);
+    task_wake_waiter(child);
+    TEST_ASSERT_EQUAL(TASK_READY, parent->state);
+    TEST_ASSERT_EQUAL(0, child->waiter_pid);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_CHILD,
+                      task_wait_for_child(unrelated->id, child->id));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -688,6 +715,7 @@ int main(void) {
     RUN_TEST(test_task_priority_control_authority);
     RUN_TEST(test_task_kill_parent_authority);
     RUN_TEST(test_task_reparents_children_on_departure);
+    RUN_TEST(test_task_supervision_wait_and_children);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

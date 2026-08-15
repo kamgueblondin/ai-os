@@ -45,15 +45,15 @@ def wait_for(proc, needle, timeout, start=0):
     raise RuntimeError("timeout waiting for %r; log tail:\n%s" % (needle, log_text()[-2000:]))
 
 
-def parse_spawn_pid(text):
+def parse_spawn_pid(text, program):
     key = "spawn ok pid "
     idx = text.find(key)
     if idx < 0:
         raise RuntimeError("spawn ok pid not in log")
     tail = text[idx + len(key):]
     # Le timer peut entrelacer un changement de contexte dans l’écriture
-    # série de la commande. La terminaison stable reste « <pid> idle ».
-    match = re.search(r"(?:^|\n)([0-9]+) idle", tail)
+    # série de la commande. La terminaison stable reste « <pid> programme ».
+    match = re.search(r"(?:^|\n)([0-9]+) " + re.escape(program), tail)
     if match:
         return match.group(1)
     direct = re.match(r"([0-9]+)", tail)
@@ -159,7 +159,7 @@ def main():
 
             say("typing spawn idle ...")
             spawn_start = send_command_until(monitor, "spawn idle", "spawn ok pid", proc)
-            idle_pid = parse_spawn_pid(log_text()[spawn_start:])
+            idle_pid = parse_spawn_pid(log_text()[spawn_start:], "idle")
             say("spawned idle pid %s" % idle_pid)
 
             say("typing task-metrics %s ..." % idle_pid)
@@ -189,7 +189,23 @@ def main():
             if "user  idle" in log_text()[start:]:
                 raise RuntimeError("idle still listed in ps after kill %s" % idle_pid)
 
-        say("QEMU spawn/yield smoke passed.")
+            say("typing spawn waitchild ...")
+            spawn_start = send_command_until(monitor, "spawn waitchild", "spawn ok pid", proc)
+            wait_pid = parse_spawn_pid(log_text()[spawn_start:], "waitchild")
+            say("spawned waitchild pid %s" % wait_pid)
+
+            say("typing task-metrics 1 (one child) ...")
+            send_command_until(monitor, "task-metrics 1", "Enfants directs : 1", proc)
+
+            say("typing wait %s ..." % wait_pid)
+            wait_start = send_command_until(monitor, "wait %s" % wait_pid,
+                                            "wait ok %s" % wait_pid, proc)
+            wait_for(proc, "wait-child done", CMD_TIMEOUT, wait_start)
+
+            say("typing task-metrics 1 (no child) ...")
+            send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)
+
+        say("QEMU spawn/yield/wait smoke passed.")
         return 0
     finally:
         if monitor is not None:
