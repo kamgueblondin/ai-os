@@ -48,6 +48,7 @@ int sys_task_children(os_task_children_t* out);
 int sys_task_wait_any(void);
 int sys_task_child_exit_count(os_task_child_exit_count_t* out);
 int sys_task_delegate_child(int child_pid, int supervisor_pid);
+int sys_task_supervision_events(os_task_supervision_events_t* out);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);

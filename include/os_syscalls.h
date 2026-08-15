@@ -121,8 +121,10 @@
 #define SYS_TASK_CHILD_EXIT_COUNT        67
 /* EBX = PID enfant direct, ECX = PID nouveau superviseur utilisateur. */
 #define SYS_TASK_DELEGATE_CHILD          68
+/* EBX = os_task_supervision_events_t* ; journal borné du parent courant. */
+#define SYS_TASK_SUPERVISION_EVENTS      69
 
-#define MAX_SYSCALLS 69
+#define MAX_SYSCALLS 70
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -192,6 +194,13 @@
 #define OS_TASK_PRIORITY_NORMAL  2U
 #define OS_TASK_PRIORITY_HIGH    3U
 #define OS_TASK_CHILD_CAPACITY   4U
+#define OS_TASK_SUPERVISION_EVENT_CAPACITY 4U
+
+#define OS_TASK_SUPERVISION_EXIT          1U
+#define OS_TASK_SUPERVISION_SUSPEND       2U
+#define OS_TASK_SUPERVISION_RESUME        3U
+#define OS_TASK_SUPERVISION_DELEGATE_OUT  4U
+#define OS_TASK_SUPERVISION_DELEGATE_IN   5U
 
 typedef struct {
     char name[OS_NAME_MAX];
@@ -232,6 +241,25 @@ typedef struct {
 typedef struct {
     uint32_t count;
 } os_task_child_exit_count_t;
+
+/* Événement local de supervision : child_pid est l’enfant concerné ; related_pid
+ * désigne le superviseur entrant ou sortant lors d’une délégation ; detail vaut
+ * le motif de sortie pour OS_TASK_SUPERVISION_EXIT et zéro sinon. */
+typedef struct {
+    uint32_t sequence;
+    uint32_t action;
+    int32_t child_pid;
+    int32_t related_pid;
+    uint32_t detail;
+    uint32_t ticks;
+} os_task_supervision_event_t;
+
+/* Instantané circulaire local, de l’événement le plus ancien au plus récent. */
+typedef struct {
+    uint32_t generation;
+    uint32_t count;
+    os_task_supervision_event_t entries[OS_TASK_SUPERVISION_EVENT_CAPACITY];
+} os_task_supervision_events_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

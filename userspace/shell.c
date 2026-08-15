@@ -265,6 +265,12 @@ int sys_task_delegate_child(int child_pid, int supervisor_pid) {
     return result;
 }
 
+int sys_task_supervision_events(os_task_supervision_events_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_EVENTS), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -757,6 +763,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  wait-any-result    - Attendre la prochaine sortie enfant\n");
     print_string("  child-exit-count   - Total local des sorties enfants\n");
     print_string("  task-delegate <enfant> <pid> - Déléguer la supervision directe\n");
+    print_string("  task-events        - Journal borné de supervision locale\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1147,6 +1154,41 @@ void cmd_task_delegate(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     print_string("task-delegate ok "); print_int(child_pid); print_string(" ");
     print_int(supervisor_pid); print_string("\n");
+}
+
+static const char* supervision_action_name(uint32_t action) {
+    if (action == OS_TASK_SUPERVISION_EXIT) return "exit";
+    if (action == OS_TASK_SUPERVISION_SUSPEND) return "suspend";
+    if (action == OS_TASK_SUPERVISION_RESUME) return "resume";
+    if (action == OS_TASK_SUPERVISION_DELEGATE_OUT) return "delegate-out";
+    if (action == OS_TASK_SUPERVISION_DELEGATE_IN) return "delegate-in";
+    return "unknown";
+}
+
+void cmd_task_events(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_supervision_events_t events;
+    uint32_t i;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: task-events");
+        return;
+    }
+    rc = sys_task_supervision_events(&events);
+    if (rc != 0) {
+        print_error("task-events: syscall indisponible");
+        return;
+    }
+    print_string("task-events ok "); print_uint(events.generation); print_string(" ");
+    print_uint(events.count); print_string("\n");
+    for (i = 0U; i < events.count; i++) {
+        os_task_supervision_event_t* event = &events.entries[i];
+        print_string("task-event "); print_uint(event->sequence); print_string(" ");
+        print_string(supervision_action_name(event->action)); print_string(" ");
+        print_int(event->child_pid); print_string(" "); print_int(event->related_pid);
+        print_string(" "); print_uint(event->detail); print_string(" ");
+        print_uint(event->ticks); print_string("\n");
+    }
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1826,7 +1868,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4014,6 +4056,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-delegate") == 0) {
         cmd_task_delegate(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events") == 0) {
+        cmd_task_events(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

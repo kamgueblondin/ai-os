@@ -225,7 +225,35 @@ int task_kill_direct_children(int requester_pid) {
     return (int)count;
 }
 
+static void task_record_supervision_event(task_t* parent, uint32_t action,
+                                          int child_pid, int related_pid, uint32_t detail) {
+    uint32_t index;
+    os_task_supervision_event_t* event;
+    if (!parent) return;
+    if (parent->supervision_event_count < OS_TASK_SUPERVISION_EVENT_CAPACITY) {
+        index = (parent->supervision_event_start + parent->supervision_event_count) %
+                OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        parent->supervision_event_count++;
+    } else {
+        index = parent->supervision_event_start;
+        parent->supervision_event_start = (parent->supervision_event_start + 1U) %
+                                          OS_TASK_SUPERVISION_EVENT_CAPACITY;
+    }
+    event = &parent->supervision_events[index];
+    parent->supervision_event_sequence++;
+    if (parent->supervision_event_sequence == 0U) parent->supervision_event_sequence = 1U;
+    event->sequence = parent->supervision_event_sequence;
+    event->action = action;
+    event->child_pid = child_pid;
+    event->related_pid = related_pid;
+    event->detail = detail;
+    event->ticks = mock_timer_get_ticks();
+    parent->supervision_event_generation++;
+    if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+}
+
 int task_suspend_child(int requester_pid, int child_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
     task_t* child = get_task_by_id(child_pid);
     if (!child) return OS_TASK_NOT_FOUND;
     if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
@@ -233,10 +261,12 @@ int task_suspend_child(int requester_pid, int child_pid) {
     }
     if (child->state != TASK_READY) return OS_TASK_BAD_STATE;
     child->state = TASK_SUSPENDED;
+    task_record_supervision_event(parent, OS_TASK_SUPERVISION_SUSPEND, child_pid, 0, 0U);
     return 0;
 }
 
 int task_resume_child(int requester_pid, int child_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
     task_t* child = get_task_by_id(child_pid);
     if (!child) return OS_TASK_NOT_FOUND;
     if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
@@ -244,6 +274,7 @@ int task_resume_child(int requester_pid, int child_pid) {
     }
     if (child->state != TASK_SUSPENDED) return OS_TASK_BAD_STATE;
     child->state = TASK_READY;
+    task_record_supervision_event(parent, OS_TASK_SUPERVISION_RESUME, child_pid, 0, 0U);
     return 0;
 }
 
@@ -287,8 +318,35 @@ int task_delegate_child(int requester_pid, int child_pid, int supervisor_pid) {
         cursor = get_task_by_id(cursor->parent_pid);
     }
     if (depth > OS_TASK_GLOBAL_CAPACITY) return OS_TASK_BAD_DELEGATE;
+    task_record_supervision_event(get_task_by_id(requester_pid),
+                                  OS_TASK_SUPERVISION_DELEGATE_OUT,
+                                  child_pid, supervisor_pid, 0U);
+    task_record_supervision_event(supervisor, OS_TASK_SUPERVISION_DELEGATE_IN,
+                                  child_pid, requester_pid, 0U);
     child->parent_pid = supervisor_pid;
     return 0;
+}
+
+int task_fill_supervision_events(int requester_pid, os_task_supervision_events_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->generation = parent->supervision_event_generation;
+    out->count = parent->supervision_event_count;
+    for (i = 0U; i < out->count; i++) {
+        uint32_t index = (parent->supervision_event_start + i) %
+                         OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        out->entries[i] = parent->supervision_events[index];
+    }
+    return 0;
+}
+
+int sys_task_supervision_events(os_task_supervision_events_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_events(current_task->id, out);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -624,6 +682,7 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     parent->last_child_exit_reason = result.reason;
     parent->last_child_finished_ticks = result.finished_ticks;
     parent->direct_child_exit_count++;
+    task_record_supervision_event(parent, OS_TASK_SUPERVISION_EXIT, child->id, 0, reason);
     if (parent->child_exit_history_count < OS_TASK_EXIT_HISTORY_CAPACITY) {
         index = (parent->child_exit_history_start + parent->child_exit_history_count) %
                 OS_TASK_EXIT_HISTORY_CAPACITY;
@@ -1100,6 +1159,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_DELEGATE_CHILD:
             state->eax = (uint32_t)sys_task_delegate_child((int)state->ebx, (int)state->ecx);
+            break;
+        case SYS_TASK_SUPERVISION_EVENTS:
+            state->eax = (uint32_t)sys_task_supervision_events((os_task_supervision_events_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
