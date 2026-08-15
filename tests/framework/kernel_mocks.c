@@ -122,6 +122,29 @@ void task_reparent_children(task_t* departing) {
     }
 }
 
+uint32_t task_count_direct_children(int pid) {
+    task_t* t = task_queue;
+    uint32_t count = 0U;
+    while (t) {
+        if (t->parent_pid == pid) count++;
+        t = t->next;
+    }
+    return count;
+}
+
+int task_wait_for_child(int requester_pid, int child_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    task_t* child = get_task_by_id(child_pid);
+    if (!parent || !child) return OS_TASK_NOT_FOUND;
+    if (child->parent_pid != requester_pid) return OS_TASK_NOT_CHILD;
+    if (child->waiter_pid != 0 && child->waiter_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    child->waiter_pid = requester_pid;
+    parent->state = TASK_WAITING;
+    return 0;
+}
+
 int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
@@ -183,6 +206,7 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
     out->run_ticks = run;
     out->switch_count = t->switch_count;
+    out->direct_children = task_count_direct_children(t->id);
     return 0;
 }
 
@@ -252,6 +276,7 @@ void task_wake_waiter(task_t* child) {
     if (parent && parent->state == TASK_WAITING) {
         parent->state = TASK_READY;
     }
+    child->waiter_pid = 0;
 }
 
 void task_yield(void) {
@@ -653,6 +678,10 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_SET_PRIORITY:
             state->eax = (uint32_t)task_set_priority(current_task ? current_task->id : -1,
                                                       (int)state->ebx, state->ecx);
+            break;
+        case SYS_TASK_WAIT:
+            state->eax = (uint32_t)task_wait_for_child(current_task ? current_task->id : -1,
+                                                        (int)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

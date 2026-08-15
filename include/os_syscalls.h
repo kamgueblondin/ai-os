@@ -89,8 +89,10 @@
 #define SYS_TASK_METRICS                 51
 /* EBX = PID cible, ECX = priorité [1,3] ; politique CPU locale. */
 #define SYS_TASK_SET_PRIORITY            52
+/* EBX = PID enfant ; bloque le parent jusqu’au départ de son enfant direct. */
+#define SYS_TASK_WAIT                    53
 
-#define MAX_SYSCALLS 53
+#define MAX_SYSCALLS 54
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -118,6 +120,8 @@
 #define OS_TASK_BAD_PRIORITY    (-63)
 /* Le demandeur n’est ni la tâche cible ni son parent direct. */
 #define OS_TASK_CONTROL_DENIED (-64)
+/* La tâche cible n’est pas un enfant direct du demandeur. */
+#define OS_TASK_NOT_CHILD      (-65)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -178,6 +182,7 @@ typedef struct {
     uint32_t age_ticks;
     uint32_t run_ticks;
     uint32_t switch_count;
+    uint32_t direct_children;
 } os_task_metrics_t;
 
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni

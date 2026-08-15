@@ -177,6 +177,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SET_PRIORITY:
             cpu->eax = (uint32_t)sys_task_set_priority((int)cpu->ebx, cpu->ecx);
             break;
+        case SYS_TASK_WAIT:
+            cpu->eax = (uint32_t)sys_task_wait((int)cpu->ebx);
+            if ((int)cpu->eax == 0) schedule(cpu);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -873,5 +877,10 @@ int sys_task_metrics(int pid, os_task_metrics_t* out) {
 int sys_task_set_priority(int pid, uint32_t priority) {
     if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
     return task_set_priority(current_task->id, pid, priority);
+}
+
+int sys_task_wait(int pid) {
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_wait_for_child(current_task->id, pid);
 }
 

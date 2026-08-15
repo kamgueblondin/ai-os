@@ -449,6 +449,31 @@ void task_reparent_children(task_t* departing) {
     } while (t && t != task_queue);
 }
 
+uint32_t task_count_direct_children(int pid) {
+    task_t* t;
+    uint32_t count = 0U;
+    if (!task_queue) return 0U;
+    t = task_queue;
+    do {
+        if (t->parent_pid == pid) count++;
+        t = t->next;
+    } while (t && t != task_queue);
+    return count;
+}
+
+int task_wait_for_child(int requester_pid, int child_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    task_t* child = get_task_by_id(child_pid);
+    if (!parent || !child) return OS_TASK_NOT_FOUND;
+    if (child->parent_pid != requester_pid) return OS_TASK_NOT_CHILD;
+    if (child->waiter_pid != 0 && child->waiter_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    child->waiter_pid = requester_pid;
+    parent->state = TASK_WAITING;
+    return 0;
+}
+
 int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
@@ -470,6 +495,7 @@ void task_wake_waiter(task_t* child) {
     if (parent && parent->state == TASK_WAITING) {
         parent->state = TASK_READY;
     }
+    child->waiter_pid = 0;
 }
 
 static int32_t map_task_state(task_state_t s) {
@@ -529,6 +555,7 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
     out->run_ticks = run;
     out->switch_count = t->switch_count;
+    out->direct_children = task_count_direct_children(t->id);
     return 0;
 }
 
