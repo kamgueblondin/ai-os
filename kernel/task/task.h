@@ -108,6 +108,7 @@ int task_find_child_result_history(int requester_pid, int child_pid, os_task_exi
 int task_forget_child_result_history(int requester_pid, int child_pid);
 int task_suspend_child(int requester_pid, int child_pid);
 int task_resume_child(int requester_pid, int child_pid);
+int task_kill_direct_children(int requester_pid);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

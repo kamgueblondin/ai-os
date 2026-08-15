@@ -234,6 +234,12 @@ int sys_task_resume(int pid) {
     return result;
 }
 
+int sys_task_kill_children(void) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_KILL_CHILDREN));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -711,6 +717,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-capacity       - Capacité globale volatile des tâches\n");
     print_string("  task-suspend <pid> - Suspendre un enfant direct prêt\n");
     print_string("  task-resume <pid>  - Reprendre un enfant direct suspendu\n");
+    print_string("  kill-children      - Terminer tous les enfants directs\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -985,6 +992,21 @@ void cmd_task_resume(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     print_string("task-resume ok "); print_int(pid); print_string("\n");
+}
+
+void cmd_kill_children(shell_context_t* ctx, char args[][128], int arg_count) {
+    int count;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: kill-children");
+        return;
+    }
+    count = sys_task_kill_children();
+    if (count < 0) {
+        print_error("kill-children: syscall indisponible");
+        return;
+    }
+    print_string("kill-children ok "); print_int(count); print_string("\n");
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1664,7 +1686,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3837,6 +3859,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-resume") == 0) {
         cmd_task_resume(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "kill-children") == 0) {
+        cmd_kill_children(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

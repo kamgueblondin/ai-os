@@ -179,6 +179,31 @@ int task_kill(int requester_pid, int pid) {
     return 0;
 }
 
+int task_kill_direct_children(int requester_pid) {
+    int child_pids[OS_TASK_CHILD_CAPACITY];
+    task_t* t;
+    uint32_t count = 0U;
+    uint32_t i;
+    if (!get_task_by_id(requester_pid) || !task_queue) return OS_TASK_NOT_FOUND;
+    t = task_queue;
+    do {
+        if (t->parent_pid == requester_pid && count < OS_TASK_CHILD_CAPACITY) {
+            child_pids[count++] = t->id;
+        }
+        t = t->next;
+    } while (t && t != task_queue);
+    for (i = 0U; i < count; i++) {
+        task_t* child = get_task_by_id(child_pids[i]);
+        if (!child || child->parent_pid != requester_pid) continue;
+        task_report_parent_exit(child, OS_TASK_EXIT_KILLED, OS_TASK_EVENT_KILLED);
+        task_wake_waiter(child);
+        task_reparent_children(child);
+        child->state = TASK_TERMINATED;
+        remove_task(child);
+    }
+    return (int)count;
+}
+
 int task_suspend_child(int requester_pid, int child_pid) {
     task_t* child = get_task_by_id(child_pid);
     if (!child) return OS_TASK_NOT_FOUND;
@@ -952,6 +977,9 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_RESUME:
             state->eax = (uint32_t)task_resume_child(current_task ? current_task->id : -1,
                 (int)state->ebx);
+            break;
+        case SYS_TASK_KILL_CHILDREN:
+            state->eax = (uint32_t)task_kill_direct_children(current_task ? current_task->id : -1);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
