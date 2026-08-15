@@ -68,7 +68,7 @@ void syscall_handler(cpu_state_t* cpu) {
             service_notify_purge_pid(current_task->id);
             service_registry_backend_remove_pid(current_task->id);
             (void)service_registry_remove_watcher_pid(current_task->id);
-            task_notify_parent_exit(current_task, OS_TASK_EVENT_EXITED);
+            task_report_parent_exit(current_task, (int)cpu->ebx, OS_TASK_EVENT_EXITED);
             task_wake_waiter(current_task);
             task_reparent_children(current_task);
             current_task->state = TASK_TERMINATED;
@@ -187,6 +187,10 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_TASK_CAPACITY:
             cpu->eax = (uint32_t)sys_task_capacity((os_task_capacity_t*)cpu->ebx);
+            break;
+        case SYS_TASK_CHILD_RESULT:
+            cpu->eax = (uint32_t)sys_task_child_result((int)cpu->ebx,
+                                                        (os_task_exit_result_t*)cpu->ecx);
             break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
@@ -912,4 +916,9 @@ int sys_task_set_name(int pid, const char* name) {
 
 int sys_task_capacity(os_task_capacity_t* out) {
     return task_fill_capacity(out);
+}
+
+int sys_task_child_result(int pid, os_task_exit_result_t* out) {
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_get_child_result(current_task->id, pid, out);
 }

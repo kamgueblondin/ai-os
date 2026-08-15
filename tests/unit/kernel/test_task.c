@@ -653,6 +653,7 @@ void test_task_governance_name_capacity_and_events(void) {
     task_t* parent;
     task_t* child;
     os_task_capacity_t capacity;
+    os_task_exit_result_t result;
     os_ipc_message_t message;
     os_task_event_t event;
     uint32_t i;
@@ -677,7 +678,13 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
                       task_set_name(child->id, parent->id, "forbidden"));
 
-    task_notify_parent_exit(child, OS_TASK_EVENT_EXITED);
+    task_report_parent_exit(child, 7, OS_TASK_EVENT_EXITED);
+    TEST_ASSERT_EQUAL(0, task_get_child_result(parent->id, child->id, &result));
+    TEST_ASSERT_EQUAL(child->id, result.child_pid);
+    TEST_ASSERT_EQUAL(7, result.exit_code);
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_EXITED, result.reason);
+    TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT,
+                      task_get_child_result(parent->id, child->id + 1, &result));
     TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
     message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
     parent->ipc_endpoint.read_index = (parent->ipc_endpoint.read_index + 1U) % IPC_ENDPOINT_CAPACITY;
@@ -691,6 +698,9 @@ void test_task_governance_name_capacity_and_events(void) {
     message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
     TEST_ASSERT_EQUAL(0, os_task_parse_event(&message, &event));
     TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, event.reason);
+    TEST_ASSERT_EQUAL(0, task_get_child_result(parent->id, child->id, &result));
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, result.exit_code);
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, result.reason);
 
     tasking_init();
     for (i = 0U; i < OS_TASK_GLOBAL_CAPACITY; i++) {

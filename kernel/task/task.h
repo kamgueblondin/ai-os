@@ -50,6 +50,10 @@ typedef struct task {
     uint32_t last_scheduled_ticks;
     uint32_t run_ticks;        // Temps cumulé approximatif en tâche courante
     uint32_t switch_count;     // Nombre de sélections par l’ordonnanceur
+    int last_child_pid;         // Dernier enfant direct terminé observé par ce parent
+    int last_child_exit_code;   // Code SYS_EXIT ou OS_TASK_EXIT_KILLED
+    uint32_t last_child_exit_reason;
+    uint32_t last_child_finished_ticks;
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -90,8 +94,9 @@ int task_fill_metrics(int pid, os_task_metrics_t* out);
 int task_fill_capacity(os_task_capacity_t* out);
 int task_set_priority(int requester_pid, int pid, uint32_t priority);
 int task_set_name(int requester_pid, int pid, const char* name);
+int task_get_child_result(int requester_pid, int child_pid, os_task_exit_result_t* out);
 void task_wake_waiter(task_t* child);
-void task_notify_parent_exit(task_t* child, uint32_t reason);
+void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 
 #endif
 

@@ -195,6 +195,10 @@ def main():
             send_command_until(monitor, "ipc-recv",
                                "task-event child %s reason killed" % idle_pid, proc)
 
+            say("typing child-result %s (killed) ..." % idle_pid)
+            send_command_until(monitor, "child-result %s" % idle_pid,
+                               "child-result ok %s -128 2" % idle_pid, proc)
+
             say("typing task-capacity (after kill) ...")
             send_command_until(monitor, "task-capacity", "task-capacity ok 2 16 14", proc)
 
@@ -219,6 +223,10 @@ def main():
             say("typing ipc-recv (exited event) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-event child %s reason exited" % wait_pid, proc)
+
+            say("typing child-result %s (exited) ..." % wait_pid)
+            send_command_until(monitor, "child-result %s" % wait_pid,
+                               "child-result ok %s 0 1" % wait_pid, proc)
 
             say("typing task-metrics 1 (no child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)

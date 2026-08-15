@@ -186,6 +186,12 @@ int sys_task_capacity(os_task_capacity_t* out) {
     return result;
 }
 
+int sys_task_child_result(int pid, os_task_exit_result_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILD_RESULT), "b"(pid), "c"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -661,6 +667,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-priority <pid> <1|2|3> - Politique CPU locale\n");
     print_string("  task-name <pid> <nom> - Renommer soi ou un enfant direct\n");
     print_string("  task-capacity       - Capacité globale volatile des tâches\n");
+    print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  wait <pid>         - Attendre la sortie d’un enfant direct\n");
     print_string("  mem                - Utilisation mémoire\n");
     print_string("  uptime             - Temps de fonctionnement\n");
@@ -944,6 +951,36 @@ void cmd_task_capacity(shell_context_t* ctx, char args[][128], int arg_count) {
     print_int((int)capacity.available); print_string("\n");
     print_string("task-capacity ok "); print_int((int)capacity.active); print_string(" ");
     print_int((int)capacity.capacity); print_string(" "); print_int((int)capacity.available); print_string("\n");
+}
+
+void cmd_child_result(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_exit_result_t result;
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: child-result <pid>");
+        return;
+    }
+    rc = sys_task_child_result(pid, &result);
+    if (rc == OS_TASK_NO_CHILD_RESULT) {
+        print_error("child-result: aucun résultat local pour cet enfant");
+        return;
+    }
+    if (rc == OS_TASK_NOT_FOUND) {
+        print_error("child-result: parent indisponible");
+        return;
+    }
+    if (rc != 0) {
+        print_error("child-result: syscall indisponible");
+        return;
+    }
+    print_string("Résultat enfant : PID "); print_int(result.child_pid);
+    print_string(" code "); print_int(result.exit_code);
+    print_string(" raison "); print_string(result.reason == OS_TASK_EVENT_EXITED ? "exited" : "killed");
+    print_string(" tick "); print_int((int)result.finished_ticks); print_string("\n");
+    print_string("child-result ok "); print_int(result.child_pid); print_string(" ");
+    print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1372,7 +1409,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "wait", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "wait", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3539,6 +3576,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-capacity") == 0) {
         cmd_task_capacity(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "child-result") == 0) {
+        cmd_child_result(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "wait") == 0) {
         cmd_task_wait(ctx, args, arg_count);
