@@ -44,6 +44,10 @@ typedef struct task {
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
     char name[32];
     int waiter_pid;            // Parent TASK_WAITING (SYS_EXEC), 0 sinon
+    uint32_t created_ticks;    // Instant de création, horloge système locale
+    uint32_t last_scheduled_ticks;
+    uint32_t run_ticks;        // Temps cumulé approximatif en tâche courante
+    uint32_t switch_count;     // Nombre de sélections par l’ordonnanceur
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -75,6 +79,7 @@ task_t* find_task_waiting_for_input(void);
 int task_has_other_ready_user(void);
 int task_kill(int pid);
 int task_fill_ps(os_proc_t* out, int max_n);
+int task_fill_metrics(int pid, os_task_metrics_t* out);
 void task_wake_waiter(task_t* child);
 
 #endif

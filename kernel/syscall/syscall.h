@@ -29,6 +29,7 @@ int sys_ps(os_proc_t* out, int max_n);
 int sys_kill(int pid);
 uint32_t sys_ticks(void);
 int sys_meminfo(os_meminfo_t* info);
+int sys_task_metrics(int pid, os_task_metrics_t* out);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);

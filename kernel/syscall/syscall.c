@@ -170,6 +170,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_MEMINFO:
             cpu->eax = (uint32_t)sys_meminfo((os_meminfo_t*)cpu->ebx);
             break;
+        case SYS_TASK_METRICS:
+            cpu->eax = (uint32_t)sys_task_metrics((int)cpu->ebx, (os_task_metrics_t*)cpu->ecx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -852,5 +855,10 @@ int sys_meminfo(os_meminfo_t* info) {
     info->used_pages = pmm_get_used_pages();
     info->free_pages = pmm_get_free_pages();
     return 0;
+}
+
+int sys_task_metrics(int pid, os_task_metrics_t* out) {
+    if (!out || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_fill_metrics(pid, out);
 }
 

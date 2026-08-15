@@ -85,8 +85,10 @@
 #define SYS_SERVICE_BACKEND_LIST         49
 /* EBX = nom, ECX = génération attendue, EDX = os_service_backend_snapshot_t* ; réservé au propriétaire. */
 #define SYS_SERVICE_BACKEND_OBSERVE      50
+/* EBX = PID cible, ECX = os_task_metrics_t* ; instantané de télémétrie locale. */
+#define SYS_TASK_METRICS                 51
 
-#define MAX_SYSCALLS 51
+#define MAX_SYSCALLS 52
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -110,6 +112,7 @@
 #define OS_SERVICE_WATCH_FULL  (-56)
 #define OS_SERVICE_STALE        (-57)
 #define OS_VFS_BACKEND_DENIED (-61)
+#define OS_TASK_NOT_FOUND    (-62)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -152,6 +155,18 @@ typedef struct {
     int32_t type;
     char name[OS_PROC_NAME_MAX];
 } os_proc_t;
+
+/* Instantané local, non atomique : le temps exécuté est compté en ticks
+ * d’horloge entre deux commutations de tâches. */
+typedef struct {
+    int32_t pid;
+    int32_t state;
+    int32_t type;
+    uint32_t created_ticks;
+    uint32_t age_ticks;
+    uint32_t run_ticks;
+    uint32_t switch_count;
+} os_task_metrics_t;
 
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni
  * atomique, ni réservé, ni une capability. */
