@@ -99,8 +99,12 @@
 #define SYS_TASK_CHILD_RESULT            56
 /* EBX = os_task_exit_history_t* ; historique borné du parent appelant. */
 #define SYS_TASK_CHILD_RESULT_LIST       57
+/* Aucun argument ; efface l’historique local et retourne sa nouvelle génération. */
+#define SYS_TASK_CHILD_RESULT_ACK        58
+/* EBX = génération attendue, ECX = os_task_exit_history_observation_t*. */
+#define SYS_TASK_CHILD_RESULT_OBSERVE    59
 
-#define MAX_SYSCALLS 58
+#define MAX_SYSCALLS 60
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -138,6 +142,8 @@
 #define OS_TASK_GLOBAL_LIMIT   (-68)
 /* Le parent ne conserve aucun dernier résultat pour cet enfant. */
 #define OS_TASK_NO_CHILD_RESULT (-69)
+/* La génération attendue de l’historique enfant ne correspond plus. */
+#define OS_TASK_HISTORY_STALE (-70)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -227,6 +233,12 @@ typedef struct {
     uint32_t count;
     os_task_exit_result_t entries[OS_TASK_EXIT_HISTORY_CAPACITY];
 } os_task_exit_history_t;
+
+/* Observation optimiste de l’historique enfant local. La génération ne réserve rien. */
+typedef struct {
+    uint32_t generation;
+    os_task_exit_history_t history;
+} os_task_exit_history_observation_t;
 
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni
  * atomique, ni réservé, ni une capability. */
