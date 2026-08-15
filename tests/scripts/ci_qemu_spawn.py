@@ -185,22 +185,9 @@ def main():
             say("typing ps (suspended) ...")
             suspended_start = send_command_until(monitor, "ps", "P     user  sleeper", proc)
             if "idle ok" in log_text()[suspended_start:]:
-                raise RuntimeError("suspended child executed before resume %s" % idle_pid)
-            say("typing task-resume %s ..." % idle_pid)
-            send_command_until(monitor, "task-resume %s" % idle_pid,
-                               "task-resume ok %s" % idle_pid, proc)
-
-            say("typing yield ...")
-            start = send_command_until(monitor, "yield", "yield ok", proc)
-            wait_for(proc, "idle ok", CMD_TIMEOUT, spawn_start)
-
-            say("typing ps ...")
-            start = send_command_until(monitor, "ps", "%s    1" % idle_pid, proc)
-            wait_for(proc, "user  sleeper", CMD_TIMEOUT, start)
-
-            say("typing kill %s ..." % idle_pid)
-            start = send_command_until(monitor, "kill %s" % idle_pid,
-                                       "Processus %s termine" % idle_pid, proc)
+                raise RuntimeError("suspended child executed before grouped termination %s" % idle_pid)
+            say("typing kill-children (suspended child) ...")
+            send_command_until(monitor, "kill-children", "kill-children ok 1", proc)
 
             say("typing ipc-recv (killed event) ...")
             send_command_until(monitor, "ipc-recv",
@@ -210,10 +197,10 @@ def main():
             send_command_until(monitor, "child-result %s" % idle_pid,
                                "child-result ok %s -128 2" % idle_pid, proc)
 
-            say("typing task-capacity (after kill) ...")
+            say("typing task-capacity (after grouped termination) ...")
             send_command_until(monitor, "task-capacity", "task-capacity ok 2 16 14", proc)
 
-            say("typing ps (after kill) ...")
+            say("typing ps (after grouped termination) ...")
             start = send_command_until(monitor, "ps", "Total:", proc)
             if "user  sleeper" in log_text()[start:]:
                 raise RuntimeError("renamed child still listed in ps after kill %s" % idle_pid)

@@ -215,6 +215,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_RESUME:
             cpu->eax = (uint32_t)sys_task_resume((int)cpu->ebx);
             break;
+        case SYS_TASK_KILL_CHILDREN:
+            cpu->eax = (uint32_t)sys_task_kill_children();
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -980,4 +983,9 @@ int sys_task_suspend(int pid) {
 int sys_task_resume(int pid) {
     if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
     return task_resume_child(current_task->id, pid);
+}
+
+int sys_task_kill_children(void) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_kill_direct_children(current_task->id);
 }

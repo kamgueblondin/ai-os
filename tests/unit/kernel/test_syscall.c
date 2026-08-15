@@ -717,6 +717,14 @@ void test_sys_task_name_and_capacity(void) {
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT, (int)cpu.eax);
 
+    cpu.eax = SYS_TASK_KILL_CHILDREN;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(1, (int)cpu.eax);
+    TEST_ASSERT_NULL(get_task_by_id(child->id));
+    cpu.eax = SYS_TASK_KILL_CHILDREN;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
     task_queue = old_queue;
     current_task = old_current;
 }

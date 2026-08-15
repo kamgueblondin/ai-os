@@ -111,8 +111,10 @@
 #define SYS_TASK_SUSPEND                 62
 /* EBX = PID enfant direct suspendu ; le rend à nouveau planifiable. */
 #define SYS_TASK_RESUME                  63
+/* Aucun argument ; termine l’instantané des enfants directs et retourne leur nombre. */
+#define SYS_TASK_KILL_CHILDREN           64
 
-#define MAX_SYSCALLS 64
+#define MAX_SYSCALLS 65
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

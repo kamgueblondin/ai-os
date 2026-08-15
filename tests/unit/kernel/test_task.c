@@ -781,6 +781,52 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(0, capacity.available);
 }
 
+void test_task_kill_direct_children_snapshot(void) {
+    task_t* parent;
+    task_t* child_a;
+    task_t* child_b;
+    task_t* grandchild;
+    os_task_exit_history_t history;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child_a = create_task(dummy_task_function);
+    child_b = create_task(dummy_task_function);
+    grandchild = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child_a);
+    TEST_ASSERT_NOT_NULL(child_b);
+    TEST_ASSERT_NOT_NULL(grandchild);
+    parent->type = TASK_TYPE_USER;
+    child_a->type = TASK_TYPE_USER;
+    child_b->type = TASK_TYPE_USER;
+    grandchild->type = TASK_TYPE_USER;
+    child_a->parent_pid = parent->id;
+    child_b->parent_pid = parent->id;
+    grandchild->parent_pid = child_a->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child_a);
+    add_task_to_queue(child_b);
+    add_task_to_queue(grandchild);
+
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child_b->id));
+    TEST_ASSERT_EQUAL(TASK_SUSPENDED, child_b->state);
+    TEST_ASSERT_EQUAL(2, task_kill_direct_children(parent->id));
+    TEST_ASSERT_NULL(get_task_by_id(child_a->id));
+    TEST_ASSERT_NULL(get_task_by_id(child_b->id));
+    TEST_ASSERT_EQUAL(parent->id, grandchild->parent_pid);
+    TEST_ASSERT_EQUAL(1, task_count_direct_children(parent->id));
+    TEST_ASSERT_EQUAL(0, task_fill_child_result_history(parent->id, &history));
+    TEST_ASSERT_EQUAL(2, history.count);
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, history.entries[0].exit_code);
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, history.entries[1].exit_code);
+
+    TEST_ASSERT_EQUAL(1, task_kill_direct_children(parent->id));
+    TEST_ASSERT_NULL(get_task_by_id(grandchild->id));
+    TEST_ASSERT_EQUAL(0, task_count_direct_children(parent->id));
+    TEST_ASSERT_EQUAL(0, task_kill_direct_children(parent->id));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -873,6 +919,7 @@ int main(void) {
     RUN_TEST(test_task_supervision_wait_and_children);
     RUN_TEST(test_task_direct_child_capacity);
     RUN_TEST(test_task_governance_name_capacity_and_events);
+    RUN_TEST(test_task_kill_direct_children_snapshot);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);
