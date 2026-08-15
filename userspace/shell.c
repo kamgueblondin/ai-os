@@ -804,6 +804,7 @@ void cmd_task_metrics(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     print_colored("\n=== Télémétrie tâche ===\n", COLOR_CYAN);
     print_string("PID : "); print_int(metrics.pid);
+    print_string("\nParent : "); print_int(metrics.parent_pid);
     print_string("\nÉtat : "); print_string(proc_state_str(metrics.state));
     print_string("\nType : "); print_string(metrics.type == OS_TASK_USER ? "user" : "kernel");
     print_string("\nPriorité CPU : "); print_int((int)metrics.priority);
@@ -835,6 +836,10 @@ void cmd_task_priority(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     if (rc == OS_TASK_BAD_PRIORITY) {
         print_error("task-priority: priorité hors plage");
+        return;
+    }
+    if (rc == OS_TASK_CONTROL_DENIED) {
+        print_error("task-priority: autorité limitée à soi ou enfant direct");
         return;
     }
     if (rc != 0) {

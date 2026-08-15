@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -49,14 +50,16 @@ def parse_spawn_pid(text):
     idx = text.find(key)
     if idx < 0:
         raise RuntimeError("spawn ok pid not in log")
-    idx += len(key)
-    pid = []
-    while idx < len(text) and text[idx].isdigit():
-        pid.append(text[idx])
-        idx += 1
-    if not pid:
-        raise RuntimeError("no pid after spawn ok pid")
-    return "".join(pid)
+    tail = text[idx + len(key):]
+    # Le timer peut entrelacer un changement de contexte dans l’écriture
+    # série de la commande. La terminaison stable reste « <pid> idle ».
+    match = re.search(r"(?:^|\n)([0-9]+) idle", tail)
+    if match:
+        return match.group(1)
+    direct = re.match(r"([0-9]+)", tail)
+    if direct:
+        return direct.group(1)
+    raise RuntimeError("no pid after spawn ok pid")
 
 
 def qemu_disk_args():
@@ -158,6 +161,16 @@ def main():
             spawn_start = send_command_until(monitor, "spawn idle", "spawn ok pid", proc)
             idle_pid = parse_spawn_pid(log_text()[spawn_start:])
             say("spawned idle pid %s" % idle_pid)
+
+            say("typing task-metrics %s ..." % idle_pid)
+            send_command_until(monitor, "task-metrics %s" % idle_pid, "Parent : 1", proc)
+
+            # La priorité haute peut légitimement affamer le shell dans cette
+            # politique bornée ; la valeur normale prouve l’autorité du parent
+            # tout en conservant le round-robin nécessaire à ce smoke.
+            say("typing task-priority %s 2 ..." % idle_pid)
+            send_command_until(monitor, "task-priority %s 2" % idle_pid,
+                               "task-priority ok %s 2" % idle_pid, proc)
 
             say("typing yield ...")
             start = send_command_until(monitor, "yield", "yield ok", proc)

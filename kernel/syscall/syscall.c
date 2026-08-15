@@ -688,6 +688,7 @@ int sys_exec(const char* path, char* argv[]) {
             new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
         }
     }
+    new_task->parent_pid = current_task ? current_task->id : -1;
     new_task->waiter_pid = current_task ? current_task->id : 0;
     return 0;
 }
@@ -724,6 +725,7 @@ int sys_spawn(const char* path, char* argv[]) {
             new_task->cpu_state.ebx = (uint32_t)(0xB0000000 - 512);
         }
     }
+    new_task->parent_pid = current_task ? current_task->id : -1;
     return new_task->id;
 }
 
@@ -866,7 +868,7 @@ int sys_task_metrics(int pid, os_task_metrics_t* out) {
 }
 
 int sys_task_set_priority(int pid, uint32_t priority) {
-    if (pid < 0) return OS_TASK_NOT_FOUND;
-    return task_set_priority(pid, priority);
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_set_priority(current_task->id, pid, priority);
 }
 

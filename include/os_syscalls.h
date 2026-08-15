@@ -115,7 +115,9 @@
 #define OS_SERVICE_STALE        (-57)
 #define OS_VFS_BACKEND_DENIED (-61)
 #define OS_TASK_NOT_FOUND    (-62)
-#define OS_TASK_BAD_PRIORITY (-63)
+#define OS_TASK_BAD_PRIORITY    (-63)
+/* Le demandeur n’est ni la tâche cible ni son parent direct. */
+#define OS_TASK_CONTROL_DENIED (-64)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -167,6 +169,7 @@ typedef struct {
  * d’horloge entre deux commutations de tâches. */
 typedef struct {
     int32_t pid;
+    int32_t parent_pid; /* -1 lorsqu’aucun parent utilisateur n’est connu. */
     int32_t state;
     int32_t type;
     uint32_t priority;

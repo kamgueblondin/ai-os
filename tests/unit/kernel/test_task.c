@@ -496,19 +496,49 @@ void test_task_priority_selection_and_validation(void) {
     task2->state = TASK_READY;
     task3->state = TASK_READY;
     current_task = task1;
+    task2->parent_pid = task1->id;
+    task3->parent_pid = task1->id;
 
-    TEST_ASSERT_EQUAL(0, task_set_priority(task2->id, OS_TASK_PRIORITY_LOW));
-    TEST_ASSERT_EQUAL(0, task_set_priority(task3->id, OS_TASK_PRIORITY_HIGH));
+    TEST_ASSERT_EQUAL(0, task_set_priority(task1->id, task2->id, OS_TASK_PRIORITY_LOW));
+    TEST_ASSERT_EQUAL(0, task_set_priority(task1->id, task3->id, OS_TASK_PRIORITY_HIGH));
     schedule(&cpu_state);
     TEST_ASSERT_EQUAL(task3, current_task);
     TEST_ASSERT_EQUAL(0, task_fill_metrics(task3->id, &metrics));
     TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, metrics.priority);
-    TEST_ASSERT_EQUAL(0, task_set_priority(task2->id, OS_TASK_PRIORITY_HIGH));
+    TEST_ASSERT_EQUAL(0, task_set_priority(task1->id, task2->id, OS_TASK_PRIORITY_HIGH));
     schedule(&cpu_state);
     TEST_ASSERT_EQUAL(task2, current_task);
-    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task2->id, 0));
-    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task2->id, 4));
-    TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_set_priority(999, OS_TASK_PRIORITY_NORMAL));
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task1->id, task2->id, 0));
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task1->id, task2->id, 4));
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_set_priority(task1->id, 999, OS_TASK_PRIORITY_NORMAL));
+}
+
+void test_task_priority_control_authority(void) {
+    task_t* parent;
+    task_t* child;
+    task_t* unrelated;
+    os_task_metrics_t metrics;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    unrelated = create_task(dummy_task_function);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    unrelated->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(unrelated);
+
+    TEST_ASSERT_EQUAL(0, task_set_priority(parent->id, child->id, OS_TASK_PRIORITY_HIGH));
+    TEST_ASSERT_EQUAL(0, task_set_priority(child->id, child->id, OS_TASK_PRIORITY_LOW));
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
+                      task_set_priority(child->id, parent->id, OS_TASK_PRIORITY_HIGH));
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
+                      task_set_priority(unrelated->id, child->id, OS_TASK_PRIORITY_HIGH));
+    TEST_ASSERT_EQUAL(0, task_fill_metrics(child->id, &metrics));
+    TEST_ASSERT_EQUAL(parent->id, metrics.parent_pid);
 }
 
 // === TESTS D'INTÉGRATION ===
@@ -597,6 +627,7 @@ int main(void) {
 
     // Tests de politique CPU
     RUN_TEST(test_task_priority_selection_and_validation);
+    RUN_TEST(test_task_priority_control_authority);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

@@ -538,6 +538,7 @@ void test_sys_task_priority_and_metrics(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
     task_t* task;
+    task_t* unrelated;
     os_task_metrics_t metrics;
     cpu_state_t cpu = {0};
 
@@ -548,6 +549,10 @@ void test_sys_task_priority_and_metrics(void) {
     task->type = TASK_TYPE_USER;
     task->state = TASK_RUNNING;
     add_task_to_queue(task);
+    unrelated = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(unrelated);
+    unrelated->type = TASK_TYPE_USER;
+    add_task_to_queue(unrelated);
     current_task = task;
 
     cpu.eax = SYS_TASK_SET_PRIORITY;
@@ -568,6 +573,14 @@ void test_sys_task_priority_and_metrics(void) {
     cpu.ecx = 4;
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, task->priority);
+
+    current_task = unrelated;
+    cpu.eax = SYS_TASK_SET_PRIORITY;
+    cpu.ebx = (uint32_t)task->id;
+    cpu.ecx = OS_TASK_PRIORITY_LOW;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, (int)cpu.eax);
     TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, task->priority);
 
     task_queue = old_queue;
