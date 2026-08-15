@@ -41,6 +41,8 @@ int sys_task_child_result_observe(uint32_t expected_generation,
                                   os_task_exit_history_observation_t* out);
 int sys_task_child_result_find(int pid, os_task_exit_result_t* out);
 int sys_task_child_result_forget(int pid);
+int sys_task_suspend(int pid);
+int sys_task_resume(int pid);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);

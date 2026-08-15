@@ -12,6 +12,7 @@ typedef enum {
     TASK_READY,
     TASK_WAITING,
     TASK_WAITING_FOR_INPUT,
+    TASK_SUSPENDED,
     TASK_TERMINATED
 } task_state_t;
 
@@ -105,6 +106,8 @@ int task_observe_child_result_history(int requester_pid, uint32_t expected_gener
                                       os_task_exit_history_observation_t* out);
 int task_find_child_result_history(int requester_pid, int child_pid, os_task_exit_result_t* out);
 int task_forget_child_result_history(int requester_pid, int child_pid);
+int task_suspend_child(int requester_pid, int child_pid);
+int task_resume_child(int requester_pid, int child_pid);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

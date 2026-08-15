@@ -179,6 +179,28 @@ int task_kill(int requester_pid, int pid) {
     return 0;
 }
 
+int task_suspend_child(int requester_pid, int child_pid) {
+    task_t* child = get_task_by_id(child_pid);
+    if (!child) return OS_TASK_NOT_FOUND;
+    if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    if (child->state != TASK_READY) return OS_TASK_BAD_STATE;
+    child->state = TASK_SUSPENDED;
+    return 0;
+}
+
+int task_resume_child(int requester_pid, int child_pid) {
+    task_t* child = get_task_by_id(child_pid);
+    if (!child) return OS_TASK_NOT_FOUND;
+    if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    if (child->state != TASK_SUSPENDED) return OS_TASK_BAD_STATE;
+    child->state = TASK_READY;
+    return 0;
+}
+
 int task_fill_ps(os_proc_t* out, int max_n) {
     int count = 0;
     task_t* t = task_queue;
@@ -921,6 +943,14 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_CHILD_RESULT_FORGET:
             state->eax = (uint32_t)task_forget_child_result_history(current_task ? current_task->id : -1,
+                (int)state->ebx);
+            break;
+        case SYS_TASK_SUSPEND:
+            state->eax = (uint32_t)task_suspend_child(current_task ? current_task->id : -1,
+                (int)state->ebx);
+            break;
+        case SYS_TASK_RESUME:
+            state->eax = (uint32_t)task_resume_child(current_task ? current_task->id : -1,
                 (int)state->ebx);
             break;
         case SYS_MKDIR:

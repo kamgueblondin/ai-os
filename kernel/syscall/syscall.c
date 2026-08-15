@@ -209,6 +209,12 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_CHILD_RESULT_FORGET:
             cpu->eax = (uint32_t)sys_task_child_result_forget((int)cpu->ebx);
             break;
+        case SYS_TASK_SUSPEND:
+            cpu->eax = (uint32_t)sys_task_suspend((int)cpu->ebx);
+            break;
+        case SYS_TASK_RESUME:
+            cpu->eax = (uint32_t)sys_task_resume((int)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -964,4 +970,14 @@ int sys_task_child_result_find(int pid, os_task_exit_result_t* out) {
 int sys_task_child_result_forget(int pid) {
     if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
     return task_forget_child_result_history(current_task->id, pid);
+}
+
+int sys_task_suspend(int pid) {
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_suspend_child(current_task->id, pid);
+}
+
+int sys_task_resume(int pid) {
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_resume_child(current_task->id, pid);
 }

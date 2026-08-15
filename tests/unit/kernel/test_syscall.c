@@ -626,6 +626,23 @@ void test_sys_task_name_and_capacity(void) {
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, (int)cpu.eax);
 
+    current_task = parent;
+    cpu.eax = SYS_TASK_SUSPEND;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(TASK_SUSPENDED, child->state);
+    cpu.eax = SYS_TASK_SUSPEND;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_STATE, (int)cpu.eax);
+    cpu.eax = SYS_TASK_RESUME;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(TASK_READY, child->state);
+    cpu.eax = SYS_TASK_RESUME;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_STATE, (int)cpu.eax);
+
     cpu.eax = SYS_TASK_CAPACITY;
     cpu.ebx = (uint32_t)&capacity;
     syscall_handler(&cpu);
