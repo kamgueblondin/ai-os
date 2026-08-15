@@ -70,6 +70,9 @@ typedef struct task {
     uint32_t supervision_watch_enabled; /* Watchlist détaillée locale et volatile. */
     uint32_t supervision_watch_count;
     int32_t supervision_watch_pids[OS_TASK_SUPERVISION_WATCH_CAPACITY];
+    uint32_t supervision_delivery_attempted;
+    uint32_t supervision_delivery_delivered;
+    uint32_t supervision_delivery_dropped;
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -139,6 +142,9 @@ int task_fill_supervision_notify_status(int requester_pid,
 int task_update_supervision_watch(int requester_pid, int child_pid, uint32_t enabled);
 int task_fill_supervision_watch_status(int requester_pid,
                                        os_task_supervision_watch_status_t* out);
+int task_fill_supervision_delivery_stats(int requester_pid,
+                                         os_task_supervision_delivery_stats_t* out);
+int task_ack_supervision_delivery_stats(int requester_pid);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

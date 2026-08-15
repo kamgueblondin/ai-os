@@ -58,6 +58,9 @@ void tasking_init() {
     current_task->supervision_watch_enabled = 0U;
     current_task->supervision_watch_count = 0U;
     memset(current_task->supervision_watch_pids, 0, sizeof(current_task->supervision_watch_pids));
+    current_task->supervision_delivery_attempted = 0U;
+    current_task->supervision_delivery_delivered = 0U;
+    current_task->supervision_delivery_dropped = 0U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -303,6 +306,9 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->supervision_watch_enabled = 0U;
     new_task->supervision_watch_count = 0U;
     memset(new_task->supervision_watch_pids, 0, sizeof(new_task->supervision_watch_pids));
+    new_task->supervision_delivery_attempted = 0U;
+    new_task->supervision_delivery_delivered = 0U;
+    new_task->supervision_delivery_dropped = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -634,8 +640,13 @@ static void task_notify_supervision_event(task_t* parent,
     if (bit == 0U || (parent->supervision_notify_mask & bit) == 0U) return;
     if (!task_supervision_watch_allows(parent, event->child_pid)) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
+    parent->supervision_delivery_attempted++;
     /* Best effort : une boîte pleine ne retarde jamais une transition de supervision. */
-    (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
+    if (ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload) == 0) {
+        parent->supervision_delivery_delivered++;
+    } else {
+        parent->supervision_delivery_dropped++;
+    }
 }
 
 static void task_record_supervision_event(task_t* parent, uint32_t action,
@@ -964,6 +975,32 @@ int task_fill_supervision_watch_status(int requester_pid,
     out->enabled = parent->supervision_watch_enabled;
     out->count = parent->supervision_watch_count;
     for (i = 0U; i < out->count; i++) out->pids[i] = parent->supervision_watch_pids[i];
+    return 0;
+}
+
+int task_fill_supervision_delivery_stats(int requester_pid,
+                                         os_task_supervision_delivery_stats_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    out->attempted = parent->supervision_delivery_attempted;
+    out->delivered = parent->supervision_delivery_delivered;
+    out->dropped = parent->supervision_delivery_dropped;
+    return 0;
+}
+
+int task_ack_supervision_delivery_stats(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    parent->supervision_delivery_attempted = 0U;
+    parent->supervision_delivery_delivered = 0U;
+    parent->supervision_delivery_dropped = 0U;
     return 0;
 }
 

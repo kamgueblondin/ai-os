@@ -56,6 +56,9 @@ task_t* create_task(void (*entry_point)(void)) {
     task->supervision_watch_enabled = 0U;
     task->supervision_watch_count = 0U;
     memset(task->supervision_watch_pids, 0, sizeof(task->supervision_watch_pids));
+    task->supervision_delivery_attempted = 0U;
+    task->supervision_delivery_delivered = 0U;
+    task->supervision_delivery_dropped = 0U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -277,7 +280,13 @@ static void task_notify_supervision_event(task_t* parent,
     if (bit == 0U || (parent->supervision_notify_mask & bit) == 0U) return;
     if (!task_supervision_watch_allows(parent, event->child_pid)) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
-    mock_task_event_send(&parent->ipc_endpoint, &payload);
+    parent->supervision_delivery_attempted++;
+    if (parent->ipc_endpoint.count < IPC_ENDPOINT_CAPACITY) {
+        mock_task_event_send(&parent->ipc_endpoint, &payload);
+        parent->supervision_delivery_delivered++;
+    } else {
+        parent->supervision_delivery_dropped++;
+    }
 }
 
 static void task_record_supervision_event(task_t* parent, uint32_t action,
@@ -558,6 +567,32 @@ int task_fill_supervision_watch_status(int requester_pid,
     return 0;
 }
 
+int task_fill_supervision_delivery_stats(int requester_pid,
+                                         os_task_supervision_delivery_stats_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    out->attempted = parent->supervision_delivery_attempted;
+    out->delivered = parent->supervision_delivery_delivered;
+    out->dropped = parent->supervision_delivery_dropped;
+    return 0;
+}
+
+int task_ack_supervision_delivery_stats(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    parent->supervision_delivery_attempted = 0U;
+    parent->supervision_delivery_delivered = 0U;
+    parent->supervision_delivery_dropped = 0U;
+    return 0;
+}
+
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
     task_t* parent;
     task_t* t;
@@ -633,6 +668,16 @@ int sys_task_supervision_watch(int child_pid, uint32_t enabled) {
 int sys_task_supervision_watch_status(os_task_supervision_watch_status_t* out) {
     if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_watch_status(current_task->id, out);
+}
+
+int sys_task_supervision_delivery_stats(os_task_supervision_delivery_stats_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_delivery_stats(current_task->id, out);
+}
+
+int sys_task_supervision_delivery_stats_ack(void) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_ack_supervision_delivery_stats(current_task->id);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1484,6 +1529,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_SUPERVISION_WATCH_STATUS:
             state->eax = (uint32_t)sys_task_supervision_watch_status(
                 (os_task_supervision_watch_status_t*)state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_DELIVERY_STATS:
+            state->eax = (uint32_t)sys_task_supervision_delivery_stats(
+                (os_task_supervision_delivery_stats_t*)state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK:
+            state->eax = (uint32_t)sys_task_supervision_delivery_stats_ack();
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
