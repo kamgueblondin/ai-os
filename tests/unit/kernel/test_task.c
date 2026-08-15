@@ -654,6 +654,7 @@ void test_task_governance_name_capacity_and_events(void) {
     task_t* child;
     os_task_capacity_t capacity;
     os_task_exit_result_t result;
+    os_task_exit_history_t history;
     os_ipc_message_t message;
     os_task_event_t event;
     uint32_t i;
@@ -701,6 +702,34 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(0, task_get_child_result(parent->id, child->id, &result));
     TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, result.exit_code);
     TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, result.reason);
+    TEST_ASSERT_EQUAL(0, task_fill_child_result_history(parent->id, &history));
+    TEST_ASSERT_EQUAL(2, history.count);
+    TEST_ASSERT_EQUAL(7, history.entries[0].exit_code);
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, history.entries[1].exit_code);
+
+    {
+        task_t* child2 = create_task(dummy_task_function);
+        task_t* child3 = create_task(dummy_task_function);
+        task_t* child4 = create_task(dummy_task_function);
+        child2->type = TASK_TYPE_USER;
+        child3->type = TASK_TYPE_USER;
+        child4->type = TASK_TYPE_USER;
+        child2->parent_pid = parent->id;
+        child3->parent_pid = parent->id;
+        child4->parent_pid = parent->id;
+        add_task_to_queue(child2);
+        add_task_to_queue(child3);
+        add_task_to_queue(child4);
+        task_report_parent_exit(child2, 8, OS_TASK_EVENT_EXITED);
+        task_report_parent_exit(child3, 9, OS_TASK_EVENT_EXITED);
+        task_report_parent_exit(child4, 10, OS_TASK_EVENT_EXITED);
+    }
+    TEST_ASSERT_EQUAL(0, task_fill_child_result_history(parent->id, &history));
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_HISTORY_CAPACITY, history.count);
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, history.entries[0].exit_code);
+    TEST_ASSERT_EQUAL(8, history.entries[1].exit_code);
+    TEST_ASSERT_EQUAL(9, history.entries[2].exit_code);
+    TEST_ASSERT_EQUAL(10, history.entries[3].exit_code);
 
     tasking_init();
     for (i = 0U; i < OS_TASK_GLOBAL_CAPACITY; i++) {

@@ -594,6 +594,7 @@ void test_sys_task_name_and_capacity(void) {
     task_t* child;
     os_task_capacity_t capacity;
     os_task_exit_result_t result;
+    os_task_exit_history_t history;
     cpu_state_t cpu = {0};
 
     task_queue = NULL;
@@ -648,6 +649,14 @@ void test_sys_task_name_and_capacity(void) {
     cpu.ecx = (uint32_t)&result;
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT, (int)cpu.eax);
+
+    cpu.eax = SYS_TASK_CHILD_RESULT_LIST;
+    cpu.ebx = (uint32_t)&history;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, history.count);
+    TEST_ASSERT_EQUAL(child->id, history.entries[0].child_pid);
+    TEST_ASSERT_EQUAL(42, history.entries[0].exit_code);
 
     task_queue = old_queue;
     current_task = old_current;

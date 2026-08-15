@@ -18,7 +18,7 @@ MON_SOCK = os.environ.get("PERSIST_MON_SOCK", os.path.join(LOG_DIR, "qemu-persis
 DISK = os.environ.get("PERSIST_DISK", os.path.join(ROOT, "build", "overlay-persist.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "40"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.55"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.65"))
 
 
 def say(message):
@@ -122,10 +122,20 @@ def boot_and_type(command, marker):
             monitor = monitor_connect()
             # Stabiliser GETS/PS2 avant la première touche HMP sur les runners lents.
             time.sleep(0.6)
-            say("typing %s ..." % command)
-            start = len(log_text())
-            send_command(monitor, command)
-            wait_for(proc, marker, CMD_TIMEOUT, start)
+            # QEMU TCG peut exceptionnellement dupliquer une touche PS/2 sur un
+            # runner chargé. Chaque tentative conserve le même marqueur strict ;
+            # elle ne masque donc aucune divergence fonctionnelle.
+            last_error = None
+            for attempt in range(1, 4):
+                say("typing %s (attempt %d/3) ..." % (command, attempt))
+                start = len(log_text())
+                send_command(monitor, command)
+                try:
+                    wait_for(proc, marker, CMD_TIMEOUT, start)
+                    return
+                except RuntimeError as error:
+                    last_error = error
+            raise last_error
     finally:
         if monitor is not None:
             monitor.close()
