@@ -955,6 +955,60 @@ void test_task_supervision_delegation(void) {
     TEST_ASSERT_EQUAL(supervisor->id, descendant->parent_pid);
 }
 
+void test_task_supervision_events(void) {
+    task_t* parent;
+    task_t* child;
+    task_t* supervisor;
+    os_task_supervision_events_t parent_events;
+    os_task_supervision_events_t supervisor_events;
+    int i;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    supervisor = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    TEST_ASSERT_NOT_NULL(supervisor);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    supervisor->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(supervisor);
+
+    for (i = 0; i < 2; i++) {
+        TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+        TEST_ASSERT_EQUAL(0, task_resume_child(parent->id, child->id));
+    }
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(parent->id, &parent_events));
+    TEST_ASSERT_EQUAL(4, parent_events.count);
+    TEST_ASSERT_EQUAL(4, parent_events.generation);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_SUSPEND, parent_events.entries[0].action);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, parent_events.entries[1].action);
+    TEST_ASSERT_EQUAL(3, parent_events.entries[2].sequence);
+    TEST_ASSERT_EQUAL(4, parent_events.entries[3].sequence);
+
+    TEST_ASSERT_EQUAL(0, task_delegate_child(parent->id, child->id, supervisor->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(parent->id, &parent_events));
+    TEST_ASSERT_EQUAL(4, parent_events.count);
+    TEST_ASSERT_EQUAL(5, parent_events.generation);
+    TEST_ASSERT_EQUAL(2, parent_events.entries[0].sequence);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_OUT, parent_events.entries[3].action);
+    TEST_ASSERT_EQUAL(supervisor->id, parent_events.entries[3].related_pid);
+
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(supervisor->id, &supervisor_events));
+    TEST_ASSERT_EQUAL(1, supervisor_events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_IN, supervisor_events.entries[0].action);
+    TEST_ASSERT_EQUAL(parent->id, supervisor_events.entries[0].related_pid);
+    TEST_ASSERT_EQUAL(0, task_kill(supervisor->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(supervisor->id, &supervisor_events));
+    TEST_ASSERT_EQUAL(2, supervisor_events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_EXIT, supervisor_events.entries[1].action);
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, supervisor_events.entries[1].detail);
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -1051,6 +1105,7 @@ int main(void) {
     RUN_TEST(test_task_direct_children_and_wait_any);
     RUN_TEST(test_task_child_exit_count);
     RUN_TEST(test_task_supervision_delegation);
+    RUN_TEST(test_task_supervision_events);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

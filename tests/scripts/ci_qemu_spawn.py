@@ -234,6 +234,11 @@ def main():
                                "child-result ok %s 0 1" % wait_pid, proc)
             say("typing child-exit-count (two departures) ...")
             send_command_until(monitor, "child-exit-count", "child-exit-count ok 2", proc)
+            say("typing task-events (suspend and exits) ...")
+            events_start = send_command_until(monitor, "task-events", "task-events ok 3 3", proc)
+            wait_for(proc, "task-event 1 suspend %s 0 0" % idle_pid, CMD_TIMEOUT, events_start)
+            wait_for(proc, "task-event 2 exit %s 0 2" % idle_pid, CMD_TIMEOUT, events_start)
+            wait_for(proc, "task-event 3 exit %s 0 1" % wait_pid, CMD_TIMEOUT, events_start)
 
             say("typing child-results (history) ...")
             history_start = send_command_until(monitor, "child-results", "child-results ok 2", proc)
@@ -291,6 +296,10 @@ def main():
             say("typing task-metrics %s (delegated parent) ..." % delegated_pid)
             send_command_until(monitor, "task-metrics %s" % delegated_pid,
                                "Parent : %s" % supervisor_pid, proc)
+            say("typing task-events (delegation) ...")
+            delegated_events_start = send_command_until(monitor, "task-events", "task-events ok 4 4", proc)
+            wait_for(proc, "task-event 4 delegate-out %s %s 0" %
+                     (delegated_pid, supervisor_pid), CMD_TIMEOUT, delegated_events_start)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0

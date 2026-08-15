@@ -818,6 +818,71 @@ void test_sys_task_delegate_child(void) {
     current_task = old_current;
 }
 
+void test_sys_task_supervision_events(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    task_t* supervisor;
+    os_task_supervision_events_t events;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    supervisor = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    TEST_ASSERT_NOT_NULL(supervisor);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    supervisor->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(supervisor);
+
+    current_task = parent;
+    cpu.eax = SYS_TASK_SUSPEND;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_RESUME;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS;
+    cpu.ebx = (uint32_t)&events;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_SUSPEND, events.entries[0].action);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, events.entries[1].action);
+
+    cpu.eax = SYS_TASK_DELEGATE_CHILD;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)supervisor->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS;
+    cpu.ebx = (uint32_t)&events;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(3, events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_OUT, events.entries[2].action);
+
+    current_task = supervisor;
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS;
+    cpu.ebx = (uint32_t)&events;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_IN, events.entries[0].action);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_wait_child(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1652,6 +1717,7 @@ int main(void) {
     RUN_TEST(test_sys_task_priority_and_metrics);
     RUN_TEST(test_sys_task_name_and_capacity);
     RUN_TEST(test_sys_task_delegate_child);
+    RUN_TEST(test_sys_task_supervision_events);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);
