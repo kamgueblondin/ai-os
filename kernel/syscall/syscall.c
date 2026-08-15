@@ -218,6 +218,13 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_KILL_CHILDREN:
             cpu->eax = (uint32_t)sys_task_kill_children();
             break;
+        case SYS_TASK_CHILDREN:
+            cpu->eax = (uint32_t)sys_task_children((os_task_children_t*)cpu->ebx);
+            break;
+        case SYS_TASK_WAIT_ANY:
+            cpu->eax = (uint32_t)sys_task_wait_any();
+            if ((int)cpu->eax == 0) schedule(cpu);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -988,4 +995,14 @@ int sys_task_resume(int pid) {
 int sys_task_kill_children(void) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     return task_kill_direct_children(current_task->id);
+}
+
+int sys_task_children(os_task_children_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_direct_children(current_task->id, out);
+}
+
+int sys_task_wait_any(void) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_wait_for_any_child(current_task->id);
 }

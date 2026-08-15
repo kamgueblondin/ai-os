@@ -94,6 +94,8 @@ uint32_t task_count_direct_children(int pid);
 int task_can_create_child(int pid);
 int task_can_create_global(void);
 int task_wait_for_child(int requester_pid, int child_pid);
+int task_wait_for_any_child(int requester_pid);
+int task_fill_direct_children(int requester_pid, os_task_children_t* out);
 int task_fill_ps(os_proc_t* out, int max_n);
 int task_fill_metrics(int pid, os_task_metrics_t* out);
 int task_fill_capacity(os_task_capacity_t* out);

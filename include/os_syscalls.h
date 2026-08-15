@@ -113,8 +113,12 @@
 #define SYS_TASK_RESUME                  63
 /* Aucun argument ; termine l’instantané des enfants directs et retourne leur nombre. */
 #define SYS_TASK_KILL_CHILDREN           64
+/* EBX = os_task_children_t* ; instantané borné des enfants directs actifs. */
+#define SYS_TASK_CHILDREN                65
+/* Aucun argument ; bloque le parent jusqu’au départ d’un enfant direct. */
+#define SYS_TASK_WAIT_ANY                66
 
-#define MAX_SYSCALLS 65
+#define MAX_SYSCALLS 67
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -156,6 +160,8 @@
 #define OS_TASK_HISTORY_STALE (-70)
 /* La tâche cible ne peut pas effectuer la transition de cycle de vie demandée. */
 #define OS_TASK_BAD_STATE (-71)
+/* Le parent appelant ne possède aucun enfant direct actif à superviser. */
+#define OS_TASK_NO_DIRECT_CHILD (-72)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -209,6 +215,12 @@ typedef struct {
     int32_t type;
     char name[OS_PROC_NAME_MAX];
 } os_proc_t;
+
+/* Instantané local et non atomique des enfants directs actifs d’un parent. */
+typedef struct {
+    uint32_t count;
+    os_proc_t entries[OS_TASK_CHILD_CAPACITY];
+} os_task_children_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

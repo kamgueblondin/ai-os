@@ -164,6 +164,27 @@ int task_wait_for_child(int requester_pid, int child_pid) {
     return 0;
 }
 
+int task_wait_for_any_child(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    task_t* t;
+    int found = 0;
+    if (!parent || !task_queue) return OS_TASK_NOT_FOUND;
+    t = task_queue;
+    do {
+        if (t->parent_pid == requester_pid) {
+            if (t->waiter_pid != 0 && t->waiter_pid != requester_pid) {
+                return OS_TASK_CONTROL_DENIED;
+            }
+            t->waiter_pid = requester_pid;
+            found = 1;
+        }
+        t = t->next;
+    } while (t && t != task_queue);
+    if (!found) return OS_TASK_NO_DIRECT_CHILD;
+    parent->state = TASK_WAITING;
+    return 0;
+}
+
 int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
@@ -223,6 +244,42 @@ int task_resume_child(int requester_pid, int child_pid) {
     }
     if (child->state != TASK_SUSPENDED) return OS_TASK_BAD_STATE;
     child->state = TASK_READY;
+    return 0;
+}
+
+int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
+    task_t* parent;
+    task_t* t;
+    uint32_t count = 0U;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || !task_queue) return OS_TASK_NOT_FOUND;
+    t = task_queue;
+    do {
+        if (t->parent_pid == requester_pid && count < OS_TASK_CHILD_CAPACITY) {
+            int i = 0;
+            out->entries[count].pid = t->id;
+            out->entries[count].parent_pid = t->parent_pid;
+            out->entries[count].state = (t->state == TASK_RUNNING) ? OS_TASK_RUNNING :
+                (t->state == TASK_READY) ? OS_TASK_READY :
+                (t->state == TASK_SUSPENDED) ? OS_TASK_SUSPENDED :
+                (t->state == TASK_TERMINATED) ? OS_TASK_TERMINATED : OS_TASK_WAITING;
+            out->entries[count].type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+            while (t->name[i] && i < OS_PROC_NAME_MAX - 1) {
+                out->entries[count].name[i] = t->name[i];
+                i++;
+            }
+            out->entries[count].name[i] = '\0';
+            if (out->entries[count].name[0] == '\0') {
+                out->entries[count].name[0] = '?';
+                out->entries[count].name[1] = '\0';
+            }
+            count++;
+        }
+        t = t->next;
+    } while (t && t != task_queue);
+    out->count = count;
     return 0;
 }
 
@@ -980,6 +1037,13 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_KILL_CHILDREN:
             state->eax = (uint32_t)task_kill_direct_children(current_task ? current_task->id : -1);
+            break;
+        case SYS_TASK_CHILDREN:
+            state->eax = (uint32_t)task_fill_direct_children(current_task ? current_task->id : -1,
+                (os_task_children_t*)state->ebx);
+            break;
+        case SYS_TASK_WAIT_ANY:
+            state->eax = (uint32_t)task_wait_for_any_child(current_task ? current_task->id : -1);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

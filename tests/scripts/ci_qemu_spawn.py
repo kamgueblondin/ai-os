@@ -169,6 +169,11 @@ def main():
             say("typing task-capacity (one child) ...")
             send_command_until(monitor, "task-capacity", "task-capacity ok 3 16 13", proc)
 
+            say("typing children (one child) ...")
+            children_start = send_command_until(monitor, "children", "children ok 1", proc)
+            wait_for(proc, "child-entry %s" % idle_pid, CMD_TIMEOUT, children_start)
+            wait_for(proc, "sleeper", CMD_TIMEOUT, children_start)
+
             say("typing task-metrics %s ..." % idle_pid)
             send_command_until(monitor, "task-metrics %s" % idle_pid, "Parent : 1", proc)
 
@@ -213,9 +218,9 @@ def main():
             say("typing task-metrics 1 (one child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 1", proc)
 
-            say("typing wait-result %s ..." % wait_pid)
-            wait_start = send_command_until(monitor, "wait-result %s" % wait_pid,
-                                            "wait-result ok %s 0 1" % wait_pid, proc)
+            say("typing wait-any-result ...")
+            wait_start = send_command_until(monitor, "wait-any-result",
+                                            "wait-any-result ok %s 0 1" % wait_pid, proc)
             wait_for(proc, "wait-child done", CMD_TIMEOUT, wait_start)
 
             say("typing ipc-recv (exited event) ...")

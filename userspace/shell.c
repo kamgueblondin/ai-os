@@ -240,6 +240,18 @@ int sys_task_kill_children(void) {
     return result;
 }
 
+int sys_task_children(os_task_children_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILDREN), "b"(out));
+    return result;
+}
+
+int sys_task_wait_any(void) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_WAIT_ANY));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -718,6 +730,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-suspend <pid> - Suspendre un enfant direct prêt\n");
     print_string("  task-resume <pid>  - Reprendre un enfant direct suspendu\n");
     print_string("  kill-children      - Terminer tous les enfants directs\n");
+    print_string("  children           - Instantané des enfants directs actifs\n");
+    print_string("  wait-any-result    - Attendre la prochaine sortie enfant\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1007,6 +1021,56 @@ void cmd_kill_children(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     print_string("kill-children ok "); print_int(count); print_string("\n");
+}
+
+void cmd_children(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_children_t children;
+    int rc;
+    uint32_t i;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: children");
+        return;
+    }
+    rc = sys_task_children(&children);
+    if (rc != 0) {
+        print_error("children: syscall indisponible");
+        return;
+    }
+    for (i = 0U; i < children.count; i++) {
+        print_string("child-entry "); print_int(children.entries[i].pid); print_string(" ");
+        print_string(proc_state_str(children.entries[i].state)); print_string(" ");
+        print_string(children.entries[i].name); print_string("\n");
+    }
+    print_string("children ok "); print_int((int)children.count); print_string("\n");
+}
+
+void cmd_wait_any_result(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_exit_history_t history;
+    os_task_exit_result_t result;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: wait-any-result");
+        return;
+    }
+    rc = sys_task_wait_any();
+    if (rc == OS_TASK_NO_DIRECT_CHILD) {
+        print_error("wait-any-result: aucun enfant direct");
+        return;
+    }
+    if (rc != 0) {
+        print_error("wait-any-result: syscall d’attente indisponible");
+        return;
+    }
+    rc = sys_task_child_result_list(&history);
+    if (rc != 0 || history.count == 0U) {
+        print_error("wait-any-result: résultat enfant indisponible");
+        return;
+    }
+    result = history.entries[history.count - 1U];
+    print_string("wait-any-result ok "); print_int(result.child_pid); print_string(" ");
+    print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1686,7 +1750,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3862,6 +3926,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "kill-children") == 0) {
         cmd_kill_children(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "children") == 0) {
+        cmd_children(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "wait-any-result") == 0) {
+        cmd_wait_any_result(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);
