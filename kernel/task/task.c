@@ -522,6 +522,28 @@ int task_kill(int requester_pid, int pid) {
     return 0;
 }
 
+int task_suspend_child(int requester_pid, int child_pid) {
+    task_t* child = get_task_by_id(child_pid);
+    if (!child) return OS_TASK_NOT_FOUND;
+    if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    if (child->state != TASK_READY) return OS_TASK_BAD_STATE;
+    child->state = TASK_SUSPENDED;
+    return 0;
+}
+
+int task_resume_child(int requester_pid, int child_pid) {
+    task_t* child = get_task_by_id(child_pid);
+    if (!child) return OS_TASK_NOT_FOUND;
+    if (child->type != TASK_TYPE_USER || child->parent_pid != requester_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
+    if (child->state != TASK_SUSPENDED) return OS_TASK_BAD_STATE;
+    child->state = TASK_READY;
+    return 0;
+}
+
 void task_wake_waiter(task_t* child) {
     task_t* parent;
     if (!child || child->waiter_pid <= 0) return;
@@ -568,6 +590,7 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
 static int32_t map_task_state(task_state_t s) {
     if (s == TASK_RUNNING) return OS_TASK_RUNNING;
     if (s == TASK_READY) return OS_TASK_READY;
+    if (s == TASK_SUSPENDED) return OS_TASK_SUSPENDED;
     if (s == TASK_TERMINATED) return OS_TASK_TERMINATED;
     return OS_TASK_WAITING;
 }

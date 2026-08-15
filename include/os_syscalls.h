@@ -107,8 +107,12 @@
 #define SYS_TASK_CHILD_RESULT_FIND       60
 /* EBX = PID enfant ; retire une entrée locale et retourne la nouvelle génération. */
 #define SYS_TASK_CHILD_RESULT_FORGET     61
+/* EBX = PID enfant direct ; suspend une tâche prête sans la terminer. */
+#define SYS_TASK_SUSPEND                 62
+/* EBX = PID enfant direct suspendu ; le rend à nouveau planifiable. */
+#define SYS_TASK_RESUME                  63
 
-#define MAX_SYSCALLS 62
+#define MAX_SYSCALLS 64
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -148,6 +152,8 @@
 #define OS_TASK_NO_CHILD_RESULT (-69)
 /* La génération attendue de l’historique enfant ne correspond plus. */
 #define OS_TASK_HISTORY_STALE (-70)
+/* La tâche cible ne peut pas effectuer la transition de cycle de vie demandée. */
+#define OS_TASK_BAD_STATE (-71)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -162,6 +168,7 @@
 #define OS_TASK_RUNNING   0
 #define OS_TASK_READY     1
 #define OS_TASK_WAITING   2
+#define OS_TASK_SUSPENDED 3
 #define OS_TASK_TERMINATED 4
 
 #define OS_TASK_KERNEL 0

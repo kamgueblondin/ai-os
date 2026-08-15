@@ -682,6 +682,13 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(OS_TASK_BAD_NAME, task_set_name(parent->id, child->id, ""));
     TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
                       task_set_name(child->id, parent->id, "forbidden"));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(TASK_SUSPENDED, child->state);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_STATE, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, task_resume_child(child->id, parent->id));
+    TEST_ASSERT_EQUAL(0, task_resume_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(TASK_READY, child->state);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_STATE, task_resume_child(parent->id, child->id));
 
     task_report_parent_exit(child, 7, OS_TASK_EVENT_EXITED);
     TEST_ASSERT_EQUAL(0, task_get_child_result(parent->id, child->id, &result));

@@ -222,6 +222,18 @@ int sys_task_child_result_forget(int pid) {
     return result;
 }
 
+int sys_task_suspend(int pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUSPEND), "b"(pid));
+    return result;
+}
+
+int sys_task_resume(int pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_RESUME), "b"(pid));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -697,6 +709,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-priority <pid> <1|2|3> - Politique CPU locale\n");
     print_string("  task-name <pid> <nom> - Renommer soi ou un enfant direct\n");
     print_string("  task-capacity       - Capacité globale volatile des tâches\n");
+    print_string("  task-suspend <pid> - Suspendre un enfant direct prêt\n");
+    print_string("  task-resume <pid>  - Reprendre un enfant direct suspendu\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -824,6 +838,7 @@ void cmd_ls(shell_context_t* ctx, char args[][128], int arg_count) {
 static const char* proc_state_str(int st) {
     if (st == OS_TASK_RUNNING) return "R";
     if (st == OS_TASK_READY) return "S";
+    if (st == OS_TASK_SUSPENDED) return "P";
     if (st == OS_TASK_TERMINATED) return "Z";
     return "W";
 }
@@ -914,6 +929,62 @@ void cmd_task_priority(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     print_string("task-priority ok "); print_int(pid); print_string(" "); print_int(priority); print_string("\n");
+}
+
+void cmd_task_suspend(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: task-suspend <pid>");
+        return;
+    }
+    rc = sys_task_suspend(pid);
+    if (rc == OS_TASK_NOT_FOUND) {
+        print_error("task-suspend: PID absent");
+        return;
+    }
+    if (rc == OS_TASK_CONTROL_DENIED) {
+        print_error("task-suspend: autorité limitée à un enfant direct");
+        return;
+    }
+    if (rc == OS_TASK_BAD_STATE) {
+        print_error("task-suspend: enfant non prêt");
+        return;
+    }
+    if (rc != 0) {
+        print_error("task-suspend: syscall indisponible");
+        return;
+    }
+    print_string("task-suspend ok "); print_int(pid); print_string("\n");
+}
+
+void cmd_task_resume(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: task-resume <pid>");
+        return;
+    }
+    rc = sys_task_resume(pid);
+    if (rc == OS_TASK_NOT_FOUND) {
+        print_error("task-resume: PID absent");
+        return;
+    }
+    if (rc == OS_TASK_CONTROL_DENIED) {
+        print_error("task-resume: autorité limitée à un enfant direct");
+        return;
+    }
+    if (rc == OS_TASK_BAD_STATE) {
+        print_error("task-resume: enfant non suspendu");
+        return;
+    }
+    if (rc != 0) {
+        print_error("task-resume: syscall indisponible");
+        return;
+    }
+    print_string("task-resume ok "); print_int(pid); print_string("\n");
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1593,7 +1664,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3760,6 +3831,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-capacity") == 0) {
         cmd_task_capacity(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-suspend") == 0) {
+        cmd_task_suspend(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-resume") == 0) {
+        cmd_task_resume(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

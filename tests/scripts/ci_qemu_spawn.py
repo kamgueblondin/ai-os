@@ -179,6 +179,17 @@ def main():
             send_command_until(monitor, "task-priority %s 2" % idle_pid,
                                "task-priority ok %s 2" % idle_pid, proc)
 
+            say("typing task-suspend %s ..." % idle_pid)
+            send_command_until(monitor, "task-suspend %s" % idle_pid,
+                               "task-suspend ok %s" % idle_pid, proc)
+            say("typing ps (suspended) ...")
+            suspended_start = send_command_until(monitor, "ps", "P     user  sleeper", proc)
+            if "idle ok" in log_text()[suspended_start:]:
+                raise RuntimeError("suspended child executed before resume %s" % idle_pid)
+            say("typing task-resume %s ..." % idle_pid)
+            send_command_until(monitor, "task-resume %s" % idle_pid,
+                               "task-resume ok %s" % idle_pid, proc)
+
             say("typing yield ...")
             start = send_command_until(monitor, "yield", "yield ok", proc)
             wait_for(proc, "idle ok", CMD_TIMEOUT, spawn_start)
