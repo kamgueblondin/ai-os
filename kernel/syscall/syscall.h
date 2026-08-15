@@ -48,6 +48,8 @@ int sys_service_backend_grant_scoped(const char* name, int target_pid, uint32_t 
 int sys_service_backend_revoke(const char* name, int target_pid);
 int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_rights);
 int sys_service_backend_list(const char* name, os_service_backend_list_t* out_list);
+int sys_service_backend_observe(const char* name, uint32_t expected_generation,
+                                os_service_backend_snapshot_t* out_snapshot);
 int sys_service_notify(const char* name);
 int sys_service_status(const char* name, os_service_status_t* out);
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max);

@@ -606,6 +606,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  vfs-backend-revoke <pid> - Retirer explicitement un acces backend VFS\n");
     print_string("  vfs-backend-status <pid> - Consulter le profil backend VFS d'un PID\n");
     print_string("  vfs-backend-list      - Lister les profils backend VFS actifs\n");
+    print_string("  vfs-backend-observe <generation> - Observer un inventaire backend VFS\n");
     print_string("  vfs-read <fichier>   - Lire un fichier via le service VFS nomme\n");
     print_string("  vfs-stat <fichier>   - Lire les metadonnees via le service VFS nomme\n");
     print_string("  vfs-list <repertoire/> - Lister un repertoire monte via le service VFS\n");
@@ -1872,6 +1873,24 @@ static void cmd_vfs_backend_list(shell_context_t* ctx, char args[][128], int arg
         else { print_error("vfs-backend-list: masque invalide"); ctx->last_rc = OS_VFS_STATUS_INVALID; return; }
         print_string("\n");
     }
+}
+
+static void cmd_vfs_backend_observe(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request; os_ipc_message_t message; os_vfs_backend_observe_reply_t reply;
+    int pid, rc, attempts, expected; uint32_t request_id;
+    if (arg_count != 1 || (expected = parse_int(args[0])) < 0) { print_error("Usage: vfs-backend-observe <generation>"); return; }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-backend-observe: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id(); rc = os_vfs_make_backend_observe_request(&request, (uint32_t)expected, request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-backend-observe: demande refusee"); ctx->last_rc = rc; return; }
+    rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_OBSERVE_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_backend_observe_reply(&message, &reply, request_id);
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_OBSERVE_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_observe_reply(&message, &reply, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    if (rc != 0) { print_error("vfs-backend-observe: reponse invalide"); ctx->last_rc = rc; return; }
+    if (reply.status == OS_SERVICE_STALE) { ctx->last_rc = reply.status; print_string("vfs-backend-observe stale generation "); print_int((int)reply.generation); print_string("\n"); return; }
+    if (reply.status != 0) { print_error("vfs-backend-observe: consultation refusee"); ctx->last_rc = reply.status; return; }
+    ctx->last_rc = 0; print_string("vfs-backend-observe ok generation "); print_int((int)reply.generation); print_string(" count "); print_int((int)reply.count); print_string("\n");
 }
 
 static void cmd_vfs_write(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -3438,6 +3457,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-backend-status") == 0) {
         cmd_vfs_backend_status(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-backend-observe") == 0) {
+        cmd_vfs_backend_observe(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-backend-list") == 0) {
         cmd_vfs_backend_list(ctx, args, arg_count);

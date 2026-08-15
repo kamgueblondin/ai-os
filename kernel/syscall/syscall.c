@@ -236,6 +236,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_SERVICE_BACKEND_LIST:
             cpu->eax = (uint32_t)sys_service_backend_list((const char*)cpu->ebx, (os_service_backend_list_t*)cpu->ecx);
             break;
+        case SYS_SERVICE_BACKEND_OBSERVE:
+            cpu->eax = (uint32_t)sys_service_backend_observe((const char*)cpu->ebx, cpu->ecx,
+                                                              (os_service_backend_snapshot_t*)cpu->edx);
+            break;
         case SYS_SERVICE_NOTIFY:
             cpu->eax = (uint32_t)sys_service_notify((const char*)cpu->ebx);
             break;
@@ -422,6 +426,12 @@ int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_r
 int sys_service_backend_list(const char* name, os_service_backend_list_t* out_list) {
     if (!current_task || current_task->type != TASK_TYPE_USER || !out_list) return OS_SERVICE_BAD_NAME;
     return service_registry_backend_list(name, current_task->id, out_list);
+}
+
+int sys_service_backend_observe(const char* name, uint32_t expected_generation,
+                                os_service_backend_snapshot_t* out_snapshot) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out_snapshot) return OS_SERVICE_BAD_NAME;
+    return service_registry_backend_observe(name, current_task->id, expected_generation, out_snapshot);
 }
 
 int sys_service_notify(const char* name) {
