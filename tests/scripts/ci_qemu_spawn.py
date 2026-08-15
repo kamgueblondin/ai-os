@@ -297,12 +297,18 @@ def main():
             say("spawned delegated child pid %s" % delegated_pid)
             say("typing task-events-notify on ...")
             send_command_until(monitor, "task-events-notify on", "task-events-notify ok on", proc)
+            say("typing task-events-budget 2 ...")
+            send_command_until(monitor, "task-events-budget 2", "task-events-budget ok 2", proc)
+            say("typing task-events-budget-status (configured) ...")
+            send_command_until(monitor, "task-events-budget-status", "task-events-budget-status ok 2 0", proc)
             say("typing task-priority-child %s ..." % delegated_pid)
             send_command_until(monitor, "task-priority-child %s" % delegated_pid,
                                "task-priority-child ok %s" % delegated_pid, proc)
             say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
             send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
                                "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
+            say("typing task-events-budget-status (one delivery) ...")
+            send_command_until(monitor, "task-events-budget-status", "task-events-budget-status ok 2 1", proc)
             say("typing ipc-recv (delegation notification) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %

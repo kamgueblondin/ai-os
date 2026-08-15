@@ -62,6 +62,8 @@ void tasking_init() {
     current_task->supervision_delivery_delivered = 0U;
     current_task->supervision_delivery_dropped = 0U;
     current_task->supervision_priority_child_pid = -1;
+    current_task->supervision_notify_budget_limit = 0U;
+    current_task->supervision_notify_budget_used = 0U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -311,6 +313,8 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->supervision_delivery_delivered = 0U;
     new_task->supervision_delivery_dropped = 0U;
     new_task->supervision_priority_child_pid = -1;
+    new_task->supervision_notify_budget_limit = 0U;
+    new_task->supervision_notify_budget_used = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -643,7 +647,10 @@ static void task_notify_supervision_event(task_t* parent,
     priority = parent->supervision_priority_child_pid == event->child_pid;
     if (!priority && (bit == 0U || (parent->supervision_notify_mask & bit) == 0U)) return;
     if (!priority && !task_supervision_watch_allows(parent, event->child_pid)) return;
+    if (parent->supervision_notify_budget_limit != 0U &&
+        parent->supervision_notify_budget_used >= parent->supervision_notify_budget_limit) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
+    parent->supervision_notify_budget_used++;
     parent->supervision_delivery_attempted++;
     /* Best effort : une boîte pleine ne retarde jamais une transition de supervision. */
     if (ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload) == 0) {
@@ -1068,6 +1075,23 @@ int task_fill_supervision_priority_status(int requester_pid,
         return OS_TASK_NOT_FOUND;
     }
     out->child_pid = parent->supervision_priority_child_pid;
+    return 0;
+}
+
+int task_set_supervision_notify_budget(int requester_pid, uint32_t limit) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return OS_TASK_NOT_FOUND;
+    parent->supervision_notify_budget_limit = limit;
+    parent->supervision_notify_budget_used = 0U;
+    return 0;
+}
+
+int task_fill_supervision_notify_budget_status(int requester_pid,
+                                                os_task_supervision_notify_budget_status_t* out) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!out || !parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return OS_TASK_NOT_FOUND;
+    out->limit = parent->supervision_notify_budget_limit;
+    out->used = parent->supervision_notify_budget_used;
     return 0;
 }
 

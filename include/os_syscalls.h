@@ -154,7 +154,12 @@
 /* EBX = os_task_supervision_priority_status_t* ; sélection prioritaire locale. */
 #define SYS_TASK_SUPERVISION_PRIORITY_STATUS 84
 
-#define MAX_SYSCALLS 85
+/* EBX = budget de tentatives détaillées ; zéro désactive la limite locale. */
+#define SYS_TASK_SUPERVISION_NOTIFY_BUDGET 85
+/* EBX = os_task_supervision_notify_budget_status_t* ; état du budget local. */
+#define SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS 86
+
+#define MAX_SYSCALLS 87
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -360,6 +365,11 @@ typedef struct {
 typedef struct {
     int32_t child_pid;
 } os_task_supervision_priority_status_t;
+
+typedef struct {
+    uint32_t limit;
+    uint32_t used;
+} os_task_supervision_notify_budget_status_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */
