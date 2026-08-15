@@ -95,8 +95,10 @@
 #define SYS_TASK_SET_NAME                54
 /* EBX = os_task_capacity_t* ; instantané global de capacité des tâches. */
 #define SYS_TASK_CAPACITY                55
+/* EBX = PID enfant, ECX = os_task_exit_result_t* ; dernier résultat local du parent. */
+#define SYS_TASK_CHILD_RESULT            56
 
-#define MAX_SYSCALLS 56
+#define MAX_SYSCALLS 57
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -132,6 +134,10 @@
 #define OS_TASK_BAD_NAME       (-67)
 /* La file bornée de tâches actives est pleine. */
 #define OS_TASK_GLOBAL_LIMIT   (-68)
+/* Le parent ne conserve aucun dernier résultat pour cet enfant. */
+#define OS_TASK_NO_CHILD_RESULT (-69)
+
+#define OS_TASK_EXIT_KILLED (-128)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -203,6 +209,15 @@ typedef struct {
     uint32_t capacity;
     uint32_t available;
 } os_task_capacity_t;
+
+/* Dernier résultat d’enfant retenu localement par son parent. Non atomique,
+ * non persistant et remplacé par le départ direct suivant. */
+typedef struct {
+    int32_t child_pid;
+    int32_t exit_code;
+    uint32_t reason;
+    uint32_t finished_ticks;
+} os_task_exit_result_t;
 
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni
  * atomique, ni réservé, ni une capability. */

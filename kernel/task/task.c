@@ -41,6 +41,10 @@ void tasking_init() {
     current_task->last_scheduled_ticks = current_task->created_ticks;
     current_task->run_ticks = 0U;
     current_task->switch_count = 1U;
+    current_task->last_child_pid = -1;
+    current_task->last_child_exit_code = 0;
+    current_task->last_child_exit_reason = 0U;
+    current_task->last_child_finished_ticks = 0U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -269,6 +273,10 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->last_scheduled_ticks = new_task->created_ticks;
     new_task->run_ticks = 0U;
     new_task->switch_count = 0U;
+    new_task->last_child_pid = -1;
+    new_task->last_child_exit_code = 0;
+    new_task->last_child_exit_reason = 0U;
+    new_task->last_child_finished_ticks = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -500,7 +508,7 @@ int task_kill(int requester_pid, int pid) {
     if (!t) return -1;
     if (requester_pid == pid) return -3;
     if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
-    task_notify_parent_exit(t, OS_TASK_EVENT_KILLED);
+    task_report_parent_exit(t, OS_TASK_EXIT_KILLED, OS_TASK_EVENT_KILLED);
     task_wake_waiter(t);
     task_reparent_children(t);
     t->state = TASK_TERMINATED;
@@ -518,12 +526,16 @@ void task_wake_waiter(task_t* child) {
     child->waiter_pid = 0;
 }
 
-void task_notify_parent_exit(task_t* child, uint32_t reason) {
+void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     task_t* parent;
     os_ipc_payload_t payload;
     if (!child || child->parent_pid <= 0) return;
     parent = get_task_by_id(child->parent_pid);
     if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
+    parent->last_child_pid = child->id;
+    parent->last_child_exit_code = exit_code;
+    parent->last_child_exit_reason = reason;
+    parent->last_child_finished_ticks = timer_get_ticks();
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     /* Best effort : la terminaison ne dépend jamais d’une boîte IPC disponible. */
     (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
@@ -630,5 +642,18 @@ int task_set_name(int requester_pid, int pid, const char* name) {
     }
     for (i = 0; name[i]; i++) t->name[i] = name[i];
     t->name[i] = '\0';
+    return 0;
+}
+
+int task_get_child_result(int requester_pid, int child_pid, os_task_exit_result_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NO_CHILD_RESULT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    if (parent->last_child_pid != child_pid) return OS_TASK_NO_CHILD_RESULT;
+    out->child_pid = parent->last_child_pid;
+    out->exit_code = parent->last_child_exit_code;
+    out->reason = parent->last_child_exit_reason;
+    out->finished_ticks = parent->last_child_finished_ticks;
     return 0;
 }

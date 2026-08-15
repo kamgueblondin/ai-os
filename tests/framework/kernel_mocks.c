@@ -45,6 +45,10 @@ task_t* create_task(void (*entry_point)(void)) {
     task->last_scheduled_ticks = task->created_ticks;
     task->run_ticks = 0U;
     task->switch_count = 0U;
+    task->last_child_pid = -1;
+    task->last_child_exit_code = 0;
+    task->last_child_exit_reason = 0U;
+    task->last_child_finished_ticks = 0U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -164,7 +168,7 @@ int task_kill(int requester_pid, int pid) {
     if (!t) return -1;
     if (requester_pid == pid) return -3;
     if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
-    task_notify_parent_exit(t, OS_TASK_EVENT_KILLED);
+    task_report_parent_exit(t, OS_TASK_EXIT_KILLED, OS_TASK_EVENT_KILLED);
     task_wake_waiter(t);
     task_reparent_children(t);
     t->state = TASK_TERMINATED;
@@ -264,6 +268,19 @@ int task_set_name(int requester_pid, int pid, const char* name) {
     return 0;
 }
 
+int task_get_child_result(int requester_pid, int child_pid, os_task_exit_result_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NO_CHILD_RESULT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    if (parent->last_child_pid != child_pid) return OS_TASK_NO_CHILD_RESULT;
+    out->child_pid = parent->last_child_pid;
+    out->exit_code = parent->last_child_exit_code;
+    out->reason = parent->last_child_exit_reason;
+    out->finished_ticks = parent->last_child_finished_ticks;
+    return 0;
+}
+
 void schedule(cpu_state_t* cpu) {
     task_t* next_task = NULL;
     task_t* candidate;
@@ -334,12 +351,16 @@ static void mock_task_event_send(ipc_endpoint_t* endpoint, const os_ipc_payload_
     endpoint->count++;
 }
 
-void task_notify_parent_exit(task_t* child, uint32_t reason) {
+void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     task_t* parent;
     os_ipc_payload_t payload;
     if (!child || child->parent_pid <= 0) return;
     parent = get_task_by_id(child->parent_pid);
     if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
+    parent->last_child_pid = child->id;
+    parent->last_child_exit_code = exit_code;
+    parent->last_child_exit_reason = reason;
+    parent->last_child_finished_ticks = mock_timer_get_ticks();
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     mock_task_event_send(&parent->ipc_endpoint, &payload);
 }
@@ -699,6 +720,8 @@ void syscall_handler(cpu_state_t* state) {
     // Simulate real kernel/syscall/syscall.c dispatching behavior for the tests
     switch (state->eax) {
         case SYS_EXIT:
+            if (current_task) task_report_parent_exit(current_task, (int)state->ebx,
+                                                      OS_TASK_EVENT_EXITED);
             sys_exit(state->ebx);
             break;
         case SYS_PUTC:
@@ -754,6 +777,11 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_CAPACITY:
             state->eax = (uint32_t)task_fill_capacity((os_task_capacity_t*)state->ebx);
+            break;
+        case SYS_TASK_CHILD_RESULT:
+            state->eax = (uint32_t)task_get_child_result(current_task ? current_task->id : -1,
+                                                         (int)state->ebx,
+                                                         (os_task_exit_result_t*)state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
