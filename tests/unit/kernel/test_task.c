@@ -541,6 +541,27 @@ void test_task_priority_control_authority(void) {
     TEST_ASSERT_EQUAL(parent->id, metrics.parent_pid);
 }
 
+void test_task_kill_parent_authority(void) {
+    task_t* parent;
+    task_t* child;
+    task_t* unrelated;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    unrelated = create_task(dummy_task_function);
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(unrelated);
+
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
+                      task_kill(unrelated->id, child->id));
+    TEST_ASSERT_EQUAL(-3, task_kill(child->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, child->id));
+    TEST_ASSERT_NULL(get_task_by_id(child->id));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -628,6 +649,7 @@ int main(void) {
     // Tests de politique CPU
     RUN_TEST(test_task_priority_selection_and_validation);
     RUN_TEST(test_task_priority_control_authority);
+    RUN_TEST(test_task_kill_parent_authority);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

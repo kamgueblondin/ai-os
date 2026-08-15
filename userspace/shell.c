@@ -770,11 +770,13 @@ void cmd_ps(shell_context_t* ctx, char args[][128], int arg_count) {
     (void)ctx; (void)args; (void)arg_count;
     n = sys_ps(procs, 16);
     print_colored("\n=== Processus (noyau) ===\n", COLOR_CYAN);
-    print_colored("  PID  STAT  TYPE  COMMAND\n", COLOR_YELLOW);
+    print_colored("  PID  PPID  STAT  TYPE  COMMAND\n", COLOR_YELLOW);
     if (n < 0) n = 0;
     for (int i = 0; i < n; i++) {
         print_string("  ");
         print_int(procs[i].pid);
+        print_string("    ");
+        print_int(procs[i].parent_pid);
         print_string("    ");
         print_string(proc_state_str(procs[i].state));
         print_string("     ");

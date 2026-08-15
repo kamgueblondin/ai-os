@@ -620,6 +620,7 @@ void test_sys_ps_lists_task(void) {
     for (int i = 0; i < n; i++) {
         if (procs[i].pid == 3) {
             found = 1;
+            TEST_ASSERT_EQUAL(-1, procs[i].parent_pid);
             TEST_ASSERT_EQUAL_STRING("shell", procs[i].name);
         }
     }
@@ -642,6 +643,7 @@ void test_sys_kill_removes_ready_task(void) {
     task_t* old_current = current_task;
     task_t* shell;
     task_t* child;
+    task_t* unrelated;
     os_proc_t procs[8];
     cpu_state_t cpu = {0};
     int n;
@@ -655,6 +657,7 @@ void test_sys_kill_removes_ready_task(void) {
     TEST_ASSERT_NOT_NULL(child);
     shell->id = 1;
     child->id = 2;
+    child->parent_pid = shell->id;
     child->type = TASK_TYPE_USER;
     child->name[0] = 'i';
     child->name[1] = 'd';
@@ -663,7 +666,17 @@ void test_sys_kill_removes_ready_task(void) {
     child->name[4] = '\0';
     add_task_to_queue(shell);
     add_task_to_queue(child);
+    unrelated = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(unrelated);
+    unrelated->id = 3;
+    unrelated->type = TASK_TYPE_USER;
+    add_task_to_queue(unrelated);
     current_task = shell;
+
+    cpu.eax = SYS_KILL;
+    cpu.ebx = 3;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, (int)cpu.eax);
 
     cpu.eax = SYS_KILL;
     cpu.ebx = 2;
