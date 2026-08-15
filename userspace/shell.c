@@ -1557,6 +1557,10 @@ static void cmd_spawn(shell_context_t* ctx, char args[][128], int arg_count) {
         return;
     }
     pid = spawn(args[0], 0);
+    if (pid == OS_TASK_CHILD_LIMIT) {
+        print_error("spawn: capacité de quatre enfants atteinte");
+        return;
+    }
     if (pid < 0) {
         char alt[80];
         int i = 0;
@@ -1567,6 +1571,10 @@ static void cmd_spawn(shell_context_t* ctx, char args[][128], int arg_count) {
         }
         alt[4 + i] = '\0';
         pid = spawn(alt, 0);
+    }
+    if (pid == OS_TASK_CHILD_LIMIT) {
+        print_error("spawn: capacité de quatre enfants atteinte");
+        return;
     }
     if (pid < 0) {
         print_error("spawn: programme introuvable");

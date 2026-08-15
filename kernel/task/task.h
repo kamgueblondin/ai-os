@@ -82,6 +82,7 @@ int task_has_other_ready_user(void);
 int task_kill(int requester_pid, int pid);
 void task_reparent_children(task_t* departing);
 uint32_t task_count_direct_children(int pid);
+int task_can_create_child(int pid);
 int task_wait_for_child(int requester_pid, int child_pid);
 int task_fill_ps(os_proc_t* out, int max_n);
 int task_fill_metrics(int pid, os_task_metrics_t* out);
