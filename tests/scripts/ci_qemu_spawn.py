@@ -201,6 +201,8 @@ def main():
             say("typing child-result %s (killed) ..." % idle_pid)
             send_command_until(monitor, "child-result %s" % idle_pid,
                                "child-result ok %s -128 2" % idle_pid, proc)
+            say("typing child-exit-count (after grouped termination) ...")
+            send_command_until(monitor, "child-exit-count", "child-exit-count ok 1", proc)
 
             say("typing task-capacity (after grouped termination) ...")
             send_command_until(monitor, "task-capacity", "task-capacity ok 2 16 14", proc)
@@ -230,6 +232,8 @@ def main():
             say("typing child-result %s (exited) ..." % wait_pid)
             send_command_until(monitor, "child-result %s" % wait_pid,
                                "child-result ok %s 0 1" % wait_pid, proc)
+            say("typing child-exit-count (two departures) ...")
+            send_command_until(monitor, "child-exit-count", "child-exit-count ok 2", proc)
 
             say("typing child-results (history) ...")
             history_start = send_command_until(monitor, "child-results", "child-results ok 2", proc)

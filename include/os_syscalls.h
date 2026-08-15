@@ -117,8 +117,10 @@
 #define SYS_TASK_CHILDREN                65
 /* Aucun argument ; bloque le parent jusqu’au départ d’un enfant direct. */
 #define SYS_TASK_WAIT_ANY                66
+/* EBX = os_task_child_exit_count_t* ; compteur cumulatif local de départs directs. */
+#define SYS_TASK_CHILD_EXIT_COUNT        67
 
-#define MAX_SYSCALLS 67
+#define MAX_SYSCALLS 68
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -221,6 +223,11 @@ typedef struct {
     uint32_t count;
     os_proc_t entries[OS_TASK_CHILD_CAPACITY];
 } os_task_children_t;
+
+/* Total cumulatif local de départs d’enfants directs depuis la création du parent. */
+typedef struct {
+    uint32_t count;
+} os_task_child_exit_count_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

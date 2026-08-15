@@ -252,6 +252,12 @@ int sys_task_wait_any(void) {
     return result;
 }
 
+int sys_task_child_exit_count(os_task_child_exit_count_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILD_EXIT_COUNT), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -488,6 +494,16 @@ static int parse_int(const char* s) {
         n = n * 10 + (s[i] - '0');
     }
     return sign * n;
+}
+
+static void print_uint(uint32_t v) {
+    char buf[16];
+    int i = 0;
+    do {
+        buf[i++] = (char)('0' + (v % 10U));
+        v /= 10U;
+    } while (v != 0U);
+    while (i > 0) putc(buf[--i]);
 }
 
 static void print_int(int n) {
@@ -732,6 +748,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  kill-children      - Terminer tous les enfants directs\n");
     print_string("  children           - Instantané des enfants directs actifs\n");
     print_string("  wait-any-result    - Attendre la prochaine sortie enfant\n");
+    print_string("  child-exit-count   - Total local des sorties enfants\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1071,6 +1088,22 @@ void cmd_wait_any_result(shell_context_t* ctx, char args[][128], int arg_count) 
     result = history.entries[history.count - 1U];
     print_string("wait-any-result ok "); print_int(result.child_pid); print_string(" ");
     print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
+}
+
+void cmd_child_exit_count(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_child_exit_count_t snapshot;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: child-exit-count");
+        return;
+    }
+    rc = sys_task_child_exit_count(&snapshot);
+    if (rc != 0) {
+        print_error("child-exit-count: syscall indisponible");
+        return;
+    }
+    print_string("child-exit-count ok "); print_uint(snapshot.count); print_string("\n");
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1750,7 +1783,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3932,6 +3965,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "wait-any-result") == 0) {
         cmd_wait_any_result(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "child-exit-count") == 0) {
+        cmd_child_exit_count(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

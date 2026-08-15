@@ -873,6 +873,42 @@ void test_task_direct_children_and_wait_any(void) {
     TEST_ASSERT_EQUAL(OS_TASK_NO_DIRECT_CHILD, task_wait_for_any_child(parent->id));
 }
 
+void test_task_child_exit_count(void) {
+    task_t* parent;
+    task_t* child_a;
+    task_t* child_b;
+    uint32_t count = 99U;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child_a = create_task(dummy_task_function);
+    child_b = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child_a);
+    TEST_ASSERT_NOT_NULL(child_b);
+    parent->type = TASK_TYPE_USER;
+    child_a->type = TASK_TYPE_USER;
+    child_b->type = TASK_TYPE_USER;
+    child_a->parent_pid = parent->id;
+    child_b->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child_a);
+    add_task_to_queue(child_b);
+
+    TEST_ASSERT_EQUAL(0, task_get_child_exit_count(parent->id, &count));
+    TEST_ASSERT_EQUAL(0, count);
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, child_a->id));
+    TEST_ASSERT_EQUAL(0, task_get_child_exit_count(parent->id, &count));
+    TEST_ASSERT_EQUAL(1, count);
+    TEST_ASSERT_GREATER_THAN(0, task_ack_child_result_history(parent->id));
+    TEST_ASSERT_EQUAL(0, task_get_child_exit_count(parent->id, &count));
+    TEST_ASSERT_EQUAL(1, count);
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, child_b->id));
+    TEST_ASSERT_EQUAL(0, task_get_child_exit_count(parent->id, &count));
+    TEST_ASSERT_EQUAL(2, count);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_get_child_exit_count(parent->id, NULL));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -967,6 +1003,7 @@ int main(void) {
     RUN_TEST(test_task_governance_name_capacity_and_events);
     RUN_TEST(test_task_kill_direct_children_snapshot);
     RUN_TEST(test_task_direct_children_and_wait_any);
+    RUN_TEST(test_task_child_exit_count);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

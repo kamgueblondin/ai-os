@@ -48,6 +48,7 @@ void tasking_init() {
     current_task->child_exit_history_start = 0U;
     current_task->child_exit_history_count = 0U;
     current_task->child_exit_history_generation = 1U;
+    current_task->direct_child_exit_count = 0U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -283,6 +284,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->child_exit_history_start = 0U;
     new_task->child_exit_history_count = 0U;
     new_task->child_exit_history_generation = 1U;
+    new_task->direct_child_exit_count = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -616,6 +618,7 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     parent->last_child_exit_code = result.exit_code;
     parent->last_child_exit_reason = result.reason;
     parent->last_child_finished_ticks = result.finished_ticks;
+    parent->direct_child_exit_count++;
     if (parent->child_exit_history_count < OS_TASK_EXIT_HISTORY_CAPACITY) {
         index = (parent->child_exit_history_start + parent->child_exit_history_count) %
                 OS_TASK_EXIT_HISTORY_CAPACITY;
@@ -639,6 +642,15 @@ static int32_t map_task_state(task_state_t s) {
     if (s == TASK_SUSPENDED) return OS_TASK_SUSPENDED;
     if (s == TASK_TERMINATED) return OS_TASK_TERMINATED;
     return OS_TASK_WAITING;
+}
+
+int task_get_child_exit_count(int requester_pid, uint32_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NOT_FOUND;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    *out = parent->direct_child_exit_count;
+    return 0;
 }
 
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {

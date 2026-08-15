@@ -247,6 +247,20 @@ int task_resume_child(int requester_pid, int child_pid) {
     return 0;
 }
 
+int task_get_child_exit_count(int requester_pid, uint32_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NOT_FOUND;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    *out = parent->direct_child_exit_count;
+    return 0;
+}
+
+int sys_task_child_exit_count(os_task_child_exit_count_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_get_child_exit_count(current_task->id, &out->count);
+}
+
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
     task_t* parent;
     task_t* t;
@@ -574,6 +588,7 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     parent->last_child_exit_code = result.exit_code;
     parent->last_child_exit_reason = result.reason;
     parent->last_child_finished_ticks = result.finished_ticks;
+    parent->direct_child_exit_count++;
     if (parent->child_exit_history_count < OS_TASK_EXIT_HISTORY_CAPACITY) {
         index = (parent->child_exit_history_start + parent->child_exit_history_count) %
                 OS_TASK_EXIT_HISTORY_CAPACITY;
@@ -1044,6 +1059,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_WAIT_ANY:
             state->eax = (uint32_t)task_wait_for_any_child(current_task ? current_task->id : -1);
+            break;
+        case SYS_TASK_CHILD_EXIT_COUNT:
+            state->eax = (uint32_t)sys_task_child_exit_count((os_task_child_exit_count_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
