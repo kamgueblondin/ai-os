@@ -242,8 +242,23 @@ def main():
             wait_for(proc, "child-result-entry %s -128 2" % idle_pid, CMD_TIMEOUT, observe_start)
             wait_for(proc, "child-result-entry %s 0 1" % wait_pid, CMD_TIMEOUT, observe_start)
 
+            say("typing wait-result %s (retrospective) ..." % wait_pid)
+            send_command_until(monitor, "wait-result %s" % wait_pid,
+                               "wait-result ok %s 0 1" % wait_pid, proc)
+            say("typing child-result-any %s ..." % idle_pid)
+            send_command_until(monitor, "child-result-any %s" % idle_pid,
+                               "child-result-any ok %s -128 2" % idle_pid, proc)
+            say("typing child-results-forget %s ..." % idle_pid)
+            send_command_until(monitor, "child-results-forget %s" % idle_pid,
+                               "child-results-forget ok %s 4" % idle_pid, proc)
+            say("typing child-results (compacted) ...")
+            compact_start = send_command_until(monitor, "child-results", "child-results ok 1", proc)
+            wait_for(proc, "child-result-entry %s 0 1" % wait_pid, CMD_TIMEOUT, compact_start)
+            say("typing child-results-observe 3 (stale after forget) ...")
+            send_command_until(monitor, "child-results-observe 3", "child-results-observe stale 4", proc)
+
             say("typing child-results-clear ...")
-            send_command_until(monitor, "child-results-clear", "child-results-clear ok 4", proc)
+            send_command_until(monitor, "child-results-clear", "child-results-clear ok 5", proc)
             say("typing child-results (empty) ...")
             send_command_until(monitor, "child-results", "child-results ok 0", proc)
 

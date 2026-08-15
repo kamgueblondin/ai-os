@@ -210,6 +210,18 @@ int sys_task_child_result_observe(uint32_t expected, os_task_exit_history_observ
     return result;
 }
 
+int sys_task_child_result_find(int pid, os_task_exit_result_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILD_RESULT_FIND), "b"(pid), "c"(out));
+    return result;
+}
+
+int sys_task_child_result_forget(int pid) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILD_RESULT_FORGET), "b"(pid));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -689,6 +701,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
     print_string("  child-results-observe <gen> - Observer l’historique à une génération\n");
+    print_string("  child-result-any <pid> - Chercher un résultat enfant retenu\n");
+    print_string("  child-results-forget <pid> - Acquitter un résultat enfant\n");
     print_string("  wait <pid>         - Attendre la sortie d’un enfant direct\n");
     print_string("  wait-result <pid>  - Attendre puis afficher le résultat enfant\n");
     print_string("  mem                - Utilisation mémoire\n");
@@ -937,7 +951,13 @@ void cmd_wait_result(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     rc = sys_task_wait(pid);
     if (rc == OS_TASK_NOT_FOUND) {
-        print_error("wait-result: PID absent");
+        rc = sys_task_child_result_find(pid, &result);
+        if (rc == 0) {
+            print_string("wait-result ok "); print_int(result.child_pid); print_string(" ");
+            print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
+            return;
+        }
+        print_error("wait-result: ni enfant actif ni résultat retenu");
         return;
     }
     if (rc == OS_TASK_NOT_CHILD) {
@@ -1034,6 +1054,49 @@ void cmd_child_result(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string(" tick "); print_int((int)result.finished_ticks); print_string("\n");
     print_string("child-result ok "); print_int(result.child_pid); print_string(" ");
     print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
+}
+
+void cmd_child_result_any(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_exit_result_t result;
+    int pid;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: child-result-any <pid>");
+        return;
+    }
+    rc = sys_task_child_result_find(pid, &result);
+    if (rc == OS_TASK_NO_CHILD_RESULT) {
+        print_error("child-result-any: aucun résultat retenu pour cet enfant");
+        return;
+    }
+    if (rc != 0) {
+        print_error("child-result-any: syscall indisponible");
+        return;
+    }
+    print_string("child-result-any ok "); print_int(result.child_pid); print_string(" ");
+    print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
+}
+
+void cmd_child_results_forget(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int generation;
+    (void)ctx;
+    if (arg_count != 1 || (pid = parse_int(args[0])) < 0) {
+        print_error("Usage: child-results-forget <pid>");
+        return;
+    }
+    generation = sys_task_child_result_forget(pid);
+    if (generation == OS_TASK_NO_CHILD_RESULT) {
+        print_error("child-results-forget: aucun résultat retenu pour cet enfant");
+        return;
+    }
+    if (generation < 0) {
+        print_error("child-results-forget: syscall indisponible");
+        return;
+    }
+    print_string("child-results-forget ok "); print_int(pid); print_string(" ");
+    print_int(generation); print_string("\n");
 }
 
 void cmd_child_results(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1530,7 +1593,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "child-results", "child-results-clear", "child-results-observe", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3701,8 +3764,14 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "child-result-any") == 0) {
+        cmd_child_result_any(ctx, args, arg_count);
+        return 1;
     } else if (strcmp(command, "child-results") == 0) {
         cmd_child_results(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "child-results-forget") == 0) {
+        cmd_child_results_forget(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-results-clear") == 0) {
         cmd_child_results_clear(ctx, args, arg_count);

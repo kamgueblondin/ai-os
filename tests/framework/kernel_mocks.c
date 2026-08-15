@@ -327,6 +327,63 @@ int task_observe_child_result_history(int requester_pid, uint32_t expected_gener
     return rc;
 }
 
+int task_find_child_result_history(int requester_pid, int child_pid, os_task_exit_result_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out || child_pid < 0) return OS_TASK_NO_CHILD_RESULT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->child_exit_history_count; i++) {
+        uint32_t index = (parent->child_exit_history_start + i) % OS_TASK_EXIT_HISTORY_CAPACITY;
+        if (parent->child_exit_history[index].child_pid == child_pid) {
+            *out = parent->child_exit_history[index];
+            return 0;
+        }
+    }
+    return OS_TASK_NO_CHILD_RESULT;
+}
+
+int task_forget_child_result_history(int requester_pid, int child_pid) {
+    task_t* parent;
+    os_task_exit_result_t retained[OS_TASK_EXIT_HISTORY_CAPACITY];
+    uint32_t i;
+    uint32_t kept = 0U;
+    int found = 0;
+    if (child_pid < 0) return OS_TASK_NO_CHILD_RESULT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->child_exit_history_count; i++) {
+        uint32_t index = (parent->child_exit_history_start + i) % OS_TASK_EXIT_HISTORY_CAPACITY;
+        os_task_exit_result_t entry = parent->child_exit_history[index];
+        if (!found && entry.child_pid == child_pid) {
+            found = 1;
+            continue;
+        }
+        retained[kept++] = entry;
+    }
+    if (!found) return OS_TASK_NO_CHILD_RESULT;
+    memset(parent->child_exit_history, 0, sizeof(parent->child_exit_history));
+    for (i = 0U; i < kept; i++) parent->child_exit_history[i] = retained[i];
+    parent->child_exit_history_start = 0U;
+    parent->child_exit_history_count = kept;
+    if (kept > 0U) {
+        os_task_exit_result_t last = parent->child_exit_history[kept - 1U];
+        parent->last_child_pid = last.child_pid;
+        parent->last_child_exit_code = last.exit_code;
+        parent->last_child_exit_reason = last.reason;
+        parent->last_child_finished_ticks = last.finished_ticks;
+    } else {
+        parent->last_child_pid = -1;
+        parent->last_child_exit_code = 0;
+        parent->last_child_exit_reason = 0U;
+        parent->last_child_finished_ticks = 0U;
+    }
+    parent->child_exit_history_generation++;
+    if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
+    return (int)parent->child_exit_history_generation;
+}
+
 void schedule(cpu_state_t* cpu) {
     task_t* next_task = NULL;
     task_t* candidate;
@@ -857,6 +914,14 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_CHILD_RESULT_OBSERVE:
             state->eax = (uint32_t)task_observe_child_result_history(current_task ? current_task->id : -1,
                 state->ebx, (os_task_exit_history_observation_t*)state->ecx);
+            break;
+        case SYS_TASK_CHILD_RESULT_FIND:
+            state->eax = (uint32_t)task_find_child_result_history(current_task ? current_task->id : -1,
+                (int)state->ebx, (os_task_exit_result_t*)state->ecx);
+            break;
+        case SYS_TASK_CHILD_RESULT_FORGET:
+            state->eax = (uint32_t)task_forget_child_result_history(current_task ? current_task->id : -1,
+                (int)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
