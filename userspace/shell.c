@@ -305,6 +305,12 @@ int sys_task_supervision_summary(os_task_supervision_summary_t* out) {
     return result;
 }
 
+int sys_task_supervision_notify(uint32_t enabled) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_NOTIFY), "b"(enabled));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -803,6 +809,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-event <seq>   - Consulter une transition retenue\n");
     print_string("  task-events-forget <seq> - Oublier une transition retenue\n");
     print_string("  task-summary       - Instantané consolidé de supervision\n");
+    print_string("  task-events-notify <on|off> - Notifications IPC locales de supervision\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1321,6 +1328,30 @@ void cmd_task_events_forget(shell_context_t* ctx, char args[][128], int arg_coun
     }
     print_string("task-events-forget ok "); print_uint((uint32_t)sequence);
     print_string(" "); print_uint((uint32_t)rc); print_string("\n");
+}
+
+void cmd_task_events_notify(shell_context_t* ctx, char args[][128], int arg_count) {
+    uint32_t enabled;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 ||
+        (strcmp(args[0], "on") != 0 && strcmp(args[0], "off") != 0)) {
+        print_error("Usage: task-events-notify <on|off>");
+        return;
+    }
+    enabled = strcmp(args[0], "on") == 0 ? 1U : 0U;
+    rc = sys_task_supervision_notify(enabled);
+    if (rc == OS_TASK_BAD_NOTIFY) {
+        print_error("task-events-notify: valeur invalide");
+        return;
+    }
+    if (rc < 0) {
+        print_error("task-events-notify: syscall indisponible");
+        return;
+    }
+    print_string("task-events-notify ok ");
+    print_string(rc == 0 ? "off" : "on");
+    print_string("\n");
 }
 
 void cmd_task_summary(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2020,7 +2051,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -2343,6 +2374,7 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
     os_ipc_message_t message;
     os_service_event_t event;
     os_task_event_t task_event;
+    os_task_supervision_event_t supervision_event;
     int rc;
     uint32_t i;
     (void)args;
@@ -2375,6 +2407,22 @@ static void cmd_ipc_recv(shell_context_t* ctx, char args[][128], int arg_count) 
         print_int(task_event.child_pid);
         print_string(" reason ");
         print_string(task_event.reason == OS_TASK_EVENT_EXITED ? "exited" : "killed");
+        print_string("\n");
+        return;
+    }
+    if (os_task_parse_supervision_event(&message, &supervision_event) == 0) {
+        print_string("task-supervision-event ");
+        print_uint(supervision_event.sequence);
+        print_string(" ");
+        print_string(supervision_action_name(supervision_event.action));
+        print_string(" ");
+        print_int(supervision_event.child_pid);
+        print_string(" ");
+        print_int(supervision_event.related_pid);
+        print_string(" ");
+        print_uint(supervision_event.detail);
+        print_string(" ");
+        print_uint(supervision_event.ticks);
         print_string("\n");
         return;
     }
@@ -4226,6 +4274,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-summary") == 0) {
         cmd_task_summary(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-notify") == 0) {
+        cmd_task_events_notify(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

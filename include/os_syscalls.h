@@ -133,8 +133,10 @@
 #define SYS_TASK_SUPERVISION_EVENT_FORGET 73
 /* EBX = os_task_supervision_summary_t* ; instantané local consolidé. */
 #define SYS_TASK_SUPERVISION_SUMMARY 74
+/* EBX = 0 (désabonne) ou 1 (abonne) l’appelant à ses transitions de supervision. */
+#define SYS_TASK_SUPERVISION_NOTIFY 75
 
-#define MAX_SYSCALLS 75
+#define MAX_SYSCALLS 76
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -182,6 +184,8 @@
 #define OS_TASK_BAD_DELEGATE (-73)
 /* Aucune transition de supervision retenue ne porte cette séquence locale. */
 #define OS_TASK_NO_SUPERVISION_EVENT (-74)
+/* La valeur de souscription de supervision doit être strictement 0 ou 1. */
+#define OS_TASK_BAD_NOTIFY (-75)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -403,6 +407,18 @@ static inline int32_t os_service_decode_i32(const uint8_t* in) {
     return (int32_t)raw;
 }
 
+static inline void os_ipc_encode_u32(uint8_t* out, uint32_t value) {
+    out[0] = (uint8_t)(value & 0xffU);
+    out[1] = (uint8_t)((value >> 8) & 0xffU);
+    out[2] = (uint8_t)((value >> 16) & 0xffU);
+    out[3] = (uint8_t)((value >> 24) & 0xffU);
+}
+
+static inline uint32_t os_ipc_decode_u32(const uint8_t* in) {
+    return (uint32_t)in[0] | ((uint32_t)in[1] << 8) |
+           ((uint32_t)in[2] << 16) | ((uint32_t)in[3] << 24);
+}
+
 static inline int os_service_make_event(os_ipc_payload_t* payload, const char* name,
                                         int32_t old_owner_pid, int32_t new_owner_pid,
                                         uint32_t reason) {
@@ -485,6 +501,53 @@ static inline int os_task_parse_event(const os_ipc_message_t* message,
     if (event_out->child_pid <= 0 ||
         (reason != OS_TASK_EVENT_EXITED && reason != OS_TASK_EVENT_KILLED)) return -1;
     event_out->reason = reason;
+    return 0;
+}
+
+/* Notification noyau best-effort de toute transition retenue lorsqu’un parent
+ * a explicitement activé sa souscription locale. */
+#define OS_IPC_TASK_SUPERVISION_EVENT 0x54415302U
+#define OS_TASK_SUPERVISION_EVENT_SIZE 24U
+
+static inline int os_task_make_supervision_event(os_ipc_payload_t* payload,
+                                                 const os_task_supervision_event_t* event) {
+    if (!payload || !event || event->sequence == 0U || event->child_pid <= 0 ||
+        event->action < OS_TASK_SUPERVISION_EXIT ||
+        event->action > OS_TASK_SUPERVISION_DELEGATE_IN) return -1;
+    if (((event->action == OS_TASK_SUPERVISION_DELEGATE_OUT ||
+          event->action == OS_TASK_SUPERVISION_DELEGATE_IN) && event->related_pid <= 0) ||
+        ((event->action != OS_TASK_SUPERVISION_DELEGATE_OUT &&
+          event->action != OS_TASK_SUPERVISION_DELEGATE_IN) && event->related_pid != 0)) return -1;
+    payload->type = OS_IPC_TASK_SUPERVISION_EVENT;
+    payload->size = OS_TASK_SUPERVISION_EVENT_SIZE;
+    payload->request_id = 0U;
+    os_ipc_encode_u32(&payload->data[0], event->sequence);
+    os_ipc_encode_u32(&payload->data[4], event->action);
+    os_service_encode_i32(&payload->data[8], event->child_pid);
+    os_service_encode_i32(&payload->data[12], event->related_pid);
+    os_ipc_encode_u32(&payload->data[16], event->detail);
+    os_ipc_encode_u32(&payload->data[20], event->ticks);
+    return 0;
+}
+
+static inline int os_task_parse_supervision_event(const os_ipc_message_t* message,
+                                                  os_task_supervision_event_t* event_out) {
+    if (!message || !event_out || message->sender_pid != 0 ||
+        message->type != OS_IPC_TASK_SUPERVISION_EVENT ||
+        message->size != OS_TASK_SUPERVISION_EVENT_SIZE || message->request_id != 0U) return -1;
+    event_out->sequence = os_ipc_decode_u32(&message->data[0]);
+    event_out->action = os_ipc_decode_u32(&message->data[4]);
+    event_out->child_pid = os_service_decode_i32(&message->data[8]);
+    event_out->related_pid = os_service_decode_i32(&message->data[12]);
+    event_out->detail = os_ipc_decode_u32(&message->data[16]);
+    event_out->ticks = os_ipc_decode_u32(&message->data[20]);
+    if (event_out->sequence == 0U || event_out->child_pid <= 0 ||
+        event_out->action < OS_TASK_SUPERVISION_EXIT ||
+        event_out->action > OS_TASK_SUPERVISION_DELEGATE_IN) return -1;
+    if (((event_out->action == OS_TASK_SUPERVISION_DELEGATE_OUT ||
+          event_out->action == OS_TASK_SUPERVISION_DELEGATE_IN) && event_out->related_pid <= 0) ||
+        ((event_out->action != OS_TASK_SUPERVISION_DELEGATE_OUT &&
+          event_out->action != OS_TASK_SUPERVISION_DELEGATE_IN) && event_out->related_pid != 0)) return -1;
     return 0;
 }
 

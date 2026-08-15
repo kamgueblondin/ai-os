@@ -49,6 +49,11 @@ void tasking_init() {
     current_task->child_exit_history_count = 0U;
     current_task->child_exit_history_generation = 1U;
     current_task->direct_child_exit_count = 0U;
+    current_task->supervision_event_start = 0U;
+    current_task->supervision_event_count = 0U;
+    current_task->supervision_event_generation = 0U;
+    current_task->supervision_event_sequence = 0U;
+    current_task->supervision_notify_enabled = 0U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -285,6 +290,11 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->child_exit_history_count = 0U;
     new_task->child_exit_history_generation = 1U;
     new_task->direct_child_exit_count = 0U;
+    new_task->supervision_event_start = 0U;
+    new_task->supervision_event_count = 0U;
+    new_task->supervision_event_generation = 0U;
+    new_task->supervision_event_sequence = 0U;
+    new_task->supervision_notify_enabled = 0U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -570,6 +580,16 @@ int task_kill_direct_children(int requester_pid) {
     return (int)count;
 }
 
+static void task_notify_supervision_event(task_t* parent,
+                                          const os_task_supervision_event_t* event) {
+    os_ipc_payload_t payload;
+    if (!parent || !event || parent->supervision_notify_enabled == 0U ||
+        parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
+    if (os_task_make_supervision_event(&payload, event) != 0) return;
+    /* Best effort : une boîte pleine ne retarde jamais une transition de supervision. */
+    (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
+}
+
 static void task_record_supervision_event(task_t* parent, uint32_t action,
                                           int child_pid, int related_pid, uint32_t detail) {
     uint32_t index;
@@ -595,6 +615,7 @@ static void task_record_supervision_event(task_t* parent, uint32_t action,
     event->ticks = timer_get_ticks();
     parent->supervision_event_generation++;
     if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+    task_notify_supervision_event(parent, event);
 }
 
 int task_suspend_child(int requester_pid, int child_pid) {
@@ -807,6 +828,17 @@ int task_forget_supervision_event(int requester_pid, uint32_t sequence) {
     parent->supervision_event_generation++;
     if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
     return (int)kept;
+}
+
+int task_set_supervision_notify(int requester_pid, uint32_t enabled) {
+    task_t* parent;
+    if (enabled > 1U) return OS_TASK_BAD_NOTIFY;
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    parent->supervision_notify_enabled = enabled;
+    return (int)enabled;
 }
 
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {

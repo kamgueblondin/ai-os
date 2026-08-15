@@ -65,6 +65,7 @@ typedef struct task {
     uint32_t supervision_event_count;
     uint32_t supervision_event_generation;
     uint32_t supervision_event_sequence;
+    uint32_t supervision_notify_enabled; /* Souscription IPC locale et volatile. */
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -127,6 +128,7 @@ int task_find_supervision_event(int requester_pid, uint32_t sequence,
                                 os_task_supervision_event_t* out);
 int task_forget_supervision_event(int requester_pid, uint32_t sequence);
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out);
+int task_set_supervision_notify(int requester_pid, uint32_t enabled);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

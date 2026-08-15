@@ -252,6 +252,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_task_supervision_summary(
                 (os_task_supervision_summary_t*)cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_NOTIFY:
+            cpu->eax = (uint32_t)sys_task_supervision_notify(cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -414,6 +417,11 @@ int sys_ipc_receive(os_ipc_message_t* out) {
         return OS_IPC_BAD_MESSAGE;
     }
     return ipc_endpoint_receive(&current_task->ipc_endpoint, out);
+}
+
+int sys_task_supervision_notify(uint32_t enabled) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_notify(current_task->id, enabled);
 }
 
 int sys_service_register(const char* name) {
