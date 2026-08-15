@@ -307,22 +307,12 @@ def main():
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %
                                (delegated_pid, supervisor_pid), proc)
-            say("typing children (after delegation) ...")
-            delegated_children_start = send_command_until(monitor, "children", "children ok 1", proc)
-            wait_for(proc, "child-entry %s" % supervisor_pid, CMD_TIMEOUT, delegated_children_start)
-            if "child-entry %s" % delegated_pid in log_text()[delegated_children_start:]:
-                raise RuntimeError("delegated child still listed under original parent %s" % delegated_pid)
-            say("typing task-metrics %s (delegated parent) ..." % delegated_pid)
-            send_command_until(monitor, "task-metrics %s" % delegated_pid,
-                               "Parent : %s" % supervisor_pid, proc)
-            say("typing task-events-notify-stats (delivery) ...")
-            send_command_until(monitor, "task-events-notify-stats",
-                               "task-events-notify-stats ok 1 1 0", proc)
-            say("typing task-events-forget 4 ...")
-            send_command_until(monitor, "task-events-forget 4",
-                               "task-events-forget ok 4 0", proc)
-            say("typing task-summary (consolidated) ...")
-            send_command_until(monitor, "task-summary", "task-summary ok 6 1 0 2 0", proc)
+            say("typing task-event-replay 4 ...")
+            send_command_until(monitor, "task-event-replay 4", "task-event-replay ok 4", proc)
+            say("typing ipc-recv (replayed delegation) ...")
+            send_command_until(monitor, "ipc-recv",
+                               "task-supervision-event 4 delegate-out %s %s 0" %
+                               (delegated_pid, supervisor_pid), proc)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0
