@@ -562,6 +562,43 @@ void test_task_kill_parent_authority(void) {
     TEST_ASSERT_NULL(get_task_by_id(child->id));
 }
 
+void test_task_reparents_children_on_departure(void) {
+    task_t* owner;
+    task_t* parent;
+    task_t* child;
+    task_t* grandchild;
+    task_t* root;
+    task_t* orphan;
+
+    tasking_init();
+    owner = create_task(dummy_task_function);
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    grandchild = create_task(dummy_task_function);
+    parent->parent_pid = owner->id;
+    child->parent_pid = parent->id;
+    grandchild->parent_pid = child->id;
+    add_task_to_queue(owner);
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(grandchild);
+
+    TEST_ASSERT_EQUAL(0, task_kill(owner->id, parent->id));
+    TEST_ASSERT_EQUAL(owner->id, child->parent_pid);
+    TEST_ASSERT_EQUAL(child->id, grandchild->parent_pid);
+    TEST_ASSERT_EQUAL(0, task_kill(owner->id, child->id));
+    TEST_ASSERT_EQUAL(owner->id, grandchild->parent_pid);
+
+    root = create_task(dummy_task_function);
+    orphan = create_task(dummy_task_function);
+    root->parent_pid = -1;
+    orphan->parent_pid = root->id;
+    add_task_to_queue(root);
+    add_task_to_queue(orphan);
+    task_reparent_children(root);
+    TEST_ASSERT_EQUAL(-1, orphan->parent_pid);
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -650,6 +687,7 @@ int main(void) {
     RUN_TEST(test_task_priority_selection_and_validation);
     RUN_TEST(test_task_priority_control_authority);
     RUN_TEST(test_task_kill_parent_authority);
+    RUN_TEST(test_task_reparents_children_on_departure);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

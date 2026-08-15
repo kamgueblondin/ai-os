@@ -111,6 +111,17 @@ int get_task_count(void) {
     return count;
 }
 
+void task_reparent_children(task_t* departing) {
+    task_t* t = task_queue;
+    if (!departing) return;
+    while (t) {
+        if (t != departing && t->parent_pid == departing->id) {
+            t->parent_pid = departing->parent_pid;
+        }
+        t = t->next;
+    }
+}
+
 int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
@@ -119,6 +130,7 @@ int task_kill(int requester_pid, int pid) {
     if (requester_pid == pid) return -3;
     if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
     task_wake_waiter(t);
+    task_reparent_children(t);
     t->state = TASK_TERMINATED;
     remove_task(t);
     return 0;
