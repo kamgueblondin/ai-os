@@ -55,6 +55,9 @@ void tasking_init() {
     current_task->supervision_event_sequence = 0U;
     current_task->supervision_notify_enabled = 0U;
     current_task->supervision_notify_mask = OS_TASK_SUPERVISION_NOTIFY_ALL;
+    current_task->supervision_watch_enabled = 0U;
+    current_task->supervision_watch_count = 0U;
+    memset(current_task->supervision_watch_pids, 0, sizeof(current_task->supervision_watch_pids));
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -297,6 +300,9 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->supervision_event_sequence = 0U;
     new_task->supervision_notify_enabled = 0U;
     new_task->supervision_notify_mask = OS_TASK_SUPERVISION_NOTIFY_ALL;
+    new_task->supervision_watch_enabled = 0U;
+    new_task->supervision_watch_count = 0U;
+    memset(new_task->supervision_watch_pids, 0, sizeof(new_task->supervision_watch_pids));
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -591,6 +597,33 @@ static uint32_t task_supervision_notify_bit(uint32_t action) {
     return 0U;
 }
 
+static int task_supervision_watch_index(const task_t* parent, int child_pid) {
+    uint32_t i;
+    if (!parent || child_pid <= 0) return -1;
+    for (i = 0U; i < parent->supervision_watch_count; i++) {
+        if (parent->supervision_watch_pids[i] == child_pid) return (int)i;
+    }
+    return -1;
+}
+
+static void task_remove_supervision_watch(task_t* parent, int child_pid) {
+    int index;
+    uint32_t i;
+    if (!parent) return;
+    index = task_supervision_watch_index(parent, child_pid);
+    if (index < 0) return;
+    for (i = (uint32_t)index; i + 1U < parent->supervision_watch_count; i++) {
+        parent->supervision_watch_pids[i] = parent->supervision_watch_pids[i + 1U];
+    }
+    if (parent->supervision_watch_count > 0U) parent->supervision_watch_count--;
+    if (parent->supervision_watch_count == 0U) parent->supervision_watch_enabled = 0U;
+}
+
+static int task_supervision_watch_allows(const task_t* parent, int child_pid) {
+    if (!parent || parent->supervision_watch_enabled == 0U) return 1;
+    return task_supervision_watch_index(parent, child_pid) >= 0;
+}
+
 static void task_notify_supervision_event(task_t* parent,
                                           const os_task_supervision_event_t* event) {
     os_ipc_payload_t payload;
@@ -599,6 +632,7 @@ static void task_notify_supervision_event(task_t* parent,
         parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
     bit = task_supervision_notify_bit(event->action);
     if (bit == 0U || (parent->supervision_notify_mask & bit) == 0U) return;
+    if (!task_supervision_watch_allows(parent, event->child_pid)) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
     /* Best effort : une boîte pleine ne retarde jamais une transition de supervision. */
     (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
@@ -698,6 +732,7 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     parent->child_exit_history[index] = result;
     parent->child_exit_history_generation++;
     if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
+    task_remove_supervision_watch(parent, child->id);
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     /* Best effort : la terminaison ne dépend jamais d’une boîte IPC disponible. */
     (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
@@ -753,6 +788,7 @@ int task_delegate_child(int requester_pid, int child_pid, int supervisor_pid) {
                                   child_pid, supervisor_pid, 0U);
     task_record_supervision_event(supervisor, OS_TASK_SUPERVISION_DELEGATE_IN,
                                   child_pid, requester_pid, 0U);
+    task_remove_supervision_watch(get_task_by_id(requester_pid), child_pid);
     child->parent_pid = supervisor_pid;
     return 0;
 }
@@ -877,6 +913,57 @@ int task_fill_supervision_notify_status(int requester_pid,
     }
     out->enabled = parent->supervision_notify_enabled;
     out->mask = parent->supervision_notify_mask;
+    return 0;
+}
+
+int task_update_supervision_watch(int requester_pid, int child_pid, uint32_t enabled) {
+    task_t* parent;
+    task_t* child;
+    int index;
+    if (enabled > 1U) return OS_TASK_BAD_WATCH;
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    if (enabled == 0U && child_pid == 0) {
+        parent->supervision_watch_enabled = 0U;
+        parent->supervision_watch_count = 0U;
+        memset(parent->supervision_watch_pids, 0, sizeof(parent->supervision_watch_pids));
+        return 0;
+    }
+    if (child_pid <= 0) return OS_TASK_BAD_WATCH;
+    child = get_task_by_id(child_pid);
+    if (!child) return OS_TASK_NOT_FOUND;
+    if (child->type != TASK_TYPE_USER || child->state == TASK_TERMINATED ||
+        child->parent_pid != requester_pid) return OS_TASK_NOT_CHILD;
+    index = task_supervision_watch_index(parent, child_pid);
+    if (enabled != 0U) {
+        if (index >= 0) return (int)parent->supervision_watch_count;
+        if (parent->supervision_watch_count >= OS_TASK_SUPERVISION_WATCH_CAPACITY) {
+            return OS_TASK_WATCH_FULL;
+        }
+        parent->supervision_watch_pids[parent->supervision_watch_count++] = child_pid;
+        parent->supervision_watch_enabled = 1U;
+        return (int)parent->supervision_watch_count;
+    }
+    if (index < 0) return OS_TASK_NO_SUPERVISION_WATCH;
+    task_remove_supervision_watch(parent, child_pid);
+    return (int)parent->supervision_watch_count;
+}
+
+int task_fill_supervision_watch_status(int requester_pid,
+                                       os_task_supervision_watch_status_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    out->enabled = parent->supervision_watch_enabled;
+    out->count = parent->supervision_watch_count;
+    for (i = 0U; i < out->count; i++) out->pids[i] = parent->supervision_watch_pids[i];
     return 0;
 }
 

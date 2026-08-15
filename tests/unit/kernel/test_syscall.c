@@ -1085,6 +1085,78 @@ void test_sys_task_supervision_notify_policy(void) {
     current_task = old_current;
 }
 
+void test_sys_task_supervision_watchlist(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    task_t* outsider;
+    os_task_supervision_watch_status_t status;
+    os_ipc_message_t message;
+    os_task_supervision_event_t event;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    outsider = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    TEST_ASSERT_NOT_NULL(outsider);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    outsider->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    add_task_to_queue(outsider);
+    current_task = parent;
+
+    cpu.eax = SYS_TASK_SUPERVISION_WATCH_STATUS;
+    cpu.ebx = (uint32_t)&status;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(0, status.enabled);
+    TEST_ASSERT_EQUAL(0, status.count);
+    cpu.eax = SYS_TASK_SUPERVISION_WATCH;
+    cpu.ebx = (uint32_t)outsider->id;
+    cpu.ecx = 1U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_CHILD, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_WATCH;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = 1U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(1, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_NOTIFY;
+    cpu.ebx = 1U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(1, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUSPEND;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
+    TEST_ASSERT_EQUAL(0, os_task_parse_supervision_event(&message, &event));
+    TEST_ASSERT_EQUAL(child->id, event.child_pid);
+    cpu.eax = SYS_TASK_SUPERVISION_WATCH;
+    cpu.ebx = 0U;
+    cpu.ecx = 0U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_WATCH_STATUS;
+    cpu.ebx = (uint32_t)&status;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(0, status.enabled);
+    TEST_ASSERT_EQUAL(0, status.count);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_supervision_summary(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1978,6 +2050,7 @@ int main(void) {
     RUN_TEST(test_sys_task_supervision_event_selective);
     RUN_TEST(test_sys_task_supervision_notify);
     RUN_TEST(test_sys_task_supervision_notify_policy);
+    RUN_TEST(test_sys_task_supervision_watchlist);
     RUN_TEST(test_sys_task_supervision_summary);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
