@@ -195,6 +195,13 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_CHILD_RESULT_LIST:
             cpu->eax = (uint32_t)sys_task_child_result_list((os_task_exit_history_t*)cpu->ebx);
             break;
+        case SYS_TASK_CHILD_RESULT_ACK:
+            cpu->eax = (uint32_t)sys_task_child_result_ack();
+            break;
+        case SYS_TASK_CHILD_RESULT_OBSERVE:
+            cpu->eax = (uint32_t)sys_task_child_result_observe(cpu->ebx,
+                (os_task_exit_history_observation_t*)cpu->ecx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -929,4 +936,15 @@ int sys_task_child_result(int pid, os_task_exit_result_t* out) {
 int sys_task_child_result_list(os_task_exit_history_t* out) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     return task_fill_child_result_history(current_task->id, out);
+}
+
+int sys_task_child_result_ack(void) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_ack_child_result_history(current_task->id);
+}
+
+int sys_task_child_result_observe(uint32_t expected_generation,
+                                  os_task_exit_history_observation_t* out) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_observe_child_result_history(current_task->id, expected_generation, out);
 }

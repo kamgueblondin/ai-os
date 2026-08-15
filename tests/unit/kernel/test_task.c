@@ -655,6 +655,7 @@ void test_task_governance_name_capacity_and_events(void) {
     os_task_capacity_t capacity;
     os_task_exit_result_t result;
     os_task_exit_history_t history;
+    os_task_exit_history_observation_t observation;
     os_ipc_message_t message;
     os_task_event_t event;
     uint32_t i;
@@ -730,6 +731,17 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(8, history.entries[1].exit_code);
     TEST_ASSERT_EQUAL(9, history.entries[2].exit_code);
     TEST_ASSERT_EQUAL(10, history.entries[3].exit_code);
+    TEST_ASSERT_EQUAL(0, task_observe_child_result_history(parent->id, 6U, &observation));
+    TEST_ASSERT_EQUAL(6, observation.generation);
+    TEST_ASSERT_EQUAL(OS_TASK_EXIT_HISTORY_CAPACITY, observation.history.count);
+    TEST_ASSERT_EQUAL(OS_TASK_HISTORY_STALE,
+                      task_observe_child_result_history(parent->id, 5U, &observation));
+    TEST_ASSERT_EQUAL(6, observation.generation);
+    TEST_ASSERT_EQUAL(7, task_ack_child_result_history(parent->id));
+    TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT,
+                      task_get_child_result(parent->id, child->id, &result));
+    TEST_ASSERT_EQUAL(0, task_observe_child_result_history(parent->id, 7U, &observation));
+    TEST_ASSERT_EQUAL(0, observation.history.count);
 
     tasking_init();
     for (i = 0U; i < OS_TASK_GLOBAL_CAPACITY; i++) {

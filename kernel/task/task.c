@@ -47,6 +47,7 @@ void tasking_init() {
     current_task->last_child_finished_ticks = 0U;
     current_task->child_exit_history_start = 0U;
     current_task->child_exit_history_count = 0U;
+    current_task->child_exit_history_generation = 1U;
     ipc_endpoint_init(&current_task->ipc_endpoint);
     current_task->name[0] = 'k';
     current_task->name[1] = 'e';
@@ -281,6 +282,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->last_child_finished_ticks = 0U;
     new_task->child_exit_history_start = 0U;
     new_task->child_exit_history_count = 0U;
+    new_task->child_exit_history_generation = 1U;
     ipc_endpoint_init(&new_task->ipc_endpoint);
     {
         int i = 0;
@@ -556,6 +558,8 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
                                            OS_TASK_EXIT_HISTORY_CAPACITY;
     }
     parent->child_exit_history[index] = result;
+    parent->child_exit_history_generation++;
+    if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     /* Best effort : la terminaison ne dépend jamais d’une boîte IPC disponible. */
     (void)ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
@@ -691,4 +695,32 @@ int task_fill_child_result_history(int requester_pid, os_task_exit_history_t* ou
         out->entries[i] = parent->child_exit_history[index];
     }
     return 0;
+}
+
+int task_ack_child_result_history(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    parent->last_child_pid = -1;
+    parent->last_child_exit_code = 0;
+    parent->last_child_exit_reason = 0U;
+    parent->last_child_finished_ticks = 0U;
+    parent->child_exit_history_start = 0U;
+    parent->child_exit_history_count = 0U;
+    parent->child_exit_history_generation++;
+    if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
+    return (int)parent->child_exit_history_generation;
+}
+
+int task_observe_child_result_history(int requester_pid, uint32_t expected_generation,
+                                      os_task_exit_history_observation_t* out) {
+    task_t* parent;
+    int rc;
+    if (!out) return OS_TASK_NO_CHILD_RESULT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->generation = parent->child_exit_history_generation;
+    if (expected_generation != out->generation) return OS_TASK_HISTORY_STALE;
+    rc = task_fill_child_result_history(requester_pid, &out->history);
+    return rc;
 }

@@ -215,9 +215,9 @@ def main():
             say("typing task-metrics 1 (one child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 1", proc)
 
-            say("typing wait %s ..." % wait_pid)
-            wait_start = send_command_until(monitor, "wait %s" % wait_pid,
-                                            "wait ok %s" % wait_pid, proc)
+            say("typing wait-result %s ..." % wait_pid)
+            wait_start = send_command_until(monitor, "wait-result %s" % wait_pid,
+                                            "wait-result ok %s 0 1" % wait_pid, proc)
             wait_for(proc, "wait-child done", CMD_TIMEOUT, wait_start)
 
             say("typing ipc-recv (exited event) ...")
@@ -232,6 +232,20 @@ def main():
             history_start = send_command_until(monitor, "child-results", "child-results ok 2", proc)
             wait_for(proc, "child-result-entry %s -128 2" % idle_pid, CMD_TIMEOUT, history_start)
             wait_for(proc, "child-result-entry %s 0 1" % wait_pid, CMD_TIMEOUT, history_start)
+
+            say("typing child-results-observe 2 (stale) ...")
+            send_command_until(monitor, "child-results-observe 2", "child-results-observe stale 3", proc)
+
+            say("typing child-results-observe 3 (fresh) ...")
+            observe_start = send_command_until(monitor, "child-results-observe 3",
+                                               "child-results-observe ok 3 2", proc)
+            wait_for(proc, "child-result-entry %s -128 2" % idle_pid, CMD_TIMEOUT, observe_start)
+            wait_for(proc, "child-result-entry %s 0 1" % wait_pid, CMD_TIMEOUT, observe_start)
+
+            say("typing child-results-clear ...")
+            send_command_until(monitor, "child-results-clear", "child-results-clear ok 4", proc)
+            say("typing child-results (empty) ...")
+            send_command_until(monitor, "child-results", "child-results ok 0", proc)
 
             say("typing task-metrics 1 (no child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)

@@ -57,6 +57,7 @@ typedef struct task {
     os_task_exit_result_t child_exit_history[OS_TASK_EXIT_HISTORY_CAPACITY];
     uint32_t child_exit_history_start;
     uint32_t child_exit_history_count;
+    uint32_t child_exit_history_generation;
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -99,6 +100,9 @@ int task_set_priority(int requester_pid, int pid, uint32_t priority);
 int task_set_name(int requester_pid, int pid, const char* name);
 int task_get_child_result(int requester_pid, int child_pid, os_task_exit_result_t* out);
 int task_fill_child_result_history(int requester_pid, os_task_exit_history_t* out);
+int task_ack_child_result_history(int requester_pid);
+int task_observe_child_result_history(int requester_pid, uint32_t expected_generation,
+                                      os_task_exit_history_observation_t* out);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

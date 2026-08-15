@@ -51,6 +51,7 @@ task_t* create_task(void (*entry_point)(void)) {
     task->last_child_finished_ticks = 0U;
     task->child_exit_history_start = 0U;
     task->child_exit_history_count = 0U;
+    task->child_exit_history_generation = 1U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -298,6 +299,34 @@ int task_fill_child_result_history(int requester_pid, os_task_exit_history_t* ou
     return 0;
 }
 
+int task_ack_child_result_history(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    parent->last_child_pid = -1;
+    parent->last_child_exit_code = 0;
+    parent->last_child_exit_reason = 0U;
+    parent->last_child_finished_ticks = 0U;
+    parent->child_exit_history_start = 0U;
+    parent->child_exit_history_count = 0U;
+    parent->child_exit_history_generation++;
+    if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
+    return (int)parent->child_exit_history_generation;
+}
+
+int task_observe_child_result_history(int requester_pid, uint32_t expected_generation,
+                                      os_task_exit_history_observation_t* out) {
+    task_t* parent;
+    int rc;
+    if (!out) return OS_TASK_NO_CHILD_RESULT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->generation = parent->child_exit_history_generation;
+    if (expected_generation != out->generation) return OS_TASK_HISTORY_STALE;
+    rc = task_fill_child_result_history(requester_pid, &out->history);
+    return rc;
+}
+
 void schedule(cpu_state_t* cpu) {
     task_t* next_task = NULL;
     task_t* candidate;
@@ -394,6 +423,8 @@ void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
                                            OS_TASK_EXIT_HISTORY_CAPACITY;
     }
     parent->child_exit_history[index] = result;
+    parent->child_exit_history_generation++;
+    if (parent->child_exit_history_generation == 0U) parent->child_exit_history_generation = 1U;
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     mock_task_event_send(&parent->ipc_endpoint, &payload);
 }
@@ -819,6 +850,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_CHILD_RESULT_LIST:
             state->eax = (uint32_t)task_fill_child_result_history(current_task ? current_task->id : -1,
                                                                    (os_task_exit_history_t*)state->ebx);
+            break;
+        case SYS_TASK_CHILD_RESULT_ACK:
+            state->eax = (uint32_t)task_ack_child_result_history(current_task ? current_task->id : -1);
+            break;
+        case SYS_TASK_CHILD_RESULT_OBSERVE:
+            state->eax = (uint32_t)task_observe_child_result_history(current_task ? current_task->id : -1,
+                state->ebx, (os_task_exit_history_observation_t*)state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
