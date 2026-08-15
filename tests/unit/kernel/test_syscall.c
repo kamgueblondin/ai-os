@@ -962,6 +962,61 @@ void test_sys_task_supervision_event_selective(void) {
     current_task = old_current;
 }
 
+void test_sys_task_supervision_summary(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* first;
+    task_t* second;
+    os_task_supervision_summary_t summary;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    first = create_task(dummy_task_function);
+    second = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(first);
+    TEST_ASSERT_NOT_NULL(second);
+    parent->type = TASK_TYPE_USER;
+    first->type = TASK_TYPE_USER;
+    second->type = TASK_TYPE_USER;
+    first->parent_pid = parent->id;
+    second->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(first);
+    add_task_to_queue(second);
+    current_task = parent;
+
+    cpu.eax = SYS_TASK_SUSPEND;
+    cpu.ebx = (uint32_t)first->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_SUMMARY;
+    cpu.ebx = (uint32_t)&summary;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, summary.generation);
+    TEST_ASSERT_EQUAL(2, summary.active_children);
+    TEST_ASSERT_EQUAL(1, summary.suspended_children);
+    TEST_ASSERT_EQUAL(0, summary.child_exit_count);
+    TEST_ASSERT_EQUAL(1, summary.retained_events);
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, second->id));
+    cpu.eax = SYS_TASK_SUPERVISION_SUMMARY;
+    cpu.ebx = (uint32_t)&summary;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, summary.generation);
+    TEST_ASSERT_EQUAL(1, summary.active_children);
+    TEST_ASSERT_EQUAL(1, summary.suspended_children);
+    TEST_ASSERT_EQUAL(1, summary.child_exit_count);
+    TEST_ASSERT_EQUAL(2, summary.retained_events);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_wait_child(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1798,6 +1853,7 @@ int main(void) {
     RUN_TEST(test_sys_task_delegate_child);
     RUN_TEST(test_sys_task_supervision_events);
     RUN_TEST(test_sys_task_supervision_event_selective);
+    RUN_TEST(test_sys_task_supervision_summary);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);

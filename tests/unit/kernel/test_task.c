@@ -1058,6 +1058,44 @@ void test_task_supervision_event_selective(void) {
                       task_forget_supervision_event(parent->id, 2U));
 }
 
+void test_task_supervision_summary(void) {
+    task_t* parent;
+    task_t* first;
+    task_t* second;
+    os_task_supervision_summary_t summary;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    first = create_task(dummy_task_function);
+    second = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(first);
+    TEST_ASSERT_NOT_NULL(second);
+    parent->type = TASK_TYPE_USER;
+    first->type = TASK_TYPE_USER;
+    second->type = TASK_TYPE_USER;
+    first->parent_pid = parent->id;
+    second->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(first);
+    add_task_to_queue(second);
+
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, first->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_summary(parent->id, &summary));
+    TEST_ASSERT_EQUAL(1, summary.generation);
+    TEST_ASSERT_EQUAL(2, summary.active_children);
+    TEST_ASSERT_EQUAL(1, summary.suspended_children);
+    TEST_ASSERT_EQUAL(0, summary.child_exit_count);
+    TEST_ASSERT_EQUAL(1, summary.retained_events);
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, second->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_summary(parent->id, &summary));
+    TEST_ASSERT_EQUAL(2, summary.generation);
+    TEST_ASSERT_EQUAL(1, summary.active_children);
+    TEST_ASSERT_EQUAL(1, summary.suspended_children);
+    TEST_ASSERT_EQUAL(1, summary.child_exit_count);
+    TEST_ASSERT_EQUAL(2, summary.retained_events);
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -1156,6 +1194,7 @@ int main(void) {
     RUN_TEST(test_task_supervision_delegation);
     RUN_TEST(test_task_supervision_events);
     RUN_TEST(test_task_supervision_event_selective);
+    RUN_TEST(test_task_supervision_summary);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

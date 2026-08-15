@@ -414,6 +414,27 @@ int task_forget_supervision_event(int requester_pid, uint32_t sequence) {
     return (int)kept;
 }
 
+int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
+    task_t* parent;
+    task_t* t;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || !task_queue) return OS_TASK_NOT_FOUND;
+    t = task_queue;
+    do {
+        if (t->parent_pid == requester_pid && t->state != TASK_TERMINATED) {
+            out->active_children++;
+            if (t->state == TASK_SUSPENDED) out->suspended_children++;
+        }
+        t = t->next;
+    } while (t && t != task_queue);
+    out->generation = parent->supervision_event_generation;
+    out->child_exit_count = parent->direct_child_exit_count;
+    out->retained_events = parent->supervision_event_count;
+    return 0;
+}
+
 int sys_task_supervision_events(os_task_supervision_events_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_events(current_task->id, out);
@@ -438,6 +459,11 @@ int sys_task_supervision_event_find(uint32_t sequence, os_task_supervision_event
 int sys_task_supervision_event_forget(uint32_t sequence) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     return task_forget_supervision_event(current_task->id, sequence);
+}
+
+int sys_task_supervision_summary(os_task_supervision_summary_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_summary(current_task->id, out);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1267,6 +1293,10 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_SUPERVISION_EVENT_FORGET:
             state->eax = (uint32_t)sys_task_supervision_event_forget(state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_SUMMARY:
+            state->eax = (uint32_t)sys_task_supervision_summary(
+                (os_task_supervision_summary_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
