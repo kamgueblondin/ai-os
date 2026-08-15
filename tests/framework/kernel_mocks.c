@@ -368,6 +368,52 @@ int task_observe_supervision_events(int requester_pid, uint32_t expected_generat
     return rc;
 }
 
+int task_find_supervision_event(int requester_pid, uint32_t sequence,
+                                os_task_supervision_event_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out || sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->supervision_event_count; i++) {
+        uint32_t index = (parent->supervision_event_start + i) %
+                         OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        if (parent->supervision_events[index].sequence == sequence) {
+            *out = parent->supervision_events[index];
+            return 0;
+        }
+    }
+    return OS_TASK_NO_SUPERVISION_EVENT;
+}
+
+int task_forget_supervision_event(int requester_pid, uint32_t sequence) {
+    task_t* parent;
+    os_task_supervision_event_t retained[OS_TASK_SUPERVISION_EVENT_CAPACITY];
+    uint32_t i;
+    uint32_t kept = 0U;
+    int found = 0;
+    if (sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->supervision_event_count; i++) {
+        uint32_t index = (parent->supervision_event_start + i) %
+                         OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        if (parent->supervision_events[index].sequence == sequence) {
+            found = 1;
+        } else {
+            retained[kept++] = parent->supervision_events[index];
+        }
+    }
+    if (!found) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent->supervision_event_start = 0U;
+    parent->supervision_event_count = kept;
+    for (i = 0U; i < kept; i++) parent->supervision_events[i] = retained[i];
+    parent->supervision_event_generation++;
+    if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+    return (int)kept;
+}
+
 int sys_task_supervision_events(os_task_supervision_events_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_events(current_task->id, out);
@@ -382,6 +428,16 @@ int sys_task_supervision_events_observe(uint32_t expected_generation,
                                         os_task_supervision_events_observation_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_observe_supervision_events(current_task->id, expected_generation, out);
+}
+
+int sys_task_supervision_event_find(uint32_t sequence, os_task_supervision_event_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_find_supervision_event(current_task->id, sequence, out);
+}
+
+int sys_task_supervision_event_forget(uint32_t sequence) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_forget_supervision_event(current_task->id, sequence);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1204,6 +1260,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_SUPERVISION_EVENTS_OBSERVE:
             state->eax = (uint32_t)sys_task_supervision_events_observe(state->ebx,
                 (os_task_supervision_events_observation_t*)state->ecx);
+            break;
+        case SYS_TASK_SUPERVISION_EVENT_FIND:
+            state->eax = (uint32_t)sys_task_supervision_event_find(state->ebx,
+                (os_task_supervision_event_t*)state->ecx);
+            break;
+        case SYS_TASK_SUPERVISION_EVENT_FORGET:
+            state->eax = (uint32_t)sys_task_supervision_event_forget(state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

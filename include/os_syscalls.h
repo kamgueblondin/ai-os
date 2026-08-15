@@ -127,8 +127,12 @@
 #define SYS_TASK_SUPERVISION_EVENTS_ACK  70
 /* EBX = génération attendue, ECX = os_task_supervision_events_observation_t*. */
 #define SYS_TASK_SUPERVISION_EVENTS_OBSERVE 71
+/* EBX = séquence, ECX = os_task_supervision_event_t*. */
+#define SYS_TASK_SUPERVISION_EVENT_FIND 72
+/* EBX = séquence ; oublie l’entrée retenue et retourne le nombre restant. */
+#define SYS_TASK_SUPERVISION_EVENT_FORGET 73
 
-#define MAX_SYSCALLS 72
+#define MAX_SYSCALLS 74
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -174,6 +178,8 @@
 #define OS_TASK_NO_DIRECT_CHILD (-72)
 /* Le nouveau superviseur créerait une filiation invalide ou cyclique. */
 #define OS_TASK_BAD_DELEGATE (-73)
+/* Aucune transition de supervision retenue ne porte cette séquence locale. */
+#define OS_TASK_NO_SUPERVISION_EVENT (-74)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U

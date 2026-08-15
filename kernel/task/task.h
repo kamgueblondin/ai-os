@@ -123,6 +123,9 @@ int task_fill_supervision_events(int requester_pid, os_task_supervision_events_t
 int task_ack_supervision_events(int requester_pid);
 int task_observe_supervision_events(int requester_pid, uint32_t expected_generation,
                                     os_task_supervision_events_observation_t* out);
+int task_find_supervision_event(int requester_pid, uint32_t sequence,
+                                os_task_supervision_event_t* out);
+int task_forget_supervision_event(int requester_pid, uint32_t sequence);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

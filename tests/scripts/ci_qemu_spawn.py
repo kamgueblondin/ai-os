@@ -310,6 +310,15 @@ def main():
             delegated_events_start = send_command_until(monitor, "task-events", "task-events ok 5 1", proc)
             wait_for(proc, "task-event 4 delegate-out %s %s 0" %
                      (delegated_pid, supervisor_pid), CMD_TIMEOUT, delegated_events_start)
+            say("typing task-event 4 (delegation found) ...")
+            send_command_until(monitor, "task-event 4",
+                               "task-event ok 4 delegate-out %s %s 0" %
+                               (delegated_pid, supervisor_pid), proc)
+            say("typing task-events-forget 4 ...")
+            send_command_until(monitor, "task-events-forget 4",
+                               "task-events-forget ok 4 0", proc)
+            say("typing task-events (empty after selective forget) ...")
+            send_command_until(monitor, "task-events", "task-events ok 6 0", proc)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0

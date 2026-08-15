@@ -1023,6 +1023,41 @@ void test_task_supervision_events(void) {
     TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, supervisor_events.entries[1].detail);
 }
 
+void test_task_supervision_event_selective(void) {
+    task_t* parent;
+    task_t* child;
+    os_task_supervision_events_t events;
+    os_task_supervision_event_t event;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_resume_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_find_supervision_event(parent->id, 2U, &event));
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, event.action);
+    TEST_ASSERT_EQUAL(2, event.sequence);
+    TEST_ASSERT_EQUAL(2, task_forget_supervision_event(parent->id, 2U));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(parent->id, &events));
+    TEST_ASSERT_EQUAL(4, events.generation);
+    TEST_ASSERT_EQUAL(2, events.count);
+    TEST_ASSERT_EQUAL(1, events.entries[0].sequence);
+    TEST_ASSERT_EQUAL(3, events.entries[1].sequence);
+    TEST_ASSERT_EQUAL(OS_TASK_NO_SUPERVISION_EVENT,
+                      task_find_supervision_event(parent->id, 2U, &event));
+    TEST_ASSERT_EQUAL(OS_TASK_NO_SUPERVISION_EVENT,
+                      task_forget_supervision_event(parent->id, 2U));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -1120,6 +1155,7 @@ int main(void) {
     RUN_TEST(test_task_child_exit_count);
     RUN_TEST(test_task_supervision_delegation);
     RUN_TEST(test_task_supervision_events);
+    RUN_TEST(test_task_supervision_event_selective);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);
