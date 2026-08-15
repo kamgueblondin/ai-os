@@ -143,8 +143,12 @@
 #define SYS_TASK_SUPERVISION_WATCH 78
 /* EBX = os_task_supervision_watch_status_t* ; instantané local de la watchlist. */
 #define SYS_TASK_SUPERVISION_WATCH_STATUS 79
+/* EBX = os_task_supervision_delivery_stats_t* ; compteurs locaux de livraison détaillée. */
+#define SYS_TASK_SUPERVISION_DELIVERY_STATS 80
+/* Aucun argument ; remet les compteurs locaux de livraison détaillée à zéro. */
+#define SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK 81
 
-#define MAX_SYSCALLS 80
+#define MAX_SYSCALLS 82
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -336,6 +340,14 @@ typedef struct {
     uint32_t count;
     int32_t pids[OS_TASK_SUPERVISION_WATCH_CAPACITY];
 } os_task_supervision_watch_status_t;
+
+/* Compteurs locaux, volatils et non atomiques. attempted ne progresse qu’après
+ * souscription, filtre d’action et watchlist ; dropped signifie saturation IPC. */
+typedef struct {
+    uint32_t attempted;
+    uint32_t delivered;
+    uint32_t dropped;
+} os_task_supervision_delivery_stats_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

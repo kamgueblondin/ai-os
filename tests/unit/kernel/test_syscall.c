@@ -1157,6 +1157,57 @@ void test_sys_task_supervision_watchlist(void) {
     current_task = old_current;
 }
 
+void test_sys_task_supervision_delivery_stats(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    os_task_supervision_delivery_stats_t stats;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    current_task = parent;
+
+    cpu.eax = SYS_TASK_SUPERVISION_NOTIFY;
+    cpu.ebx = 1U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(1, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUSPEND;
+    cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_DELIVERY_STATS;
+    cpu.ebx = (uint32_t)&stats;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, stats.attempted);
+    TEST_ASSERT_EQUAL(1, stats.delivered);
+    TEST_ASSERT_EQUAL(0, stats.dropped);
+    cpu.eax = SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_DELIVERY_STATS;
+    cpu.ebx = (uint32_t)&stats;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(0, stats.attempted);
+    TEST_ASSERT_EQUAL(0, stats.delivered);
+    TEST_ASSERT_EQUAL(0, stats.dropped);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_supervision_summary(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -2051,6 +2102,7 @@ int main(void) {
     RUN_TEST(test_sys_task_supervision_notify);
     RUN_TEST(test_sys_task_supervision_notify_policy);
     RUN_TEST(test_sys_task_supervision_watchlist);
+    RUN_TEST(test_sys_task_supervision_delivery_stats);
     RUN_TEST(test_sys_task_supervision_summary);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
