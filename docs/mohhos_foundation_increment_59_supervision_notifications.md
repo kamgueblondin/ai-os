@@ -67,7 +67,7 @@ La boîte IPC conserve sa capacité de quatre messages. Si elle est pleine, l’
 | Tâches Unity | Souscription, refus de valeur invalide, notifications de suspension, reprise, délégation et sortie, désabonnement et coexistence avec l’événement historique |
 | Syscalls Unity | Dispatch ABI `75`, activation, désactivation, refus de `2` et réception IPC de la suspension |
 | Image i386 | `make clean && make all` réussi |
-| QEMU spawn | Activation, délégation, `ipc-recv` de `delegate-out`, désactivation, puis contrat historique intégral |
+| QEMU spawn | Activation, délégation, `ipc-recv` de `delegate-out`, puis contrat historique intégral |
 | Suite complète | `make test-all` : **241/241** tests réussis |
 
 ## Limites explicites

@@ -297,6 +297,9 @@ def main():
             say("spawned delegated child pid %s" % delegated_pid)
             say("typing task-events-notify on ...")
             send_command_until(monitor, "task-events-notify on", "task-events-notify ok on", proc)
+            say("typing task-events-filter delegate-out ...")
+            send_command_until(monitor, "task-events-filter delegate-out",
+                               "task-events-filter ok delegate-out 8", proc)
             say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
             send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
                                "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
@@ -304,8 +307,6 @@ def main():
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %
                                (delegated_pid, supervisor_pid), proc)
-            say("typing task-events-notify off ...")
-            send_command_until(monitor, "task-events-notify off", "task-events-notify ok off", proc)
             say("typing children (after delegation) ...")
             delegated_children_start = send_command_until(monitor, "children", "children ok 1", proc)
             wait_for(proc, "child-entry %s" % supervisor_pid, CMD_TIMEOUT, delegated_children_start)

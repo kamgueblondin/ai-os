@@ -52,6 +52,7 @@ task_t* create_task(void (*entry_point)(void)) {
     task->child_exit_history_start = 0U;
     task->child_exit_history_count = 0U;
     task->child_exit_history_generation = 1U;
+    task->supervision_notify_mask = OS_TASK_SUPERVISION_NOTIFY_ALL;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -227,11 +228,23 @@ int task_kill_direct_children(int requester_pid) {
 
 static void mock_task_event_send(ipc_endpoint_t* endpoint, const os_ipc_payload_t* payload);
 
+static uint32_t task_supervision_notify_bit(uint32_t action) {
+    if (action == OS_TASK_SUPERVISION_EXIT) return OS_TASK_SUPERVISION_NOTIFY_EXIT;
+    if (action == OS_TASK_SUPERVISION_SUSPEND) return OS_TASK_SUPERVISION_NOTIFY_SUSPEND;
+    if (action == OS_TASK_SUPERVISION_RESUME) return OS_TASK_SUPERVISION_NOTIFY_RESUME;
+    if (action == OS_TASK_SUPERVISION_DELEGATE_OUT) return OS_TASK_SUPERVISION_NOTIFY_DELEGATE_OUT;
+    if (action == OS_TASK_SUPERVISION_DELEGATE_IN) return OS_TASK_SUPERVISION_NOTIFY_DELEGATE_IN;
+    return 0U;
+}
+
 static void task_notify_supervision_event(task_t* parent,
                                           const os_task_supervision_event_t* event) {
     os_ipc_payload_t payload;
+    uint32_t bit;
     if (!parent || !event || parent->supervision_notify_enabled == 0U ||
         parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
+    bit = task_supervision_notify_bit(event->action);
+    if (bit == 0U || (parent->supervision_notify_mask & bit) == 0U) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
     mock_task_event_send(&parent->ipc_endpoint, &payload);
 }
@@ -437,6 +450,31 @@ int task_set_supervision_notify(int requester_pid, uint32_t enabled) {
     return (int)enabled;
 }
 
+int task_set_supervision_notify_filter(int requester_pid, uint32_t mask) {
+    task_t* parent;
+    if ((mask & ~OS_TASK_SUPERVISION_NOTIFY_ALL) != 0U) return OS_TASK_BAD_NOTIFY_FILTER;
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    parent->supervision_notify_mask = mask;
+    return 0;
+}
+
+int task_fill_supervision_notify_status(int requester_pid,
+                                        os_task_supervision_notify_status_t* out) {
+    task_t* parent;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    out->enabled = parent->supervision_notify_enabled;
+    out->mask = parent->supervision_notify_mask;
+    return 0;
+}
+
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
     task_t* parent;
     task_t* t;
@@ -492,6 +530,16 @@ int sys_task_supervision_summary(os_task_supervision_summary_t* out) {
 int sys_task_supervision_notify(uint32_t enabled) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
     return task_set_supervision_notify(current_task->id, enabled);
+}
+
+int sys_task_supervision_notify_filter(uint32_t mask) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_notify_filter(current_task->id, mask);
+}
+
+int sys_task_supervision_notify_status(os_task_supervision_notify_status_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_notify_status(current_task->id, out);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1328,6 +1376,13 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_SUPERVISION_NOTIFY:
             state->eax = (uint32_t)sys_task_supervision_notify(state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_FILTER:
+            state->eax = (uint32_t)sys_task_supervision_notify_filter(state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_STATUS:
+            state->eax = (uint32_t)sys_task_supervision_notify_status(
+                (os_task_supervision_notify_status_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

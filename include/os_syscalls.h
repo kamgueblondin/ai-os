@@ -135,8 +135,12 @@
 #define SYS_TASK_SUPERVISION_SUMMARY 74
 /* EBX = 0 (désabonne) ou 1 (abonne) l’appelant à ses transitions de supervision. */
 #define SYS_TASK_SUPERVISION_NOTIFY 75
+/* EBX = masque local des transitions à notifier lorsque la souscription est active. */
+#define SYS_TASK_SUPERVISION_NOTIFY_FILTER 76
+/* EBX = os_task_supervision_notify_status_t* ; instantané local de souscription. */
+#define SYS_TASK_SUPERVISION_NOTIFY_STATUS 77
 
-#define MAX_SYSCALLS 76
+#define MAX_SYSCALLS 78
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -186,6 +190,8 @@
 #define OS_TASK_NO_SUPERVISION_EVENT (-74)
 /* La valeur de souscription de supervision doit être strictement 0 ou 1. */
 #define OS_TASK_BAD_NOTIFY (-75)
+/* Le masque de notifications contient un bit inconnu. */
+#define OS_TASK_BAD_NOTIFY_FILTER (-76)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -217,6 +223,17 @@
 #define OS_TASK_SUPERVISION_RESUME        3U
 #define OS_TASK_SUPERVISION_DELEGATE_OUT  4U
 #define OS_TASK_SUPERVISION_DELEGATE_IN   5U
+
+#define OS_TASK_SUPERVISION_NOTIFY_EXIT         (1U << 0)
+#define OS_TASK_SUPERVISION_NOTIFY_SUSPEND      (1U << 1)
+#define OS_TASK_SUPERVISION_NOTIFY_RESUME       (1U << 2)
+#define OS_TASK_SUPERVISION_NOTIFY_DELEGATE_OUT (1U << 3)
+#define OS_TASK_SUPERVISION_NOTIFY_DELEGATE_IN  (1U << 4)
+#define OS_TASK_SUPERVISION_NOTIFY_ALL          (OS_TASK_SUPERVISION_NOTIFY_EXIT | \
+                                                  OS_TASK_SUPERVISION_NOTIFY_SUSPEND | \
+                                                  OS_TASK_SUPERVISION_NOTIFY_RESUME | \
+                                                  OS_TASK_SUPERVISION_NOTIFY_DELEGATE_OUT | \
+                                                  OS_TASK_SUPERVISION_NOTIFY_DELEGATE_IN)
 
 typedef struct {
     char name[OS_NAME_MAX];
@@ -293,6 +310,13 @@ typedef struct {
     uint32_t child_exit_count;
     uint32_t retained_events;
 } os_task_supervision_summary_t;
+
+/* Instantané local de la souscription IPC de supervision. enabled vaut 0 ou 1 ;
+ * mask contient les bits OS_TASK_SUPERVISION_NOTIFY_* demandés. */
+typedef struct {
+    uint32_t enabled;
+    uint32_t mask;
+} os_task_supervision_notify_status_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */
