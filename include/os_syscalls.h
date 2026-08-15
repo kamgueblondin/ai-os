@@ -122,6 +122,8 @@
 #define OS_TASK_CONTROL_DENIED (-64)
 /* La tâche cible n’est pas un enfant direct du demandeur. */
 #define OS_TASK_NOT_CHILD      (-65)
+/* Le parent a atteint sa capacité locale d’enfants directs. */
+#define OS_TASK_CHILD_LIMIT    (-66)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -140,6 +142,7 @@
 #define OS_TASK_PRIORITY_LOW     1U
 #define OS_TASK_PRIORITY_NORMAL  2U
 #define OS_TASK_PRIORITY_HIGH    3U
+#define OS_TASK_CHILD_CAPACITY   4U
 
 typedef struct {
     char name[OS_NAME_MAX];

@@ -461,6 +461,14 @@ uint32_t task_count_direct_children(int pid) {
     return count;
 }
 
+int task_can_create_child(int pid) {
+    if (!get_task_by_id(pid)) return OS_TASK_NOT_FOUND;
+    if (task_count_direct_children(pid) >= OS_TASK_CHILD_CAPACITY) {
+        return OS_TASK_CHILD_LIMIT;
+    }
+    return 0;
+}
+
 int task_wait_for_child(int requester_pid, int child_pid) {
     task_t* parent = get_task_by_id(requester_pid);
     task_t* child = get_task_by_id(child_pid);

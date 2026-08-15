@@ -626,6 +626,29 @@ void test_task_supervision_wait_and_children(void) {
                       task_wait_for_child(unrelated->id, child->id));
 }
 
+void test_task_direct_child_capacity(void) {
+    task_t* parent;
+    task_t* children[OS_TASK_CHILD_CAPACITY];
+    uint32_t i;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    add_task_to_queue(parent);
+    for (i = 0U; i < OS_TASK_CHILD_CAPACITY; i++) {
+        children[i] = create_task(dummy_task_function);
+        children[i]->parent_pid = parent->id;
+        add_task_to_queue(children[i]);
+    }
+
+    TEST_ASSERT_EQUAL(OS_TASK_CHILD_CAPACITY,
+                      task_count_direct_children(parent->id));
+    TEST_ASSERT_EQUAL(OS_TASK_CHILD_LIMIT, task_can_create_child(parent->id));
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, children[0]->id));
+    TEST_ASSERT_EQUAL(OS_TASK_CHILD_CAPACITY - 1U,
+                      task_count_direct_children(parent->id));
+    TEST_ASSERT_EQUAL(0, task_can_create_child(parent->id));
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -716,6 +739,7 @@ int main(void) {
     RUN_TEST(test_task_kill_parent_authority);
     RUN_TEST(test_task_reparents_children_on_departure);
     RUN_TEST(test_task_supervision_wait_and_children);
+    RUN_TEST(test_task_direct_child_capacity);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

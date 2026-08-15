@@ -666,7 +666,12 @@ void syscall_init() {
 /* SYS_EXEC : cree l'enfant, le parent passe TASK_WAITING. Le handler
  * appelle schedule() depuis le cadre user. SYS_EXIT reveille le waiter. */
 int sys_exec(const char* path, char* argv[]) {
-    task_t* new_task = create_task_from_initrd_file(path);
+    int capacity_rc;
+    task_t* new_task;
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    capacity_rc = task_can_create_child(current_task->id);
+    if (capacity_rc != 0) return capacity_rc;
+    new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
         return -1;
@@ -701,7 +706,12 @@ int sys_exec(const char* path, char* argv[]) {
 /* Cree la tache et retourne son pid. Le handler appelle schedule() pour
  * laisser tourner l'enfant jusqu'au prochain SYS_YIELD (cadre user, pas IRQ0). */
 int sys_spawn(const char* path, char* argv[]) {
-    task_t* new_task = create_task_from_initrd_file(path);
+    int capacity_rc;
+    task_t* new_task;
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    capacity_rc = task_can_create_child(current_task->id);
+    if (capacity_rc != 0) return capacity_rc;
+    new_task = create_task_from_initrd_file(path);
     if (!new_task) {
         return -1;
     }
