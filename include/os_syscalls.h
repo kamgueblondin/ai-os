@@ -123,8 +123,12 @@
 #define SYS_TASK_DELEGATE_CHILD          68
 /* EBX = os_task_supervision_events_t* ; journal borné du parent courant. */
 #define SYS_TASK_SUPERVISION_EVENTS      69
+/* Aucun argument ; acquitte le journal local et retourne sa nouvelle génération. */
+#define SYS_TASK_SUPERVISION_EVENTS_ACK  70
+/* EBX = génération attendue, ECX = os_task_supervision_events_observation_t*. */
+#define SYS_TASK_SUPERVISION_EVENTS_OBSERVE 71
 
-#define MAX_SYSCALLS 70
+#define MAX_SYSCALLS 72
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -260,6 +264,13 @@ typedef struct {
     uint32_t count;
     os_task_supervision_event_t entries[OS_TASK_SUPERVISION_EVENT_CAPACITY];
 } os_task_supervision_events_t;
+
+/* Lecture conditionnelle : la génération est toujours renseignée, même si
+ * l’appel retourne OS_TASK_HISTORY_STALE. */
+typedef struct {
+    uint32_t generation;
+    os_task_supervision_events_t events;
+} os_task_supervision_events_observation_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

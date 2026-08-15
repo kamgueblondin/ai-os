@@ -344,9 +344,44 @@ int task_fill_supervision_events(int requester_pid, os_task_supervision_events_t
     return 0;
 }
 
+int task_ack_supervision_events(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    parent->supervision_event_start = 0U;
+    parent->supervision_event_count = 0U;
+    parent->supervision_event_generation++;
+    if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+    return (int)parent->supervision_event_generation;
+}
+
+int task_observe_supervision_events(int requester_pid, uint32_t expected_generation,
+                                    os_task_supervision_events_observation_t* out) {
+    task_t* parent;
+    int rc;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->generation = parent->supervision_event_generation;
+    if (expected_generation != out->generation) return OS_TASK_HISTORY_STALE;
+    rc = task_fill_supervision_events(requester_pid, &out->events);
+    return rc;
+}
+
 int sys_task_supervision_events(os_task_supervision_events_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_events(current_task->id, out);
+}
+
+int sys_task_supervision_events_ack(void) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_ack_supervision_events(current_task->id);
+}
+
+int sys_task_supervision_events_observe(uint32_t expected_generation,
+                                        os_task_supervision_events_observation_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_observe_supervision_events(current_task->id, expected_generation, out);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1162,6 +1197,13 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_SUPERVISION_EVENTS:
             state->eax = (uint32_t)sys_task_supervision_events((os_task_supervision_events_t*)state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_EVENTS_ACK:
+            state->eax = (uint32_t)sys_task_supervision_events_ack();
+            break;
+        case SYS_TASK_SUPERVISION_EVENTS_OBSERVE:
+            state->eax = (uint32_t)sys_task_supervision_events_observe(state->ebx,
+                (os_task_supervision_events_observation_t*)state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

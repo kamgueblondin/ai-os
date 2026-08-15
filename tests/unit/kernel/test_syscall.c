@@ -825,6 +825,7 @@ void test_sys_task_supervision_events(void) {
     task_t* child;
     task_t* supervisor;
     os_task_supervision_events_t events;
+    os_task_supervision_events_observation_t observation;
     cpu_state_t cpu = {0};
 
     task_queue = NULL;
@@ -858,6 +859,27 @@ void test_sys_task_supervision_events(void) {
     TEST_ASSERT_EQUAL(2, events.count);
     TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_SUSPEND, events.entries[0].action);
     TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, events.entries[1].action);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS_OBSERVE;
+    cpu.ebx = 1U;
+    cpu.ecx = (uint32_t)&observation;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_HISTORY_STALE, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, observation.generation);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS_OBSERVE;
+    cpu.ebx = 2U;
+    cpu.ecx = (uint32_t)&observation;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, observation.events.count);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS_ACK;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(3, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_EVENTS;
+    cpu.ebx = (uint32_t)&events;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(3, events.generation);
+    TEST_ASSERT_EQUAL(0, events.count);
 
     cpu.eax = SYS_TASK_DELEGATE_CHILD;
     cpu.ebx = (uint32_t)child->id;
@@ -868,8 +890,9 @@ void test_sys_task_supervision_events(void) {
     cpu.ebx = (uint32_t)&events;
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(0, (int)cpu.eax);
-    TEST_ASSERT_EQUAL(3, events.count);
-    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_OUT, events.entries[2].action);
+    TEST_ASSERT_EQUAL(1, events.count);
+    TEST_ASSERT_EQUAL(4, events.generation);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_OUT, events.entries[0].action);
 
     current_task = supervisor;
     cpu.eax = SYS_TASK_SUPERVISION_EVENTS;

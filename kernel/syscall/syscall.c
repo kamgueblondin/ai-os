@@ -234,6 +234,13 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SUPERVISION_EVENTS:
             cpu->eax = (uint32_t)sys_task_supervision_events((os_task_supervision_events_t*)cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_EVENTS_ACK:
+            cpu->eax = (uint32_t)sys_task_supervision_events_ack();
+            break;
+        case SYS_TASK_SUPERVISION_EVENTS_OBSERVE:
+            cpu->eax = (uint32_t)sys_task_supervision_events_observe(cpu->ebx,
+                (os_task_supervision_events_observation_t*)cpu->ecx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -1029,4 +1036,15 @@ int sys_task_delegate_child(int child_pid, int supervisor_pid) {
 int sys_task_supervision_events(os_task_supervision_events_t* out) {
     if (!current_task || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_events(current_task->id, out);
+}
+
+int sys_task_supervision_events_ack(void) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_ack_supervision_events(current_task->id);
+}
+
+int sys_task_supervision_events_observe(uint32_t expected_generation,
+                                        os_task_supervision_events_observation_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_observe_supervision_events(current_task->id, expected_generation, out);
 }
