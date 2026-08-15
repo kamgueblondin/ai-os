@@ -1941,13 +1941,14 @@ static void cmd_vfs_write(shell_context_t* ctx, char args[][128], int arg_count)
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_WRITE_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_write_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_WRITE_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_WRITE_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_write_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2007,13 +2008,14 @@ static void cmd_vfs_remove(shell_context_t* ctx, char args[][128], int arg_count
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_REMOVE_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_remove_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_REMOVE_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_REMOVE_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_remove_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2073,13 +2075,14 @@ static void cmd_vfs_rename(shell_context_t* ctx, char args[][128], int arg_count
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_RENAME_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_rename_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_RENAME_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_RENAME_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_rename_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2106,19 +2109,20 @@ static void cmd_vfs_rename(shell_context_t* ctx, char args[][128], int arg_count
     print_string("\n");
 }
 
-static int wait_vfs_mount_reply(uint32_t type, uint32_t request_id,
+static int wait_vfs_mount_reply(int expected_sender, uint32_t type, uint32_t request_id,
                                 os_vfs_mount_reply_t* reply) {
     os_ipc_message_t message;
     int rc;
     int attempts;
     rc = os_ipc_deferred_take_matching(&ipc_deferred, type, request_id, &message);
+    if (rc == 0 && message.sender_pid != expected_sender) rc = OS_IPC_EMPTY;
     if (rc == 0) return os_vfs_parse_mount_reply(&message, type, reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == type && message.request_id == request_id) {
+            if (message.type == type && message.request_id == request_id && message.sender_pid == expected_sender) {
                 return os_vfs_parse_mount_reply(&message, type, reply, request_id);
             }
             saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2160,7 +2164,7 @@ static void cmd_vfs_mount_add(shell_context_t* ctx, char args[][128], int arg_co
         ctx->last_rc = rc;
         return;
     }
-    rc = wait_vfs_mount_reply(OS_IPC_VFS_MOUNT_ADD_REPLY, request_id, &reply);
+    rc = wait_vfs_mount_reply(pid, OS_IPC_VFS_MOUNT_ADD_REPLY, request_id, &reply);
     if (rc != 0) {
         print_error("vfs-mount-add: reponse VFS absente ou invalide");
         ctx->last_rc = rc;
@@ -2202,7 +2206,7 @@ static void cmd_vfs_mount_remove(shell_context_t* ctx, char args[][128], int arg
         ctx->last_rc = rc;
         return;
     }
-    rc = wait_vfs_mount_reply(OS_IPC_VFS_MOUNT_REMOVE_REPLY, request_id, &reply);
+    rc = wait_vfs_mount_reply(pid, OS_IPC_VFS_MOUNT_REMOVE_REPLY, request_id, &reply);
     if (rc != 0) {
         print_error("vfs-mount-remove: reponse VFS absente ou invalide");
         ctx->last_rc = rc;
@@ -2253,13 +2257,14 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_READ_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_read_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_READ_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_READ_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_read_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2301,11 +2306,12 @@ static void cmd_vfs_mkdir(shell_context_t* ctx, char args[][128], int arg_count)
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-mkdir: service indisponible"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_MKDIR_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_mkdir_reply(&message, &status, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved; yield(); rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_MKDIR_REPLY && message.request_id == request_id)
+            if (message.type == OS_IPC_VFS_MKDIR_REPLY && message.request_id == request_id && message.sender_pid == pid)
                 rc = os_vfs_parse_mkdir_reply(&message, &status, request_id);
             else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
         }
@@ -2328,11 +2334,12 @@ static void cmd_vfs_rmdir(shell_context_t* ctx, char args[][128], int arg_count)
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-rmdir: service indisponible"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_RMDIR_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_rmdir_reply(&message, &status, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved; yield(); rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_RMDIR_REPLY && message.request_id == request_id)
+            if (message.type == OS_IPC_VFS_RMDIR_REPLY && message.request_id == request_id && message.sender_pid == pid)
                 rc = os_vfs_parse_rmdir_reply(&message, &status, request_id);
             else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
         }
@@ -2379,13 +2386,14 @@ static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_LIST_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_list_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_LIST_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_LIST_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_list_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2442,13 +2450,14 @@ static void cmd_vfs_list_page(shell_context_t* ctx, char args[][128], int arg_co
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-list-page: service indisponible"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_LIST_PAGE_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_list_page_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_LIST_PAGE_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_LIST_PAGE_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_list_page_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);
@@ -2488,11 +2497,12 @@ static void cmd_vfs_list_observe(shell_context_t* ctx, char args[][128], int arg
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-list-observe: service indisponible"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_LIST_OBSERVE_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_list_observe_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved; yield(); rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_LIST_OBSERVE_REPLY && message.request_id == request_id)
+            if (message.type == OS_IPC_VFS_LIST_OBSERVE_REPLY && message.request_id == request_id && message.sender_pid == pid)
                 rc = os_vfs_parse_list_observe_reply(&message, &reply, request_id);
             else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; }
         }
@@ -2546,13 +2556,14 @@ static void cmd_vfs_stat(shell_context_t* ctx, char args[][128], int arg_count) 
     }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_STAT_REPLY,
                                        request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_stat_reply(&message, &reply, request_id);
     for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);
         if (rc == 0) {
-            if (message.type == OS_IPC_VFS_STAT_REPLY && message.request_id == request_id) {
+            if (message.type == OS_IPC_VFS_STAT_REPLY && message.request_id == request_id && message.sender_pid == pid) {
                 rc = os_vfs_parse_stat_reply(&message, &reply, request_id);
             } else {
                 saved = os_ipc_deferred_push(&ipc_deferred, &message);

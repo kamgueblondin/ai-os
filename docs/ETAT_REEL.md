@@ -100,7 +100,9 @@ Le trente-quatrième incrément ajoute `SYS_SERVICE_BACKEND_OBSERVE` (50), le pr
 
 Le trente-cinquième incrément porte cette génération à la granularité du service publié. Une mutation backend de `demo` ne rend plus l’observation de `vfs` obsolète ; seules les mutations, révocations, transferts et purges associés au même nom font avancer sa génération. Aucun nouveau syscall ni droit n’est ajouté.
 
-Le trente-sixième incrément lie les réponses corrélées des commandes `vfs-backend-*` au PID du médiateur `vfs` résolu avant l’envoi. Une réponse du bon type et du bon `request_id` issue d’un autre PID n’est pas décodée comme valide. Cette protection couvre l’octroi, les profils scoped, la révocation, le statut, l’inventaire et l’observation backend ; les autres familles de réponses VFS restent explicitement hors périmètre.
+Le trente-sixième incrément lie les réponses corrélées des commandes `vfs-backend-*` au PID du médiateur `vfs` résolu avant l’envoi. Une réponse du bon type et du bon `request_id` issue d’un autre PID n’est pas décodée comme valide. Cette protection couvre l’octroi, les profils scoped, la révocation, le statut, l’inventaire et l’observation backend.
+
+Le trente-septième incrément étend ce même contrôle aux réponses VFS de fichiers, répertoires, pagination, observation de répertoire, métadonnées et montages. Toutes les commandes VFS corrélées du shell exigent maintenant le PID du médiateur résolu avant le décodage de leur réponse. Aucun syscall, format IPC ni droit supplémentaire n’est introduit.
 
 ### IA locale, GGUF et BPE
 
