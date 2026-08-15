@@ -192,6 +192,12 @@ int sys_task_child_result(int pid, os_task_exit_result_t* out) {
     return result;
 }
 
+int sys_task_child_result_list(os_task_exit_history_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_CHILD_RESULT_LIST), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -668,6 +674,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-name <pid> <nom> - Renommer soi ou un enfant direct\n");
     print_string("  task-capacity       - Capacité globale volatile des tâches\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
+    print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  wait <pid>         - Attendre la sortie d’un enfant direct\n");
     print_string("  mem                - Utilisation mémoire\n");
     print_string("  uptime             - Temps de fonctionnement\n");
@@ -981,6 +988,32 @@ void cmd_child_result(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string(" tick "); print_int((int)result.finished_ticks); print_string("\n");
     print_string("child-result ok "); print_int(result.child_pid); print_string(" ");
     print_int(result.exit_code); print_string(" "); print_int((int)result.reason); print_string("\n");
+}
+
+void cmd_child_results(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_exit_history_t history;
+    uint32_t i;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: child-results");
+        return;
+    }
+    rc = sys_task_child_result_list(&history);
+    if (rc != 0) {
+        print_error("child-results: syscall indisponible");
+        return;
+    }
+    print_string("Historique résultats enfants : "); print_int((int)history.count); print_string("\n");
+    for (i = 0U; i < history.count; i++) {
+        print_string("  PID "); print_int(history.entries[i].child_pid);
+        print_string(" code "); print_int(history.entries[i].exit_code);
+        print_string(" raison "); print_string(history.entries[i].reason == OS_TASK_EVENT_EXITED ? "exited" : "killed");
+        print_string(" tick "); print_int((int)history.entries[i].finished_ticks); print_string("\n");
+        print_string("child-result-entry "); print_int(history.entries[i].child_pid); print_string(" ");
+        print_int(history.entries[i].exit_code); print_string(" "); print_int((int)history.entries[i].reason); print_string("\n");
+    }
+    print_string("child-results ok "); print_int((int)history.count); print_string("\n");
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1409,7 +1442,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "wait", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "child-result", "child-results", "wait", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3579,6 +3612,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "child-results") == 0) {
+        cmd_child_results(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "wait") == 0) {
         cmd_task_wait(ctx, args, arg_count);

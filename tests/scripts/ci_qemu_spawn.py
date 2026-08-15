@@ -228,6 +228,11 @@ def main():
             send_command_until(monitor, "child-result %s" % wait_pid,
                                "child-result ok %s 0 1" % wait_pid, proc)
 
+            say("typing child-results (history) ...")
+            history_start = send_command_until(monitor, "child-results", "child-results ok 2", proc)
+            wait_for(proc, "child-result-entry %s -128 2" % idle_pid, CMD_TIMEOUT, history_start)
+            wait_for(proc, "child-result-entry %s 0 1" % wait_pid, CMD_TIMEOUT, history_start)
+
             say("typing task-metrics 1 (no child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)
 

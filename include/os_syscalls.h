@@ -97,8 +97,10 @@
 #define SYS_TASK_CAPACITY                55
 /* EBX = PID enfant, ECX = os_task_exit_result_t* ; dernier résultat local du parent. */
 #define SYS_TASK_CHILD_RESULT            56
+/* EBX = os_task_exit_history_t* ; historique borné du parent appelant. */
+#define SYS_TASK_CHILD_RESULT_LIST       57
 
-#define MAX_SYSCALLS 57
+#define MAX_SYSCALLS 58
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -138,6 +140,7 @@
 #define OS_TASK_NO_CHILD_RESULT (-69)
 
 #define OS_TASK_EXIT_KILLED (-128)
+#define OS_TASK_EXIT_HISTORY_CAPACITY 4U
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -218,6 +221,12 @@ typedef struct {
     uint32_t reason;
     uint32_t finished_ticks;
 } os_task_exit_result_t;
+
+/* Historique circulaire local, ramené dans l’ordre du plus ancien au plus récent. */
+typedef struct {
+    uint32_t count;
+    os_task_exit_result_t entries[OS_TASK_EXIT_HISTORY_CAPACITY];
+} os_task_exit_history_t;
 
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni
  * atomique, ni réservé, ni une capability. */

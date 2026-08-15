@@ -192,6 +192,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_task_child_result((int)cpu->ebx,
                                                         (os_task_exit_result_t*)cpu->ecx);
             break;
+        case SYS_TASK_CHILD_RESULT_LIST:
+            cpu->eax = (uint32_t)sys_task_child_result_list((os_task_exit_history_t*)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -921,4 +924,9 @@ int sys_task_capacity(os_task_capacity_t* out) {
 int sys_task_child_result(int pid, os_task_exit_result_t* out) {
     if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
     return task_get_child_result(current_task->id, pid, out);
+}
+
+int sys_task_child_result_list(os_task_exit_history_t* out) {
+    if (!current_task) return OS_TASK_NOT_FOUND;
+    return task_fill_child_result_history(current_task->id, out);
 }

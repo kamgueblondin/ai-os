@@ -49,6 +49,8 @@ task_t* create_task(void (*entry_point)(void)) {
     task->last_child_exit_code = 0;
     task->last_child_exit_reason = 0U;
     task->last_child_finished_ticks = 0U;
+    task->child_exit_history_start = 0U;
+    task->child_exit_history_count = 0U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -281,6 +283,21 @@ int task_get_child_result(int requester_pid, int child_pid, os_task_exit_result_
     return 0;
 }
 
+int task_fill_child_result_history(int requester_pid, os_task_exit_history_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out) return OS_TASK_NO_CHILD_RESULT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->count = parent->child_exit_history_count;
+    for (i = 0U; i < out->count; i++) {
+        uint32_t index = (parent->child_exit_history_start + i) % OS_TASK_EXIT_HISTORY_CAPACITY;
+        out->entries[i] = parent->child_exit_history[index];
+    }
+    return 0;
+}
+
 void schedule(cpu_state_t* cpu) {
     task_t* next_task = NULL;
     task_t* candidate;
@@ -354,13 +371,29 @@ static void mock_task_event_send(ipc_endpoint_t* endpoint, const os_ipc_payload_
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason) {
     task_t* parent;
     os_ipc_payload_t payload;
+    os_task_exit_result_t result;
+    uint32_t index;
     if (!child || child->parent_pid <= 0) return;
     parent = get_task_by_id(child->parent_pid);
     if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
-    parent->last_child_pid = child->id;
-    parent->last_child_exit_code = exit_code;
-    parent->last_child_exit_reason = reason;
-    parent->last_child_finished_ticks = mock_timer_get_ticks();
+    result.child_pid = child->id;
+    result.exit_code = exit_code;
+    result.reason = reason;
+    result.finished_ticks = mock_timer_get_ticks();
+    parent->last_child_pid = result.child_pid;
+    parent->last_child_exit_code = result.exit_code;
+    parent->last_child_exit_reason = result.reason;
+    parent->last_child_finished_ticks = result.finished_ticks;
+    if (parent->child_exit_history_count < OS_TASK_EXIT_HISTORY_CAPACITY) {
+        index = (parent->child_exit_history_start + parent->child_exit_history_count) %
+                OS_TASK_EXIT_HISTORY_CAPACITY;
+        parent->child_exit_history_count++;
+    } else {
+        index = parent->child_exit_history_start;
+        parent->child_exit_history_start = (parent->child_exit_history_start + 1U) %
+                                           OS_TASK_EXIT_HISTORY_CAPACITY;
+    }
+    parent->child_exit_history[index] = result;
     if (os_task_make_event(&payload, child->id, reason) != 0) return;
     mock_task_event_send(&parent->ipc_endpoint, &payload);
 }
@@ -782,6 +815,10 @@ void syscall_handler(cpu_state_t* state) {
             state->eax = (uint32_t)task_get_child_result(current_task ? current_task->id : -1,
                                                          (int)state->ebx,
                                                          (os_task_exit_result_t*)state->ecx);
+            break;
+        case SYS_TASK_CHILD_RESULT_LIST:
+            state->eax = (uint32_t)task_fill_child_result_history(current_task ? current_task->id : -1,
+                                                                   (os_task_exit_history_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);
