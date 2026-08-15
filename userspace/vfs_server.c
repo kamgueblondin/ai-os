@@ -64,6 +64,14 @@ static int service_backend_list(const char* name, os_service_backend_list_t* lis
     return result;
 }
 
+static int service_backend_observe(const char* name, uint32_t expected_generation,
+                                   os_service_backend_snapshot_t* snapshot) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_OBSERVE), "b"(name),
+                 "c"(expected_generation), "d"(snapshot));
+    return result;
+}
+
 static void print_int(int value) {
     char digits[12];
     int n = 0;
@@ -741,6 +749,23 @@ void main(void) {
             if (status == 0) status = service_backend_status("vfs", target_pid, &rights);
             if (status != 0) rights = 0U;
             if (os_vfs_make_backend_status_reply(&reply_payload, status, rights, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_OBSERVE) {
+            os_service_backend_snapshot_t snapshot;
+            uint32_t expected_generation;
+            int status;
+            uint32_t i;
+            snapshot.generation = 0U;
+            snapshot.list.count = 0U;
+            for (i = 0U; i < OS_SERVICE_BACKEND_CAPACITY; i++) {
+                snapshot.list.entries[i].pid = 0;
+                snapshot.list.entries[i].rights = 0U;
+            }
+            puts("vfsserver backend observe request\n");
+            status = os_vfs_parse_backend_observe_request(&message, &expected_generation);
+            if (status == 0) status = service_backend_observe("vfs", expected_generation, &snapshot);
+            if (os_vfs_make_backend_observe_reply(&reply_payload, status, &snapshot, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_LIST) {

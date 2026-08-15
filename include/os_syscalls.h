@@ -83,8 +83,10 @@
 #define SYS_SERVICE_BACKEND_STATUS       48
 /* EBX = nom de service, ECX = os_service_backend_list_t* ; réservé au propriétaire. */
 #define SYS_SERVICE_BACKEND_LIST         49
+/* EBX = nom, ECX = génération attendue, EDX = os_service_backend_snapshot_t* ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_OBSERVE      50
 
-#define MAX_SYSCALLS 50
+#define MAX_SYSCALLS 51
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -106,6 +108,7 @@
 #define OS_SERVICE_NOT_OWNER (-54)
 #define OS_SERVICE_BAD_GRANTEE (-55)
 #define OS_SERVICE_WATCH_FULL  (-56)
+#define OS_SERVICE_STALE        (-57)
 #define OS_VFS_BACKEND_DENIED (-61)
 
 #define OS_NAME_MAX 64
@@ -137,6 +140,11 @@ typedef struct {
     uint32_t count;
     os_service_backend_entry_t entries[OS_SERVICE_BACKEND_CAPACITY];
 } os_service_backend_list_t;
+
+typedef struct {
+    uint32_t generation;
+    os_service_backend_list_t list;
+} os_service_backend_snapshot_t;
 
 typedef struct {
     int32_t pid;

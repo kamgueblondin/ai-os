@@ -39,6 +39,8 @@
 #define OS_IPC_VFS_BACKEND_STATUS_REPLY 0x56465321U
 #define OS_IPC_VFS_BACKEND_LIST       0x56465322U
 #define OS_IPC_VFS_BACKEND_LIST_REPLY 0x56465323U
+#define OS_IPC_VFS_BACKEND_OBSERVE       0x56465324U
+#define OS_IPC_VFS_BACKEND_OBSERVE_REPLY 0x56465325U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -60,6 +62,8 @@
 #define OS_VFS_BACKEND_STATUS_REPLY_SIZE 8U
 #define OS_VFS_BACKEND_LIST_REQUEST_SIZE 0U
 #define OS_VFS_BACKEND_LIST_REPLY_SIZE (8U + OS_SERVICE_BACKEND_CAPACITY * 8U)
+#define OS_VFS_BACKEND_OBSERVE_REQUEST_SIZE 4U
+#define OS_VFS_BACKEND_OBSERVE_REPLY_SIZE (12U + OS_SERVICE_BACKEND_CAPACITY * 8U)
 #define OS_VFS_BACKEND_RIGHT_READ 1U
 #define OS_VFS_BACKEND_RIGHT_MUTATE 2U
 #define OS_VFS_BACKEND_RIGHT_ALL (OS_VFS_BACKEND_RIGHT_READ | OS_VFS_BACKEND_RIGHT_MUTATE)
@@ -115,6 +119,13 @@ typedef struct {
     uint32_t count;
     os_service_backend_entry_t entries[OS_SERVICE_BACKEND_CAPACITY];
 } os_vfs_backend_list_reply_t;
+
+typedef struct {
+    int32_t status;
+    uint32_t generation;
+    uint32_t count;
+    os_service_backend_entry_t entries[OS_SERVICE_BACKEND_CAPACITY];
+} os_vfs_backend_observe_reply_t;
 
 typedef struct {
     int32_t status;
@@ -950,6 +961,77 @@ static inline int os_vfs_parse_backend_list_reply(const os_ipc_message_t* messag
     for (i = 0U; i < OS_SERVICE_BACKEND_CAPACITY; i++) {
         reply_out->entries[i].pid = os_vfs_decode_i32(&message->data[8U + i * 8U]);
         reply_out->entries[i].rights = os_vfs_decode_u32(&message->data[12U + i * 8U]);
+        if (i < reply_out->count && (reply_out->entries[i].pid <= 0 || reply_out->entries[i].rights == 0U ||
+            (reply_out->entries[i].rights & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U)) return OS_VFS_STATUS_INVALID;
+        if (i >= reply_out->count && (reply_out->entries[i].pid != 0 || reply_out->entries[i].rights != 0U)) return OS_VFS_STATUS_INVALID;
+    }
+    return 0;
+}
+
+static inline int os_vfs_make_backend_observe_request(os_ipc_payload_t* payload,
+                                                       uint32_t expected_generation,
+                                                       uint32_t request_id) {
+    uint32_t i;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_BACKEND_OBSERVE;
+    payload->size = OS_VFS_BACKEND_OBSERVE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_u32(&payload->data[0], expected_generation);
+    for (i = OS_VFS_BACKEND_OBSERVE_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_backend_observe_request(const os_ipc_message_t* message,
+                                                        uint32_t* expected_generation_out) {
+    if (!message || !expected_generation_out || message->type != OS_IPC_VFS_BACKEND_OBSERVE ||
+        message->size != OS_VFS_BACKEND_OBSERVE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    *expected_generation_out = os_vfs_decode_u32(&message->data[0]);
+    return 0;
+}
+
+static inline int os_vfs_make_backend_observe_reply(os_ipc_payload_t* payload, int32_t status,
+                                                     const os_service_backend_snapshot_t* snapshot,
+                                                     uint32_t request_id) {
+    uint32_t i, count = 0U, generation = 0U;
+    if (!payload || !snapshot) return OS_VFS_STATUS_INVALID;
+    generation = snapshot->generation;
+    if (status == 0) {
+        if (snapshot->list.count > OS_SERVICE_BACKEND_CAPACITY) return OS_VFS_STATUS_INVALID;
+        count = snapshot->list.count;
+        for (i = 0U; i < count; i++) {
+            if (snapshot->list.entries[i].pid <= 0 || snapshot->list.entries[i].rights == 0U ||
+                (snapshot->list.entries[i].rights & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U) return OS_VFS_STATUS_INVALID;
+        }
+    }
+    payload->type = OS_IPC_VFS_BACKEND_OBSERVE_REPLY;
+    payload->size = OS_VFS_BACKEND_OBSERVE_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    os_vfs_encode_u32(&payload->data[4], generation);
+    os_vfs_encode_u32(&payload->data[8], count);
+    for (i = 0U; i < OS_SERVICE_BACKEND_CAPACITY; i++) {
+        int32_t pid = i < count ? snapshot->list.entries[i].pid : 0;
+        uint32_t rights = i < count ? snapshot->list.entries[i].rights : 0U;
+        os_vfs_encode_i32(&payload->data[12U + i * 8U], pid);
+        os_vfs_encode_u32(&payload->data[16U + i * 8U], rights);
+    }
+    for (i = OS_VFS_BACKEND_OBSERVE_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_backend_observe_reply(const os_ipc_message_t* message,
+                                                      os_vfs_backend_observe_reply_t* reply_out,
+                                                      uint32_t expected_request_id) {
+    uint32_t i;
+    if (!message || !reply_out || message->type != OS_IPC_VFS_BACKEND_OBSERVE_REPLY ||
+        message->size != OS_VFS_BACKEND_OBSERVE_REPLY_SIZE || message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    reply_out->generation = os_vfs_decode_u32(&message->data[4]);
+    reply_out->count = os_vfs_decode_u32(&message->data[8]);
+    if (reply_out->count > OS_SERVICE_BACKEND_CAPACITY || (reply_out->status != 0 && reply_out->count != 0U)) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_SERVICE_BACKEND_CAPACITY; i++) {
+        reply_out->entries[i].pid = os_vfs_decode_i32(&message->data[12U + i * 8U]);
+        reply_out->entries[i].rights = os_vfs_decode_u32(&message->data[16U + i * 8U]);
         if (i < reply_out->count && (reply_out->entries[i].pid <= 0 || reply_out->entries[i].rights == 0U ||
             (reply_out->entries[i].rights & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U)) return OS_VFS_STATUS_INVALID;
         if (i >= reply_out->count && (reply_out->entries[i].pid != 0 || reply_out->entries[i].rights != 0U)) return OS_VFS_STATUS_INVALID;
