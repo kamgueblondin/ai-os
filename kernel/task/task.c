@@ -763,6 +763,52 @@ int task_observe_supervision_events(int requester_pid, uint32_t expected_generat
     return rc;
 }
 
+int task_find_supervision_event(int requester_pid, uint32_t sequence,
+                                os_task_supervision_event_t* out) {
+    task_t* parent;
+    uint32_t i;
+    if (!out || sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->supervision_event_count; i++) {
+        uint32_t index = (parent->supervision_event_start + i) %
+                         OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        if (parent->supervision_events[index].sequence == sequence) {
+            *out = parent->supervision_events[index];
+            return 0;
+        }
+    }
+    return OS_TASK_NO_SUPERVISION_EVENT;
+}
+
+int task_forget_supervision_event(int requester_pid, uint32_t sequence) {
+    task_t* parent;
+    os_task_supervision_event_t retained[OS_TASK_SUPERVISION_EVENT_CAPACITY];
+    uint32_t i;
+    uint32_t kept = 0U;
+    int found = 0;
+    if (sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    for (i = 0U; i < parent->supervision_event_count; i++) {
+        uint32_t index = (parent->supervision_event_start + i) %
+                         OS_TASK_SUPERVISION_EVENT_CAPACITY;
+        if (parent->supervision_events[index].sequence == sequence) {
+            found = 1;
+        } else {
+            retained[kept++] = parent->supervision_events[index];
+        }
+    }
+    if (!found) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent->supervision_event_start = 0U;
+    parent->supervision_event_count = kept;
+    for (i = 0U; i < kept; i++) parent->supervision_events[i] = retained[i];
+    parent->supervision_event_generation++;
+    if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+    return (int)kept;
+}
+
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
     task_t* parent;
     task_t* t;

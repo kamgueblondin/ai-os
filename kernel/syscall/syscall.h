@@ -52,6 +52,8 @@ int sys_task_supervision_events(os_task_supervision_events_t* out);
 int sys_task_supervision_events_ack(void);
 int sys_task_supervision_events_observe(uint32_t expected_generation,
                                         os_task_supervision_events_observation_t* out);
+int sys_task_supervision_event_find(uint32_t sequence, os_task_supervision_event_t* out);
+int sys_task_supervision_event_forget(uint32_t sequence);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);
