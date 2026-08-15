@@ -140,6 +140,10 @@ int task_can_create_child(int pid) {
     return 0;
 }
 
+int task_can_create_global(void) {
+    return (uint32_t)get_task_count() >= OS_TASK_GLOBAL_CAPACITY ? OS_TASK_GLOBAL_LIMIT : 0;
+}
+
 int task_wait_for_child(int requester_pid, int child_pid) {
     task_t* parent = get_task_by_id(requester_pid);
     task_t* child = get_task_by_id(child_pid);
@@ -160,6 +164,7 @@ int task_kill(int requester_pid, int pid) {
     if (!t) return -1;
     if (requester_pid == pid) return -3;
     if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
+    task_notify_parent_exit(t, OS_TASK_EVENT_KILLED);
     task_wake_waiter(t);
     task_reparent_children(t);
     t->state = TASK_TERMINATED;
@@ -218,6 +223,16 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     return 0;
 }
 
+int task_fill_capacity(os_task_capacity_t* out) {
+    uint32_t active;
+    if (!out) return OS_TASK_NOT_FOUND;
+    active = (uint32_t)get_task_count();
+    out->active = active;
+    out->capacity = OS_TASK_GLOBAL_CAPACITY;
+    out->available = active < OS_TASK_GLOBAL_CAPACITY ? OS_TASK_GLOBAL_CAPACITY - active : 0U;
+    return 0;
+}
+
 int task_set_priority(int requester_pid, int pid, uint32_t priority) {
     task_t* t;
     if (priority < OS_TASK_PRIORITY_LOW || priority > OS_TASK_PRIORITY_HIGH) {
@@ -229,6 +244,23 @@ int task_set_priority(int requester_pid, int pid, uint32_t priority) {
         return OS_TASK_CONTROL_DENIED;
     }
     t->priority = priority;
+    return 0;
+}
+
+int task_set_name(int requester_pid, int pid, const char* name) {
+    task_t* t;
+    int i = 0;
+    if (!name || !name[0]) return OS_TASK_BAD_NAME;
+    while (name[i]) {
+        unsigned char c = (unsigned char)name[i];
+        if (i >= OS_PROC_NAME_MAX - 1 || c < 32U || c > 126U) return OS_TASK_BAD_NAME;
+        i++;
+    }
+    t = get_task_by_id(pid);
+    if (!t) return OS_TASK_NOT_FOUND;
+    if (requester_pid != t->id && requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
+    for (i = 0; name[i]; i++) t->name[i] = name[i];
+    t->name[i] = '\0';
     return 0;
 }
 
@@ -285,6 +317,31 @@ void task_wake_waiter(task_t* child) {
         parent->state = TASK_READY;
     }
     child->waiter_pid = 0;
+}
+
+static void mock_task_event_send(ipc_endpoint_t* endpoint, const os_ipc_payload_t* payload) {
+    os_ipc_message_t* message;
+    uint32_t i;
+    if (!endpoint || !payload || payload->size > OS_IPC_MAX_DATA ||
+        endpoint->count >= IPC_ENDPOINT_CAPACITY) return;
+    message = &endpoint->messages[endpoint->write_index];
+    message->sender_pid = 0;
+    message->type = payload->type;
+    message->size = payload->size;
+    message->request_id = payload->request_id;
+    for (i = 0U; i < payload->size; i++) message->data[i] = payload->data[i];
+    endpoint->write_index = (endpoint->write_index + 1U) % IPC_ENDPOINT_CAPACITY;
+    endpoint->count++;
+}
+
+void task_notify_parent_exit(task_t* child, uint32_t reason) {
+    task_t* parent;
+    os_ipc_payload_t payload;
+    if (!child || child->parent_pid <= 0) return;
+    parent = get_task_by_id(child->parent_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return;
+    if (os_task_make_event(&payload, child->id, reason) != 0) return;
+    mock_task_event_send(&parent->ipc_endpoint, &payload);
 }
 
 void task_yield(void) {
@@ -690,6 +747,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_WAIT:
             state->eax = (uint32_t)task_wait_for_child(current_task ? current_task->id : -1,
                                                         (int)state->ebx);
+            break;
+        case SYS_TASK_SET_NAME:
+            state->eax = (uint32_t)task_set_name(current_task ? current_task->id : -1,
+                                                  (int)state->ebx, (const char*)state->ecx);
+            break;
+        case SYS_TASK_CAPACITY:
+            state->eax = (uint32_t)task_fill_capacity((os_task_capacity_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

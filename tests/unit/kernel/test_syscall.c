@@ -587,6 +587,54 @@ void test_sys_task_priority_and_metrics(void) {
     current_task = old_current;
 }
 
+void test_sys_task_name_and_capacity(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    os_task_capacity_t capacity;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER;
+    parent->state = TASK_RUNNING;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+    current_task = parent;
+
+    cpu.eax = SYS_TASK_SET_NAME;
+    cpu.ebx = (uint32_t)child->id;
+    cpu.ecx = (uint32_t)"worker";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL_STRING("worker", child->name);
+
+    current_task = child;
+    cpu.eax = SYS_TASK_SET_NAME;
+    cpu.ebx = (uint32_t)parent->id;
+    cpu.ecx = (uint32_t)"blocked";
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, (int)cpu.eax);
+
+    cpu.eax = SYS_TASK_CAPACITY;
+    cpu.ebx = (uint32_t)&capacity;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, capacity.active);
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_CAPACITY, capacity.capacity);
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_CAPACITY - 2U, capacity.available);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_wait_child(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1419,6 +1467,7 @@ int main(void) {
     RUN_TEST(test_sys_kill_protects_kernel);
     RUN_TEST(test_sys_meminfo);
     RUN_TEST(test_sys_task_priority_and_metrics);
+    RUN_TEST(test_sys_task_name_and_capacity);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);

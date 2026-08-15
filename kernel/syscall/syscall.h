@@ -32,6 +32,8 @@ int sys_meminfo(os_meminfo_t* info);
 int sys_task_metrics(int pid, os_task_metrics_t* out);
 int sys_task_set_priority(int pid, uint32_t priority);
 int sys_task_wait(int pid);
+int sys_task_set_name(int pid, const char* name);
+int sys_task_capacity(os_task_capacity_t* out);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);

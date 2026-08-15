@@ -162,6 +162,13 @@ def main():
             idle_pid = parse_spawn_pid(log_text()[spawn_start:], "idle")
             say("spawned idle pid %s" % idle_pid)
 
+            say("typing task-name %s sleeper ..." % idle_pid)
+            send_command_until(monitor, "task-name %s sleeper" % idle_pid,
+                               "task-name ok %s sleeper" % idle_pid, proc)
+
+            say("typing task-capacity (one child) ...")
+            send_command_until(monitor, "task-capacity", "task-capacity ok 3 16 13", proc)
+
             say("typing task-metrics %s ..." % idle_pid)
             send_command_until(monitor, "task-metrics %s" % idle_pid, "Parent : 1", proc)
 
@@ -178,16 +185,23 @@ def main():
 
             say("typing ps ...")
             start = send_command_until(monitor, "ps", "%s    1" % idle_pid, proc)
-            wait_for(proc, "user  idle", CMD_TIMEOUT, start)
+            wait_for(proc, "user  sleeper", CMD_TIMEOUT, start)
 
             say("typing kill %s ..." % idle_pid)
             start = send_command_until(monitor, "kill %s" % idle_pid,
                                        "Processus %s termine" % idle_pid, proc)
 
+            say("typing ipc-recv (killed event) ...")
+            send_command_until(monitor, "ipc-recv",
+                               "task-event child %s reason killed" % idle_pid, proc)
+
+            say("typing task-capacity (after kill) ...")
+            send_command_until(monitor, "task-capacity", "task-capacity ok 2 16 14", proc)
+
             say("typing ps (after kill) ...")
             start = send_command_until(monitor, "ps", "Total:", proc)
-            if "user  idle" in log_text()[start:]:
-                raise RuntimeError("idle still listed in ps after kill %s" % idle_pid)
+            if "user  sleeper" in log_text()[start:]:
+                raise RuntimeError("renamed child still listed in ps after kill %s" % idle_pid)
 
             say("typing spawn waitchild ...")
             spawn_start = send_command_until(monitor, "spawn waitchild", "spawn ok pid", proc)
@@ -201,6 +215,10 @@ def main():
             wait_start = send_command_until(monitor, "wait %s" % wait_pid,
                                             "wait ok %s" % wait_pid, proc)
             wait_for(proc, "wait-child done", CMD_TIMEOUT, wait_start)
+
+            say("typing ipc-recv (exited event) ...")
+            send_command_until(monitor, "ipc-recv",
+                               "task-event child %s reason exited" % wait_pid, proc)
 
             say("typing task-metrics 1 (no child) ...")
             send_command_until(monitor, "task-metrics 1", "Enfants directs : 0", proc)
