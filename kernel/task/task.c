@@ -739,6 +739,30 @@ int task_fill_supervision_events(int requester_pid, os_task_supervision_events_t
     return 0;
 }
 
+int task_ack_supervision_events(int requester_pid) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    parent->supervision_event_start = 0U;
+    parent->supervision_event_count = 0U;
+    parent->supervision_event_generation++;
+    if (parent->supervision_event_generation == 0U) parent->supervision_event_generation = 1U;
+    return (int)parent->supervision_event_generation;
+}
+
+int task_observe_supervision_events(int requester_pid, uint32_t expected_generation,
+                                    os_task_supervision_events_observation_t* out) {
+    task_t* parent;
+    int rc;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent) return OS_TASK_NOT_FOUND;
+    out->generation = parent->supervision_event_generation;
+    if (expected_generation != out->generation) return OS_TASK_HISTORY_STALE;
+    rc = task_fill_supervision_events(requester_pid, &out->events);
+    return rc;
+}
+
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
     task_t* parent;
     task_t* t;

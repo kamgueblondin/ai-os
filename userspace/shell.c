@@ -271,6 +271,20 @@ int sys_task_supervision_events(os_task_supervision_events_t* out) {
     return result;
 }
 
+int sys_task_supervision_events_ack(void) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_EVENTS_ACK));
+    return result;
+}
+
+int sys_task_supervision_events_observe(uint32_t expected_generation,
+                                        os_task_supervision_events_observation_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_EVENTS_OBSERVE),
+                 "b"(expected_generation), "c"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -764,6 +778,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  child-exit-count   - Total local des sorties enfants\n");
     print_string("  task-delegate <enfant> <pid> - Déléguer la supervision directe\n");
     print_string("  task-events        - Journal borné de supervision locale\n");
+    print_string("  task-events-observe <gen> - Lire le journal à une génération\n");
+    print_string("  task-events-clear  - Acquitter le journal de supervision\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1183,6 +1199,53 @@ void cmd_task_events(shell_context_t* ctx, char args[][128], int arg_count) {
     print_uint(events.count); print_string("\n");
     for (i = 0U; i < events.count; i++) {
         os_task_supervision_event_t* event = &events.entries[i];
+        print_string("task-event "); print_uint(event->sequence); print_string(" ");
+        print_string(supervision_action_name(event->action)); print_string(" ");
+        print_int(event->child_pid); print_string(" "); print_int(event->related_pid);
+        print_string(" "); print_uint(event->detail); print_string(" ");
+        print_uint(event->ticks); print_string("\n");
+    }
+}
+
+void cmd_task_events_clear(shell_context_t* ctx, char args[][128], int arg_count) {
+    int generation;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: task-events-clear");
+        return;
+    }
+    generation = sys_task_supervision_events_ack();
+    if (generation < 0) {
+        print_error("task-events-clear: syscall indisponible");
+        return;
+    }
+    print_string("task-events-clear ok "); print_uint((uint32_t)generation); print_string("\n");
+}
+
+void cmd_task_events_observe(shell_context_t* ctx, char args[][128], int arg_count) {
+    int expected;
+    int rc;
+    uint32_t i;
+    os_task_supervision_events_observation_t observation;
+    (void)ctx;
+    if (arg_count != 1 || (expected = parse_int(args[0])) < 0) {
+        print_error("Usage: task-events-observe <generation>");
+        return;
+    }
+    rc = sys_task_supervision_events_observe((uint32_t)expected, &observation);
+    if (rc == OS_TASK_HISTORY_STALE) {
+        print_string("task-events-observe stale "); print_uint(observation.generation);
+        print_string("\n");
+        return;
+    }
+    if (rc != 0) {
+        print_error("task-events-observe: syscall indisponible");
+        return;
+    }
+    print_string("task-events-observe ok "); print_uint(observation.generation);
+    print_string(" "); print_uint(observation.events.count); print_string("\n");
+    for (i = 0U; i < observation.events.count; i++) {
+        os_task_supervision_event_t* event = &observation.events.entries[i];
         print_string("task-event "); print_uint(event->sequence); print_string(" ");
         print_string(supervision_action_name(event->action)); print_string(" ");
         print_int(event->child_pid); print_string(" "); print_int(event->related_pid);
@@ -1868,7 +1931,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4059,6 +4122,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-events") == 0) {
         cmd_task_events(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-observe") == 0) {
+        cmd_task_events_observe(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-clear") == 0) {
+        cmd_task_events_clear(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

@@ -239,6 +239,16 @@ def main():
             wait_for(proc, "task-event 1 suspend %s 0 0" % idle_pid, CMD_TIMEOUT, events_start)
             wait_for(proc, "task-event 2 exit %s 0 2" % idle_pid, CMD_TIMEOUT, events_start)
             wait_for(proc, "task-event 3 exit %s 0 1" % wait_pid, CMD_TIMEOUT, events_start)
+            say("typing task-events-observe 2 (stale) ...")
+            send_command_until(monitor, "task-events-observe 2", "task-events-observe stale 3", proc)
+            say("typing task-events-observe 3 (fresh) ...")
+            observe_events_start = send_command_until(monitor, "task-events-observe 3",
+                                                      "task-events-observe ok 3 3", proc)
+            wait_for(proc, "task-event 3 exit %s 0 1" % wait_pid, CMD_TIMEOUT, observe_events_start)
+            say("typing task-events-clear ...")
+            send_command_until(monitor, "task-events-clear", "task-events-clear ok 4", proc)
+            say("typing task-events (empty) ...")
+            send_command_until(monitor, "task-events", "task-events ok 4 0", proc)
 
             say("typing child-results (history) ...")
             history_start = send_command_until(monitor, "child-results", "child-results ok 2", proc)
@@ -297,7 +307,7 @@ def main():
             send_command_until(monitor, "task-metrics %s" % delegated_pid,
                                "Parent : %s" % supervisor_pid, proc)
             say("typing task-events (delegation) ...")
-            delegated_events_start = send_command_until(monitor, "task-events", "task-events ok 4 4", proc)
+            delegated_events_start = send_command_until(monitor, "task-events", "task-events ok 5 1", proc)
             wait_for(proc, "task-event 4 delegate-out %s %s 0" %
                      (delegated_pid, supervisor_pid), CMD_TIMEOUT, delegated_events_start)
 

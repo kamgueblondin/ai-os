@@ -961,6 +961,7 @@ void test_task_supervision_events(void) {
     task_t* supervisor;
     os_task_supervision_events_t parent_events;
     os_task_supervision_events_t supervisor_events;
+    os_task_supervision_events_observation_t observation;
     int i;
 
     tasking_init();
@@ -989,6 +990,12 @@ void test_task_supervision_events(void) {
     TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, parent_events.entries[1].action);
     TEST_ASSERT_EQUAL(3, parent_events.entries[2].sequence);
     TEST_ASSERT_EQUAL(4, parent_events.entries[3].sequence);
+    TEST_ASSERT_EQUAL(0, task_observe_supervision_events(parent->id, 4U, &observation));
+    TEST_ASSERT_EQUAL(4, observation.generation);
+    TEST_ASSERT_EQUAL(4, observation.events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_HISTORY_STALE,
+                      task_observe_supervision_events(parent->id, 3U, &observation));
+    TEST_ASSERT_EQUAL(4, observation.generation);
 
     TEST_ASSERT_EQUAL(0, task_delegate_child(parent->id, child->id, supervisor->id));
     TEST_ASSERT_EQUAL(0, task_fill_supervision_events(parent->id, &parent_events));
@@ -997,6 +1004,13 @@ void test_task_supervision_events(void) {
     TEST_ASSERT_EQUAL(2, parent_events.entries[0].sequence);
     TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_DELEGATE_OUT, parent_events.entries[3].action);
     TEST_ASSERT_EQUAL(supervisor->id, parent_events.entries[3].related_pid);
+    TEST_ASSERT_EQUAL(6, task_ack_supervision_events(parent->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_events(parent->id, &parent_events));
+    TEST_ASSERT_EQUAL(6, parent_events.generation);
+    TEST_ASSERT_EQUAL(0, parent_events.count);
+    TEST_ASSERT_EQUAL(OS_TASK_HISTORY_STALE,
+                      task_observe_supervision_events(parent->id, 5U, &observation));
+    TEST_ASSERT_EQUAL(6, observation.generation);
 
     TEST_ASSERT_EQUAL(0, task_fill_supervision_events(supervisor->id, &supervisor_events));
     TEST_ASSERT_EQUAL(1, supervisor_events.count);
