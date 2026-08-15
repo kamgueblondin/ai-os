@@ -100,6 +100,8 @@ Le trente-quatrième incrément ajoute `SYS_SERVICE_BACKEND_OBSERVE` (50), le pr
 
 Le trente-cinquième incrément porte cette génération à la granularité du service publié. Une mutation backend de `demo` ne rend plus l’observation de `vfs` obsolète ; seules les mutations, révocations, transferts et purges associés au même nom font avancer sa génération. Aucun nouveau syscall ni droit n’est ajouté.
 
+Le trente-sixième incrément lie les réponses corrélées des commandes `vfs-backend-*` au PID du médiateur `vfs` résolu avant l’envoi. Une réponse du bon type et du bon `request_id` issue d’un autre PID n’est pas décodée comme valide. Cette protection couvre l’octroi, les profils scoped, la révocation, le statut, l’inventaire et l’observation backend ; les autres familles de réponses VFS restent explicitement hors périmètre.
+
 ### IA locale, GGUF et BPE
 
 Le chemin `ai <texte>` appelle `SYS_GPT2_GENERATE` avec le profil local GPT-2. Le chargeur utilise le checkpoint `llm.c v3`, le tokenizer binaire, des activations CPU freestanding, le cache clé/valeur par couche et position, SSE2 et un échantillonnage top-k. Le contexte est limité à 64 jetons ; l’interface indique quatre jetons générés au maximum afin de borner l’exécution. Sous QEMU TCG sans KVM, l’objectif inférieur à une seconde n’est **pas atteint** : les mesures disponibles restent de l’ordre de 7 à 9 secondes pour une courte génération. L’amélioration du cache KV et de SSE2 reste néanmoins substantielle par rapport à l’ancien chemin non optimisé.

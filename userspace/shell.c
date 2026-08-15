@@ -1776,8 +1776,9 @@ static void cmd_vfs_backend_grant(shell_context_t* ctx, char args[][128], int ar
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-grant: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_GRANT_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_grant_reply(&message, &status, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_grant_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_grant_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-grant: delegation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-grant ok request "); print_int((int)request_id); print_string("\n");
 }
@@ -1792,8 +1793,9 @@ static void cmd_vfs_backend_grant_read(shell_context_t* ctx, char args[][128], i
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-grant-read: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-grant-read: delegation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-grant-read ok request "); print_int((int)request_id); print_string("\n");
 }
@@ -1808,8 +1810,9 @@ static void cmd_vfs_backend_grant_mutate(shell_context_t* ctx, char args[][128],
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-grant-mutate: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_GRANT_SCOPED_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_grant_scoped_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-grant-mutate: delegation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-grant-mutate ok request "); print_int((int)request_id); print_string("\n");
 }
@@ -1824,8 +1827,9 @@ static void cmd_vfs_backend_revoke(shell_context_t* ctx, char args[][128], int a
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-revoke: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_REVOKE_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_revoke_reply(&message, &status, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_REVOKE_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_revoke_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_REVOKE_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_revoke_reply(&message, &status, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-revoke: revocation refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-revoke ok request "); print_int((int)request_id); print_string("\n");
 }
@@ -1840,8 +1844,9 @@ static void cmd_vfs_backend_status(shell_context_t* ctx, char args[][128], int a
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-status: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_STATUS_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_status_reply(&message, &status, &rights, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_STATUS_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_status_reply(&message, &status, &rights, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_STATUS_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_status_reply(&message, &status, &rights, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || status != 0) { print_error("vfs-backend-status: capacite absente ou refusee"); ctx->last_rc = rc != 0 ? rc : status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-status ok rights ");
     if (rights == OS_VFS_BACKEND_RIGHT_READ) print_string("read");
@@ -1861,8 +1866,9 @@ static void cmd_vfs_backend_list(shell_context_t* ctx, char args[][128], int arg
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-list: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_LIST_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_list_reply(&message, &reply, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_LIST_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_list_reply(&message, &reply, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_LIST_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_list_reply(&message, &reply, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0 || reply.status != 0) { print_error("vfs-backend-list: consultation refusee"); ctx->last_rc = rc != 0 ? rc : reply.status; return; }
     ctx->last_rc = 0; print_string("vfs-backend-list ok count "); print_int((int)reply.count); print_string(" request "); print_int((int)request_id); print_string("\n");
     for (i = 0U; i < reply.count; i++) {
@@ -1885,8 +1891,9 @@ static void cmd_vfs_backend_observe(shell_context_t* ctx, char args[][128], int 
     if (rc == 0) rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-backend-observe: demande refusee"); ctx->last_rc = rc; return; }
     rc = os_ipc_deferred_take_matching(&ipc_deferred, OS_IPC_VFS_BACKEND_OBSERVE_REPLY, request_id, &message);
+    if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_backend_observe_reply(&message, &reply, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_OBSERVE_REPLY && message.request_id == request_id) rc = os_vfs_parse_backend_observe_reply(&message, &reply, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
+    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) { int saved; yield(); rc = sys_ipc_receive(&message); if (rc == 0) { if (message.type == OS_IPC_VFS_BACKEND_OBSERVE_REPLY && message.request_id == request_id && message.sender_pid == pid) rc = os_vfs_parse_backend_observe_reply(&message, &reply, request_id); else { saved = os_ipc_deferred_push(&ipc_deferred, &message); rc = saved == 0 ? OS_IPC_EMPTY : saved; } } }
     if (rc != 0) { print_error("vfs-backend-observe: reponse invalide"); ctx->last_rc = rc; return; }
     if (reply.status == OS_SERVICE_STALE) { ctx->last_rc = reply.status; print_string("vfs-backend-observe stale generation "); print_int((int)reply.generation); print_string("\n"); return; }
     if (reply.status != 0) { print_error("vfs-backend-observe: consultation refusee"); ctx->last_rc = reply.status; return; }
