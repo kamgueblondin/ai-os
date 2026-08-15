@@ -1,5 +1,9 @@
 /* wait_child.c - enfant de preuve pour SYS_TASK_WAIT.
- * Après un unique yield, le retour de main provoque SYS_EXIT via start.s. */
+ * La série bornée de yields laisse au parent le temps d’installer une attente
+ * sous QEMU ; une fois le parent WAITING, l’enfant reprend immédiatement puis
+ * sort normalement via start.s. */
+
+#define WAIT_CHILD_YIELDS 64
 
 void putc(char c) {
     asm volatile("int $0x80" : : "a"(1), "b"(c));
@@ -15,7 +19,8 @@ static void puts_local(const char* text) {
 }
 
 void main(void) {
+    int i;
     puts_local("wait-child ready\n");
-    yield();
+    for (i = 0; i < WAIT_CHILD_YIELDS; i++) yield();
     puts_local("wait-child done\n");
 }

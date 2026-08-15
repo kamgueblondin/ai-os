@@ -59,6 +59,7 @@ typedef struct task {
     uint32_t child_exit_history_start;
     uint32_t child_exit_history_count;
     uint32_t child_exit_history_generation;
+    uint32_t direct_child_exit_count; /* Départs directs cumulés depuis la création. */
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -111,6 +112,7 @@ int task_forget_child_result_history(int requester_pid, int child_pid);
 int task_suspend_child(int requester_pid, int child_pid);
 int task_resume_child(int requester_pid, int child_pid);
 int task_kill_direct_children(int requester_pid);
+int task_get_child_exit_count(int requester_pid, uint32_t* out);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

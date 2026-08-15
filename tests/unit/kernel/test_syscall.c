@@ -597,6 +597,7 @@ void test_sys_task_name_and_capacity(void) {
     os_task_exit_history_t history;
     os_task_exit_history_observation_t observation;
     os_task_children_t children;
+    os_task_child_exit_count_t exit_count;
     cpu_state_t cpu = {0};
 
     task_queue = NULL;
@@ -666,6 +667,11 @@ void test_sys_task_name_and_capacity(void) {
 
     task_report_parent_exit(child, 42, OS_TASK_EVENT_EXITED);
     current_task = parent;
+    cpu.eax = SYS_TASK_CHILD_EXIT_COUNT;
+    cpu.ebx = (uint32_t)&exit_count;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, exit_count.count);
     cpu.eax = SYS_TASK_CHILD_RESULT;
     cpu.ebx = (uint32_t)child->id;
     cpu.ecx = (uint32_t)&result;
@@ -706,6 +712,11 @@ void test_sys_task_name_and_capacity(void) {
     cpu.eax = SYS_TASK_CHILD_RESULT_ACK;
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(3, (int)cpu.eax);
+    cpu.eax = SYS_TASK_CHILD_EXIT_COUNT;
+    cpu.ebx = (uint32_t)&exit_count;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, exit_count.count);
     cpu.eax = SYS_TASK_CHILD_RESULT_LIST;
     cpu.ebx = (uint32_t)&history;
     syscall_handler(&cpu);
@@ -713,6 +724,11 @@ void test_sys_task_name_and_capacity(void) {
     TEST_ASSERT_EQUAL(0, history.count);
 
     task_report_parent_exit(child, 13, OS_TASK_EVENT_EXITED);
+    cpu.eax = SYS_TASK_CHILD_EXIT_COUNT;
+    cpu.ebx = (uint32_t)&exit_count;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(2, exit_count.count);
     cpu.eax = SYS_TASK_CHILD_RESULT_FIND;
     cpu.ebx = (uint32_t)child->id;
     cpu.ecx = (uint32_t)&result;
