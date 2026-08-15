@@ -841,7 +841,9 @@ int sys_ps(os_proc_t* out, int max_n) {
 }
 
 int sys_kill(int pid) {
-    int rc = task_kill(pid);
+    int rc;
+    if (!current_task) return OS_TASK_CONTROL_DENIED;
+    rc = task_kill(current_task->id, pid);
     if (rc == 0) {
         service_notify_purge_pid(pid);
         service_registry_backend_remove_pid(pid);

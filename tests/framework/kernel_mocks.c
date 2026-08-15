@@ -111,12 +111,13 @@ int get_task_count(void) {
     return count;
 }
 
-int task_kill(int pid) {
+int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
     t = get_task_by_id(pid);
     if (!t) return -1;
-    if (current_task && t->id == current_task->id) return -3;
+    if (requester_pid == pid) return -3;
+    if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
     task_wake_waiter(t);
     t->state = TASK_TERMINATED;
     remove_task(t);
@@ -130,6 +131,7 @@ int task_fill_ps(os_proc_t* out, int max_n) {
     while (t && count < max_n) {
         int i = 0;
         out[count].pid = t->id;
+        out[count].parent_pid = t->parent_pid;
         out[count].state = (t->state == TASK_RUNNING) ? OS_TASK_RUNNING :
                            (t->state == TASK_READY) ? OS_TASK_READY :
                            (t->state == TASK_TERMINATED) ? OS_TASK_TERMINATED : OS_TASK_WAITING;
@@ -553,7 +555,8 @@ int sys_ps(os_proc_t* out, int max_n) {
 }
 
 int sys_kill(int pid) {
-    return task_kill(pid);
+    if (!current_task) return OS_TASK_CONTROL_DENIED;
+    return task_kill(current_task->id, pid);
 }
 
 uint32_t sys_ticks(void) {

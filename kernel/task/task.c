@@ -437,12 +437,13 @@ int get_task_count(void) {
     return n;
 }
 
-int task_kill(int pid) {
+int task_kill(int requester_pid, int pid) {
     task_t* t;
     if (pid == 0) return -2;
     t = get_task_by_id(pid);
     if (!t) return -1;
-    if (current_task && t->id == current_task->id) return -3;
+    if (requester_pid == pid) return -3;
+    if (requester_pid != t->parent_pid) return OS_TASK_CONTROL_DENIED;
     task_wake_waiter(t);
     t->state = TASK_TERMINATED;
     unlink_task(t);
@@ -474,6 +475,7 @@ int task_fill_ps(os_proc_t* out, int max_n) {
         int i;
         if (count >= max_n) break;
         out[count].pid = t->id;
+        out[count].parent_pid = t->parent_pid;
         out[count].state = map_task_state(t->state);
         out[count].type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
         i = 0;

@@ -160,6 +160,7 @@ typedef struct {
 
 typedef struct {
     int32_t pid;
+    int32_t parent_pid; /* -1 lorsqu’aucun parent utilisateur n’est connu. */
     int32_t state;
     int32_t type;
     char name[OS_PROC_NAME_MAX];

@@ -177,7 +177,8 @@ def main():
             wait_for(proc, "idle ok", CMD_TIMEOUT, spawn_start)
 
             say("typing ps ...")
-            start = send_command_until(monitor, "ps", "user  idle", proc)
+            start = send_command_until(monitor, "ps", "%s    1" % idle_pid, proc)
+            wait_for(proc, "user  idle", CMD_TIMEOUT, start)
 
             say("typing kill %s ..." % idle_pid)
             start = send_command_until(monitor, "kill %s" % idle_pid,
