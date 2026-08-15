@@ -162,6 +162,12 @@ int sys_task_metrics(int pid, os_task_metrics_t* out) {
     return result;
 }
 
+int sys_task_set_priority(int pid, unsigned int priority) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SET_PRIORITY), "b"(pid), "c"(priority));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -634,6 +640,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("\nCOMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  sysinfo            - Informations système\n");
     print_string("  task-metrics <pid> - Télémétrie d’une tâche\n");
+    print_string("  task-priority <pid> <1|2|3> - Politique CPU locale\n");
     print_string("  mem                - Utilisation mémoire\n");
     print_string("  uptime             - Temps de fonctionnement\n");
     print_string("  date               - Date et heure\n");
@@ -799,6 +806,7 @@ void cmd_task_metrics(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("PID : "); print_int(metrics.pid);
     print_string("\nÉtat : "); print_string(proc_state_str(metrics.state));
     print_string("\nType : "); print_string(metrics.type == OS_TASK_USER ? "user" : "kernel");
+    print_string("\nPriorité CPU : "); print_int((int)metrics.priority);
     print_string("\nÂge : "); print_int((int)metrics.age_ticks); print_string(" ticks");
     print_string("\nExécution cumulée : "); print_int((int)metrics.run_ticks); print_string(" ticks");
     print_string("\nCommutations : "); print_int((int)metrics.switch_count); print_string("\n");
@@ -806,7 +814,34 @@ void cmd_task_metrics(shell_context_t* ctx, char args[][128], int arg_count) {
         print_string("PMM pages total/utilisées/libres : "); print_int((int)mem.total_pages);
         print_string("/"); print_int((int)mem.used_pages); print_string("/"); print_int((int)mem.free_pages); print_string("\n");
     }
-    print_string("task-metrics ok "); print_int(metrics.pid); print_string(" "); print_int((int)metrics.run_ticks); print_string(" "); print_int((int)metrics.switch_count); print_string("\n");
+    print_string("task-metrics ok "); print_int(metrics.pid); print_string(" "); print_int((int)metrics.priority); print_string(" "); print_int((int)metrics.run_ticks); print_string(" "); print_int((int)metrics.switch_count); print_string("\n");
+}
+
+void cmd_task_priority(shell_context_t* ctx, char args[][128], int arg_count) {
+    int pid;
+    int priority;
+    int rc;
+    (void)ctx;
+    if (arg_count != 2 || (pid = parse_int(args[0])) < 0 ||
+        (priority = parse_int(args[1])) < (int)OS_TASK_PRIORITY_LOW ||
+        priority > (int)OS_TASK_PRIORITY_HIGH) {
+        print_error("Usage: task-priority <pid> <1|2|3>");
+        return;
+    }
+    rc = sys_task_set_priority(pid, (unsigned int)priority);
+    if (rc == OS_TASK_NOT_FOUND) {
+        print_error("task-priority: PID absent");
+        return;
+    }
+    if (rc == OS_TASK_BAD_PRIORITY) {
+        print_error("task-priority: priorité hors plage");
+        return;
+    }
+    if (rc != 0) {
+        print_error("task-priority: syscall indisponible");
+        return;
+    }
+    print_string("task-priority ok "); print_int(pid); print_string(" "); print_int(priority); print_string("\n");
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1235,7 +1270,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -3376,6 +3411,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-metrics") == 0) {
         cmd_task_metrics(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-priority") == 0) {
+        cmd_task_priority(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "sysinfo") == 0 || strcmp(command, "info") == 0) {
         cmd_sysinfo(ctx, args, arg_count);

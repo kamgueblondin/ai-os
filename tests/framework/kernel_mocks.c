@@ -37,6 +37,7 @@ task_t* create_task(void (*entry_point)(void)) {
     task->id = next_task_id++;
     task->state = TASK_READY;
     task->type = TASK_TYPE_KERNEL;
+    task->priority = OS_TASK_PRIORITY_NORMAL;
     task->vmm_dir = (vmm_directory_t*)test_malloc(sizeof(vmm_directory_t));
     task->kernel_stack_p = 0;
     task->created_ticks = mock_timer_get_ticks();
@@ -161,6 +162,7 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
                  (t->state == TASK_READY) ? OS_TASK_READY :
                  (t->state == TASK_TERMINATED) ? OS_TASK_TERMINATED : OS_TASK_WAITING;
     out->type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+    out->priority = t->priority;
     out->created_ticks = t->created_ticks;
     out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
     out->run_ticks = run;
@@ -168,25 +170,47 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     return 0;
 }
 
+int task_set_priority(int pid, uint32_t priority) {
+    task_t* t;
+    if (priority < OS_TASK_PRIORITY_LOW || priority > OS_TASK_PRIORITY_HIGH) {
+        return OS_TASK_BAD_PRIORITY;
+    }
+    t = get_task_by_id(pid);
+    if (!t) return OS_TASK_NOT_FOUND;
+    t->priority = priority;
+    return 0;
+}
+
 void schedule(cpu_state_t* cpu) {
+    task_t* next_task = NULL;
+    task_t* candidate;
+    uint32_t best_priority = 0U;
     mock_task_switch_called++;
     if (!current_task || !task_queue) return;
 
-    // Linear round-robin scheduling simulation
-    task_t* next_task = current_task->next;
-    if (!next_task) {
-        next_task = task_queue;
-    }
+    /* Le parcours commence après la tâche courante : à priorité égale,
+     * l’ordre de la liste reste donc un round-robin déterministe. */
+    candidate = current_task;
+    do {
+        candidate = candidate->next ? candidate->next : task_queue;
+        if (candidate->state == TASK_READY && candidate->type == TASK_TYPE_USER &&
+            (!next_task || candidate->priority > best_priority)) {
+            next_task = candidate;
+            best_priority = candidate->priority;
+        }
+    } while (candidate != current_task);
 
-    while (next_task != current_task) {
-        if (next_task->state == TASK_READY || next_task->state == TASK_RUNNING) {
-            break;
-        }
-        next_task = next_task->next;
-        if (!next_task) {
-            next_task = task_queue;
-        }
+    if (!next_task) {
+        candidate = current_task;
+        do {
+            candidate = candidate->next ? candidate->next : task_queue;
+            if (candidate->state == TASK_READY || candidate->state == TASK_RUNNING) {
+                next_task = candidate;
+                break;
+            }
+        } while (candidate != current_task);
     }
+    if (!next_task) next_task = current_task;
 
     if (cpu && current_task != next_task) {
         // Mock save and switch state
@@ -602,6 +626,12 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_MEMINFO:
             state->eax = (uint32_t)sys_meminfo((os_meminfo_t*)state->ebx);
+            break;
+        case SYS_TASK_METRICS:
+            state->eax = (uint32_t)task_fill_metrics((int)state->ebx, (os_task_metrics_t*)state->ecx);
+            break;
+        case SYS_TASK_SET_PRIORITY:
+            state->eax = (uint32_t)task_set_priority((int)state->ebx, state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

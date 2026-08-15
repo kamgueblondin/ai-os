@@ -473,7 +473,45 @@ void test_task_metrics_snapshot_and_missing_pid(void) {
     TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_fill_metrics(999, &metrics));
 }
 
-// === TESTS D'INTEGRATION ===
+// === TESTS DE POLITIQUE CPU ===
+
+void test_task_priority_selection_and_validation(void) {
+    task_t* task1;
+    task_t* task2;
+    task_t* task3;
+    os_task_metrics_t metrics;
+    cpu_state_t cpu_state = {0};
+
+    tasking_init();
+    task1 = create_task(dummy_task_function);
+    task2 = create_task(dummy_task_function);
+    task3 = create_task(dummy_task_function);
+    task1->type = TASK_TYPE_USER;
+    task2->type = TASK_TYPE_USER;
+    task3->type = TASK_TYPE_USER;
+    add_task_to_queue(task1);
+    add_task_to_queue(task2);
+    add_task_to_queue(task3);
+    task1->state = TASK_RUNNING;
+    task2->state = TASK_READY;
+    task3->state = TASK_READY;
+    current_task = task1;
+
+    TEST_ASSERT_EQUAL(0, task_set_priority(task2->id, OS_TASK_PRIORITY_LOW));
+    TEST_ASSERT_EQUAL(0, task_set_priority(task3->id, OS_TASK_PRIORITY_HIGH));
+    schedule(&cpu_state);
+    TEST_ASSERT_EQUAL(task3, current_task);
+    TEST_ASSERT_EQUAL(0, task_fill_metrics(task3->id, &metrics));
+    TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, metrics.priority);
+    TEST_ASSERT_EQUAL(0, task_set_priority(task2->id, OS_TASK_PRIORITY_HIGH));
+    schedule(&cpu_state);
+    TEST_ASSERT_EQUAL(task2, current_task);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task2->id, 0));
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, task_set_priority(task2->id, 4));
+    TEST_ASSERT_EQUAL(OS_TASK_NOT_FOUND, task_set_priority(999, OS_TASK_PRIORITY_NORMAL));
+}
+
+// === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
     tasking_init();
@@ -556,6 +594,9 @@ int main(void) {
     
     // Tests de télémétrie
     RUN_TEST(test_task_metrics_snapshot_and_missing_pid);
+
+    // Tests de politique CPU
+    RUN_TEST(test_task_priority_selection_and_validation);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);
