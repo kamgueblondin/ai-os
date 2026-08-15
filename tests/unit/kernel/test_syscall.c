@@ -534,6 +534,46 @@ void test_sys_meminfo(void) {
     TEST_ASSERT(info.free_pages > 0);
 }
 
+void test_sys_task_priority_and_metrics(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* task;
+    os_task_metrics_t metrics;
+    cpu_state_t cpu = {0};
+
+    task_queue = NULL;
+    current_task = NULL;
+    task = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(task);
+    task->type = TASK_TYPE_USER;
+    task->state = TASK_RUNNING;
+    add_task_to_queue(task);
+    current_task = task;
+
+    cpu.eax = SYS_TASK_SET_PRIORITY;
+    cpu.ebx = (uint32_t)task->id;
+    cpu.ecx = OS_TASK_PRIORITY_HIGH;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+
+    cpu.eax = SYS_TASK_METRICS;
+    cpu.ebx = (uint32_t)task->id;
+    cpu.ecx = (uint32_t)&metrics;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, metrics.priority);
+
+    cpu.eax = SYS_TASK_SET_PRIORITY;
+    cpu.ebx = (uint32_t)task->id;
+    cpu.ecx = 4;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_PRIORITY, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(OS_TASK_PRIORITY_HIGH, task->priority);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_ps_lists_task(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -1314,6 +1354,7 @@ int main(void) {
     RUN_TEST(test_sys_readfile_and_listdir);
     RUN_TEST(test_sys_kill_protects_kernel);
     RUN_TEST(test_sys_meminfo);
+    RUN_TEST(test_sys_task_priority_and_metrics);
     RUN_TEST(test_sys_ps_lists_task);
     RUN_TEST(test_sys_kill_unknown_pid);
     RUN_TEST(test_sys_kill_removes_ready_task);

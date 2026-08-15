@@ -32,6 +32,7 @@ void tasking_init() {
     current_task->id = next_task_id++;
     current_task->state = TASK_RUNNING;
     current_task->type = TASK_TYPE_KERNEL;
+    current_task->priority = OS_TASK_PRIORITY_NORMAL;
     current_task->vmm_dir = kernel_directory;
     current_task->kernel_stack_p = 0;
     current_task->waiter_pid = 0;
@@ -110,25 +111,30 @@ void schedule(cpu_state_t* cpu) {
         current_task->state = TASK_READY;
     }
 
-    /* Prefer a user TASK_READY. The kernel task stays READY after the first
-     * jump_to_task() to the shell; picking it on SYS_YIELD would iret into a
-     * stale boot frame. Round-robin on IRQ0 stays off (nested kernel IRQ). */
+    /* Préférer une tâche Ring 3 prête. Parmi les candidates de même classe,
+     * la priorité la plus haute gagne ; le parcours circulaire conserve le
+     * round-robin lorsque la priorité est égale. La tâche noyau reste READY
+     * après le premier saut vers le shell et ne doit pas recevoir un ancien
+     * cadre utilisateur. */
     {
         task_t* start = current_task ? current_task : task_queue;
         task_t* t = start;
         task_t* next_task = start;
+        uint32_t best_priority = 0U;
         int found_user = 0;
 
         do {
             t = t->next;
-            if (t->state == TASK_READY && t->type == TASK_TYPE_USER) {
+            if (t->state == TASK_READY && t->type == TASK_TYPE_USER &&
+                (!found_user || t->priority > best_priority)) {
                 next_task = t;
+                best_priority = t->priority;
                 found_user = 1;
-                break;
             }
         } while (t != start);
 
-        if (!found_user && start->state == TASK_READY && start->type == TASK_TYPE_USER) {
+        if (start->state == TASK_READY && start->type == TASK_TYPE_USER &&
+            (!found_user || start->priority > best_priority)) {
             next_task = start;
             found_user = 1;
         }
@@ -250,6 +256,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->id = next_task_id++;
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
+    new_task->priority = OS_TASK_PRIORITY_NORMAL;
     new_task->vmm_dir = vmm_dir;
     new_task->waiter_pid = 0;
     new_task->created_ticks = timer_get_ticks();
@@ -499,9 +506,21 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     out->pid = t->id;
     out->state = map_task_state(t->state);
     out->type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
+    out->priority = t->priority;
     out->created_ticks = t->created_ticks;
     out->age_ticks = now >= t->created_ticks ? now - t->created_ticks : 0U;
     out->run_ticks = run;
     out->switch_count = t->switch_count;
+    return 0;
+}
+
+int task_set_priority(int pid, uint32_t priority) {
+    task_t* t;
+    if (priority < OS_TASK_PRIORITY_LOW || priority > OS_TASK_PRIORITY_HIGH) {
+        return OS_TASK_BAD_PRIORITY;
+    }
+    t = get_task_by_id(pid);
+    if (!t) return OS_TASK_NOT_FOUND;
+    t->priority = priority;
     return 0;
 }

@@ -87,8 +87,10 @@
 #define SYS_SERVICE_BACKEND_OBSERVE      50
 /* EBX = PID cible, ECX = os_task_metrics_t* ; instantané de télémétrie locale. */
 #define SYS_TASK_METRICS                 51
+/* EBX = PID cible, ECX = priorité [1,3] ; politique CPU locale. */
+#define SYS_TASK_SET_PRIORITY            52
 
-#define MAX_SYSCALLS 52
+#define MAX_SYSCALLS 53
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -113,6 +115,7 @@
 #define OS_SERVICE_STALE        (-57)
 #define OS_VFS_BACKEND_DENIED (-61)
 #define OS_TASK_NOT_FOUND    (-62)
+#define OS_TASK_BAD_PRIORITY (-63)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
@@ -127,6 +130,10 @@
 
 #define OS_TASK_KERNEL 0
 #define OS_TASK_USER   1
+
+#define OS_TASK_PRIORITY_LOW     1U
+#define OS_TASK_PRIORITY_NORMAL  2U
+#define OS_TASK_PRIORITY_HIGH    3U
 
 typedef struct {
     char name[OS_NAME_MAX];
@@ -162,6 +169,7 @@ typedef struct {
     int32_t pid;
     int32_t state;
     int32_t type;
+    uint32_t priority;
     uint32_t created_ticks;
     uint32_t age_ticks;
     uint32_t run_ticks;
