@@ -299,6 +299,12 @@ int sys_task_supervision_event_forget(uint32_t sequence) {
     return result;
 }
 
+int sys_task_supervision_summary(os_task_supervision_summary_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_SUMMARY), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -796,6 +802,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-events-clear  - Acquitter le journal de supervision\n");
     print_string("  task-event <seq>   - Consulter une transition retenue\n");
     print_string("  task-events-forget <seq> - Oublier une transition retenue\n");
+    print_string("  task-summary       - Instantané consolidé de supervision\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1314,6 +1321,26 @@ void cmd_task_events_forget(shell_context_t* ctx, char args[][128], int arg_coun
     }
     print_string("task-events-forget ok "); print_uint((uint32_t)sequence);
     print_string(" "); print_uint((uint32_t)rc); print_string("\n");
+}
+
+void cmd_task_summary(shell_context_t* ctx, char args[][128], int arg_count) {
+    int rc;
+    os_task_supervision_summary_t summary;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: task-summary");
+        return;
+    }
+    rc = sys_task_supervision_summary(&summary);
+    if (rc != 0) {
+        print_error("task-summary: syscall indisponible");
+        return;
+    }
+    print_string("task-summary ok "); print_uint(summary.generation); print_string(" ");
+    print_uint(summary.active_children); print_string(" ");
+    print_uint(summary.suspended_children); print_string(" ");
+    print_uint(summary.child_exit_count); print_string(" ");
+    print_uint(summary.retained_events); print_string("\n");
 }
 
 void cmd_task_wait(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -1993,7 +2020,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4196,6 +4223,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-events-forget") == 0) {
         cmd_task_events_forget(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-summary") == 0) {
+        cmd_task_summary(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

@@ -319,6 +319,8 @@ def main():
                                "task-events-forget ok 4 0", proc)
             say("typing task-events (empty after selective forget) ...")
             send_command_until(monitor, "task-events", "task-events ok 6 0", proc)
+            say("typing task-summary (consolidated) ...")
+            send_command_until(monitor, "task-summary", "task-summary ok 6 1 0 2 0", proc)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0

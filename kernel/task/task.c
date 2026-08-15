@@ -809,6 +809,27 @@ int task_forget_supervision_event(int requester_pid, uint32_t sequence) {
     return (int)kept;
 }
 
+int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
+    task_t* parent;
+    task_t* t;
+    if (!out) return OS_TASK_NOT_FOUND;
+    memset(out, 0, sizeof(*out));
+    parent = get_task_by_id(requester_pid);
+    if (!parent || !task_queue) return OS_TASK_NOT_FOUND;
+    t = task_queue;
+    do {
+        if (t->parent_pid == requester_pid && t->state != TASK_TERMINATED) {
+            out->active_children++;
+            if (t->state == TASK_SUSPENDED) out->suspended_children++;
+        }
+        t = t->next;
+    } while (t && t != task_queue);
+    out->generation = parent->supervision_event_generation;
+    out->child_exit_count = parent->direct_child_exit_count;
+    out->retained_events = parent->supervision_event_count;
+    return 0;
+}
+
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
     task_t* parent;
     task_t* t;

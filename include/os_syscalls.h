@@ -131,8 +131,10 @@
 #define SYS_TASK_SUPERVISION_EVENT_FIND 72
 /* EBX = séquence ; oublie l’entrée retenue et retourne le nombre restant. */
 #define SYS_TASK_SUPERVISION_EVENT_FORGET 73
+/* EBX = os_task_supervision_summary_t* ; instantané local consolidé. */
+#define SYS_TASK_SUPERVISION_SUMMARY 74
 
-#define MAX_SYSCALLS 74
+#define MAX_SYSCALLS 75
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -277,6 +279,16 @@ typedef struct {
     uint32_t generation;
     os_task_supervision_events_t events;
 } os_task_supervision_events_observation_t;
+
+/* Agrégat local, non atomique : les champs peuvent refléter des instants
+ * différents si la supervision change pendant leur collecte. */
+typedef struct {
+    uint32_t generation;
+    uint32_t active_children;
+    uint32_t suspended_children;
+    uint32_t child_exit_count;
+    uint32_t retained_events;
+} os_task_supervision_summary_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

@@ -248,6 +248,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SUPERVISION_EVENT_FORGET:
             cpu->eax = (uint32_t)sys_task_supervision_event_forget(cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_SUMMARY:
+            cpu->eax = (uint32_t)sys_task_supervision_summary(
+                (os_task_supervision_summary_t*)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -1064,4 +1068,9 @@ int sys_task_supervision_event_find(uint32_t sequence, os_task_supervision_event
 int sys_task_supervision_event_forget(uint32_t sequence) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     return task_forget_supervision_event(current_task->id, sequence);
+}
+
+int sys_task_supervision_summary(os_task_supervision_summary_t* out) {
+    if (!current_task || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_summary(current_task->id, out);
 }
