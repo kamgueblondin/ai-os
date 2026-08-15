@@ -233,7 +233,11 @@ static void test_backend_observe_detects_stale_generations_without_disclosure(vo
     os_service_backend_snapshot_t snapshot;
     service_registry_init();
     TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_register("demo", 8));
     TEST_ASSERT_EQUAL(0, service_registry_backend_observe("vfs", 3, 0U, &snapshot));
+    TEST_ASSERT_EQUAL(1U, snapshot.generation); TEST_ASSERT_EQUAL(0U, snapshot.list.count);
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("demo", 8, 9, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_observe("vfs", 3, 1U, &snapshot));
     TEST_ASSERT_EQUAL(1U, snapshot.generation); TEST_ASSERT_EQUAL(0U, snapshot.list.count);
     TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ));
     TEST_ASSERT_EQUAL(OS_SERVICE_STALE, service_registry_backend_observe("vfs", 3, 1U, &snapshot));

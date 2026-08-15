@@ -14,6 +14,7 @@
 typedef struct {
     int32_t pid;
     char name[OS_SERVICE_NAME_MAX];
+    uint32_t backend_generation;
 } service_registry_entry_t;
 
 typedef struct {
