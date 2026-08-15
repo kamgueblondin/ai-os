@@ -103,8 +103,12 @@
 #define SYS_TASK_CHILD_RESULT_ACK        58
 /* EBX = génération attendue, ECX = os_task_exit_history_observation_t*. */
 #define SYS_TASK_CHILD_RESULT_OBSERVE    59
+/* EBX = PID enfant, ECX = os_task_exit_result_t* ; recherche dans l’historique local. */
+#define SYS_TASK_CHILD_RESULT_FIND       60
+/* EBX = PID enfant ; retire une entrée locale et retourne la nouvelle génération. */
+#define SYS_TASK_CHILD_RESULT_FORGET     61
 
-#define MAX_SYSCALLS 60
+#define MAX_SYSCALLS 62
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

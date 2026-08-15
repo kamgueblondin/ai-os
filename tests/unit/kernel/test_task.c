@@ -652,6 +652,9 @@ void test_task_direct_child_capacity(void) {
 void test_task_governance_name_capacity_and_events(void) {
     task_t* parent;
     task_t* child;
+    task_t* child2;
+    task_t* child3;
+    task_t* child4;
     os_task_capacity_t capacity;
     os_task_exit_result_t result;
     os_task_exit_history_t history;
@@ -709,9 +712,9 @@ void test_task_governance_name_capacity_and_events(void) {
     TEST_ASSERT_EQUAL(OS_TASK_EXIT_KILLED, history.entries[1].exit_code);
 
     {
-        task_t* child2 = create_task(dummy_task_function);
-        task_t* child3 = create_task(dummy_task_function);
-        task_t* child4 = create_task(dummy_task_function);
+        child2 = create_task(dummy_task_function);
+        child3 = create_task(dummy_task_function);
+        child4 = create_task(dummy_task_function);
         child2->type = TASK_TYPE_USER;
         child3->type = TASK_TYPE_USER;
         child4->type = TASK_TYPE_USER;
@@ -742,6 +745,23 @@ void test_task_governance_name_capacity_and_events(void) {
                       task_get_child_result(parent->id, child->id, &result));
     TEST_ASSERT_EQUAL(0, task_observe_child_result_history(parent->id, 7U, &observation));
     TEST_ASSERT_EQUAL(0, observation.history.count);
+
+    task_report_parent_exit(child2, 11, OS_TASK_EVENT_EXITED);
+    task_report_parent_exit(child3, 12, OS_TASK_EVENT_KILLED);
+    TEST_ASSERT_EQUAL(0, task_find_child_result_history(parent->id, child2->id, &result));
+    TEST_ASSERT_EQUAL(11, result.exit_code);
+    TEST_ASSERT_EQUAL(10, task_forget_child_result_history(parent->id, child2->id));
+    TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT,
+                      task_find_child_result_history(parent->id, child2->id, &result));
+    TEST_ASSERT_EQUAL(0, task_get_child_result(parent->id, child3->id, &result));
+    TEST_ASSERT_EQUAL(12, result.exit_code);
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, result.reason);
+    TEST_ASSERT_EQUAL(OS_TASK_HISTORY_STALE,
+                      task_observe_child_result_history(parent->id, 9U, &observation));
+    TEST_ASSERT_EQUAL(10, observation.generation);
+    TEST_ASSERT_EQUAL(11, task_forget_child_result_history(parent->id, child3->id));
+    TEST_ASSERT_EQUAL(OS_TASK_NO_CHILD_RESULT,
+                      task_get_child_result(parent->id, child3->id, &result));
 
     tasking_init();
     for (i = 0U; i < OS_TASK_GLOBAL_CAPACITY; i++) {
