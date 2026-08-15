@@ -1331,6 +1331,31 @@ void test_task_supervision_event_replay(void) {
     TEST_ASSERT_EQUAL(1, stats.dropped);
 }
 
+void test_task_supervision_priority(void) {
+    task_t* parent;
+    task_t* child;
+    os_task_supervision_priority_status_t status;
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent); TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER; child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent); add_task_to_queue(child);
+    TEST_ASSERT_EQUAL(-1, parent->supervision_priority_child_pid);
+    TEST_ASSERT_EQUAL(child->id, task_set_supervision_priority(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_priority_status(parent->id, &status));
+    TEST_ASSERT_EQUAL(child->id, status.child_pid);
+    TEST_ASSERT_EQUAL(0, task_set_supervision_notify_filter(parent->id, 0U));
+    TEST_ASSERT_EQUAL(1, task_set_supervision_notify(parent->id, 1U));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    task_report_parent_exit(child, 0, 0U);
+    TEST_ASSERT_EQUAL(-1, parent->supervision_priority_child_pid);
+    TEST_ASSERT_EQUAL(0, task_set_supervision_priority(parent->id, 0));
+    TEST_ASSERT_EQUAL(child->id, task_set_supervision_priority(parent->id, child->id));
+}
+
 void test_task_supervision_summary(void) {
     task_t* parent;
     task_t* first;
@@ -1472,6 +1497,7 @@ int main(void) {
     RUN_TEST(test_task_supervision_watchlist);
     RUN_TEST(test_task_supervision_delivery_stats);
     RUN_TEST(test_task_supervision_event_replay);
+    RUN_TEST(test_task_supervision_priority);
     RUN_TEST(test_task_supervision_summary);
 
     // Tests d'intégration

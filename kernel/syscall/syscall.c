@@ -279,6 +279,13 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SUPERVISION_EVENT_REPLAY:
             cpu->eax = (uint32_t)sys_task_supervision_event_replay(cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_PRIORITY:
+            cpu->eax = (uint32_t)sys_task_supervision_priority((int)cpu->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_PRIORITY_STATUS:
+            cpu->eax = (uint32_t)sys_task_supervision_priority_status(
+                (os_task_supervision_priority_status_t*)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -481,6 +488,16 @@ int sys_task_supervision_delivery_stats_ack(void) {
 int sys_task_supervision_event_replay(uint32_t sequence) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
     return task_replay_supervision_event(current_task->id, sequence);
+}
+
+int sys_task_supervision_priority(int child_pid) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_priority(current_task->id, child_pid);
+}
+
+int sys_task_supervision_priority_status(os_task_supervision_priority_status_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_priority_status(current_task->id, out);
 }
 
 int sys_service_register(const char* name) {

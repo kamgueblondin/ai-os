@@ -149,8 +149,12 @@
 #define SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK 81
 /* EBX = séquence locale ; rediffuse best-effort l’événement détaillé retenu. */
 #define SYS_TASK_SUPERVISION_EVENT_REPLAY 82
+/* EBX = PID enfant direct ; zéro efface la sélection prioritaire locale. */
+#define SYS_TASK_SUPERVISION_PRIORITY 83
+/* EBX = os_task_supervision_priority_status_t* ; sélection prioritaire locale. */
+#define SYS_TASK_SUPERVISION_PRIORITY_STATUS 84
 
-#define MAX_SYSCALLS 83
+#define MAX_SYSCALLS 85
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -350,6 +354,12 @@ typedef struct {
     uint32_t delivered;
     uint32_t dropped;
 } os_task_supervision_delivery_stats_t;
+
+/* Un seul enfant direct peut être prioritaire ; child_pid vaut -1 lorsqu’aucun
+ * enfant n’est sélectionné. */
+typedef struct {
+    int32_t child_pid;
+} os_task_supervision_priority_status_t;
 
 /* Instantané local, non atomique : le temps exécuté est compté en ticks
  * d’horloge entre deux commutations de tâches. */

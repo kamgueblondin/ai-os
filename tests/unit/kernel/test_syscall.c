@@ -1253,6 +1253,35 @@ void test_sys_task_supervision_event_replay(void) {
     current_task = old_current;
 }
 
+void test_sys_task_supervision_priority(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* parent;
+    task_t* child;
+    os_task_supervision_priority_status_t status;
+    cpu_state_t cpu = {0};
+    task_queue = NULL; current_task = NULL;
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent); TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER; child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent); add_task_to_queue(child); current_task = parent;
+    cpu.eax = SYS_TASK_SUPERVISION_PRIORITY_STATUS; cpu.ebx = (uint32_t)&status;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax); TEST_ASSERT_EQUAL(-1, status.child_pid);
+    cpu.eax = SYS_TASK_SUPERVISION_PRIORITY; cpu.ebx = (uint32_t)child->id;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(child->id, (int)cpu.eax);
+    cpu.eax = SYS_TASK_SUPERVISION_PRIORITY_STATUS; cpu.ebx = (uint32_t)&status;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax); TEST_ASSERT_EQUAL(child->id, status.child_pid);
+    cpu.eax = SYS_TASK_SUPERVISION_PRIORITY; cpu.ebx = 0U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    task_queue = old_queue; current_task = old_current;
+}
+
 void test_sys_task_supervision_summary(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -2149,6 +2178,7 @@ int main(void) {
     RUN_TEST(test_sys_task_supervision_watchlist);
     RUN_TEST(test_sys_task_supervision_delivery_stats);
     RUN_TEST(test_sys_task_supervision_event_replay);
+    RUN_TEST(test_sys_task_supervision_priority);
     RUN_TEST(test_sys_task_supervision_summary);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);
