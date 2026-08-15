@@ -649,6 +649,60 @@ void test_task_direct_child_capacity(void) {
     TEST_ASSERT_EQUAL(0, task_can_create_child(parent->id));
 }
 
+void test_task_governance_name_capacity_and_events(void) {
+    task_t* parent;
+    task_t* child;
+    os_task_capacity_t capacity;
+    os_ipc_message_t message;
+    os_task_event_t event;
+    uint32_t i;
+
+    tasking_init();
+    TEST_ASSERT_EQUAL(0, task_fill_capacity(&capacity));
+    TEST_ASSERT_EQUAL(0, capacity.active);
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_CAPACITY, capacity.capacity);
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_CAPACITY, capacity.available);
+
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+
+    TEST_ASSERT_EQUAL(0, task_set_name(parent->id, child->id, "worker"));
+    TEST_ASSERT_EQUAL_STRING("worker", child->name);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_NAME, task_set_name(parent->id, child->id, ""));
+    TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED,
+                      task_set_name(child->id, parent->id, "forbidden"));
+
+    task_notify_parent_exit(child, OS_TASK_EVENT_EXITED);
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
+    parent->ipc_endpoint.read_index = (parent->ipc_endpoint.read_index + 1U) % IPC_ENDPOINT_CAPACITY;
+    parent->ipc_endpoint.count--;
+    TEST_ASSERT_EQUAL(0, os_task_parse_event(&message, &event));
+    TEST_ASSERT_EQUAL(child->id, event.child_pid);
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_EXITED, event.reason);
+
+    TEST_ASSERT_EQUAL(0, task_kill(parent->id, child->id));
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
+    TEST_ASSERT_EQUAL(0, os_task_parse_event(&message, &event));
+    TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, event.reason);
+
+    tasking_init();
+    for (i = 0U; i < OS_TASK_GLOBAL_CAPACITY; i++) {
+        task_t* task = create_task(dummy_task_function);
+        add_task_to_queue(task);
+    }
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_LIMIT, task_can_create_global());
+    TEST_ASSERT_EQUAL(0, task_fill_capacity(&capacity));
+    TEST_ASSERT_EQUAL(OS_TASK_GLOBAL_CAPACITY, capacity.active);
+    TEST_ASSERT_EQUAL(0, capacity.available);
+}
+
 // === TESTS D'INTÉGRATION ===
 
 void test_task_integration_with_memory(void) {
@@ -740,6 +794,7 @@ int main(void) {
     RUN_TEST(test_task_reparents_children_on_departure);
     RUN_TEST(test_task_supervision_wait_and_children);
     RUN_TEST(test_task_direct_child_capacity);
+    RUN_TEST(test_task_governance_name_capacity_and_events);
 
     // Tests d'intégration
     RUN_TEST(test_task_integration_with_memory);

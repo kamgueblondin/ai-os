@@ -91,8 +91,12 @@
 #define SYS_TASK_SET_PRIORITY            52
 /* EBX = PID enfant ; bloque le parent jusqu’au départ de son enfant direct. */
 #define SYS_TASK_WAIT                    53
+/* EBX = PID cible, ECX = nom NUL-termine ; autorité locale soi/enfant direct. */
+#define SYS_TASK_SET_NAME                54
+/* EBX = os_task_capacity_t* ; instantané global de capacité des tâches. */
+#define SYS_TASK_CAPACITY                55
 
-#define MAX_SYSCALLS 54
+#define MAX_SYSCALLS 56
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -124,9 +128,14 @@
 #define OS_TASK_NOT_CHILD      (-65)
 /* Le parent a atteint sa capacité locale d’enfants directs. */
 #define OS_TASK_CHILD_LIMIT    (-66)
+/* Le nouveau nom est vide, trop long ou contient un caractère non imprimable. */
+#define OS_TASK_BAD_NAME       (-67)
+/* La file bornée de tâches actives est pleine. */
+#define OS_TASK_GLOBAL_LIMIT   (-68)
 
 #define OS_NAME_MAX 64
 #define OS_PROC_NAME_MAX 32
+#define OS_TASK_GLOBAL_CAPACITY 16U
 
 #define OS_DIRENT_FILE 0
 #define OS_DIRENT_DIR  1
@@ -188,6 +197,13 @@ typedef struct {
     uint32_t direct_children;
 } os_task_metrics_t;
 
+/* Instantané global de la file de tâches ; il est volatil et non atomique. */
+typedef struct {
+    uint32_t active;
+    uint32_t capacity;
+    uint32_t available;
+} os_task_capacity_t;
+
 /* Instantané local d’un endpoint propriétaire de service. Il n’est ni
  * atomique, ni réservé, ni une capability. */
 typedef struct {
@@ -230,6 +246,12 @@ typedef struct {
 #define OS_SERVICE_EVENT_GRANTED      2U
 #define OS_SERVICE_EVENT_UNREGISTERED 3U
 #define OS_SERVICE_EVENT_PURGED       4U
+
+/* Notification noyau best-effort vers le parent direct lors de la sortie d’un enfant. */
+#define OS_IPC_TASK_EVENT 0x54415301U
+#define OS_TASK_EVENT_SIZE 8U
+#define OS_TASK_EVENT_EXITED 1U
+#define OS_TASK_EVENT_KILLED 2U
 
 typedef struct {
     char name[OS_SERVICE_NAME_MAX];
@@ -298,6 +320,41 @@ static inline int os_service_parse_event(const os_ipc_message_t* message,
              ((uint32_t)message->data[OS_SERVICE_NAME_MAX + 11U] << 24);
     if (event_out->old_owner_pid < 0 || event_out->new_owner_pid < 0 ||
         reason < OS_SERVICE_EVENT_PUBLISHED || reason > OS_SERVICE_EVENT_PURGED) return -1;
+    event_out->reason = reason;
+    return 0;
+}
+
+typedef struct {
+    int32_t child_pid;
+    uint32_t reason;
+} os_task_event_t;
+
+static inline int os_task_make_event(os_ipc_payload_t* payload, int32_t child_pid,
+                                     uint32_t reason) {
+    if (!payload || child_pid <= 0 ||
+        (reason != OS_TASK_EVENT_EXITED && reason != OS_TASK_EVENT_KILLED)) return -1;
+    payload->type = OS_IPC_TASK_EVENT;
+    payload->size = OS_TASK_EVENT_SIZE;
+    payload->request_id = 0U;
+    os_service_encode_i32(payload->data, child_pid);
+    payload->data[4] = (uint8_t)(reason & 0xffU);
+    payload->data[5] = (uint8_t)((reason >> 8) & 0xffU);
+    payload->data[6] = (uint8_t)((reason >> 16) & 0xffU);
+    payload->data[7] = (uint8_t)((reason >> 24) & 0xffU);
+    return 0;
+}
+
+static inline int os_task_parse_event(const os_ipc_message_t* message,
+                                      os_task_event_t* event_out) {
+    uint32_t reason;
+    if (!message || !event_out || message->sender_pid != 0 ||
+        message->type != OS_IPC_TASK_EVENT || message->size != OS_TASK_EVENT_SIZE ||
+        message->request_id != 0U) return -1;
+    event_out->child_pid = os_service_decode_i32(message->data);
+    reason = (uint32_t)message->data[4] | ((uint32_t)message->data[5] << 8) |
+             ((uint32_t)message->data[6] << 16) | ((uint32_t)message->data[7] << 24);
+    if (event_out->child_pid <= 0 ||
+        (reason != OS_TASK_EVENT_EXITED && reason != OS_TASK_EVENT_KILLED)) return -1;
     event_out->reason = reason;
     return 0;
 }

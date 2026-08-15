@@ -83,11 +83,15 @@ int task_kill(int requester_pid, int pid);
 void task_reparent_children(task_t* departing);
 uint32_t task_count_direct_children(int pid);
 int task_can_create_child(int pid);
+int task_can_create_global(void);
 int task_wait_for_child(int requester_pid, int child_pid);
 int task_fill_ps(os_proc_t* out, int max_n);
 int task_fill_metrics(int pid, os_task_metrics_t* out);
+int task_fill_capacity(os_task_capacity_t* out);
 int task_set_priority(int requester_pid, int pid, uint32_t priority);
+int task_set_name(int requester_pid, int pid, const char* name);
 void task_wake_waiter(task_t* child);
+void task_notify_parent_exit(task_t* child, uint32_t reason);
 
 #endif
 

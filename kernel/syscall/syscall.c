@@ -68,6 +68,7 @@ void syscall_handler(cpu_state_t* cpu) {
             service_notify_purge_pid(current_task->id);
             service_registry_backend_remove_pid(current_task->id);
             (void)service_registry_remove_watcher_pid(current_task->id);
+            task_notify_parent_exit(current_task, OS_TASK_EVENT_EXITED);
             task_wake_waiter(current_task);
             task_reparent_children(current_task);
             current_task->state = TASK_TERMINATED;
@@ -180,6 +181,12 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_WAIT:
             cpu->eax = (uint32_t)sys_task_wait((int)cpu->ebx);
             if ((int)cpu->eax == 0) schedule(cpu);
+            break;
+        case SYS_TASK_SET_NAME:
+            cpu->eax = (uint32_t)sys_task_set_name((int)cpu->ebx, (const char*)cpu->ecx);
+            break;
+        case SYS_TASK_CAPACITY:
+            cpu->eax = (uint32_t)sys_task_capacity((os_task_capacity_t*)cpu->ebx);
             break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
@@ -671,6 +678,8 @@ int sys_exec(const char* path, char* argv[]) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     capacity_rc = task_can_create_child(current_task->id);
     if (capacity_rc != 0) return capacity_rc;
+    capacity_rc = task_can_create_global();
+    if (capacity_rc != 0) return capacity_rc;
     new_task = create_task_from_initrd_file(path);
 
     if (!new_task) {
@@ -710,6 +719,8 @@ int sys_spawn(const char* path, char* argv[]) {
     task_t* new_task;
     if (!current_task) return OS_TASK_NOT_FOUND;
     capacity_rc = task_can_create_child(current_task->id);
+    if (capacity_rc != 0) return capacity_rc;
+    capacity_rc = task_can_create_global();
     if (capacity_rc != 0) return capacity_rc;
     new_task = create_task_from_initrd_file(path);
     if (!new_task) {
@@ -894,3 +905,11 @@ int sys_task_wait(int pid) {
     return task_wait_for_child(current_task->id, pid);
 }
 
+int sys_task_set_name(int pid, const char* name) {
+    if (!current_task || pid < 0) return OS_TASK_NOT_FOUND;
+    return task_set_name(current_task->id, pid, name);
+}
+
+int sys_task_capacity(os_task_capacity_t* out) {
+    return task_fill_capacity(out);
+}
