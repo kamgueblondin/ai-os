@@ -69,6 +69,7 @@ void syscall_handler(cpu_state_t* cpu) {
             service_registry_backend_remove_pid(current_task->id);
             (void)service_registry_remove_watcher_pid(current_task->id);
             task_wake_waiter(current_task);
+            task_reparent_children(current_task);
             current_task->state = TASK_TERMINATED;
             print_string_serial("[EXIT] task terminated, scheduling...\n");
             schedule(cpu);
