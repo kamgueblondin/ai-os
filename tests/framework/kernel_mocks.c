@@ -593,6 +593,29 @@ int task_ack_supervision_delivery_stats(int requester_pid) {
     return 0;
 }
 
+int task_replay_supervision_event(int requester_pid, uint32_t sequence) {
+    task_t* parent;
+    os_task_supervision_event_t event;
+    os_ipc_payload_t payload;
+    int rc;
+    if (sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    rc = task_find_supervision_event(requester_pid, sequence, &event);
+    if (rc != 0) return rc;
+    if (os_task_make_supervision_event(&payload, &event) != 0) return OS_IPC_BAD_MESSAGE;
+    parent->supervision_delivery_attempted++;
+    if (parent->ipc_endpoint.count < IPC_ENDPOINT_CAPACITY) {
+        mock_task_event_send(&parent->ipc_endpoint, &payload);
+        parent->supervision_delivery_delivered++;
+        return 0;
+    }
+    parent->supervision_delivery_dropped++;
+    return OS_IPC_FULL;
+}
+
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
     task_t* parent;
     task_t* t;
@@ -678,6 +701,11 @@ int sys_task_supervision_delivery_stats(os_task_supervision_delivery_stats_t* ou
 int sys_task_supervision_delivery_stats_ack(void) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
     return task_ack_supervision_delivery_stats(current_task->id);
+}
+
+int sys_task_supervision_event_replay(uint32_t sequence) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_replay_supervision_event(current_task->id, sequence);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1536,6 +1564,9 @@ void syscall_handler(cpu_state_t* state) {
             break;
         case SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK:
             state->eax = (uint32_t)sys_task_supervision_delivery_stats_ack();
+            break;
+        case SYS_TASK_SUPERVISION_EVENT_REPLAY:
+            state->eax = (uint32_t)sys_task_supervision_event_replay(state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

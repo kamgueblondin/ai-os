@@ -348,6 +348,12 @@ int sys_task_supervision_delivery_stats_ack(void) {
     return result;
 }
 
+int sys_task_supervision_event_replay(uint32_t sequence) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_EVENT_REPLAY), "b"(sequence));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -855,6 +861,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-events-watch-status - Etat local de la watchlist\n");
     print_string("  task-events-notify-stats - Compteurs locaux de livraison detaillee\n");
     print_string("  task-events-notify-stats-clear - Acquitter les compteurs de livraison\n");
+    print_string("  task-event-replay <seq> - Rediffuser une transition retenue\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1546,6 +1553,30 @@ void cmd_task_events_notify_stats_clear(shell_context_t* ctx, char args[][128], 
         return;
     }
     print_string("task-events-notify-stats-clear ok\n");
+}
+
+void cmd_task_event_replay(shell_context_t* ctx, char args[][128], int arg_count) {
+    int sequence;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1 || (sequence = parse_int(args[0])) <= 0) {
+        print_error("Usage: task-event-replay <sequence>");
+        return;
+    }
+    rc = sys_task_supervision_event_replay((uint32_t)sequence);
+    if (rc == OS_TASK_NO_SUPERVISION_EVENT) {
+        print_error("task-event-replay: transition absente");
+        return;
+    }
+    if (rc == OS_IPC_FULL) {
+        print_error("task-event-replay: boite IPC pleine");
+        return;
+    }
+    if (rc < 0) {
+        print_error("task-event-replay: syscall indisponible");
+        return;
+    }
+    print_string("task-event-replay ok "); print_uint((uint32_t)sequence); print_string("\n");
 }
 
 void cmd_task_summary(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2245,7 +2276,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4495,6 +4526,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-events-notify-stats-clear") == 0) {
         cmd_task_events_notify_stats_clear(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-event-replay") == 0) {
+        cmd_task_event_replay(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

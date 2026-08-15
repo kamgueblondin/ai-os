@@ -276,6 +276,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK:
             cpu->eax = (uint32_t)sys_task_supervision_delivery_stats_ack();
             break;
+        case SYS_TASK_SUPERVISION_EVENT_REPLAY:
+            cpu->eax = (uint32_t)sys_task_supervision_event_replay(cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -473,6 +476,11 @@ int sys_task_supervision_delivery_stats(os_task_supervision_delivery_stats_t* ou
 int sys_task_supervision_delivery_stats_ack(void) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
     return task_ack_supervision_delivery_stats(current_task->id);
+}
+
+int sys_task_supervision_event_replay(uint32_t sequence) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_replay_supervision_event(current_task->id, sequence);
 }
 
 int sys_service_register(const char* name) {

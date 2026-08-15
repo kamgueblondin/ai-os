@@ -145,6 +145,7 @@ int task_fill_supervision_watch_status(int requester_pid,
 int task_fill_supervision_delivery_stats(int requester_pid,
                                          os_task_supervision_delivery_stats_t* out);
 int task_ack_supervision_delivery_stats(int requester_pid);
+int task_replay_supervision_event(int requester_pid, uint32_t sequence);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

@@ -1004,6 +1004,29 @@ int task_ack_supervision_delivery_stats(int requester_pid) {
     return 0;
 }
 
+int task_replay_supervision_event(int requester_pid, uint32_t sequence) {
+    task_t* parent;
+    os_task_supervision_event_t event;
+    os_ipc_payload_t payload;
+    int rc;
+    if (sequence == 0U) return OS_TASK_NO_SUPERVISION_EVENT;
+    parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) {
+        return OS_TASK_NOT_FOUND;
+    }
+    rc = task_find_supervision_event(requester_pid, sequence, &event);
+    if (rc != 0) return rc;
+    if (os_task_make_supervision_event(&payload, &event) != 0) return OS_IPC_BAD_MESSAGE;
+    parent->supervision_delivery_attempted++;
+    rc = ipc_endpoint_send(&parent->ipc_endpoint, 0, &payload);
+    if (rc == 0) {
+        parent->supervision_delivery_delivered++;
+        return 0;
+    }
+    parent->supervision_delivery_dropped++;
+    return rc;
+}
+
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
     task_t* parent;
     task_t* t;

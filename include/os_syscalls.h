@@ -147,8 +147,10 @@
 #define SYS_TASK_SUPERVISION_DELIVERY_STATS 80
 /* Aucun argument ; remet les compteurs locaux de livraison détaillée à zéro. */
 #define SYS_TASK_SUPERVISION_DELIVERY_STATS_ACK 81
+/* EBX = séquence locale ; rediffuse best-effort l’événement détaillé retenu. */
+#define SYS_TASK_SUPERVISION_EVENT_REPLAY 82
 
-#define MAX_SYSCALLS 82
+#define MAX_SYSCALLS 83
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

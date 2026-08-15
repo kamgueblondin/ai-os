@@ -62,6 +62,7 @@ int sys_task_supervision_watch(int child_pid, uint32_t enabled);
 int sys_task_supervision_watch_status(os_task_supervision_watch_status_t* out);
 int sys_task_supervision_delivery_stats(os_task_supervision_delivery_stats_t* out);
 int sys_task_supervision_delivery_stats_ack(void);
+int sys_task_supervision_event_replay(uint32_t sequence);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);
