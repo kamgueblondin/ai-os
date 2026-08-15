@@ -255,6 +255,13 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_TASK_SUPERVISION_NOTIFY:
             cpu->eax = (uint32_t)sys_task_supervision_notify(cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_NOTIFY_FILTER:
+            cpu->eax = (uint32_t)sys_task_supervision_notify_filter(cpu->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_STATUS:
+            cpu->eax = (uint32_t)sys_task_supervision_notify_status(
+                (os_task_supervision_notify_status_t*)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -422,6 +429,16 @@ int sys_ipc_receive(os_ipc_message_t* out) {
 int sys_task_supervision_notify(uint32_t enabled) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
     return task_set_supervision_notify(current_task->id, enabled);
+}
+
+int sys_task_supervision_notify_filter(uint32_t mask) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_notify_filter(current_task->id, mask);
+}
+
+int sys_task_supervision_notify_status(os_task_supervision_notify_status_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_notify_status(current_task->id, out);
 }
 
 int sys_service_register(const char* name) {

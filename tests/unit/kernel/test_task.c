@@ -1135,6 +1135,57 @@ void test_task_supervision_notifications(void) {
     TEST_ASSERT_EQUAL(OS_TASK_EVENT_KILLED, event.detail);
 }
 
+void test_task_supervision_notification_filter(void) {
+    task_t* parent;
+    task_t* child;
+    os_task_supervision_notify_status_t status;
+    os_ipc_message_t message;
+    os_task_supervision_event_t event;
+
+    tasking_init();
+    parent = create_task(dummy_task_function);
+    child = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(parent);
+    TEST_ASSERT_NOT_NULL(child);
+    parent->type = TASK_TYPE_USER;
+    child->type = TASK_TYPE_USER;
+    child->parent_pid = parent->id;
+    add_task_to_queue(parent);
+    add_task_to_queue(child);
+
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_notify_status(parent->id, &status));
+    TEST_ASSERT_EQUAL(0, status.enabled);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_NOTIFY_ALL, status.mask);
+    TEST_ASSERT_EQUAL(OS_TASK_BAD_NOTIFY_FILTER,
+                      task_set_supervision_notify_filter(parent->id, 1U << 5));
+    TEST_ASSERT_EQUAL(0, task_set_supervision_notify_filter(
+                             parent->id, OS_TASK_SUPERVISION_NOTIFY_SUSPEND));
+    TEST_ASSERT_EQUAL(1, task_set_supervision_notify(parent->id, 1U));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
+    parent->ipc_endpoint.read_index = (parent->ipc_endpoint.read_index + 1U) % IPC_ENDPOINT_CAPACITY;
+    parent->ipc_endpoint.count--;
+    TEST_ASSERT_EQUAL(0, os_task_parse_supervision_event(&message, &event));
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_SUSPEND, event.action);
+    TEST_ASSERT_EQUAL(0, task_resume_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, parent->ipc_endpoint.count);
+    TEST_ASSERT_EQUAL(0, task_fill_supervision_notify_status(parent->id, &status));
+    TEST_ASSERT_EQUAL(1, status.enabled);
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_NOTIFY_SUSPEND, status.mask);
+
+    TEST_ASSERT_EQUAL(0, task_set_supervision_notify_filter(parent->id, 0U));
+    TEST_ASSERT_EQUAL(0, task_suspend_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(0, parent->ipc_endpoint.count);
+    TEST_ASSERT_EQUAL(0, task_set_supervision_notify_filter(
+                             parent->id, OS_TASK_SUPERVISION_NOTIFY_RESUME));
+    TEST_ASSERT_EQUAL(0, task_resume_child(parent->id, child->id));
+    TEST_ASSERT_EQUAL(1, parent->ipc_endpoint.count);
+    message = parent->ipc_endpoint.messages[parent->ipc_endpoint.read_index];
+    TEST_ASSERT_EQUAL(0, os_task_parse_supervision_event(&message, &event));
+    TEST_ASSERT_EQUAL(OS_TASK_SUPERVISION_RESUME, event.action);
+}
+
 void test_task_supervision_summary(void) {
     task_t* parent;
     task_t* first;
@@ -1272,6 +1323,7 @@ int main(void) {
     RUN_TEST(test_task_supervision_events);
     RUN_TEST(test_task_supervision_event_selective);
     RUN_TEST(test_task_supervision_notifications);
+    RUN_TEST(test_task_supervision_notification_filter);
     RUN_TEST(test_task_supervision_summary);
 
     // Tests d'intégration

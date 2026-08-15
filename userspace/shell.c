@@ -311,6 +311,18 @@ int sys_task_supervision_notify(uint32_t enabled) {
     return result;
 }
 
+int sys_task_supervision_notify_filter(uint32_t mask) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_NOTIFY_FILTER), "b"(mask));
+    return result;
+}
+
+int sys_task_supervision_notify_status(os_task_supervision_notify_status_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_NOTIFY_STATUS), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -810,6 +822,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-events-forget <seq> - Oublier une transition retenue\n");
     print_string("  task-summary       - Instantané consolidé de supervision\n");
     print_string("  task-events-notify <on|off> - Notifications IPC locales de supervision\n");
+    print_string("  task-events-filter <all|exit|suspend|resume|delegate-out|delegate-in|none> - Filtrer les notifications\n");
+    print_string("  task-events-notify-status - Etat local de souscription et filtre\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1352,6 +1366,55 @@ void cmd_task_events_notify(shell_context_t* ctx, char args[][128], int arg_coun
     print_string("task-events-notify ok ");
     print_string(rc == 0 ? "off" : "on");
     print_string("\n");
+}
+
+void cmd_task_events_filter(shell_context_t* ctx, char args[][128], int arg_count) {
+    uint32_t mask;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1) {
+        print_error("Usage: task-events-filter <all|exit|suspend|resume|delegate-out|delegate-in|none>");
+        return;
+    }
+    if (strcmp(args[0], "all") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_ALL;
+    else if (strcmp(args[0], "exit") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_EXIT;
+    else if (strcmp(args[0], "suspend") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_SUSPEND;
+    else if (strcmp(args[0], "resume") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_RESUME;
+    else if (strcmp(args[0], "delegate-out") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_DELEGATE_OUT;
+    else if (strcmp(args[0], "delegate-in") == 0) mask = OS_TASK_SUPERVISION_NOTIFY_DELEGATE_IN;
+    else if (strcmp(args[0], "none") == 0) mask = 0U;
+    else {
+        print_error("task-events-filter: filtre invalide");
+        return;
+    }
+    rc = sys_task_supervision_notify_filter(mask);
+    if (rc == OS_TASK_BAD_NOTIFY_FILTER) {
+        print_error("task-events-filter: masque invalide");
+        return;
+    }
+    if (rc != 0) {
+        print_error("task-events-filter: syscall indisponible");
+        return;
+    }
+    print_string("task-events-filter ok "); print_string(args[0]); print_string(" ");
+    print_uint(mask); print_string("\n");
+}
+
+void cmd_task_events_notify_status(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_supervision_notify_status_t status;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: task-events-notify-status");
+        return;
+    }
+    rc = sys_task_supervision_notify_status(&status);
+    if (rc != 0) {
+        print_error("task-events-notify-status: syscall indisponible");
+        return;
+    }
+    print_string("task-events-notify-status ok "); print_uint(status.enabled); print_string(" ");
+    print_uint(status.mask); print_string("\n");
 }
 
 void cmd_task_summary(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -2051,7 +2114,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4277,6 +4340,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-events-notify") == 0) {
         cmd_task_events_notify(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-filter") == 0) {
+        cmd_task_events_filter(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-notify-status") == 0) {
+        cmd_task_events_notify_status(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);
