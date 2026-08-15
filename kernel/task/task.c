@@ -653,6 +653,38 @@ int task_get_child_exit_count(int requester_pid, uint32_t* out) {
     return 0;
 }
 
+int task_delegate_child(int requester_pid, int child_pid, int supervisor_pid) {
+    task_t* child;
+    task_t* supervisor;
+    task_t* cursor;
+    uint32_t depth = 0U;
+
+    if (!get_task_by_id(requester_pid)) return OS_TASK_NOT_FOUND;
+    child = get_task_by_id(child_pid);
+    supervisor = get_task_by_id(supervisor_pid);
+    if (!child || !supervisor) return OS_TASK_NOT_FOUND;
+    if (child->parent_pid != requester_pid) return OS_TASK_NOT_CHILD;
+    if (supervisor->type != TASK_TYPE_USER || supervisor->state == TASK_TERMINATED ||
+        supervisor_pid == requester_pid || supervisor_pid == child_pid) {
+        return OS_TASK_BAD_DELEGATE;
+    }
+    if (child->waiter_pid != 0) return OS_TASK_BAD_STATE;
+    if (task_count_direct_children(supervisor_pid) >= OS_TASK_CHILD_CAPACITY) {
+        return OS_TASK_CHILD_LIMIT;
+    }
+
+    cursor = supervisor;
+    while (cursor && depth++ < OS_TASK_GLOBAL_CAPACITY) {
+        if (cursor->id == child_pid) return OS_TASK_BAD_DELEGATE;
+        if (cursor->parent_pid < 0) break;
+        cursor = get_task_by_id(cursor->parent_pid);
+    }
+    if (depth > OS_TASK_GLOBAL_CAPACITY) return OS_TASK_BAD_DELEGATE;
+
+    child->parent_pid = supervisor_pid;
+    return 0;
+}
+
 int task_fill_direct_children(int requester_pid, os_task_children_t* out) {
     task_t* parent;
     task_t* t;
