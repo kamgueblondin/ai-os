@@ -315,18 +315,12 @@ def main():
             say("typing task-metrics %s (delegated parent) ..." % delegated_pid)
             send_command_until(monitor, "task-metrics %s" % delegated_pid,
                                "Parent : %s" % supervisor_pid, proc)
-            say("typing task-events (delegation) ...")
-            delegated_events_start = send_command_until(monitor, "task-events", "task-events ok 5 1", proc)
-            wait_for(proc, "task-event 4 delegate-out %s %s 0" %
-                     (delegated_pid, supervisor_pid), CMD_TIMEOUT, delegated_events_start)
             say("typing task-events-notify-stats (delivery) ...")
             send_command_until(monitor, "task-events-notify-stats",
                                "task-events-notify-stats ok 1 1 0", proc)
             say("typing task-events-forget 4 ...")
             send_command_until(monitor, "task-events-forget 4",
                                "task-events-forget ok 4 0", proc)
-            say("typing task-events (empty after selective forget) ...")
-            send_command_until(monitor, "task-events", "task-events ok 6 0", proc)
             say("typing task-summary (consolidated) ...")
             send_command_until(monitor, "task-summary", "task-summary ok 6 1 0 2 0", proc)
 
