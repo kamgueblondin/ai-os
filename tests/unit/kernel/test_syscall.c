@@ -596,6 +596,7 @@ void test_sys_task_name_and_capacity(void) {
     os_task_exit_result_t result;
     os_task_exit_history_t history;
     os_task_exit_history_observation_t observation;
+    os_task_children_t children;
     cpu_state_t cpu = {0};
 
     task_queue = NULL;
@@ -627,6 +628,18 @@ void test_sys_task_name_and_capacity(void) {
     TEST_ASSERT_EQUAL(OS_TASK_CONTROL_DENIED, (int)cpu.eax);
 
     current_task = parent;
+    cpu.eax = SYS_TASK_CHILDREN;
+    cpu.ebx = (uint32_t)&children;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(1, children.count);
+    TEST_ASSERT_EQUAL(child->id, children.entries[0].pid);
+    cpu.eax = SYS_TASK_WAIT_ANY;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(TASK_WAITING, parent->state);
+    parent->state = TASK_RUNNING;
+
     cpu.eax = SYS_TASK_SUSPEND;
     cpu.ebx = (uint32_t)child->id;
     syscall_handler(&cpu);
@@ -724,6 +737,9 @@ void test_sys_task_name_and_capacity(void) {
     cpu.eax = SYS_TASK_KILL_CHILDREN;
     syscall_handler(&cpu);
     TEST_ASSERT_EQUAL(0, (int)cpu.eax);
+    cpu.eax = SYS_TASK_WAIT_ANY;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_TASK_NO_DIRECT_CHILD, (int)cpu.eax);
 
     task_queue = old_queue;
     current_task = old_current;
