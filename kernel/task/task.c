@@ -35,6 +35,7 @@ void tasking_init() {
     current_task->priority = OS_TASK_PRIORITY_NORMAL;
     current_task->vmm_dir = kernel_directory;
     current_task->kernel_stack_p = 0;
+    current_task->parent_pid = -1;
     current_task->waiter_pid = 0;
     current_task->created_ticks = timer_get_ticks();
     current_task->last_scheduled_ticks = current_task->created_ticks;
@@ -258,6 +259,7 @@ task_t* create_task_from_initrd_file(const char* filename) {
     new_task->type = TASK_TYPE_USER;
     new_task->priority = OS_TASK_PRIORITY_NORMAL;
     new_task->vmm_dir = vmm_dir;
+    new_task->parent_pid = -1;
     new_task->waiter_pid = 0;
     new_task->created_ticks = timer_get_ticks();
     new_task->last_scheduled_ticks = new_task->created_ticks;
@@ -504,6 +506,7 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
         run += now - t->last_scheduled_ticks;
     }
     out->pid = t->id;
+    out->parent_pid = t->parent_pid;
     out->state = map_task_state(t->state);
     out->type = (t->type == TASK_TYPE_USER) ? OS_TASK_USER : OS_TASK_KERNEL;
     out->priority = t->priority;
@@ -514,13 +517,16 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     return 0;
 }
 
-int task_set_priority(int pid, uint32_t priority) {
+int task_set_priority(int requester_pid, int pid, uint32_t priority) {
     task_t* t;
     if (priority < OS_TASK_PRIORITY_LOW || priority > OS_TASK_PRIORITY_HIGH) {
         return OS_TASK_BAD_PRIORITY;
     }
     t = get_task_by_id(pid);
     if (!t) return OS_TASK_NOT_FOUND;
+    if (requester_pid != t->id && requester_pid != t->parent_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
     t->priority = priority;
     return 0;
 }

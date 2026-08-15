@@ -40,6 +40,7 @@ task_t* create_task(void (*entry_point)(void)) {
     task->priority = OS_TASK_PRIORITY_NORMAL;
     task->vmm_dir = (vmm_directory_t*)test_malloc(sizeof(vmm_directory_t));
     task->kernel_stack_p = 0;
+    task->parent_pid = -1;
     task->created_ticks = mock_timer_get_ticks();
     task->last_scheduled_ticks = task->created_ticks;
     task->run_ticks = 0U;
@@ -158,6 +159,7 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
         run += now - t->last_scheduled_ticks;
     }
     out->pid = t->id;
+    out->parent_pid = t->parent_pid;
     out->state = (t->state == TASK_RUNNING) ? OS_TASK_RUNNING :
                  (t->state == TASK_READY) ? OS_TASK_READY :
                  (t->state == TASK_TERMINATED) ? OS_TASK_TERMINATED : OS_TASK_WAITING;
@@ -170,13 +172,16 @@ int task_fill_metrics(int pid, os_task_metrics_t* out) {
     return 0;
 }
 
-int task_set_priority(int pid, uint32_t priority) {
+int task_set_priority(int requester_pid, int pid, uint32_t priority) {
     task_t* t;
     if (priority < OS_TASK_PRIORITY_LOW || priority > OS_TASK_PRIORITY_HIGH) {
         return OS_TASK_BAD_PRIORITY;
     }
     t = get_task_by_id(pid);
     if (!t) return OS_TASK_NOT_FOUND;
+    if (requester_pid != t->id && requester_pid != t->parent_pid) {
+        return OS_TASK_CONTROL_DENIED;
+    }
     t->priority = priority;
     return 0;
 }
@@ -631,7 +636,8 @@ void syscall_handler(cpu_state_t* state) {
             state->eax = (uint32_t)task_fill_metrics((int)state->ebx, (os_task_metrics_t*)state->ecx);
             break;
         case SYS_TASK_SET_PRIORITY:
-            state->eax = (uint32_t)task_set_priority((int)state->ebx, state->ecx);
+            state->eax = (uint32_t)task_set_priority(current_task ? current_task->id : -1,
+                                                      (int)state->ebx, state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

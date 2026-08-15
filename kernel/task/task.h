@@ -44,6 +44,7 @@ typedef struct task {
     vmm_directory_t* vmm_dir;  // Répertoire de pages de la tâche
     uint32_t kernel_stack_p;   // Pointeur vers le sommet de la pile noyau
     char name[32];
+    int parent_pid;            // Créateur direct, -1 pour la tâche racine
     int waiter_pid;            // Parent TASK_WAITING (SYS_EXEC), 0 sinon
     uint32_t created_ticks;    // Instant de création, horloge système locale
     uint32_t last_scheduled_ticks;
@@ -81,7 +82,7 @@ int task_has_other_ready_user(void);
 int task_kill(int pid);
 int task_fill_ps(os_proc_t* out, int max_n);
 int task_fill_metrics(int pid, os_task_metrics_t* out);
-int task_set_priority(int pid, uint32_t priority);
+int task_set_priority(int requester_pid, int pid, uint32_t priority);
 void task_wake_waiter(task_t* child);
 
 #endif
