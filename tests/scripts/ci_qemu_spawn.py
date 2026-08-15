@@ -297,9 +297,9 @@ def main():
             say("spawned delegated child pid %s" % delegated_pid)
             say("typing task-events-notify on ...")
             send_command_until(monitor, "task-events-notify on", "task-events-notify ok on", proc)
-            say("typing task-events-watch %s ..." % delegated_pid)
-            send_command_until(monitor, "task-events-watch %s" % delegated_pid,
-                               "task-events-watch ok %s 1" % delegated_pid, proc)
+            say("typing task-priority-child %s ..." % delegated_pid)
+            send_command_until(monitor, "task-priority-child %s" % delegated_pid,
+                               "task-priority-child ok %s" % delegated_pid, proc)
             say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
             send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
                                "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
