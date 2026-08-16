@@ -109,13 +109,14 @@ def send_command(client, command):
     drain_monitor(client)
 
 
-def send_command_until(client, command, marker, proc, attempts=3):
+def send_command_until(client, command, marker, proc, attempts=3, timeout=None):
     failure = None
+    wait_timeout = CMD_TIMEOUT if timeout is None else timeout
     for _ in range(attempts):
         start = len(log_text())
         send_command(client, command)
         try:
-            wait_for(proc, marker, CMD_TIMEOUT, start)
+            wait_for(proc, marker, wait_timeout, start)
             return start
         except RuntimeError as error:
             failure = error
@@ -319,7 +320,7 @@ def main():
             say("typing ipc-recv (replayed delegation) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %
-                               (delegated_pid, supervisor_pid), proc)
+                               (delegated_pid, supervisor_pid), proc, timeout=5)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0
