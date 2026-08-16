@@ -276,3 +276,6 @@ Le lot 88 ajoute `gpt2_gguf_validate_gpt2_layer_storage`, qui compose la validat
 
 
 Le lot 89 ajoute `gpt2_gguf_read_quant_row_fat16`, qui lit une ligne Q3_K, Q4_K ou Q6_K depuis FAT16 dans un buffer caller-owned, avec contrôle de largeur, index, capacité, offsets et lecture partielle. Les marqueurs physiques Q4_K `0x11` et `0x77` sont vérifiés ligne par ligne; Q3_K, Q6_K et le buffer insuffisant sont également couverts. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 90 ajoute `gpt2_gguf_dot_quant_row_buffer`, qui calcule une ligne quantifiée déjà lue sans nouvel accès FAT16, allocation ni cache implicite. La primitive accumule les super-blocs Q3_K, Q4_K ou Q6_K avec les kernels existants et contrôle largeur, capacité et type. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
