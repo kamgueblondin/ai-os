@@ -374,3 +374,32 @@ int gpt2_gguf_kv_cache_copy_history(const gpt2_gguf_kv_cache_t* cache, uint32_t 
     *out_count = copied;
     return 0;
 }
+
+
+int gpt2_gguf_kv_cache_query_scores(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                    uint32_t start_position, uint32_t position_count,
+                                    const float* query, float* key_scratch,
+                                    uint32_t key_scratch_capacity, float* scores,
+                                    uint32_t score_capacity, uint32_t* out_count) {
+    uint32_t position;
+    int status;
+    if (out_count) *out_count = 0U;
+    if (!cache || !query || !key_scratch || !scores || !out_count) return -1;
+    if (key_scratch_capacity < cache->channels || score_capacity < position_count) return -6;
+    if (position_count == 0U) return 0;
+    if (start_position > cache->count || position_count > cache->count - start_position) return -9;
+    for (position = 0U; position < position_count; position++) {
+        uint32_t i;
+        uint32_t offset;
+        float dot = 0.0f;
+        status = gpt2_gguf_kv_cache_offset(cache, layer, start_position + position, &offset);
+        if (status != 0) return status;
+        for (i = 0U; i < cache->channels; i++) {
+            key_scratch[i] = cache->storage[offset + i];
+            dot += query[i] * key_scratch[i];
+        }
+        scores[position] = dot;
+    }
+    *out_count = position_count;
+    return 0;
+}

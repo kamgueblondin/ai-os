@@ -49,6 +49,12 @@ int gpt2_gguf_kv_cache_copy_history(const gpt2_gguf_kv_cache_t* cache, uint32_t 
                                     float* key_out, uint32_t key_capacity,
                                     float* value_out, uint32_t value_capacity,
                                     uint32_t* out_count);
+/* Calcule les scores query-key bruts sur un historique d’une couche. */
+int gpt2_gguf_kv_cache_query_scores(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                    uint32_t start_position, uint32_t position_count,
+                                    const float* query, float* key_scratch,
+                                    uint32_t key_scratch_capacity, float* scores,
+                                    uint32_t score_capacity, uint32_t* out_count);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
