@@ -123,6 +123,21 @@ static void test_mount_list_and_read(void) {
     TEST_ASSERT_EQUAL_STRING("hello", content);
 }
 
+static void test_reads_bounded_file_range(void) {
+    fat16_volume_t volume;
+    uint8_t content[4] = {0U, 0U, 0U, 0U};
+    uint32_t read = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_read_file_range(&volume, "fatok.txt", 1U, content, 3U, &read));
+    TEST_ASSERT_EQUAL(3, (int)read);
+    TEST_ASSERT_EQUAL('e', content[0]);
+    TEST_ASSERT_EQUAL('l', content[1]);
+    TEST_ASSERT_EQUAL('l', content[2]);
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_read_file_range(&volume, "fatok.txt", 6U, content, 1U, &read));
+    TEST_ASSERT_EQUAL(0, (int)read);
+}
+
 static void test_rejects_bad_bpb(void) {
     fat16_volume_t volume;
     make_volume();
@@ -144,6 +159,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
     RUN_TEST(test_loads_gpt2_from_fat16);
+    RUN_TEST(test_reads_bounded_file_range);
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     unity_print_results();
