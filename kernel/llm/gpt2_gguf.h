@@ -121,5 +121,7 @@ int gpt2_gguf_map_layer(const gpt2_gguf_index_t* index, uint32_t layer,
 /* Retourne une vue bornée d’un rôle déjà résolu dans une couche. */
 int gpt2_gguf_layer_get(const gpt2_gguf_layer_t* layer, gpt2_gguf_role_t role,
                         gpt2_gguf_tensor_t* out);
+/* Valide les invariants de forme nécessaires à une couche quantifiée. */
+int gpt2_gguf_validate_layer(const gpt2_gguf_layer_t* layer, uint32_t channels);
 
 #endif

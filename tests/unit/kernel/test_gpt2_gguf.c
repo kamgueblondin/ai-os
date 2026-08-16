@@ -188,8 +188,14 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
         TEST_ASSERT_EQUAL(0, (int)layer.layer_index);
         TEST_ASSERT_EQUAL(0, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &tensor));
         TEST_ASSERT_EQUAL(-1, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_validate_layer(&layer, GPT2_QK_K));
+        TEST_ASSERT_EQUAL(-9, gpt2_gguf_validate_layer(&layer, GPT2_QK_K - 1U));
+        layer.tensors[0].shape[0] = GPT2_QK_K - 1U;
+        TEST_ASSERT_EQUAL(-9, gpt2_gguf_validate_layer(&layer, GPT2_QK_K));
+        layer.tensors[0].shape[0] = GPT2_QK_K;
         layer.present_mask = 0U;
         TEST_ASSERT_EQUAL(-8, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &tensor));
+        TEST_ASSERT_EQUAL(-8, gpt2_gguf_validate_layer(&layer, GPT2_QK_K));
         TEST_ASSERT_EQUAL(-8, gpt2_gguf_map_layer(&index, 1U, name, sizeof(name), &layer));
     }
 }
