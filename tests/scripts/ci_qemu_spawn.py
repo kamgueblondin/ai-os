@@ -17,7 +17,8 @@ LOG = os.environ.get("SPAWN_LOG", os.path.join(LOG_DIR, "ci-qemu-spawn-serial.lo
 QEMU_ERR = os.environ.get("SPAWN_ERR", os.path.join(LOG_DIR, "ci-qemu-spawn-stderr.log"))
 MON_SOCK = os.environ.get("SPAWN_MON_SOCK", os.path.join(LOG_DIR, "qemu-spawn-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "40"))
-CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
+CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "12"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.15"))
 
 
 def say(message):
@@ -104,7 +105,7 @@ def send_command(client, command):
     for char in command:
         client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
         drain_monitor(client)
-        time.sleep(0.20)
+        time.sleep(KEY_DELAY)
     client.sendall(b"sendkey ret\n")
     drain_monitor(client)
 

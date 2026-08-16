@@ -16,7 +16,8 @@ OS_IMAGE = build/ai_os.bin
 ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 DISK_IMAGE ?= build/overlay.img
-DISK_SECTORS ?= 64
+DISK_SECTORS ?= 4224
+FAT_BASE_LBA ?= 64
 QEMU_DISK_OPTS = -drive file=$(DISK_IMAGE),format=raw,if=ide,cache=writethrough
 MODEL_DIR ?= models
 GPT2_MODEL ?= $(MODEL_DIR)/gpt2_124M.bin
@@ -32,7 +33,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/fat16.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # L'ABI partagée influence notamment la taille de task_t et des messages IPC.
@@ -164,6 +165,10 @@ build/overlay.o: fs/overlay.c fs/overlay.h fs/initrd.h kernel/ata.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/ata.o: kernel/ata.c kernel/ata.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/fat16.o: kernel/fs/fat16.c kernel/fs/fat16.h include/os_syscalls.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -464,9 +469,13 @@ ci-tests: $(OS_IMAGE) pack-initrd
 $(DISK_IMAGE):
 	@mkdir -p $(dir $@)
 	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
+	python3 tests/scripts/make_fat16_image.py --image $@
 
-.PHONY: disk
+.PHONY: disk fat16-fixture
 disk: $(DISK_IMAGE)
+
+fat16-fixture: $(DISK_IMAGE)
+	@python3 tests/scripts/make_fat16_image.py --image $(DISK_IMAGE)
 
 # Boot QEMU headless, tape ls/cat/ps/uptime (sendkey), exige l'initrd et le noyau.
 qemu-smoke: $(OS_IMAGE) pack-initrd disk

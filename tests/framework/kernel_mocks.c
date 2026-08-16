@@ -790,6 +790,16 @@ int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_
     return task_fill_supervision_notify_budget_status(current_task->id, out);
 }
 
+int sys_fat16_read(const char* name, char* buffer, uint32_t max) {
+    (void)name; (void)buffer; (void)max;
+    return OS_FAT16_NOT_MOUNTED;
+}
+
+int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
+    (void)out; (void)capacity;
+    return OS_FAT16_NOT_MOUNTED;
+}
+
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
     if (!current_task) return OS_TASK_NOT_FOUND;
     return task_delegate_child(current_task->id, child_pid, supervisor_pid);
@@ -1666,6 +1676,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS:
             state->eax = (uint32_t)sys_task_supervision_notify_budget_status(
                 (os_task_supervision_notify_budget_status_t*)state->ebx);
+            break;
+        case SYS_FAT16_READ:
+            state->eax = (uint32_t)sys_fat16_read((const char*)state->ebx,
+                                                   (char*)state->ecx, state->edx);
+            break;
+        case SYS_FAT16_LIST:
+            state->eax = (uint32_t)sys_fat16_list((os_fat16_dirent_t*)state->ebx, state->ecx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

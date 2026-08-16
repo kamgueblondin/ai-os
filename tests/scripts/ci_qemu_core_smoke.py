@@ -70,8 +70,11 @@ def prepare_test_disk():
     directory = os.path.dirname(TEST_DISK)
     if directory:
         os.makedirs(directory, exist_ok=True)
-    with open(TEST_DISK, "wb") as handle:
-        handle.truncate(64 * 512)
+    subprocess.run([
+        sys.executable,
+        os.path.join(ROOT, "tests", "scripts", "make_fat16_image.py"),
+        "--image", TEST_DISK,
+    ], check=True)
 
 
 def qemu_disk_args():
@@ -140,6 +143,8 @@ def main():
 
             commands = (
                 ("ls", "Initrd / VFS"),
+                ("fat16-list", "FATOK.TXT"),
+                ("fat16-cat FATOK.TXT", "FAT16 fixture OK"),
                 ("ai-runtime", "cache KV actif"),
                 ("mkdir qd", "mkdir ok qd"),
                 ("cp hello.txt qd", "cp ok hello.txt"),

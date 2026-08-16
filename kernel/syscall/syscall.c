@@ -14,6 +14,7 @@
 #include "../llm/gpt2_model.h"
 #include "../llm/gpt2_tokenizer.h"
 #include "../service_registry.h"
+#include "../fs/fat16.h"
 /* Completions locales : BPE, top-k basse temperature, arret newline/EOT/repetition. */
 #define GPT2_BAREMETAL_GENERATION_STEPS 12U
 
@@ -293,6 +294,13 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_task_supervision_notify_budget_status(
                 (os_task_supervision_notify_budget_status_t*)cpu->ebx);
             break;
+        case SYS_FAT16_READ:
+            cpu->eax = (uint32_t)sys_fat16_read((const char*)cpu->ebx,
+                                                 (char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_FAT16_LIST:
+            cpu->eax = (uint32_t)sys_fat16_list((os_fat16_dirent_t*)cpu->ebx, cpu->ecx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -515,6 +523,18 @@ int sys_task_supervision_notify_budget(uint32_t limit) {
 int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_status_t* out) {
     if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_notify_budget_status(current_task->id, out);
+}
+
+int sys_fat16_read(const char* name, char* buffer, uint32_t max) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
+    return fat16_read_file(fat16_root(), name, buffer, max);
+}
+
+int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
+    return fat16_list_root(fat16_root(), out, capacity);
 }
 
 int sys_service_register(const char* name) {
