@@ -96,6 +96,17 @@ int gpt2_gguf_layernorm(const float* input, uint32_t input_count,
 /* Applique une approximation GELU freestanding vers un buffer caller-owned. */
 int gpt2_gguf_gelu(const float* input, uint32_t input_count,
                    float* output, uint32_t output_capacity);
+/* Exécute ffn_up -> biais optionnel -> GELU -> ffn_down -> biais optionnel. */
+int gpt2_gguf_mlp_forward_fat16(const fat16_volume_t* volume, const char* filename,
+                                const gpt2_gguf_loaded_model_t* model,
+                                const gpt2_gguf_tensor_t* up_tensor,
+                                const gpt2_gguf_tensor_t* down_tensor,
+                                uint32_t channels, uint32_t hidden_channels,
+                                const float* input, uint8_t* row_buffer,
+                                uint32_t row_capacity, const float* up_bias,
+                                const float* down_bias, float* hidden,
+                                uint32_t hidden_capacity, float* output,
+                                uint32_t output_capacity);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

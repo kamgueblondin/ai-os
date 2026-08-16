@@ -321,6 +321,20 @@ static void test_loads_gpt2_from_fat16(void) {
                         TEST_ASSERT_TRUE(gelu_output[2] > 0.5f);
                         TEST_ASSERT_EQUAL(-6, gpt2_gguf_gelu(norm_input, 4U, gelu_output, 3U));
                     }
+                    {
+                        float mlp_input[256] = {0.0f};
+                        float mlp_hidden[2] = {0.0f};
+                        float mlp_output[256] = {0.0f};
+                        uint8_t mlp_row[2U * GPT2_Q6_K_BLOCK_BYTES];
+                        TEST_ASSERT_EQUAL(-9, gpt2_gguf_mlp_forward_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, &tensor,
+                            GPT2_QK_K, 2U, mlp_input, mlp_row, sizeof(mlp_row), 0, 0,
+                            mlp_hidden, 2U, mlp_output, GPT2_QK_K));
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_mlp_forward_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, &tensor,
+                            GPT2_QK_K, 2U, mlp_input, mlp_row, sizeof(mlp_row), 0, 0,
+                            mlp_hidden, 1U, mlp_output, GPT2_QK_K));
+                    }
                 }
             }
         }
