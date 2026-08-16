@@ -748,3 +748,32 @@ int gpt2_gguf_block_mlp_forward_fat16(const fat16_volume_t* volume,
         hidden_channels, norm, row_buffer, row_capacity, up_bias, down_bias,
         hidden, hidden_capacity, residual, residual_capacity);
 }
+
+
+int gpt2_gguf_attention_output_add_residual_fat16(
+                                      const fat16_volume_t* volume,
+                                      const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      const gpt2_gguf_tensor_t* output_tensor,
+                                      uint32_t channels,
+                                      const float* attention_concat,
+                                      uint8_t* row_buffer, uint32_t row_capacity,
+                                      float* projected, uint32_t projected_capacity,
+                                      const float* bias, float* residual,
+                                      uint32_t residual_capacity) {
+    uint32_t i;
+    int status;
+    if (!volume || !filename || !model || !output_tensor ||
+        !attention_concat || !row_buffer || !projected || !residual) return -1;
+    if (channels == 0U || projected_capacity < channels ||
+        residual_capacity < channels) return -6;
+    if (output_tensor->dimensions != 2U || output_tensor->shape[0] != channels ||
+        output_tensor->shape[1] != channels) return -9;
+    status = gpt2_gguf_project_matrix_fat16(
+        volume, filename, model, output_tensor, channels, channels,
+        attention_concat, row_buffer, row_capacity, projected,
+        projected_capacity);
+    if (status != 0) return status;
+    if (bias) for (i = 0U; i < channels; i++) projected[i] += bias[i];
+    return gpt2_gguf_add_residual(residual, residual_capacity, projected, channels);
+}
