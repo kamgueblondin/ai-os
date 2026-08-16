@@ -270,3 +270,6 @@ Le lot 86 ajoute `gpt2_gguf_validate_gpt2_layer`, qui applique les formes du for
 
 
 Le lot 87 ajoute `gpt2_gguf_validate_tensor_size`, qui recalcule et compare `byte_size` pour F32/F16 et les super-blocs Q3_K (110 octets), Q4_K (144 octets) et Q6_K (210 octets) sur 256 valeurs. Les produits d’axes, les dépassements et les formes non alignées sont rejetés sans allocation ni lecture de blob. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 88 ajoute `gpt2_gguf_validate_gpt2_layer_storage`, qui compose la validation des axes GPT-2 et la cohérence de `byte_size` des dix tenseurs. `gpt2_gguf_forward_context_init` appelle cette barrière après le mapping de couche; les matrices et vecteurs incohérents sont donc rejetés avant lecture FAT16. L’implémentation reste sans allocation et sans division 64 bits runtime. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
