@@ -289,6 +289,17 @@ static void test_loads_gpt2_from_fat16(void) {
                             multi_heads, 3U, multi_key, 2U, multi_scores, 3U,
                             multi_output, 4U, &concat_count));
                     }
+                    {
+                        float residual[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+                        float attention[4] = {0.5f, 1.5f, 2.5f, 3.5f};
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_add_residual(residual, 4U, attention, 4U));
+                        TEST_ASSERT_EQUAL(1, (int)residual[0]);
+                        TEST_ASSERT_EQUAL(3, (int)residual[1]);
+                        TEST_ASSERT_EQUAL(5, (int)residual[2]);
+                        TEST_ASSERT_EQUAL(7, (int)residual[3]);
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_add_residual(residual, 3U, attention, 4U));
+                        TEST_ASSERT_EQUAL(-1, gpt2_gguf_add_residual(0, 4U, attention, 4U));
+                    }
                 }
             }
         }

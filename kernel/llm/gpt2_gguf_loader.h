@@ -86,6 +86,9 @@ int gpt2_gguf_kv_cache_attention_multi_head(const gpt2_gguf_kv_cache_t* cache, u
                                             float* scores, uint32_t score_capacity,
                                             float* output, uint32_t output_capacity,
                                             uint32_t* out_count);
+/* Ajoute la sortie d’attention au résiduel dans le buffer de destination. */
+int gpt2_gguf_add_residual(float* residual, uint32_t residual_capacity,
+                           const float* attention, uint32_t attention_count);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

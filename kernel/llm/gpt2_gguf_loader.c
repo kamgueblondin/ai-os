@@ -614,3 +614,13 @@ int gpt2_gguf_kv_cache_attention_multi_head(const gpt2_gguf_kv_cache_t* cache, u
                                                output, output_capacity, out_count);
     return status;
 }
+
+
+int gpt2_gguf_add_residual(float* residual, uint32_t residual_capacity,
+                           const float* attention, uint32_t attention_count) {
+    uint32_t i;
+    if (!residual || !attention) return -1;
+    if (residual_capacity < attention_count) return -6;
+    for (i = 0U; i < attention_count; i++) residual[i] += attention[i];
+    return 0;
+}
