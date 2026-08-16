@@ -133,6 +133,9 @@ static void test_loads_gpt2_from_fat16(void) {
                 float row[GPT2_QK_K * 2U] = {0.0f};
                 TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_tensor_fat16(&volume, "gpt2.ggu", &model, &tensor, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
                 TEST_ASSERT_EQUAL(0, (int)dot);
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
+                TEST_ASSERT_EQUAL(0, (int)dot);
+                TEST_ASSERT_EQUAL(-9, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 1U, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
             }
         }
     }
