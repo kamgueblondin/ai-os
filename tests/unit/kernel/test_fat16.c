@@ -194,6 +194,23 @@ static void test_loads_gpt2_from_fat16(void) {
                                                                                  weights, 3U, output, 4U,
                                                                                  &history_count));
                 }
+                {
+                    float scaled[2] = {4.0f, 0.0f};
+                    float probabilities[3] = {0.0f, 1.0f, 2.0f};
+                    uint32_t attention_count = 0U;
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_attention_scale_scores(scaled, 2U, 4U));
+                    TEST_ASSERT_EQUAL(199, (int)(scaled[0] * 100.0f));
+                    TEST_ASSERT_EQUAL(0, (int)(scaled[1] * 100.0f));
+                    TEST_ASSERT_EQUAL(-1, gpt2_gguf_attention_scale_scores(scaled, 2U, 0U));
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_attention_softmax(probabilities, 3U, &attention_count));
+                    TEST_ASSERT_EQUAL(3, (int)attention_count);
+                    TEST_ASSERT_TRUE(probabilities[0] < probabilities[1]);
+                    TEST_ASSERT_TRUE(probabilities[1] < probabilities[2]);
+                    TEST_ASSERT_EQUAL(100, (int)((probabilities[0] + probabilities[1] + probabilities[2]) * 100.0f));
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_attention_softmax(probabilities, 0U, &attention_count));
+                    TEST_ASSERT_EQUAL(0, (int)attention_count);
+                    TEST_ASSERT_EQUAL(-1, gpt2_gguf_attention_softmax(0, 3U, &attention_count));
+                }
             }
         }
     }
