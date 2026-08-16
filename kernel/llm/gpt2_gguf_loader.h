@@ -37,6 +37,8 @@ int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
 int gpt2_gguf_kv_cache_init(float* storage, uint32_t storage_floats,
                             uint32_t layers, uint32_t max_positions,
                             uint32_t channels, gpt2_gguf_kv_cache_t* out);
+/* Réarme le cache KV en O(1) sans effacer le stockage caller-owned. */
+int gpt2_gguf_kv_cache_reset(gpt2_gguf_kv_cache_t* cache);
 /* Écrit les K/V d’une couche et d’une position dans le cache. */
 int gpt2_gguf_kv_cache_put(gpt2_gguf_kv_cache_t* cache, uint32_t layer,
                            uint32_t position, const float* key, const float* value);
