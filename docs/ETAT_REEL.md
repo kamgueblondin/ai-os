@@ -261,3 +261,6 @@ Le lot 83 ajoute `gpt2_gguf_forward_context_t` et `gpt2_gguf_forward_context_ini
 
 
 Le lot 84 ajoute `gpt2_gguf_layer_get`, un accès borné aux dix rôles déjà résolus dans `gpt2_gguf_layer_t`. Les rôles globaux, rôles hors intervalle et bits absents du masque sont refusés; le descripteur retourné reste caller-owned. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. La validation dimensionnelle sémantique à partir de `channels`, `num_heads` et `num_layers` reste à réaliser avant le branchement aux kernels quantifiés.
+
+
+Le lot 85 ajoute `gpt2_gguf_validate_layer`, qui exige les dix rôles présents, des canaux multiples de `GPT2_QK_K`, des rangs 1/2 non vides et des tailles de données valides; les tenseurs Q3_K/Q4_K/Q6_K doivent avoir une première dimension alignée sur `GPT2_QK_K`. La fonction est caller-owned, sans lecture de poids ni allocation. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Les relations d’axes complètes QKV/MLP en matrices 2D restent le prochain incrément.

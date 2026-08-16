@@ -490,3 +490,21 @@ int gpt2_gguf_layer_get(const gpt2_gguf_layer_t* layer, gpt2_gguf_role_t role,
     *out = layer->tensors[index];
     return 0;
 }
+
+
+int gpt2_gguf_validate_layer(const gpt2_gguf_layer_t* layer, uint32_t channels) {
+    uint32_t i;
+    if (!layer) return -1;
+    if (layer->present_mask != 0x3FFU) return -8;
+    if (channels == 0U || (channels % GPT2_QK_K) != 0U) return -9;
+    for (i = 0U; i < 10U; i++) {
+        const gpt2_gguf_tensor_t* tensor = &layer->tensors[i];
+        if (tensor->dimensions == 0U || tensor->dimensions > 2U ||
+            tensor->shape[0] == 0U || tensor->byte_size == 0U) return -9;
+        if ((tensor->type == GPT2_GGUF_TENSOR_Q3_K ||
+             tensor->type == GPT2_GGUF_TENSOR_Q4_K ||
+             tensor->type == GPT2_GGUF_TENSOR_Q6_K) &&
+            (tensor->shape[0] % GPT2_QK_K) != 0U) return -9;
+    }
+    return 0;
+}
