@@ -300,6 +300,27 @@ static void test_loads_gpt2_from_fat16(void) {
                         TEST_ASSERT_EQUAL(-6, gpt2_gguf_add_residual(residual, 3U, attention, 4U));
                         TEST_ASSERT_EQUAL(-1, gpt2_gguf_add_residual(0, 4U, attention, 4U));
                     }
+                    {
+                        float norm_input[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+                        float norm_gamma[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                        float norm_beta[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+                        float norm_output[4] = {0.0f};
+                        float gelu_output[3] = {0.0f};
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_layernorm(norm_input, 4U, norm_gamma,
+                                                                  norm_beta, 0.0001f,
+                                                                  norm_output, 4U));
+                        TEST_ASSERT_TRUE(norm_output[0] < -1.2f);
+                        TEST_ASSERT_TRUE(norm_output[3] > 1.2f);
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_layernorm(norm_input, 4U, norm_gamma,
+                                                                  norm_beta, 0.0f,
+                                                                  norm_output, 4U));
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_gelu((float[]){-1.0f, 0.0f, 1.0f}, 3U,
+                                                            gelu_output, 3U));
+                        TEST_ASSERT_TRUE(gelu_output[0] < 0.0f);
+                        TEST_ASSERT_EQUAL(0, (int)gelu_output[1]);
+                        TEST_ASSERT_TRUE(gelu_output[2] > 0.5f);
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_gelu(norm_input, 4U, gelu_output, 3U));
+                    }
                 }
             }
         }
