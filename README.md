@@ -5,9 +5,9 @@
 [![CI](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml/badge.svg)](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il démarre sous QEMU, sépare Ring 0 et Ring 3, charge un initrd TAR et lance un shell ELF. Le noyau fournit une ABI de syscalls, un overlay RAM persistant via ATA PIO et un chemin d’inférence GPT-2 local optionnel.
+AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Ce n’est **pas** une distribution Linux, ni un clone Unix : noyau freestanding, ABI propre, pas de userland GNU. Il démarre sous QEMU, sépare Ring 0 et Ring 3, charge une archive initrd TAR et lance un shell ELF. Le noyau fournit des syscalls, un overlay AIOV persistant via ATA PIO et un chemin d’inférence GPT-2 local optionnel. Le prochain volume disque est **FAT**, pas ext2.
 
-> La source de vérité des fonctions réellement livrées est [docs/ETAT_REEL.md](docs/ETAT_REEL.md). La branche par défaut est `master`.
+> La source de vérité des fonctions réellement livrées est [docs/ETAT_REEL.md](docs/ETAT_REEL.md). Lexique : [docs/vocabulaire.md](docs/vocabulaire.md). La branche par défaut est `master`.
 
 ## Capacités vérifiées
 
@@ -19,7 +19,7 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Il 
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets, `request_id` opaque, capacité client de 2 messages et instantané de file pour un propriétaire publié, événements best-effort ; pas de capabilities |
 | VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`/`vfs-stats`, deux montages protégés et trois alias dynamiques initrd/overlay au plus, lectures, métadonnées et listage source-spécifiques de racine ou de sous-répertoire, écriture, suppression et renommage médiés, compteurs volatils, transfert contrôlé de `vfs`, délégation backend révocable avec profils `read`/`mutate`/`full`, consultation unitaire et inventaire borné réservés au propriétaire publié courant ; initrd/overlay encore noyau |
 | Découverte Foundation | Registre volatile de 8 services et 8 abonnements ; retrait, transfert par propriétaire, notifications et purge immédiate à la terminaison ; pas de capabilities |
-| Fichiers | Initrd TAR en lecture seule et overlay ATA PIO V2 persistant (64 nœuds, V1 compatible) |
+| Fichiers | Archive initrd TAR en lecture seule et overlay AIOV V2 sur ATA PIO (64 nœuds, V1 compatible) ; pas encore de volume FAT |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k, sans réseau au boot |
 | GGUF | Sonde structurelle GGUF v3 et primitives Q8_0 ; pas encore d’inférence quantifiée |
 | Réseau | `net-status` et profil OpenAI explicitement bloqué ; aucune pile réseau noyau |
@@ -45,7 +45,7 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE de 64 secteurs |
-| `make test-all` | 216 tests C Unity/robustesse sans dépendre des poids GPT-2 |
+| `make test-all` | 251 tests C Unity/robustesse sans dépendre des poids GPT-2 |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, IPC, VFS avec montages dynamiques, mutations médiées, révocation, notifications, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
@@ -93,7 +93,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` affiche 
 
 ## Tests et artefacts
 
-`make test-all` a validé **216/216** tests : PMM (17), syscall (48), tâches (21), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (26), registre de services (19), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, capacité et instantanés de profondeur d’un propriétaire de service publié, médiateur VFS corrélé avec conservation locale, alias dynamiques initrd/overlay, capacité et protection de la table, métadonnées et listage source-spécifiques de racine ou de sous-répertoire, écriture, suppression de fichier, suppression de répertoire vide et renommage médiés, profils backend `full`/`read`/`mutate`, consultation unitaire et inventaire borné des masques vérifiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras, 1,10 s pour le contrat VFS et 0,55 s pour le contrat de service ; ces contrats relancent au plus trois commandes jusqu’à leur marqueur fonctionnel attendu, notamment pour les chemins IPC, VFS et service sensibles aux doubles frappes PS/2.
+`make test-all` a validé **251/251** tests : PMM (17), syscall (61), tâches (42), overlay (8), tokenizer (15), GGUF (5), quantification (5), échantillonnage GPT-2 (4), IPC (6), file IPC différée (4), protocole VFS (26), registre de services (20), shell (25), RAMFS (10) et robustesse GGUF (3). `make integration-qemu` ajoute six validations QEMU séparées, dont les contrats IPC, capacité et instantanés de profondeur d’un propriétaire de service publié, médiateur VFS corrélé avec conservation locale, alias dynamiques initrd/overlay, capacité et protection de la table, métadonnées et listage source-spécifiques de racine ou de sous-répertoire, écriture, suppression de fichier, suppression de répertoire vide et renommage médiés, profils backend `full`/`read`/`mutate`, consultation unitaire et inventaire borné des masques vérifiés, sources virtuelles, compteurs VFS, transfert, révocation et notifications de service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les délais de frappe QEMU sont stabilisés à 0,65 s pour le smoke cœur, 0,80 s pour les extras, 1,10 s pour le contrat VFS et 0,55 s pour le contrat de service ; ces contrats relancent au plus trois commandes jusqu’à leur marqueur fonctionnel attendu, notamment pour les chemins IPC, VFS et service sensibles aux doubles frappes PS/2.
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -136,11 +136,11 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Profil mutation seule VFS : `vfs-backend-grant-mutate` autorise les mutations backend mais interdit lecture, métadonnées et listage
 - [x] Consultation médiée de capacité backend VFS : `vfs-backend-status` affiche le masque `read`, `mutate` ou `full` au propriétaire public de `vfs`
 - [x] Inventaire médié de capacités backend VFS : `vfs-backend-list` affiche jusqu’à quatre délégations actives et leurs masques au propriétaire public de `vfs`
-- [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend VFS
+- [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend de chemins
 - [ ] Migration microkernel réelle
 - [ ] Inference GGUF quantifiée et latence QEMU inférieure à une seconde
 - [ ] Pilote NIC, DHCP, DNS, TCP, TLS et client OpenAI effectif
-- [ ] Système de fichiers disque général (ext2/FAT)
+- [ ] Volume FAT sur disque IDE (lecture puis écriture ; pas ext2) — [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 
 ## Arborescence
 
@@ -148,7 +148,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 ai-os/
 ├── boot/                 # Multiboot et stubs ISR
 ├── kernel/               # mémoire, interruptions, tâches, syscalls et LLM
-├── fs/                   # initrd TAR et overlay ATA
+├── fs/                   # archive initrd TAR et overlay AIOV (ATA)
 ├── userspace/            # shell et programmes Ring 3
 ├── tests/                # Unity, robustesse et contrats QEMU
 ├── models/               # actifs locaux ignorés par Git

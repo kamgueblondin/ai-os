@@ -4,25 +4,25 @@ Deux couches distinctes. Ne pas les mélanger.
 
 | Couche | Document | Statut |
 |---|---|---|
-| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-025 et IPC Foundation MOHHOS vérifiés |
+| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-025 et Foundation MOHHOS vérifiés ; AOS-026 (FAT) conçu, pas livré |
 | **Vision MOHHOS** | fichiers `mohhos_*.md` + [individual_us/](individual_us/INDEX.md) | Spécifications, sauf incrément Foundation IPC documenté |
 
 En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
 
 ## Couche 1 — AI-OS (à utiliser)
 
-Hobby OS i386 32-bit : boot QEMU, shell Ring 3, overlay persisté, `spawn`/`yield`/`exec` coopératifs, GPT-2 124M optionnel.
+Hobby OS i386 32-bit — pas une distribution Linux : boot QEMU, shell Ring 3, overlay AIOV persisté, `spawn`/`yield`/`exec`, GPT-2 124M optionnel. Lexique : [docs/vocabulaire.md](../docs/vocabulaire.md).
 
-- Backlog réel : [ai_os_us.md](ai_os_us.md) (`AOS-001` … `AOS-012` faits, `AOS-020` … `AOS-025` suite)
+- Backlog réel : [ai_os_us.md](ai_os_us.md) (`AOS-001` … `AOS-025` livrés, `AOS-026` volume FAT à faire)
 - Runtime : [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)
+- Volume disque suivant : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md) (FAT uniquement)
 - Roadmap courte : [README.md](../README.md)
 
 Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur principal (`fake_ai` est un binaire historique ; `ai <texte>` appelle `SYS_GPT2_GENERATE`).
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US, ~1640 j-h). Trente-trois incréments de **Foundation** sont maintenant livrés : une boîte aux lettres IPC locale, une capacité de file et son état public pour les propriétaires de service, un médiateur VFS Ring 3 avec métadonnées source-spécifiques, un registre nommé et son cycle de vie, la corrélation requête-réponse, le transfert de publication, la conservation bornée des réponses différées, une politique VFS virtuelle, un backend VFS réservé à son propriétaire, sa révocation par transfert, une politique de montages VFS bornée, des notifications de changement de propriétaire best-effort, une écriture `overlay/` médiée, des lectures VFS source-spécifiques, une suppression overlay médiée, un renommage overlay médié, des statistiques VFS locales, des alias de montage dynamiques bornés, des profils backend de moindre privilège, leur consultation unitaire et leur inventaire borné.
- Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le backend VFS, ni les pilotes, ni le réseau vers un espace d’adressage séparé ; le noyau reste monolithique.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US). **Soixante-quatre** incréments de **Foundation** sont maintenant livrés (IPC, médiateur de chemins, registre, montages, capacités backend, supervision de tâches). Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le stockage, ni les pilotes, ni le réseau hors du noyau ; le noyau reste monolithique. Le prochain volume disque du prototype est FAT ([docs/aos_fat_volume.md](../docs/aos_fat_volume.md)), pas un système à inodes.
 
 Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant, IPC local, médiateur VFS et découverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
 

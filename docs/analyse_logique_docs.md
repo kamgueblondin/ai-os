@@ -1,6 +1,6 @@
 # Analyse de la Logique du Projet AI-OS
 
-> **État réel (août 2026).** Les étapes 1 à 7 existent dans le code (noyau + shell + simulateur IA). Les syscalls sont au nombre de **15** (dont listdir/readfile, ps/kill, ticks/meminfo). Voir [ETAT_REEL.md](ETAT_REEL.md).
+> **État réel (août 2026).** Ce fichier décrit la logique des étapes 1–7 d’origine. L’ABI courante, GPT-2 local et l’overlay AIOV sont dans [ETAT_REEL.md](ETAT_REEL.md). AI-OS n’est pas une distribution Linux. Lexique : [vocabulaire.md](vocabulaire.md).
 
 ## Vue d'Ensemble du Projet
 
@@ -55,7 +55,7 @@ Adresses Virtuelles    Adresses Physiques
   - SYS_YIELD (4) : Cède le CPU
 
 ### 4. Système de Fichiers
-- **Format** : TAR POSIX pour simplicité
+- **Format** : archive TAR (ustar) pour simplicité — ce n’est pas un volume disque ni une identité POSIX
 - **Localisation** : Initrd chargé par Multiboot
 - **Fonctionnalités** : Lecture, listage, validation checksums
 
