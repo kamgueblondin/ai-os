@@ -177,3 +177,38 @@ int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
     out->position = position;
     return 0;
 }
+
+
+int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t row_index, uint8_t* buffer,
+                                   uint32_t capacity, uint32_t* out_read) {
+    uint64_t width;
+    uint64_t rows = 1U;
+    uint32_t block_bytes;
+    uint64_t row_bytes;
+    uint64_t row_offset;
+    int status;
+    if (out_read) *out_read = 0U;
+    if (!volume || !filename || !model || !tensor || !buffer || !out_read) return -1;
+    if (!model->index.info.is_valid || tensor->dimensions == 0U || tensor->dimensions > 2U) return -9;
+    width = tensor->shape[0];
+    if (tensor->dimensions == 2U) rows = tensor->shape[1];
+    if (width == 0U || width > 0xFFFFFFFFULL || rows == 0U || row_index >= rows) return -9;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    if ((width % GPT2_QK_K) != 0U) return -7;
+    row_bytes = (width / GPT2_QK_K) * block_bytes;
+    row_offset = row_bytes * row_index;
+    if (row_bytes > 0xFFFFFFFFULL || row_offset > 0xFFFFFFFFULL) return -9;
+    if (capacity < (uint32_t)row_bytes) return -6;
+    status = gpt2_gguf_read_tensor_fat16(volume, filename, model, tensor,
+                                          (uint32_t)row_offset, buffer,
+                                          (uint32_t)row_bytes, out_read);
+    if (status != 0) return status;
+    if (*out_read != (uint32_t)row_bytes) return -8;
+    return 0;
+}
