@@ -33,3 +33,25 @@ int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filena
     absolute += tensor_offset;
     return fat16_read_file_range(volume, filename, absolute, buffer, capacity, out_read);
 }
+
+
+int gpt2_gguf_read_quant_block_fat16(const fat16_volume_t* volume, const char* filename,
+                                     const gpt2_gguf_loaded_model_t* model,
+                                     const gpt2_gguf_tensor_t* tensor,
+                                     uint32_t block_index, uint8_t* buffer,
+                                     uint32_t capacity, uint32_t* out_read) {
+    uint32_t block_bytes;
+    uint32_t block_offset;
+    if (out_read) *out_read = 0U;
+    if (!volume || !filename || !model || !tensor || !buffer || !out_read) return -1;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    if (block_index > 0xFFFFFFFFU / block_bytes) return -5;
+    block_offset = block_index * block_bytes;
+    if (block_offset > tensor->byte_size || block_bytes > tensor->byte_size - block_offset) return -5;
+    if (capacity < block_bytes) return -6;
+    return gpt2_gguf_read_tensor_fat16(volume, filename, model, tensor,
+                                       block_offset, buffer, block_bytes, out_read);
+}
