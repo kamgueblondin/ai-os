@@ -31,6 +31,10 @@ int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
                     char* buffer, uint32_t max);
+/* Lit au plus max octets à partir d’un offset sans charger tout le fichier. */
+int fat16_read_file_range(const fat16_volume_t* volume, const char* name,
+                          uint32_t offset, uint8_t* buffer, uint32_t max,
+                          uint32_t* out_read);
 const char* fat16_status(void);
 
 #endif
