@@ -368,6 +368,9 @@ static void test_loads_gpt2_from_fat16(void) {
                             0, 0U, 0U, 0U, 0, 0U, 0, 0U,
                             0, 0U, 0, 0U, 0, 0, 0, 0, 0, 0U,
                             0, 0U, 0, 0, 0U));
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_reset(&cache));
+                        TEST_ASSERT_EQUAL(0, (int)cache.count);
+                        TEST_ASSERT_EQUAL(-1, gpt2_gguf_kv_cache_reset(0));
                     }
                 }
             }

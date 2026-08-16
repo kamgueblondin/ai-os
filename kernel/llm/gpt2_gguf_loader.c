@@ -344,6 +344,13 @@ int gpt2_gguf_kv_cache_init(float* storage, uint32_t storage_floats,
     return 0;
 }
 
+int gpt2_gguf_kv_cache_reset(gpt2_gguf_kv_cache_t* cache) {
+    if (!cache) return -1;
+    cache->count = 0U;
+    return 0;
+}
+
+
 int gpt2_gguf_kv_cache_put(gpt2_gguf_kv_cache_t* cache, uint32_t layer,
                            uint32_t position, const float* key, const float* value) {
     uint32_t offset;
