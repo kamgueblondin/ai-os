@@ -69,5 +69,9 @@ int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* fil
                                    const gpt2_gguf_tensor_t* tensor,
                                    uint32_t row_index, uint8_t* buffer,
                                    uint32_t capacity, uint32_t* out_read);
+/* Calcule une ligne quantifiée déjà présente dans un buffer caller-owned. */
+int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
+                                   const uint8_t* row_buffer, uint32_t row_capacity,
+                                   const float* input, uint32_t count, float* out_dot);
 
 #endif

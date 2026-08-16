@@ -163,6 +163,18 @@ static void test_loads_gpt2_from_fat16(void) {
             TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &variant, 0U, row, sizeof(row), &row_read));
             TEST_ASSERT_EQUAL(GPT2_Q6_K_BLOCK_BYTES, (int)row_read);
             TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, 1U, &row_read));
+            {
+                float input[GPT2_QK_K] = {0.0f};
+                float dot = 1.0f;
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_buffer(&tensor, row, sizeof(row), input, GPT2_QK_K, &dot));
+                TEST_ASSERT_EQUAL(0, (int)dot);
+                variant.type = GPT2_GGUF_TENSOR_Q3_K;
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_buffer(&variant, row, sizeof(row), input, GPT2_QK_K, &dot));
+                variant.type = GPT2_GGUF_TENSOR_Q6_K;
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_buffer(&variant, row, sizeof(row), input, GPT2_QK_K, &dot));
+                TEST_ASSERT_EQUAL(-6, gpt2_gguf_dot_quant_row_buffer(&tensor, row, 1U, input, GPT2_QK_K, &dot));
+                TEST_ASSERT_EQUAL(-7, gpt2_gguf_dot_quant_row_buffer(&tensor, row, sizeof(row), input, 32U, &dot));
+            }
         }
         {
             float input[GPT2_QK_K] = {0.0f};

@@ -212,3 +212,31 @@ int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* fil
     if (*out_read != (uint32_t)row_bytes) return -8;
     return 0;
 }
+
+
+int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
+                                   const uint8_t* row_buffer, uint32_t row_capacity,
+                                   const float* input, uint32_t count, float* out_dot) {
+    uint32_t block_bytes;
+    uint32_t blocks;
+    uint32_t block;
+    float total = 0.0f;
+    if (!tensor || !row_buffer || !input || !out_dot || tensor->dimensions == 0U || tensor->dimensions > 2U) return -1;
+    if (tensor->shape[0] == 0U || tensor->shape[0] > 0xFFFFFFFFULL) return -9;
+    if (count != (uint32_t)tensor->shape[0] || (count % GPT2_QK_K) != 0U) return -7;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    blocks = count / GPT2_QK_K;
+    if (blocks > 0xFFFFFFFFU / block_bytes || row_capacity < blocks * block_bytes) return -6;
+    for (block = 0U; block < blocks; block++) {
+        const float* values = input + block * GPT2_QK_K;
+        const uint8_t* encoded = row_buffer + block * block_bytes;
+        if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) total += gpt2_q3_k_dot_f32(values, encoded, GPT2_QK_K);
+        else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) total += gpt2_q4_k_dot_f32(values, encoded, GPT2_QK_K);
+        else total += gpt2_q6_k_dot_f32(values, encoded, GPT2_QK_K);
+    }
+    *out_dot = total;
+    return 0;
+}
