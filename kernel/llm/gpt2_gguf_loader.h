@@ -65,6 +65,14 @@ int gpt2_gguf_kv_cache_accumulate_values(const gpt2_gguf_kv_cache_t* cache, uint
 int gpt2_gguf_attention_scale_scores(float* scores, uint32_t score_count, uint32_t head_size);
 /* Transforme des scores en probabilités par softmax stable, sans allocation. */
 int gpt2_gguf_attention_softmax(float* scores, uint32_t score_count, uint32_t* out_count);
+/* Exécute l’attention autoregressive complète pour une tête du cache KV. */
+int gpt2_gguf_kv_cache_attention_head(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                      uint32_t start_position, uint32_t position_count,
+                                      const float* query, uint32_t head_count,
+                                      uint32_t head_index, float* key_scratch,
+                                      uint32_t key_scratch_capacity, float* scores,
+                                      uint32_t score_capacity, float* output,
+                                      uint32_t output_capacity, uint32_t* out_count);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

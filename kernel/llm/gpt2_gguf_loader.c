@@ -483,3 +483,55 @@ int gpt2_gguf_attention_softmax(float* scores, uint32_t score_count, uint32_t* o
     *out_count = score_count;
     return 0;
 }
+
+
+int gpt2_gguf_kv_cache_attention_head(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                      uint32_t start_position, uint32_t position_count,
+                                      const float* query, uint32_t head_count,
+                                      uint32_t head_index, float* key_scratch,
+                                      uint32_t key_scratch_capacity, float* scores,
+                                      uint32_t score_capacity, float* output,
+                                      uint32_t output_capacity, uint32_t* out_count) {
+    uint32_t head_size;
+    uint32_t head_base;
+    uint32_t position;
+    uint32_t channel;
+    int status;
+    if (out_count) *out_count = 0U;
+    if (!cache || !query || !key_scratch || !scores || !output || !out_count) return -1;
+    if (head_count == 0U || head_index >= head_count ||
+        cache->channels == 0U || (cache->channels % head_count) != 0U) return -9;
+    head_size = cache->channels / head_count;
+    head_base = head_index * head_size;
+    if (key_scratch_capacity < head_size || score_capacity < position_count ||
+        output_capacity < head_size) return -6;
+    if (position_count == 0U) return 0;
+    if (start_position > cache->count || position_count > cache->count - start_position) return -9;
+    for (position = 0U; position < position_count; position++) {
+        uint32_t offset;
+        float dot = 0.0f;
+        status = gpt2_gguf_kv_cache_offset(cache, layer, start_position + position, &offset);
+        if (status != 0) return status;
+        for (channel = 0U; channel < head_size; channel++) {
+            key_scratch[channel] = cache->storage[offset + head_base + channel];
+            dot += query[channel] * key_scratch[channel];
+        }
+        scores[position] = dot;
+    }
+    status = gpt2_gguf_attention_scale_scores(scores, position_count, head_size);
+    if (status != 0) return status;
+    status = gpt2_gguf_attention_softmax(scores, position_count, out_count);
+    if (status != 0) return status;
+    for (channel = 0U; channel < head_size; channel++) output[channel] = 0.0f;
+    for (position = 0U; position < position_count; position++) {
+        uint32_t offset;
+        status = gpt2_gguf_kv_cache_offset(cache, layer, start_position + position, &offset);
+        if (status != 0) return status;
+        for (channel = 0U; channel < head_size; channel++) {
+            output[channel] += scores[position] *
+                               cache->storage[offset + cache->channels + head_base + channel];
+        }
+    }
+    *out_count = head_size;
+    return 0;
+}

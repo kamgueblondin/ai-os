@@ -211,6 +211,46 @@ static void test_loads_gpt2_from_fat16(void) {
                     TEST_ASSERT_EQUAL(0, (int)attention_count);
                     TEST_ASSERT_EQUAL(-1, gpt2_gguf_attention_softmax(0, 3U, &attention_count));
                 }
+                {
+                    float head_query[2] = {1.0f, 1.0f};
+                    float head_key_scratch[2] = {0.0f};
+                    float head_scores[3] = {0.0f};
+                    float head_output[2] = {0.0f};
+                    uint32_t attention_count = 0U;
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_attention_head(&cache, 1U, 0U, 3U,
+                                                                            head_query, 2U, 0U,
+                                                                            head_key_scratch, 2U,
+                                                                            head_scores, 3U,
+                                                                            head_output, 2U,
+                                                                            &attention_count));
+                    TEST_ASSERT_EQUAL(2, (int)attention_count);
+                    TEST_ASSERT_TRUE(head_output[0] > 15.0f);
+                    TEST_ASSERT_TRUE(head_output[0] < 19.5f);
+                    TEST_ASSERT_TRUE(head_output[1] > 5.9f);
+                    TEST_ASSERT_TRUE(head_output[1] < 6.1f);
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_attention_head(&cache, 1U, 0U, 3U,
+                                                                            head_query, 2U, 1U,
+                                                                            head_key_scratch, 2U,
+                                                                            head_scores, 3U,
+                                                                            head_output, 2U,
+                                                                            &attention_count));
+                    TEST_ASSERT_TRUE(head_output[0] > 6.9f);
+                    TEST_ASSERT_TRUE(head_output[0] < 7.1f);
+                    TEST_ASSERT_TRUE(head_output[1] > 7.9f);
+                    TEST_ASSERT_TRUE(head_output[1] < 8.1f);
+                    TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_attention_head(&cache, 1U, 0U, 3U,
+                                                                            head_query, 2U, 2U,
+                                                                            head_key_scratch, 2U,
+                                                                            head_scores, 3U,
+                                                                            head_output, 2U,
+                                                                            &attention_count));
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_attention_head(&cache, 1U, 0U, 3U,
+                                                                            head_query, 2U, 0U,
+                                                                            head_key_scratch, 1U,
+                                                                            head_scores, 3U,
+                                                                            head_output, 2U,
+                                                                            &attention_count));
+                }
             }
         }
     }
