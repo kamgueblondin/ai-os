@@ -120,6 +120,23 @@ static void test_loads_gpt2_from_fat16(void) {
                                                                context_name, sizeof(context_name),
                                                                0, sizeof(context_scratch), &context));
     }
+    {
+        float storage[2U * 3U * 2U * 4U] = {0.0f};
+        float key[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+        float value[4] = {5.0f, 6.0f, 7.0f, 8.0f};
+        float key_out[4] = {0.0f};
+        float value_out[4] = {0.0f};
+        gpt2_gguf_kv_cache_t cache;
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_init(storage, 48U, 2U, 3U, 4U, &cache));
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_put(&cache, 1U, 2U, key, value));
+        TEST_ASSERT_EQUAL(3, (int)cache.count);
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_get(&cache, 1U, 2U, key_out, value_out));
+        TEST_ASSERT_EQUAL(1, (int)key_out[0]);
+        TEST_ASSERT_EQUAL(8, (int)value_out[3]);
+        TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_get(&cache, 2U, 0U, key_out, value_out));
+        TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_init(storage, 47U, 2U, 3U, 4U, &cache));
+        TEST_ASSERT_EQUAL(-1, gpt2_gguf_kv_cache_put(&cache, 0U, 0U, 0, value));
+    }
     TEST_ASSERT_EQUAL(480, (int)model.bytes_loaded);
     TEST_ASSERT_EQUAL(1, model.index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&model.index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));

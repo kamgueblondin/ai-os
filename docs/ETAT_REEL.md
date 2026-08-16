@@ -285,3 +285,9 @@ Le lot 91 ajoute `gpt2_gguf_project_qkv_row_fat16`, qui valide une matrice QKV `
 
 
 Le lot 92 ajoute `gpt2_gguf_project_qkv_fat16`, qui accumule les `3C` projections d’une matrice `[C,3C]` en séparant query, key et value dans trois buffers caller-owned. Un unique buffer de ligne quantifiée est réutilisé et les capacités de sortie sont contrôlées avant lecture. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 93 ajoute `gpt2_gguf_kv_cache_t` et ses opérations d’initialisation, écriture et lecture. Le cache caller-owned stocke `[couche][position][K puis V]`, contrôle la capacité totale et suit la plus grande position écrite via `count`, sans allocation noyau. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 93 ajoute `gpt2_gguf_kv_cache_t` et ses opérations d’initialisation, écriture et lecture. Le cache caller-owned stocke `[couche][position][K puis V]`, contrôle la capacité totale et suit la plus grande position écrite via `count`, sans allocation noyau. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Le build i386 et la relance propre du smoke QEMU valident core, extras, persist, spawn et exec.
