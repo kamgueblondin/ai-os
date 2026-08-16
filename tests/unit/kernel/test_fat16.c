@@ -267,6 +267,28 @@ static void test_loads_gpt2_from_fat16(void) {
                     TEST_ASSERT_EQUAL(-9, gpt2_gguf_attention_concat_heads(heads, 0U, 2U,
                                                                             concatenated, 4U,
                                                                             &concat_count));
+                    {
+                        float multi_query[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                        float multi_heads[4] = {0.0f};
+                        float multi_output[4] = {0.0f};
+                        float multi_key[2] = {0.0f};
+                        float multi_scores[3] = {0.0f};
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_attention_multi_head(
+                            &cache, 1U, 0U, 3U, multi_query, 2U,
+                            multi_heads, 4U, multi_key, 2U, multi_scores, 3U,
+                            multi_output, 4U, &concat_count));
+                        TEST_ASSERT_EQUAL(4, (int)concat_count);
+                        TEST_ASSERT_TRUE(multi_output[0] > 15.0f);
+                        TEST_ASSERT_TRUE(multi_output[2] > 6.9f);
+                        TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_attention_multi_head(
+                            &cache, 1U, 0U, 3U, multi_query, 3U,
+                            multi_heads, 4U, multi_key, 2U, multi_scores, 3U,
+                            multi_output, 4U, &concat_count));
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_attention_multi_head(
+                            &cache, 1U, 0U, 3U, multi_query, 2U,
+                            multi_heads, 3U, multi_key, 2U, multi_scores, 3U,
+                            multi_output, 4U, &concat_count));
+                    }
                 }
             }
         }

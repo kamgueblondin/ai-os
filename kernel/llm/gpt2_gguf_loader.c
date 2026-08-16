@@ -579,3 +579,38 @@ int gpt2_gguf_attention_concat_heads(const float* head_outputs, uint32_t head_co
     *out_count = total;
     return 0;
 }
+
+
+int gpt2_gguf_kv_cache_attention_multi_head(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                            uint32_t start_position, uint32_t position_count,
+                                            const float* query, uint32_t head_count,
+                                            float* head_outputs, uint32_t head_output_capacity,
+                                            float* key_scratch, uint32_t key_scratch_capacity,
+                                            float* scores, uint32_t score_capacity,
+                                            float* output, uint32_t output_capacity,
+                                            uint32_t* out_count) {
+    uint32_t head_size;
+    uint32_t head;
+    uint32_t channels;
+    uint32_t produced;
+    int status;
+    if (out_count) *out_count = 0U;
+    if (!cache || !query || !head_outputs || !key_scratch || !scores || !output || !out_count) return -1;
+    if (head_count == 0U || cache->channels == 0U || (cache->channels % head_count) != 0U) return -9;
+    channels = cache->channels;
+    head_size = channels / head_count;
+    if (head_output_capacity < channels || output_capacity < channels ||
+        key_scratch_capacity < head_size || score_capacity < position_count) return -6;
+    for (head = 0U; head < head_count; head++) {
+        status = gpt2_gguf_kv_cache_attention_head(cache, layer, start_position,
+                                                    position_count, query, head_count, head,
+                                                    key_scratch, key_scratch_capacity, scores,
+                                                    score_capacity, head_outputs + head * head_size,
+                                                    head_size, &produced);
+        if (status != 0) return status;
+        if (produced != head_size) return -7;
+    }
+    status = gpt2_gguf_attention_concat_heads(head_outputs, head_count, head_size,
+                                               output, output_capacity, out_count);
+    return status;
+}
