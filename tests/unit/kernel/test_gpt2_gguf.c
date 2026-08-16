@@ -91,21 +91,22 @@ static uint32_t make_small_tensor(uint32_t type, uint64_t data_offset) {
 static uint32_t make_role_tensors(void) {
     static const char* const names[] = {
         "token_embd.weight", "position_embd.weight", "output_norm.weight",
-        "output_norm.bias", "output.weight"
+        "output_norm.bias", "output.weight",
+        "blk.0.attn_norm.weight", "blk.0.attn_qkv.weight"
     };
     uint32_t i;
     uint32_t padded;
     reset_blob();
     put_u32(GPT2_GGUF_MAGIC);
     put_u32(GPT2_GGUF_VERSION);
-    put_u64(5U);
+    put_u64(7U);
     put_u64(2U);
     put_metadata_string("general.architecture", "gpt2");
     put_metadata_u32("general.alignment", 32U);
-    for (i = 0U; i < 5U; i++) {
+    for (i = 0U; i < 7U; i++) {
         put_tensor(names[i], 1U, GPT2_QK_K, 0U, GPT2_GGUF_TENSOR_Q4_K, (uint64_t)(i * 160U));
     }
-    padded = 1280U;
+    padded = 2048U;
     while (cursor < padded) blob[cursor++] = 0U;
     return cursor;
 }
@@ -159,7 +160,8 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
     gpt2_gguf_tensor_t tensor;
     uint32_t size = make_role_tensors();
     TEST_ASSERT_EQUAL(0, gpt2_gguf_build_index(blob, size, &index));
-    TEST_ASSERT_EQUAL(5, index.tensor_count);
+    char name[40];
+    TEST_ASSERT_EQUAL(7, index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_index_find(&index, "output.weight", &tensor));
     TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
     TEST_ASSERT_EQUAL(4 * 160, (int)tensor.data_offset);
@@ -169,6 +171,12 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_NORM_BIAS, &tensor));
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
     TEST_ASSERT_EQUAL(-1, gpt2_gguf_map_role(&index, (gpt2_gguf_role_t)99, &tensor));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT, name, sizeof(name), &tensor));
+    TEST_ASSERT_EQUAL_STRING("blk.0.attn_norm.weight", name);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT, name, sizeof(name), &tensor));
+    TEST_ASSERT_EQUAL_STRING("blk.0.attn_qkv.weight", name);
+    TEST_ASSERT_EQUAL(-8, gpt2_gguf_map_layer_role(&index, 1U, GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT, name, sizeof(name), &tensor));
+    TEST_ASSERT_EQUAL(-2, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT, name, 8U, &tensor));
 }
 
 static void test_rejects_non_gpt2_architecture(void) {

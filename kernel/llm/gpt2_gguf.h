@@ -48,7 +48,17 @@ typedef enum {
     GPT2_GGUF_ROLE_POSITION_EMBEDDING = 1U,
     GPT2_GGUF_ROLE_OUTPUT_NORM_WEIGHT = 2U,
     GPT2_GGUF_ROLE_OUTPUT_NORM_BIAS = 3U,
-    GPT2_GGUF_ROLE_OUTPUT_WEIGHT = 4U
+    GPT2_GGUF_ROLE_OUTPUT_WEIGHT = 4U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT = 5U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_NORM_BIAS = 6U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT = 7U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_QKV_BIAS = 8U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_OUTPUT_WEIGHT = 9U,
+    GPT2_GGUF_ROLE_LAYER_ATTN_OUTPUT_BIAS = 10U,
+    GPT2_GGUF_ROLE_LAYER_FFN_NORM_WEIGHT = 11U,
+    GPT2_GGUF_ROLE_LAYER_FFN_NORM_BIAS = 12U,
+    GPT2_GGUF_ROLE_LAYER_FFN_UP_WEIGHT = 13U,
+    GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT = 14U
 } gpt2_gguf_role_t;
 
 typedef struct {
@@ -95,5 +105,9 @@ int gpt2_gguf_index_find(const gpt2_gguf_index_t* index, const char* name,
 /* Maps the stable GPT-2 GGUF names to semantic model roles. */
 int gpt2_gguf_map_role(const gpt2_gguf_index_t* index, gpt2_gguf_role_t role,
                        gpt2_gguf_tensor_t* out);
+/* Construit le nom GGUF d’une couche dans le buffer fourni puis la résout. */
+int gpt2_gguf_map_layer_role(const gpt2_gguf_index_t* index, uint32_t layer,
+                             gpt2_gguf_role_t role, char* name, uint32_t capacity,
+                             gpt2_gguf_tensor_t* out);
 
 #endif

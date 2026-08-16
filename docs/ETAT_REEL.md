@@ -249,3 +249,6 @@ AI-OS ne fournit pas encore de volume FAT sur le disque IDE, de pilote réseau, 
 
 
 Le lot 80 ajoute une preuve différentielle de sélection disque dans la fixture GGUF/FAT16. Après alignement dynamique sur `general.alignment`, le premier super-bloc Q4_K commence par `0x11` et le second par `0x77`; les lectures de tenseur, de bloc 0 et de bloc 1 vérifient ces valeurs distinctes. La capacité insuffisante et les bornes de ligne restent rejetées. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Cette preuve porte sur l’offset physique FAT16 et ne constitue toujours pas un forward GPT-2 complet.
+
+
+Le lot 81 étend le mapping GGUF aux rôles répétés des blocs GPT-2 via `gpt2_gguf_map_layer_role`. L’API construit dans un buffer caller-owned les noms `blk.<layer>.attn_norm`, `attn_qkv`, `attn_output`, `ffn_norm`, `ffn_up` et `ffn_down`, avec poids et biais lorsque la convention est définie, puis résout le tenseur dans l’index sans allocation dynamique. La fixture vérifie deux noms de couche, une couche absente et un buffer trop petit. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Ce mapping ne branche pas encore les matrices à un forward GPT-2 réel.

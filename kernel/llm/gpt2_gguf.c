@@ -415,6 +415,49 @@ int gpt2_gguf_map_role(const gpt2_gguf_index_t* index, gpt2_gguf_role_t role,
         "output_norm.bias",
         "output.weight"
     };
-    if ((uint32_t)role >= (uint32_t)(sizeof(names) / sizeof(names[0]))) return -1;
+    if ((uint32_t)role >= 5U) return -1;
     return gpt2_gguf_index_find(index, names[(uint32_t)role], out);
+}
+
+static int gguf_append_name(char* name, uint32_t capacity, uint32_t* position,
+                            const char* suffix) {
+    uint32_t i = 0U;
+    if (!name || !position || !suffix) return -1;
+    while (suffix[i]) {
+        if (*position + 1U >= capacity) return -2;
+        name[(*position)++] = suffix[i++];
+    }
+    return 0;
+}
+
+int gpt2_gguf_map_layer_role(const gpt2_gguf_index_t* index, uint32_t layer,
+                             gpt2_gguf_role_t role, char* name, uint32_t capacity,
+                             gpt2_gguf_tensor_t* out) {
+    static const char* const suffixes[] = {
+        "attn_norm.weight", "attn_norm.bias", "attn_qkv.weight", "attn_qkv.bias",
+        "attn_output.weight", "attn_output.bias", "ffn_norm.weight", "ffn_norm.bias",
+        "ffn_up.weight", "ffn_down.weight"
+    };
+    uint32_t digits[10];
+    uint32_t count = 0U;
+    uint32_t position = 0U;
+    uint32_t i;
+    if (!index || !name || !out || capacity == 0U || (uint32_t)role < 5U ||
+        (uint32_t)role >= 15U) return -1;
+    if (gguf_append_name(name, capacity, &position, "blk." ) != 0) return -2;
+    do {
+        digits[count++] = layer % 10U;
+        layer /= 10U;
+    } while (layer != 0U && count < 10U);
+    if (layer != 0U) return -2;
+    for (i = count; i > 0U; i--) {
+        if (position + 1U >= capacity) return -2;
+        name[position++] = (char)('0' + digits[i - 1U]);
+    }
+    if (position + 1U >= capacity) return -2;
+    name[position++] = '.';
+    if (gguf_append_name(name, capacity, &position, suffixes[(uint32_t)role - 5U]) != 0) return -2;
+    if (position >= capacity) return -2;
+    name[position] = '\0';
+    return gpt2_gguf_index_find(index, name, out);
 }
