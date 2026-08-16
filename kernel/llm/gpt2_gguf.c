@@ -336,3 +336,85 @@ int gpt2_gguf_find_tensor(const uint8_t* blob, uint32_t blob_size,
     }
     return -8;
 }
+
+
+int gpt2_gguf_build_index(const uint8_t* blob, uint32_t blob_size,
+                          gpt2_gguf_index_t* out) {
+    uint32_t offset = 0U;
+    uint32_t magic;
+    uint32_t version;
+    uint64_t tensor_count64;
+    uint64_t metadata_count64;
+    uint32_t tensor_count;
+    uint32_t metadata_count;
+    uint32_t i;
+    int status;
+
+    if (!blob || !out) return -1;
+    status = gpt2_gguf_probe_blob(blob, blob_size, &out->info);
+    if (status != 0) return status;
+    out->blob = blob;
+    out->blob_size = blob_size;
+    out->tensor_count = 0U;
+    if (gguf_read_u32(blob, blob_size, &offset, &magic) != 0 ||
+        gguf_read_u32(blob, blob_size, &offset, &version) != 0 ||
+        gguf_read_u64(blob, blob_size, &offset, &tensor_count64) != 0 ||
+        gguf_read_u64(blob, blob_size, &offset, &metadata_count64) != 0 ||
+        tensor_count64 > GPT2_GGUF_MAX_TENSORS || metadata_count64 > GGUF_MAX_METADATA) return -2;
+    tensor_count = (uint32_t)tensor_count64;
+    metadata_count = (uint32_t)metadata_count64;
+    for (i = 0U; i < metadata_count; i++) {
+        uint32_t key_length;
+        uint32_t type;
+        if (gguf_read_string(blob, blob_size, &offset, 0, &key_length) != 0 ||
+            gguf_read_u32(blob, blob_size, &offset, &type) != 0 ||
+            gguf_skip_value(blob, blob_size, &offset, type, 0U) != 0) return -3;
+    }
+    for (i = 0U; i < tensor_count; i++) {
+        gpt2_gguf_tensor_t* tensor = &out->tensors[i];
+        uint64_t data_offset64;
+        uint32_t j;
+        if (gguf_read_string(blob, blob_size, &offset, &tensor->name, &tensor->name_length) != 0 ||
+            gguf_read_u32(blob, blob_size, &offset, &tensor->dimensions) != 0 ||
+            tensor->dimensions == 0U || tensor->dimensions > GGUF_MAX_DIMS) return -4;
+        for (j = 0U; j < GGUF_MAX_DIMS; j++) tensor->shape[j] = 0U;
+        for (j = 0U; j < tensor->dimensions; j++) {
+            if (gguf_read_u64(blob, blob_size, &offset, &tensor->shape[j]) != 0) return -5;
+        }
+        if (gguf_read_u32(blob, blob_size, &offset, &tensor->type) != 0 ||
+            gguf_read_u64(blob, blob_size, &offset, &data_offset64) != 0 ||
+            data_offset64 > 0xffffffffULL ||
+            gguf_tensor_byte_size(tensor->type, tensor->shape, tensor->dimensions, &tensor->byte_size) != 0) return -6;
+        if (data_offset64 > (uint64_t)(blob_size - out->info.tensor_data_offset) ||
+            tensor->byte_size > blob_size - out->info.tensor_data_offset - (uint32_t)data_offset64) return -7;
+        tensor->data_offset = (uint32_t)data_offset64;
+    }
+    out->tensor_count = tensor_count;
+    return 0;
+}
+
+int gpt2_gguf_index_find(const gpt2_gguf_index_t* index, const char* name,
+                         gpt2_gguf_tensor_t* out) {
+    uint32_t i;
+    if (!index || !name || !out || index->tensor_count > GPT2_GGUF_MAX_TENSORS) return -1;
+    for (i = 0U; i < index->tensor_count; i++) {
+        if (gguf_name_equals_cstr(index->tensors[i].name, index->tensors[i].name_length, name)) {
+            *out = index->tensors[i];
+            return 0;
+        }
+    }
+    return -8;
+}
+
+int gpt2_gguf_map_role(const gpt2_gguf_index_t* index, gpt2_gguf_role_t role,
+                       gpt2_gguf_tensor_t* out) {
+    static const char* const names[] = {
+        "token_embd.weight",
+        "position_embd.weight",
+        "output_norm.weight",
+        "output_norm.bias",
+        "output.weight"
+    };
+    if ((uint32_t)role >= (uint32_t)(sizeof(names) / sizeof(names[0]))) return -1;
+    return gpt2_gguf_index_find(index, names[(uint32_t)role], out);
+}

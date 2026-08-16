@@ -4,7 +4,7 @@
 #include "../../../kernel/llm/gpt2_gguf.h"
 #include "../../../kernel/llm/gpt2_quant.h"
 
-#define BUF_SIZE 512U
+#define BUF_SIZE 4096U
 
 static uint8_t blob[BUF_SIZE];
 static uint32_t cursor;
@@ -88,6 +88,28 @@ static uint32_t make_small_tensor(uint32_t type, uint64_t data_offset) {
     return cursor;
 }
 
+static uint32_t make_role_tensors(void) {
+    static const char* const names[] = {
+        "token_embd.weight", "position_embd.weight", "output_norm.weight",
+        "output_norm.bias", "output.weight"
+    };
+    uint32_t i;
+    uint32_t padded;
+    reset_blob();
+    put_u32(GPT2_GGUF_MAGIC);
+    put_u32(GPT2_GGUF_VERSION);
+    put_u64(5U);
+    put_u64(2U);
+    put_metadata_string("general.architecture", "gpt2");
+    put_metadata_u32("general.alignment", 32U);
+    for (i = 0U; i < 5U; i++) {
+        put_tensor(names[i], 1U, GPT2_QK_K, 0U, GPT2_GGUF_TENSOR_Q4_K, (uint64_t)(i * 160U));
+    }
+    padded = 1280U;
+    while (cursor < padded) blob[cursor++] = 0U;
+    return cursor;
+}
+
 static void test_accepts_gpt2_q8_0_envelope(void) {
     gpt2_gguf_info_t info;
     uint32_t size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q8_0, 0U);
@@ -132,6 +154,23 @@ static void test_finds_bounded_q4_tensor(void) {
     TEST_ASSERT_EQUAL(-7, gpt2_gguf_find_tensor(blob, size, "blk.0.weight", &tensor));
 }
 
+static void test_builds_index_and_maps_gpt2_roles(void) {
+    gpt2_gguf_index_t index;
+    gpt2_gguf_tensor_t tensor;
+    uint32_t size = make_role_tensors();
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_build_index(blob, size, &index));
+    TEST_ASSERT_EQUAL(5, index.tensor_count);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_index_find(&index, "output.weight", &tensor));
+    TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
+    TEST_ASSERT_EQUAL(4 * 160, (int)tensor.data_offset);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_TOKEN_EMBEDDING, &tensor));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_POSITION_EMBEDDING, &tensor));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_NORM_WEIGHT, &tensor));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_NORM_BIAS, &tensor));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
+    TEST_ASSERT_EQUAL(-1, gpt2_gguf_map_role(&index, (gpt2_gguf_role_t)99, &tensor));
+}
+
 static void test_rejects_non_gpt2_architecture(void) {
     gpt2_gguf_info_t info;
     uint32_t size;
@@ -164,6 +203,7 @@ int main(void) {
     RUN_TEST(test_accepts_gpt2_q8_0_envelope);
     RUN_TEST(test_reports_supported_k_quantized_tensors);
     RUN_TEST(test_finds_bounded_q4_tensor);
+    RUN_TEST(test_builds_index_and_maps_gpt2_roles);
     RUN_TEST(test_rejects_non_gpt2_architecture);
     RUN_TEST(test_rejects_unaligned_tensor_offset);
     RUN_TEST(test_rejects_bad_magic_and_truncation);
