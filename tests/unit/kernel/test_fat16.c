@@ -1,5 +1,7 @@
 #include "../../framework/unity.h"
 #include "../../../kernel/fs/fat16.h"
+#include "../../../kernel/llm/gpt2_gguf_loader.h"
+#include "../../../kernel/llm/gpt2_quant.h"
 
 #define TEST_SECTORS 4224U
 static uint8_t disk[TEST_SECTORS * 512U];
@@ -55,6 +57,58 @@ static void make_volume(void) {
     disk[data + 0U] = 'h'; disk[data + 1U] = 'e'; disk[data + 2U] = 'l'; disk[data + 3U] = 'l'; disk[data + 4U] = 'o';
 }
 
+static void put64_at(uint32_t off, uint64_t value) {
+    put32(off, (uint32_t)value);
+    put32(off + 4U, (uint32_t)(value >> 32));
+}
+
+static void put_text_at(uint32_t* cursor, const char* text) {
+    uint32_t i = 0U;
+    while (text[i]) i++;
+    put64_at(*cursor, i);
+    *cursor += 8U;
+    while (*text) disk[(*cursor)++] = (uint8_t)*text++;
+}
+
+static void make_gguf_file(void) {
+    uint32_t root = (1U + 2U * 17U) * 512U;
+    uint32_t data = (root / 512U + 2U) * 512U;
+    uint32_t fat;
+    uint32_t p = data + 512U;
+    uint32_t end;
+    make_volume();
+    for (fat = 1U; fat <= 2U; fat++) put16(fat * 17U * 512U + 6U, 0xFFFFU);
+    disk[root + 32U] = 'G'; disk[root + 33U] = 'P'; disk[root + 34U] = 'T'; disk[root + 35U] = '2';
+    disk[root + 36U] = ' '; disk[root + 37U] = ' '; disk[root + 38U] = ' '; disk[root + 39U] = ' ';
+    disk[root + 40U] = 'G'; disk[root + 41U] = 'G'; disk[root + 42U] = 'U'; disk[root + 43U] = 0x20U;
+    put16(root + 32U + 26U, 3U);
+    put32(root + 32U + 28U, 320U);
+    put32(p, GPT2_GGUF_MAGIC); p += 4U;
+    put32(p, GPT2_GGUF_VERSION); p += 4U;
+    put64_at(p, 1U); p += 8U;
+    put64_at(p, 2U); p += 8U;
+    put_text_at(&p, "general.architecture"); put32(p, GPT2_GGUF_VALUE_STRING); p += 4U; put_text_at(&p, "gpt2");
+    put_text_at(&p, "general.alignment"); put32(p, GPT2_GGUF_VALUE_UINT32); p += 4U; put32(p, 32U); p += 4U;
+    put_text_at(&p, "output.weight"); put32(p, 1U); p += 4U; put64_at(p, GPT2_QK_K); p += 8U;
+    put32(p, GPT2_GGUF_TENSOR_Q4_K); p += 4U; put64_at(p, 0U); p += 8U;
+    end = data + 512U + 320U;
+    while (p < end) disk[p++] = 0U;
+}
+
+static void test_loads_gpt2_from_fat16(void) {
+    fat16_volume_t volume;
+    gpt2_gguf_loaded_model_t model;
+    gpt2_gguf_tensor_t tensor;
+    uint8_t buffer[512];
+    make_gguf_file();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_load_fat16(&volume, "gpt2.ggu", buffer, sizeof(buffer), &model));
+    TEST_ASSERT_EQUAL(320, (int)model.bytes_loaded);
+    TEST_ASSERT_EQUAL(1, model.index.tensor_count);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&model.index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
+    TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
+}
+
 static void test_mount_list_and_read(void) {
     fat16_volume_t volume;
     os_fat16_dirent_t entries[4];
@@ -89,6 +143,7 @@ static void test_rejects_bad_name_and_small_buffer(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
+    RUN_TEST(test_loads_gpt2_from_fat16);
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     unity_print_results();

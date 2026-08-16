@@ -33,7 +33,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/fat16.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/fat16.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_gguf_loader.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/kbd_buffer.o
 
 # L'ABI partagée influence notamment la taille de task_t et des messages IPC.
@@ -177,8 +177,12 @@ build/gpt2_model.o: kernel/llm/gpt2_model.c kernel/llm/gpt2_model.h fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Sonde GGUF v3 et kernels quantifiés bornés ; le chargeur runtime complet reste séparé.
+# Sonde GGUF v3 et index borné ; le loader lit un fichier FAT16 dans un buffer caller-owned.
 build/gpt2_gguf.o: kernel/llm/gpt2_gguf.c kernel/llm/gpt2_gguf.h kernel/llm/gpt2_quant.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/gpt2_gguf_loader.o: kernel/llm/gpt2_gguf_loader.c kernel/llm/gpt2_gguf_loader.h kernel/llm/gpt2_gguf.h kernel/fs/fat16.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
