@@ -174,6 +174,19 @@ static void test_loads_gpt2_from_fat16(void) {
                 TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_buffer(&variant, row, sizeof(row), input, GPT2_QK_K, &dot));
                 TEST_ASSERT_EQUAL(-6, gpt2_gguf_dot_quant_row_buffer(&tensor, row, 1U, input, GPT2_QK_K, &dot));
                 TEST_ASSERT_EQUAL(-7, gpt2_gguf_dot_quant_row_buffer(&tensor, row, sizeof(row), input, 32U, &dot));
+            {
+                gpt2_gguf_tensor_t qkv = tensor;
+                qkv.shape[1] = 3U * GPT2_QK_K;
+                qkv.byte_size = 3U * GPT2_QK_K * GPT2_Q4_K_BLOCK_BYTES;
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_project_qkv_row_fat16(&volume, "gpt2.ggu", &model, &qkv,
+                                                                       GPT2_QK_K, 0U, input, row, sizeof(row), &dot));
+                TEST_ASSERT_EQUAL(0, (int)dot);
+                TEST_ASSERT_EQUAL(-9, gpt2_gguf_project_qkv_row_fat16(&volume, "gpt2.ggu", &model, &qkv,
+                                                                        GPT2_QK_K, 3U * GPT2_QK_K, input, row, sizeof(row), &dot));
+                qkv.shape[1] = 2U * GPT2_QK_K;
+                TEST_ASSERT_EQUAL(-9, gpt2_gguf_project_qkv_row_fat16(&volume, "gpt2.ggu", &model, &qkv,
+                                                                        GPT2_QK_K, 0U, input, row, sizeof(row), &dot));
+            }
             }
         }
         {

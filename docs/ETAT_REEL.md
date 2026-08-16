@@ -279,3 +279,6 @@ Le lot 89 ajoute `gpt2_gguf_read_quant_row_fat16`, qui lit une ligne Q3_K, Q4_K 
 
 
 Le lot 90 ajoute `gpt2_gguf_dot_quant_row_buffer`, qui calcule une ligne quantifiée déjà lue sans nouvel accès FAT16, allocation ni cache implicite. La primitive accumule les super-blocs Q3_K, Q4_K ou Q6_K avec les kernels existants et contrôle largeur, capacité et type. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 91 ajoute `gpt2_gguf_project_qkv_row_fat16`, qui valide une matrice QKV `[C,3C]`, lit une sortie quantifiée à la fois depuis FAT16 et la calcule avec un buffer caller-owned. Les bornes `output_index < 3C` et la forme incompatible sont rejetées; aucune matrice complète ni allocation noyau n’est utilisée. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
