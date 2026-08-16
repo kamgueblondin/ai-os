@@ -534,3 +534,36 @@ int gpt2_gguf_validate_gpt2_layer(const gpt2_gguf_layer_t* layer, uint32_t chann
     t = &layer->tensors[9]; if (!gpt2_gguf_shape_is(t, 4U * channels, channels)) return -9;
     return 0;
 }
+
+
+int gpt2_gguf_validate_tensor_size(const gpt2_gguf_tensor_t* tensor) {
+    uint64_t elements = 1U;
+    uint64_t bytes;
+    uint32_t i;
+    uint32_t block_size = 1U;
+    uint32_t block_bytes = 0U;
+    if (!tensor || tensor->dimensions == 0U || tensor->dimensions > 4U) return -1;
+    for (i = 0U; i < tensor->dimensions; i++) {
+        uint64_t next;
+        if (tensor->shape[i] == 0U || tensor->shape[i] > 0xFFFFFFFFULL) return -9;
+        next = elements * tensor->shape[i];
+        if (next > 0xFFFFFFFFULL) return -9;
+        elements = next;
+    }
+    switch (tensor->type) {
+        case GPT2_GGUF_TENSOR_F32: block_bytes = 4U; break;
+        case GPT2_GGUF_TENSOR_F16: block_bytes = 2U; break;
+        case GPT2_GGUF_TENSOR_Q3_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q3_K_BLOCK_BYTES; break;
+        case GPT2_GGUF_TENSOR_Q4_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q4_K_BLOCK_BYTES; break;
+        case GPT2_GGUF_TENSOR_Q6_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q6_K_BLOCK_BYTES; break;
+        default: return -4;
+    }
+    if (block_size != 1U) {
+        if ((elements & (block_size - 1U)) != 0U) return -9;
+        bytes = (elements >> 8U) * block_bytes;
+    } else {
+        bytes = elements * block_bytes;
+    }
+    if (bytes > 0xFFFFFFFFULL || tensor->byte_size != (uint32_t)bytes) return -9;
+    return 0;
+}
