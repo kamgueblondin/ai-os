@@ -624,3 +624,41 @@ int gpt2_gguf_add_residual(float* residual, uint32_t residual_capacity,
     for (i = 0U; i < attention_count; i++) residual[i] += attention[i];
     return 0;
 }
+
+
+int gpt2_gguf_layernorm(const float* input, uint32_t input_count,
+                        const float* gamma, const float* beta,
+                        float epsilon, float* output, uint32_t output_capacity) {
+    uint32_t i;
+    float mean = 0.0f;
+    float variance = 0.0f;
+    float inverse;
+    if (!input || !gamma || !beta || !output) return -1;
+    if (input_count == 0U || output_capacity < input_count || epsilon <= 0.0f) return -6;
+    for (i = 0U; i < input_count; i++) mean += input[i];
+    mean /= (float)input_count;
+    for (i = 0U; i < input_count; i++) {
+        float delta = input[i] - mean;
+        variance += delta * delta;
+    }
+    variance /= (float)input_count;
+    inverse = gpt2_gguf_attention_inv_sqrt(variance + epsilon);
+    for (i = 0U; i < input_count; i++)
+        output[i] = (input[i] - mean) * inverse * gamma[i] + beta[i];
+    return 0;
+}
+
+
+int gpt2_gguf_gelu(const float* input, uint32_t input_count,
+                   float* output, uint32_t output_capacity) {
+    uint32_t i;
+    if (!input || !output) return -1;
+    if (output_capacity < input_count) return -6;
+    for (i = 0U; i < input_count; i++) {
+        float value = input[i];
+        float exponent = gpt2_gguf_attention_fast_exp(-1.702f * value);
+        float sigmoid = 1.0f / (1.0f + exponent);
+        output[i] = value * sigmoid;
+    }
+    return 0;
+}
