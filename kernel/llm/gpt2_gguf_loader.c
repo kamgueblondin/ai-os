@@ -83,3 +83,30 @@ int gpt2_gguf_dot_quant_block_fat16(const fat16_volume_t* volume, const char* fi
     else *out_dot = gpt2_q6_k_dot_f32(input, scratch, count);
     return 0;
 }
+
+
+int gpt2_gguf_dot_quant_tensor_fat16(const fat16_volume_t* volume, const char* filename,
+                                     const gpt2_gguf_loaded_model_t* model,
+                                     const gpt2_gguf_tensor_t* tensor,
+                                     const float* input, uint32_t count,
+                                     uint8_t* scratch, uint32_t scratch_capacity,
+                                     float* out_dot) {
+    uint32_t blocks;
+    uint32_t block;
+    float total = 0.0f;
+    int status;
+    if (!input || !scratch || !out_dot || !tensor) return -1;
+    if (count == 0U || (count % GPT2_QK_K) != 0U) return -7;
+    blocks = count / GPT2_QK_K;
+    for (block = 0U; block < blocks; block++) {
+        float partial = 0.0f;
+        status = gpt2_gguf_dot_quant_block_fat16(volume, filename, model, tensor,
+                                                  block, input + block * GPT2_QK_K,
+                                                  GPT2_QK_K, scratch, scratch_capacity,
+                                                  &partial);
+        if (status != 0) return status;
+        total += partial;
+    }
+    *out_dot = total;
+    return 0;
+}
