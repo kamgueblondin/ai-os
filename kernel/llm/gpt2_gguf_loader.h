@@ -119,6 +119,20 @@ int gpt2_gguf_mlp_forward_add_residual_fat16(const fat16_volume_t* volume,
                                              const float* down_bias, float* hidden,
                                              uint32_t hidden_capacity, float* residual,
                                              uint32_t residual_capacity);
+/* LayerNorm pré-MLP puis MLP et ajout au résiduel. */
+int gpt2_gguf_block_mlp_forward_fat16(const fat16_volume_t* volume,
+                                      const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      const gpt2_gguf_tensor_t* up_tensor,
+                                      const gpt2_gguf_tensor_t* down_tensor,
+                                      uint32_t channels, uint32_t hidden_channels,
+                                      const float* input, const float* gamma,
+                                      const float* beta, float epsilon,
+                                      float* norm, uint32_t norm_capacity,
+                                      uint8_t* row_buffer, uint32_t row_capacity,
+                                      const float* up_bias, const float* down_bias,
+                                      float* hidden, uint32_t hidden_capacity,
+                                      float* residual, uint32_t residual_capacity);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

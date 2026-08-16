@@ -722,3 +722,29 @@ int gpt2_gguf_mlp_forward_add_residual_fat16(const fat16_volume_t* volume,
                                          residual_capacity);
     return status;
 }
+
+
+int gpt2_gguf_block_mlp_forward_fat16(const fat16_volume_t* volume,
+                                      const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      const gpt2_gguf_tensor_t* up_tensor,
+                                      const gpt2_gguf_tensor_t* down_tensor,
+                                      uint32_t channels, uint32_t hidden_channels,
+                                      const float* input, const float* gamma,
+                                      const float* beta, float epsilon,
+                                      float* norm, uint32_t norm_capacity,
+                                      uint8_t* row_buffer, uint32_t row_capacity,
+                                      const float* up_bias, const float* down_bias,
+                                      float* hidden, uint32_t hidden_capacity,
+                                      float* residual, uint32_t residual_capacity) {
+    int status;
+    if (!norm || !gamma || !beta || !input || !residual) return -1;
+    if (norm_capacity < channels || residual_capacity < channels) return -6;
+    status = gpt2_gguf_layernorm(input, channels, gamma, beta, epsilon,
+                                  norm, norm_capacity);
+    if (status != 0) return status;
+    return gpt2_gguf_mlp_forward_add_residual_fat16(
+        volume, filename, model, up_tensor, down_tensor, channels,
+        hidden_channels, norm, row_buffer, row_capacity, up_bias, down_bias,
+        hidden, hidden_capacity, residual, residual_capacity);
+}
