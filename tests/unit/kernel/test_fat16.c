@@ -173,6 +173,27 @@ static void test_loads_gpt2_from_fat16(void) {
                 TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_query_scores(&cache, 1U, 2U, 2U,
                                                                        query, key_scratch, 4U,
                                                                        scores, 3U, &history_count));
+                {
+                    float weights[3] = {0.2f, 0.3f, 0.5f};
+                    float output[4] = {99.0f, 99.0f, 99.0f, 99.0f};
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_accumulate_values(&cache, 1U, 0U, 3U,
+                                                                                weights, 3U, output, 4U,
+                                                                                &history_count));
+                    TEST_ASSERT_EQUAL(4, (int)history_count);
+                    TEST_ASSERT_EQUAL(92, (int)(output[0] * 10.0f));
+                    TEST_ASSERT_EQUAL(60, (int)(output[1] * 10.0f));
+                    TEST_ASSERT_EQUAL(70, (int)(output[2] * 10.0f));
+                    TEST_ASSERT_EQUAL(80, (int)(output[3] * 10.0f));
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_accumulate_values(&cache, 1U, 0U, 3U,
+                                                                                 weights, 2U, output, 4U,
+                                                                                 &history_count));
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_accumulate_values(&cache, 1U, 0U, 3U,
+                                                                                 weights, 3U, output, 3U,
+                                                                                 &history_count));
+                    TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_accumulate_values(&cache, 1U, 2U, 2U,
+                                                                                 weights, 3U, output, 4U,
+                                                                                 &history_count));
+                }
             }
         }
     }

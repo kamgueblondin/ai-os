@@ -55,6 +55,12 @@ int gpt2_gguf_kv_cache_query_scores(const gpt2_gguf_kv_cache_t* cache, uint32_t 
                                     const float* query, float* key_scratch,
                                     uint32_t key_scratch_capacity, float* scores,
                                     uint32_t score_capacity, uint32_t* out_count);
+/* Accumule les values historiques avec les poids fournis par l’appelant. */
+int gpt2_gguf_kv_cache_accumulate_values(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                         uint32_t start_position, uint32_t position_count,
+                                         const float* weights, uint32_t weight_capacity,
+                                         float* output, uint32_t output_capacity,
+                                         uint32_t* out_count);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

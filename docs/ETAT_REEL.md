@@ -297,3 +297,4 @@ Le lot 94 ajoute `gpt2_gguf_kv_cache_copy_history`, qui copie un intervalle de p
 
 
 Le lot 95 ajoute `gpt2_gguf_kv_cache_query_scores`, qui calcule les produits scalaires query-key sur un historique KV sans allocation. Les scores restent bruts, sans softmax ni mise à l’échelle, et les capacités du scratch et du tableau de sortie sont contrôlées. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+Le lot 96 ajoute `gpt2_gguf_kv_cache_accumulate_values`, qui calcule le vecteur de sortie par accumulation des values historiques pondérées. La primitive lit le cache sans le modifier, n’alloue aucun buffer, contrôle les capacités caller-owned et laisse le softmax ainsi que la mise à l’échelle aux incréments suivants. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
