@@ -19,12 +19,30 @@ typedef struct {
     uint32_t position;
 } gpt2_gguf_forward_context_t;
 
+typedef struct {
+    float* storage;
+    uint32_t layers;
+    uint32_t max_positions;
+    uint32_t channels;
+    uint32_t count;
+} gpt2_gguf_kv_cache_t;
+
 /* Prépare une couche pour le futur forward sans prendre possession des buffers. */
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
                                    uint32_t layer_index, uint32_t channels,
                                    uint32_t position, char* name, uint32_t name_capacity,
                                    uint8_t* scratch, uint32_t scratch_capacity,
                                    gpt2_gguf_forward_context_t* out);
+/* Initialise un cache KV fourni par l’appelant. */
+int gpt2_gguf_kv_cache_init(float* storage, uint32_t storage_floats,
+                            uint32_t layers, uint32_t max_positions,
+                            uint32_t channels, gpt2_gguf_kv_cache_t* out);
+/* Écrit les K/V d’une couche et d’une position dans le cache. */
+int gpt2_gguf_kv_cache_put(gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                           uint32_t position, const float* key, const float* value);
+/* Relit les K/V d’une couche et d’une position dans les buffers appelant. */
+int gpt2_gguf_kv_cache_get(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                           uint32_t position, float* key, float* value);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,

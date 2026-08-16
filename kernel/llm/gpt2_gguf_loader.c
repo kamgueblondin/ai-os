@@ -285,3 +285,65 @@ int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filena
     }
     return 0;
 }
+
+
+static int gpt2_gguf_kv_cache_offset(const gpt2_gguf_kv_cache_t* cache,
+                                     uint32_t layer, uint32_t position,
+                                     uint32_t* out_offset) {
+    uint64_t slots;
+    uint64_t offset;
+    if (!cache || !out_offset || !cache->storage || cache->layers == 0U ||
+        cache->max_positions == 0U || cache->channels == 0U ||
+        layer >= cache->layers || position >= cache->max_positions) return -9;
+    slots = ((uint64_t)layer * cache->max_positions) + position;
+    offset = slots * 2ULL * cache->channels;
+    if (offset > 0xFFFFFFFFULL || offset + 2ULL * cache->channels > 0xFFFFFFFFULL) return -9;
+    *out_offset = (uint32_t)offset;
+    return 0;
+}
+
+int gpt2_gguf_kv_cache_init(float* storage, uint32_t storage_floats,
+                            uint32_t layers, uint32_t max_positions,
+                            uint32_t channels, gpt2_gguf_kv_cache_t* out) {
+    uint64_t required;
+    if (!storage || !out || layers == 0U || max_positions == 0U || channels == 0U) return -1;
+    required = (uint64_t)layers * max_positions * 2ULL * channels;
+    if (required > 0xFFFFFFFFULL || storage_floats < (uint32_t)required) return -6;
+    out->storage = storage;
+    out->layers = layers;
+    out->max_positions = max_positions;
+    out->channels = channels;
+    out->count = 0U;
+    return 0;
+}
+
+int gpt2_gguf_kv_cache_put(gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                           uint32_t position, const float* key, const float* value) {
+    uint32_t offset;
+    uint32_t i;
+    int status;
+    if (!key || !value) return -1;
+    status = gpt2_gguf_kv_cache_offset(cache, layer, position, &offset);
+    if (status != 0) return status;
+    for (i = 0U; i < cache->channels; i++) {
+        cache->storage[offset + i] = key[i];
+        cache->storage[offset + cache->channels + i] = value[i];
+    }
+    if (position + 1U > cache->count) cache->count = position + 1U;
+    return 0;
+}
+
+int gpt2_gguf_kv_cache_get(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                           uint32_t position, float* key, float* value) {
+    uint32_t offset;
+    uint32_t i;
+    int status;
+    if (!key || !value) return -1;
+    status = gpt2_gguf_kv_cache_offset(cache, layer, position, &offset);
+    if (status != 0) return status;
+    for (i = 0U; i < cache->channels; i++) {
+        key[i] = cache->storage[offset + i];
+        value[i] = cache->storage[offset + cache->channels + i];
+    }
+    return 0;
+}
