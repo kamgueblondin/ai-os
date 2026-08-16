@@ -662,3 +662,40 @@ int gpt2_gguf_gelu(const float* input, uint32_t input_count,
     }
     return 0;
 }
+
+
+int gpt2_gguf_mlp_forward_fat16(const fat16_volume_t* volume, const char* filename,
+                                const gpt2_gguf_loaded_model_t* model,
+                                const gpt2_gguf_tensor_t* up_tensor,
+                                const gpt2_gguf_tensor_t* down_tensor,
+                                uint32_t channels, uint32_t hidden_channels,
+                                const float* input, uint8_t* row_buffer,
+                                uint32_t row_capacity, const float* up_bias,
+                                const float* down_bias, float* hidden,
+                                uint32_t hidden_capacity, float* output,
+                                uint32_t output_capacity) {
+    uint32_t i;
+    int status;
+    if (!volume || !filename || !model || !up_tensor || !down_tensor ||
+        !input || !row_buffer || !hidden || !output) return -1;
+    if (channels == 0U || hidden_channels == 0U ||
+        hidden_capacity < hidden_channels || output_capacity < channels) return -6;
+    if (up_tensor->dimensions != 2U || down_tensor->dimensions != 2U ||
+        up_tensor->shape[0] != channels || up_tensor->shape[1] != hidden_channels ||
+        down_tensor->shape[0] != hidden_channels || down_tensor->shape[1] != channels) return -9;
+    status = gpt2_gguf_project_matrix_fat16(volume, filename, model, up_tensor,
+                                             channels, hidden_channels, input,
+                                             row_buffer, row_capacity, hidden,
+                                             hidden_capacity);
+    if (status != 0) return status;
+    if (up_bias) for (i = 0U; i < hidden_channels; i++) hidden[i] += up_bias[i];
+    status = gpt2_gguf_gelu(hidden, hidden_channels, hidden, hidden_capacity);
+    if (status != 0) return status;
+    status = gpt2_gguf_project_matrix_fat16(volume, filename, model, down_tensor,
+                                             hidden_channels, channels, hidden,
+                                             row_buffer, row_capacity, output,
+                                             output_capacity);
+    if (status != 0) return status;
+    if (down_bias) for (i = 0U; i < channels; i++) output[i] += down_bias[i];
+    return 0;
+}
