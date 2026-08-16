@@ -461,3 +461,20 @@ int gpt2_gguf_map_layer_role(const gpt2_gguf_index_t* index, uint32_t layer,
     name[position] = '\0';
     return gpt2_gguf_index_find(index, name, out);
 }
+
+int gpt2_gguf_map_layer(const gpt2_gguf_index_t* index, uint32_t layer,
+                        char* name, uint32_t capacity, gpt2_gguf_layer_t* out) {
+    uint32_t i;
+    int status;
+    if (!index || !name || !out || capacity == 0U) return -1;
+    out->layer_index = layer;
+    out->present_mask = 0U;
+    for (i = 0U; i < 10U; i++) {
+        status = gpt2_gguf_map_layer_role(index, layer,
+            (gpt2_gguf_role_t)(GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT + i),
+            name, capacity, &out->tensors[i]);
+        if (status != 0) return status;
+        out->present_mask |= (1U << i);
+    }
+    return 0;
+}

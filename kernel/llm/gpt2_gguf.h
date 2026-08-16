@@ -78,6 +78,12 @@ typedef struct {
 } gpt2_gguf_info_t;
 
 typedef struct {
+    gpt2_gguf_tensor_t tensors[10];
+    uint32_t layer_index;
+    uint32_t present_mask;
+} gpt2_gguf_layer_t;
+
+typedef struct {
     gpt2_gguf_info_t info;
     const uint8_t* blob;
     uint32_t blob_size;
@@ -109,5 +115,8 @@ int gpt2_gguf_map_role(const gpt2_gguf_index_t* index, gpt2_gguf_role_t role,
 int gpt2_gguf_map_layer_role(const gpt2_gguf_index_t* index, uint32_t layer,
                              gpt2_gguf_role_t role, char* name, uint32_t capacity,
                              gpt2_gguf_tensor_t* out);
+/* Résout les dix rôles d’une couche dans un descripteur caller-owned. */
+int gpt2_gguf_map_layer(const gpt2_gguf_index_t* index, uint32_t layer,
+                        char* name, uint32_t capacity, gpt2_gguf_layer_t* out);
 
 #endif

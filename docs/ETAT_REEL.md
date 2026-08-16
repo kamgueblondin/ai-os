@@ -252,3 +252,6 @@ Le lot 80 ajoute une preuve différentielle de sélection disque dans la fixture
 
 
 Le lot 81 étend le mapping GGUF aux rôles répétés des blocs GPT-2 via `gpt2_gguf_map_layer_role`. L’API construit dans un buffer caller-owned les noms `blk.<layer>.attn_norm`, `attn_qkv`, `attn_output`, `ffn_norm`, `ffn_up` et `ffn_down`, avec poids et biais lorsque la convention est définie, puis résout le tenseur dans l’index sans allocation dynamique. La fixture vérifie deux noms de couche, une couche absente et un buffer trop petit. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Ce mapping ne branche pas encore les matrices à un forward GPT-2 réel.
+
+
+Le lot 82 ajoute `gpt2_gguf_layer_t` et `gpt2_gguf_map_layer`, qui regroupent les dix descripteurs d’un bloc GPT-2 dans une structure caller-owned et renseignent le masque `present_mask = 0x3FF`. Le buffer de nom est réutilisé séquentiellement, aucune allocation noyau n’est introduite, et une couche absente est rejetée. La fixture contient les quinze tenseurs globaux et de couche; `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Le descripteur ne réalise pas encore le forward GPT-2 ni la validation sémantique des dimensions par matrice.
