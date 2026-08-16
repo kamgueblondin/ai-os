@@ -535,3 +535,20 @@ int gpt2_gguf_kv_cache_attention_head(const gpt2_gguf_kv_cache_t* cache, uint32_
     *out_count = head_size;
     return 0;
 }
+
+
+int gpt2_gguf_attention_concat_heads(const float* head_outputs, uint32_t head_count,
+                                      uint32_t head_size, float* output,
+                                      uint32_t output_capacity, uint32_t* out_count) {
+    uint32_t total;
+    uint32_t i;
+    if (out_count) *out_count = 0U;
+    if (!head_outputs || !output || !out_count) return -1;
+    if (head_count == 0U || head_size == 0U) return -9;
+    if (head_count > 0xFFFFFFFFU / head_size) return -9;
+    total = head_count * head_size;
+    if (output_capacity < total) return -6;
+    for (i = 0U; i < total; i++) output[i] = head_outputs[i];
+    *out_count = total;
+    return 0;
+}

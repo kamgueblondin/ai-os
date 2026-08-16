@@ -251,6 +251,23 @@ static void test_loads_gpt2_from_fat16(void) {
                                                                             head_output, 2U,
                                                                             &attention_count));
                 }
+                {
+                    float heads[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+                    float concatenated[4] = {0.0f};
+                    uint32_t concat_count = 0U;
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_attention_concat_heads(heads, 2U, 2U,
+                                                                          concatenated, 4U,
+                                                                          &concat_count));
+                    TEST_ASSERT_EQUAL(4, (int)concat_count);
+                    TEST_ASSERT_EQUAL(1, (int)concatenated[0]);
+                    TEST_ASSERT_EQUAL(4, (int)concatenated[3]);
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_attention_concat_heads(heads, 2U, 2U,
+                                                                            concatenated, 3U,
+                                                                            &concat_count));
+                    TEST_ASSERT_EQUAL(-9, gpt2_gguf_attention_concat_heads(heads, 0U, 2U,
+                                                                            concatenated, 4U,
+                                                                            &concat_count));
+                }
             }
         }
     }
