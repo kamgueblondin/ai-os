@@ -24,9 +24,11 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 
 ### GGUF et kernels de quantification
 
-Le runtime possède désormais des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. La suite `make test-all` atteint 261 tests réussis et compare chaque kernel à un super-bloc synthétique déterministe. `gpt2_gguf_find_tensor` permet en outre de retrouver un tenseur par nom et de vérifier sa forme, son type, sa taille de bloc et sa plage dans le blob avant utilisation.
+Le runtime possède des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. `gpt2_gguf_find_tensor` vérifie la forme, le type, la taille de bloc et la plage avant utilisation.
 
-Cette livraison ne constitue pas encore une génération GPT-2 à partir d’un fichier GGUF réel : la recherche bornée existe, mais `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3` et ne possèdent pas de table persistante de mapping utilisable par le forward. La prochaine étape doit ajouter cette table, le mapping GPT-2 et un chemin de sélection contrôlée ; elle ne doit pas annoncer une latence inférieure à une seconde sans mesure native ou KVM reproductible.
+Le lot 69 ajoute `gpt2_gguf_build_index`, une table caller-owned bornée à 512 tenseurs, puis `gpt2_gguf_index_find` pour les recherches répétées sans rescanner les métadonnées. `gpt2_gguf_map_role` associe les cinq tenseurs structurants GPT-2 (`token_embd`, `position_embd`, `output_norm` et `output`) à des rôles stables pour le futur forward quantifié. La suite `make test-all` atteint désormais **262 tests réussis**, dont la nouvelle fixture d’index et de mapping.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un fichier GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et le chargement depuis FAT16 ainsi que le mapping des blocs d’attention restent à faire. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches
