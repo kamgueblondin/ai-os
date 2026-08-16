@@ -699,3 +699,26 @@ int gpt2_gguf_mlp_forward_fat16(const fat16_volume_t* volume, const char* filena
     if (down_bias) for (i = 0U; i < channels; i++) output[i] += down_bias[i];
     return 0;
 }
+
+
+int gpt2_gguf_mlp_forward_add_residual_fat16(const fat16_volume_t* volume,
+                                             const char* filename,
+                                             const gpt2_gguf_loaded_model_t* model,
+                                             const gpt2_gguf_tensor_t* up_tensor,
+                                             const gpt2_gguf_tensor_t* down_tensor,
+                                             uint32_t channels, uint32_t hidden_channels,
+                                             const float* input, uint8_t* row_buffer,
+                                             uint32_t row_capacity, const float* up_bias,
+                                             const float* down_bias, float* hidden,
+                                             uint32_t hidden_capacity, float* residual,
+                                             uint32_t residual_capacity) {
+    int status;
+    if (!residual) return -1;
+    if (residual_capacity < channels) return -6;
+    status = gpt2_gguf_mlp_forward_fat16(volume, filename, model, up_tensor,
+                                         down_tensor, channels, hidden_channels,
+                                         input, row_buffer, row_capacity, up_bias,
+                                         down_bias, hidden, hidden_capacity, residual,
+                                         residual_capacity);
+    return status;
+}
