@@ -777,3 +777,44 @@ int gpt2_gguf_attention_output_add_residual_fat16(
     if (bias) for (i = 0U; i < channels; i++) projected[i] += bias[i];
     return gpt2_gguf_add_residual(residual, residual_capacity, projected, channels);
 }
+
+
+int gpt2_gguf_block_attention_forward_fat16(
+                                      const gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t layer, uint32_t start_position,
+                                      uint32_t position_count, const float* input,
+                                      const float* gamma, const float* beta,
+                                      float epsilon, float* norm,
+                                      uint32_t norm_capacity, uint32_t channels,
+                                      uint32_t head_count, float* head_outputs,
+                                      uint32_t head_output_capacity, float* key_scratch,
+                                      uint32_t key_scratch_capacity, float* scores,
+                                      uint32_t score_capacity, float* attention_concat,
+                                      uint32_t attention_capacity,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      const gpt2_gguf_tensor_t* output_tensor,
+                                      uint8_t* row_buffer, uint32_t row_capacity,
+                                      float* projected, uint32_t projected_capacity,
+                                      const float* bias, float* residual,
+                                      uint32_t residual_capacity) {
+    int status;
+    if (!cache || !input || !gamma || !beta || !norm || !head_outputs ||
+        !key_scratch || !scores || !attention_concat || !volume || !filename ||
+        !model || !output_tensor || !row_buffer || !projected || !residual) return -1;
+    if (channels == 0U || head_count == 0U || norm_capacity < channels ||
+        attention_capacity < channels || projected_capacity < channels ||
+        residual_capacity < channels) return -6;
+    status = gpt2_gguf_layernorm(input, channels, gamma, beta, epsilon,
+                                  norm, norm_capacity);
+    if (status != 0) return status;
+    status = gpt2_gguf_kv_cache_attention_multi_head(
+        cache, layer, start_position, position_count, norm, head_count,
+        head_outputs, head_output_capacity, key_scratch, key_scratch_capacity,
+        scores, score_capacity, attention_concat, attention_capacity, 0);
+    if (status != 0) return status;
+    return gpt2_gguf_attention_output_add_residual_fat16(
+        volume, filename, model, output_tensor, channels, attention_concat,
+        row_buffer, row_capacity, projected, projected_capacity, bias,
+        residual, residual_capacity);
+}

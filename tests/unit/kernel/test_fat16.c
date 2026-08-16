@@ -363,6 +363,11 @@ static void test_loads_gpt2_from_fat16(void) {
                             &volume, "gpt2.ggu", &model, &tensor, 2U,
                             mlp_input, mlp_row, sizeof(mlp_row), mlp_output,
                             2U, 0, mlp_output, 1U));
+                        TEST_ASSERT_EQUAL(-1, gpt2_gguf_block_attention_forward_fat16(
+                            0, 0U, 0U, 0U, 0, 0, 0, 0.0001f,
+                            0, 0U, 0U, 0U, 0, 0U, 0, 0U,
+                            0, 0U, 0, 0U, 0, 0, 0, 0, 0, 0U,
+                            0, 0U, 0, 0, 0U));
                     }
                 }
             }
