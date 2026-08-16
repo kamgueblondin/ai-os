@@ -38,7 +38,9 @@ Le lot 73 ajoute `gpt2_gguf_read_tensor_fat16`, qui calcule l’offset absolu d�
 
 Le lot 74 ajoute `gpt2_gguf_read_quant_block_fat16`, qui refuse les types non K-quant, calcule les tailles Q3_K/Q4_K/Q6_K et lit un super-bloc complet avec une capacité vérifiée. La fixture Q4_K valide 144 octets depuis `GPT2.GGU` et rejette une capacité insuffisante; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
 
-Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : les blocs lus ne sont pas encore décodés ni remis aux kernels dans un forward complet. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
+Le lot 75 ajoute `gpt2_gguf_dot_quant_block_fat16`, qui lit un super-bloc Q3_K/Q4_K/Q6_K dans un scratch caller-owned puis appelle le kernel quantifié avec exactement 256 activations. Le test Q4_K vérifie un produit nul sur `GPT2.GGU` et rejette une longueur invalide; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : le pont traite un super-bloc à la fois et ne réalise pas encore d’accumulation multi-blocs ni de forward complet. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches
