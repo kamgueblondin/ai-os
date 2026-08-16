@@ -567,3 +567,15 @@ int gpt2_gguf_validate_tensor_size(const gpt2_gguf_tensor_t* tensor) {
     if (bytes > 0xFFFFFFFFULL || tensor->byte_size != (uint32_t)bytes) return -9;
     return 0;
 }
+
+
+int gpt2_gguf_validate_gpt2_layer_storage(const gpt2_gguf_layer_t* layer, uint32_t channels) {
+    uint32_t i;
+    int status = gpt2_gguf_validate_gpt2_layer(layer, channels);
+    if (status != 0) return status;
+    for (i = 0U; i < 10U; i++) {
+        status = gpt2_gguf_validate_tensor_size(&layer->tensors[i]);
+        if (status != 0) return status;
+    }
+    return 0;
+}

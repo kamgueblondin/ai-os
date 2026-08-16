@@ -127,5 +127,7 @@ int gpt2_gguf_validate_layer(const gpt2_gguf_layer_t* layer, uint32_t channels);
 int gpt2_gguf_validate_gpt2_layer(const gpt2_gguf_layer_t* layer, uint32_t channels);
 /* Vérifie que byte_size correspond au produit des axes et au type GGUF. */
 int gpt2_gguf_validate_tensor_size(const gpt2_gguf_tensor_t* tensor);
+/* Combine la validation des axes GPT-2 et des tailles physiques d’une couche. */
+int gpt2_gguf_validate_gpt2_layer_storage(const gpt2_gguf_layer_t* layer, uint32_t channels);
 
 #endif

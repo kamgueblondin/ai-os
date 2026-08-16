@@ -168,6 +168,8 @@ int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
         name_capacity == 0U || !scratch || scratch_capacity == 0U || !out) return -1;
     status = gpt2_gguf_map_layer(&model->index, layer_index, name, name_capacity, &out->layer);
     if (status != 0) return status;
+    status = gpt2_gguf_validate_gpt2_layer_storage(&out->layer, channels);
+    if (status != 0) return status;
     out->model = model;
     out->scratch = scratch;
     out->scratch_capacity = scratch_capacity;
