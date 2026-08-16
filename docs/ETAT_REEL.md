@@ -294,3 +294,6 @@ Le lot 93 ajoute `gpt2_gguf_kv_cache_t` et ses opérations d’initialisation, �
 
 
 Le lot 94 ajoute `gpt2_gguf_kv_cache_copy_history`, qui copie un intervalle de positions K/V historiques d’une couche vers des buffers caller-owned compacts. L’itération respecte `cache->count`, isole les couches et rejette les capacités ou intervalles hors bornes. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 95 ajoute `gpt2_gguf_kv_cache_query_scores`, qui calcule les produits scalaires query-key sur un historique KV sans allocation. Les scores restent bruts, sans softmax ni mise à l’échelle, et les capacités du scratch et du tableau de sortie sont contrôlées. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.

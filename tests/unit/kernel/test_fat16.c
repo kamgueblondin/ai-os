@@ -157,6 +157,23 @@ static void test_loads_gpt2_from_fat16(void) {
             TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_copy_history(&cache, 1U, 0U, 3U,
                                                                    history_key, 8U, history_value, 12U,
                                                                    &history_count));
+            {
+                float query[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                float key_scratch[4] = {0.0f};
+                float scores[3] = {0.0f};
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_query_scores(&cache, 1U, 0U, 3U,
+                                                                      query, key_scratch, 4U,
+                                                                      scores, 3U, &history_count));
+                TEST_ASSERT_EQUAL(10, (int)scores[0]);
+                TEST_ASSERT_EQUAL(18, (int)scores[1]);
+                TEST_ASSERT_EQUAL(10, (int)scores[2]);
+                TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_query_scores(&cache, 1U, 0U, 3U,
+                                                                       query, key_scratch, 3U,
+                                                                       scores, 3U, &history_count));
+                TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_query_scores(&cache, 1U, 2U, 2U,
+                                                                       query, key_scratch, 4U,
+                                                                       scores, 3U, &history_count));
+            }
         }
     }
     TEST_ASSERT_EQUAL(480, (int)model.bytes_loaded);
