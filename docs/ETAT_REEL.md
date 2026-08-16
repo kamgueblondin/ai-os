@@ -46,7 +46,9 @@ Le lot 77 ajoute `gpt2_gguf_dot_quant_row_fat16`, qui valide une forme 1D/2D, ex
 
 Le lot 78 valide une forme GGUF 2D pour `output.weight` (`shape[0]=512`, `shape[1]=1`). `gpt2_gguf_dot_quant_row_fat16` contrôle `row_index`, calcule l’offset de ligne borné et réutilise l’accumulation Q4_K; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
 
-Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : la fixture 2D ne contient encore qu’une ligne et le chemin ne réalise pas le parcours complet des matrices, des biais, des batches ou un forward complet. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
+Le lot 79 transforme la fixture en matrice Q4_K multi-lignes `shape[0]=256`, `shape[1]=2`. Les lignes 0 et 1 sont lues depuis FAT16, la ligne 2 est rejetée et l’accumulation des deux blocs reste validée; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : le chemin ne réalise pas le parcours complet des matrices, des biais, des batches ou un forward autoregressif. Les valeurs de fixture sont nulles et aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches
