@@ -403,3 +403,31 @@ int gpt2_gguf_kv_cache_query_scores(const gpt2_gguf_kv_cache_t* cache, uint32_t 
     *out_count = position_count;
     return 0;
 }
+
+
+int gpt2_gguf_kv_cache_accumulate_values(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                         uint32_t start_position, uint32_t position_count,
+                                         const float* weights, uint32_t weight_capacity,
+                                         float* output, uint32_t output_capacity,
+                                         uint32_t* out_count) {
+    uint32_t position;
+    uint32_t channel;
+    int status;
+    if (out_count) *out_count = 0U;
+    if (!cache || !weights || !output || !out_count) return -1;
+    if (weight_capacity < position_count || output_capacity < cache->channels) return -6;
+    if (position_count == 0U) return 0;
+    if (start_position > cache->count || position_count > cache->count - start_position) return -9;
+    for (channel = 0U; channel < cache->channels; channel++) output[channel] = 0.0f;
+    for (position = 0U; position < position_count; position++) {
+        uint32_t offset;
+        float weight = weights[position];
+        status = gpt2_gguf_kv_cache_offset(cache, layer, start_position + position, &offset);
+        if (status != 0) return status;
+        for (channel = 0U; channel < cache->channels; channel++) {
+            output[channel] += weight * cache->storage[offset + cache->channels + channel];
+        }
+    }
+    *out_count = cache->channels;
+    return 0;
+}
