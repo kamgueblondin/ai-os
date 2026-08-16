@@ -75,11 +75,11 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Limite et suite.** Aucun NIC ni pile réseau n’est fourni. Un client OpenAI réel exige, dans l’ordre, un pilote NIC, Ethernet, ARP, IPv4, DHCP/UDP, DNS, TCP, TLS et HTTP. Les clés API doivent rester hors de l’initrd et du dépôt. La documentation QEMU confirme que l’émulateur peut relier une NIC ISA/PCI à un backend, mais cette fonction hôte ne remplace pas une pile dans le guest [1].
 
-### AOS-026 — Volume FAT sur disque IDE (prochaine tranche stockage)
+### AOS-026 — Volume FAT sur disque IDE (lot 68 livré)
 
 **En tant qu’**utilisateur, **je veux** un volume FAT sur le disque IDE, **afin de** lire des fichiers plus grands que l’overlay AIOV sans adopter un système à inodes.
 
-**Pas encore livré.** Conception : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md).
+**Livraison lecture seule.** Le noyau monte un volume FAT16 préparé sur le disque IDE à partir du LBA 64, sans toucher aux 64 secteurs AIOV. `fat16-list` liste la racine 8.3 et `fat16-cat <8.3>` lit les fichiers chaînés par la FAT. Note : [docs/mohhos_foundation_increment_68_fat16_volume.md](../docs/mohhos_foundation_increment_68_fat16_volume.md).
 
 **Critère de sortie.** Lire le BPB et la table d’allocation FAT16 (FAT12 acceptable), lister le répertoire racine 8.3, lire un fichier préparé sur l’image, sans toucher aux 64 secteurs AIOV. Écriture, noms longs et FAT32 sont hors de ce premier jalon. **ext2 n’est pas une option.**
 
@@ -89,7 +89,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 |---|---|---|
 | 1 | Intégration GGUF dans le runtime | Table de tenseurs, mapping GPT-2, génération réelle sur checkpoint GGUF et comparaison FP32/K-quants |
 | 2 | Latence locale | Mesure sous matériel/KVM et optimisation documentée jusqu’à l’objectif cible |
-| 3 | Volume FAT (AOS-026) | FAT16 sur IDE, lecture racine et fichier, overlay AIOV intact ; pas ext2 |
+| 3 | Volume FAT (AOS-026) | Tranche lecture seule livrée : FAT16 sur IDE, racine et fichier, overlay AIOV intact ; écriture/LFN/FAT32 encore hors périmètre |
 | 4 | Réseau effectif | NIC, DHCP, DNS, TCP/TLS et requête HTTP contrôlée, sans secret intégré |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.

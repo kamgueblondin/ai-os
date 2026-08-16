@@ -111,6 +111,9 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_gpt2_quant.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/llm/gpt2_quant.c"
     fi
+    if [ "$(basename "$test_file")" = "test_fat16.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/fs/fat16.c"
+    fi
     if [ "$(basename "$test_file")" = "test_ipc.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/ipc.c"
     fi

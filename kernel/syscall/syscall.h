@@ -67,6 +67,8 @@ int sys_task_supervision_priority(int child_pid);
 int sys_task_supervision_priority_status(os_task_supervision_priority_status_t* out);
 int sys_task_supervision_notify_budget(uint32_t limit);
 int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_status_t* out);
+int sys_fat16_read(const char* name, char* buffer, uint32_t max);
+int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity);
 int sys_mkdir(const char* path);
 int sys_unlink(const char* path);
 int sys_writefile(const char* path, const char* buf, uint32_t n);

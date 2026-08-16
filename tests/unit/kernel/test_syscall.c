@@ -1344,6 +1344,39 @@ void test_sys_task_supervision_notify_budget(void) {
     current_task = old_current;
 }
 
+void test_sys_fat16_syscalls(void) {
+    task_t* old_queue = task_queue;
+    task_t* old_current = current_task;
+    task_t* task;
+    cpu_state_t cpu = {0};
+    os_fat16_dirent_t entries[2];
+    char buffer[16];
+
+    task_queue = NULL;
+    current_task = NULL;
+    task = create_task(dummy_task_function);
+    TEST_ASSERT_NOT_NULL(task);
+    task->type = TASK_TYPE_USER;
+    add_task_to_queue(task);
+    current_task = task;
+
+    cpu.eax = SYS_FAT16_LIST;
+    cpu.ebx = (uint32_t)entries;
+    cpu.ecx = 2U;
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_MOUNTED, (int)cpu.eax);
+
+    cpu.eax = SYS_FAT16_READ;
+    cpu.ebx = (uint32_t)"FATOK.TXT";
+    cpu.ecx = (uint32_t)buffer;
+    cpu.edx = sizeof(buffer);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_MOUNTED, (int)cpu.eax);
+
+    task_queue = old_queue;
+    current_task = old_current;
+}
+
 void test_sys_task_supervision_summary(void) {
     task_t* old_queue = task_queue;
     task_t* old_current = current_task;
@@ -2242,6 +2275,7 @@ int main(void) {
     RUN_TEST(test_sys_task_supervision_event_replay);
     RUN_TEST(test_sys_task_supervision_priority);
     RUN_TEST(test_sys_task_supervision_notify_budget);
+    RUN_TEST(test_sys_fat16_syscalls);
     RUN_TEST(test_sys_task_supervision_summary);
     RUN_TEST(test_sys_task_wait_child);
     RUN_TEST(test_sys_ps_lists_task);

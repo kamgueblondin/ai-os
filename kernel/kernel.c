@@ -11,6 +11,7 @@
 #include "../fs/initrd.h"
 #include "../fs/overlay.h"
 #include "ata.h"
+#include "fs/fat16.h"
 #include "llm/gpt2_model.h"
 #include "llm/gpt2_gguf.h"
 #include "llm/gpt2_infer.h"
@@ -25,6 +26,10 @@ unsigned char inb(unsigned short port);
 void outb(unsigned short port, unsigned char data);
 // Function to print string to serial port (forward declaration)
 void print_string_serial(const char* str);
+
+static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
+    return ata_read_sectors(lba, 1U, buffer);
+}
 
 void serial_init() {
     // Disable all interrupts
@@ -558,6 +563,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
             print_string("Overlay FS charge depuis le disque IDE.\n");
         } else {
             print_string("Overlay FS initialise (disque IDE vide).\n");
+        }
+        if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {
+            print_string(fat16_status());
+            print_string("\n");
+        } else {
+            print_string(fat16_status());
+            print_string("\n");
         }
     } else {
         print_string("Overlay FS initialise (mkdir/rm en RAM).\n");

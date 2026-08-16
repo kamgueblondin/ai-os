@@ -158,8 +158,12 @@
 #define SYS_TASK_SUPERVISION_NOTIFY_BUDGET 85
 /* EBX = os_task_supervision_notify_budget_status_t* ; état du budget local. */
 #define SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS 86
+/* EBX = chemin 8.3, ECX = buffer, EDX = taille maximale ; lecture FAT16. */
+#define SYS_FAT16_READ 87
+/* EBX = tableau os_dirent_t, ECX = capacité ; liste de la racine FAT16. */
+#define SYS_FAT16_LIST 88
 
-#define MAX_SYSCALLS 87
+#define MAX_SYSCALLS 89
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
@@ -217,6 +221,11 @@
 #define OS_TASK_WATCH_FULL (-78)
 /* Le PID demandé n’est pas retenu dans la watchlist locale. */
 #define OS_TASK_NO_SUPERVISION_WATCH (-79)
+#define OS_FAT16_NOT_MOUNTED    (-80)
+#define OS_FAT16_BAD_PATH       (-81)
+#define OS_FAT16_NOT_FOUND      (-82)
+#define OS_FAT16_CORRUPT        (-83)
+#define OS_FAT16_BUFFER_SMALL   (-84)
 
 #define OS_TASK_EXIT_KILLED (-128)
 #define OS_TASK_EXIT_HISTORY_CAPACITY 4U
@@ -266,6 +275,13 @@ typedef struct {
     uint32_t size;
     uint32_t flags; /* OS_DIRENT_FILE / OS_DIRENT_DIR */
 } os_dirent_t;
+
+/* Entrée FAT16 8.3 normalisée vers le format public de listage. */
+typedef struct {
+    char name[OS_NAME_MAX];
+    uint32_t size;
+    uint32_t flags;
+} os_fat16_dirent_t;
 
 typedef struct {
     int32_t pid;

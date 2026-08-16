@@ -378,6 +378,18 @@ int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_
     return result;
 }
 
+int sys_fat16_read(const char* name, char* buffer, uint32_t max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_READ), "b"(name), "c"(buffer), "d"(max));
+    return result;
+}
+
+int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST), "b"(out), "c"(capacity));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -1666,6 +1678,32 @@ void cmd_task_events_budget(shell_context_t* ctx, char args[][128], int arg_coun
     print_string("\n");
 }
 
+static void cmd_fat16_list(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_fat16_dirent_t entries[8];
+    int rc;
+    int i;
+    (void)ctx;
+    if (arg_count != 0) { print_error("Usage: fat16-list"); return; }
+    rc = sys_fat16_list(entries, 8U);
+    if (rc < 0) { print_error("fat16-list: volume indisponible"); return; }
+    print_string("fat16-list ok "); print_uint((uint32_t)rc); print_string("\n");
+    for (i = 0; i < rc; i++) {
+        print_string(entries[i].name); print_string(" "); print_uint(entries[i].size); print_string("\n");
+    }
+}
+
+static void cmd_fat16_cat(shell_context_t* ctx, char args[][128], int arg_count) {
+    char buffer[4096];
+    int rc;
+    (void)ctx;
+    if (arg_count != 1) { print_error("Usage: fat16-cat <8.3>"); return; }
+    rc = sys_fat16_read(args[0], buffer, sizeof(buffer));
+    if (rc < 0) { print_error("fat16-cat: lecture impossible"); return; }
+    print_string("fat16-cat ok "); print_uint((uint32_t)rc); print_string("\n");
+    for (int i = 0; i < rc; i++) putc(buffer[i]);
+    if (rc == 0 || buffer[rc - 1] != '\n') print_string("\n");
+}
+
 void cmd_task_events_budget_status(shell_context_t* ctx, char args[][128], int arg_count) {
     os_task_supervision_notify_budget_status_t status;
     int rc;
@@ -2374,7 +2412,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "task-priority-child", "task-priority-child-status", "task-events-budget", "task-events-budget-status", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "task-priority-child", "task-priority-child-status", "task-events-budget", "task-events-budget-status", "fat16-list", "fat16-cat", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4639,6 +4677,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-events-budget-status") == 0) {
         cmd_task_events_budget_status(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "fat16-list") == 0) {
+        cmd_fat16_list(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "fat16-cat") == 0) {
+        cmd_fat16_cat(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);
