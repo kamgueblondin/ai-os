@@ -13,5 +13,11 @@ typedef struct {
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
                          uint8_t* buffer, uint32_t capacity,
                          gpt2_gguf_loaded_model_t* out);
+/* Lit une fenêtre relative aux données d’un tenseur déjà indexé. */
+int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filename,
+                                const gpt2_gguf_loaded_model_t* model,
+                                const gpt2_gguf_tensor_t* tensor,
+                                uint32_t tensor_offset, uint8_t* buffer,
+                                uint32_t capacity, uint32_t* out_read);
 
 #endif
