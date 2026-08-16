@@ -52,15 +52,17 @@
 - [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (overlay noyau + initrd ; `procsim.c` n'alimente plus `ps`/`kill`)
 - [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + overlay + `task.c` + PIT + PMM)
 - [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` (fichier et dossier via `SYS_COPY`) / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`) / `touch` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
-- [x] Overlay persisté : snapshot ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; pas un FS général
-- [x] `spawn` / `yield` coopératifs (cadre syscall user ; pas de round-robin IRQ0)
+- [x] Overlay persisté : snapshot AIOV V2 ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; pas un volume FAT
+- [x] `spawn` / `yield` coopératifs (cadre syscall user) et préemption IRQ0 sûre entre tâches Ring 3
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
-- [ ] Préemption round-robin continue (aujourd'hui limitée pour la stabilité clavier)
-- [ ] Quantification / GGUF / latence &lt; 1 s ; BPE `\p{L}` ; FS disque général ; réseau / OpenAI effectif — [US/ai_os_us.md](../US/ai_os_us.md) AOS-020…025
-- [ ] Dossiers `tests/integration` `system` `performance` `robustness` encore vides
+- [x] AOS-020…025 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI
+- [ ] Kernels GGUF Q3_K/Q4_K/Q6_K et latence locale &lt; 1 s
+- [ ] Volume FAT sur IDE (AOS-026) — [aos_fat_volume.md](aos_fat_volume.md) ; pas ext2
+- [ ] Pilote NIC, DHCP, DNS, TCP/TLS et client OpenAI effectif
+- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 144 Unity ; `make qemu-smoke`)
+- [x] Tests complets du système corrigé (`make test-all` : 251 Unity ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

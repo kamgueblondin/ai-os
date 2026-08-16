@@ -59,7 +59,9 @@ Le passage du stub au client réseau demande une série de jalons séparés, cha
 | 5 | TLS | Validation de certificat et stockage de confiance minimal documenté |
 | 6 | HTTP OpenAI | Requête sortante explicitement autorisée, secret injecté hors image et effacé après usage |
 
-Aucune clé API ne doit être committée, placée dans l’initrd, écrite dans l’overlay par défaut ou reproduite dans la sortie série. Une future interface de configuration devra demander le consentement de l’utilisateur avant toute requête externe.
+Aucune clé API ne doit être committée, placée dans l’initrd, écrite dans l’overlay par défaut, copiée sur un futur volume FAT ou reproduite dans la sortie série. Une future interface de configuration devra demander le consentement de l’utilisateur avant toute requête externe.
+
+Le volume FAT ([aos_fat_volume.md](aos_fat_volume.md)) est **orthogonal** à cette suite réseau : il persiste des fichiers sur IDE, il ne crée pas de transport.
 
 ## Références
 

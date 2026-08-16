@@ -5,7 +5,7 @@
 
 ## Résumé du livrable
 
-Cette version d'AI-OS contient un premier chemin d'inférence **réellement local**. Lorsque les poids GPT-2 124M et le tokenizer binaires sont placés dans `models/` avant la construction, le média de démarrage les inclut et le noyau les valide puis les lit directement depuis l'initrd. Aucune installation de Linux, d'Ollama, de Python ou de service réseau n'est nécessaire une fois cette ISO construite.
+Cette version d'AI-OS contient un premier chemin d'inférence **réellement local**. Lorsque les poids GPT-2 124M et le tokenizer binaires sont placés dans `models/` avant la construction, le média de démarrage les inclut et le noyau les valide puis les lit directement depuis l'initrd. Une fois l'ISO construite, aucun OS préinstallé, aucun service tiers (Ollama, Python) et aucun réseau ne sont requis. AI-OS n'est pas une distribution Linux.
 
 > L'ISO démarre donc sur une machine sans système d'exploitation préinstallé, à condition que la machine sache démarrer un média BIOS/legacy ou qu'un mode de compatibilité BIOS soit activable. Cette version n'est pas encore une image UEFI native.
 
@@ -13,13 +13,13 @@ Cette version d'AI-OS contient un premier chemin d'inférence **réellement loca
 |---|---|
 | Amorçage autonome | **Oui**, ISO GRUB Multiboot avec noyau, shell, tokenizer et poids locaux lorsque les artefacts sont fournis au build |
 | Modèle local | **GPT-2 124M**, checkpoint `llm.c` v3, chargé en lecture seule depuis l'initrd |
-| Tokenizer | Vocabulaire GPT-2 binaire chargé depuis l'initrd ; pont d'encodage ASCII par appariement glouton |
+| Tokenizer | Vocabulaire GPT-2 binaire ; BPE UTF-8 avec lettres Unicode ciblées (voir AOS-021) |
 | Inférence | CPU freestanding : embeddings, normalisation, attention causale, MLP GELU, cache KV et échantillonnage top-k |
 | Commande utilisateur | `ai <question>` ; par exemple `ai hello` |
 | Mémoire | 1 Gio validé dans QEMU ; 2 Gio conseillés pour une machine réelle |
 | Réseau / OpenAI | **Non intégré** : il faut encore un pilote Ethernet, TCP/IP, DNS, TLS et une gestion sûre des secrets |
 
-GPT-2 est un transformeur causal, c'est-à-dire qu'un jeton ne porte attention qu'aux jetons précédents ; il convient donc à la génération auto-régressive de texte [1]. Le tokenizer de référence GPT-2 emploie un BPE au niveau des octets [1]. La présente implémentation charge bien le vocabulaire d'origine mais utilise, pour le premier chemin bare-metal, un encodage ASCII glouton simplifié : il ne reproduit pas encore toute la segmentation BPE/Unicode de référence.
+GPT-2 est un transformeur causal, c'est-à-dire qu'un jeton ne porte attention qu'aux jetons précédents ; il convient donc à la génération auto-régressive de texte [1]. Le tokenizer de référence GPT-2 emploie un BPE au niveau des octets [1]. L'implémentation charge ce vocabulaire et segmente en UTF-8 avec une classe de lettres bornée (Latin étendu, Grec, Arabe, Hébreu, Devanagari, CJK, Hangul) ; ce n'est pas une couverture Unicode exhaustive.
 
 ## Obtenir et vérifier les artefacts GPT-2
 
@@ -75,7 +75,7 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 | Vérification | Résultat |
 |---|---|
 | Compilation complète d'AI-OS | Réussie |
-| Suite de non-régression | **121/121 tests réussis** |
+| Suite de non-régression | **251/251 tests C** (chiffre courant : [ETAT_REEL.md](ETAT_REEL.md)) |
 | Chargeur de checkpoint et tokenizer avec actifs structurels | Réussi sous QEMU |
 | Chemin shell -> syscall -> tokenizer -> moteur local | Réussi sous QEMU |
 | Requête avec les vrais poids GPT-2 | Sortie locale produite sous le préfixe `[GPT-2 local]` |
@@ -84,7 +84,7 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 | ISO GRUB GPT-2 | Générée ; taille approximative 481 Mio |
 | Amorçage ISO sous QEMU | Le noyau, le checkpoint, le tokenizer et le shell sont atteints |
 
-> La qualité conversationnelle reste limitée par le modèle GPT-2 124M, la longueur de sortie volontairement courte et l'encodage ASCII simplifié. Une sortie générée localement confirme le chemin de calcul, sans prétendre atteindre le niveau d'un LLM instructionnel moderne.
+> La qualité conversationnelle reste limitée par le modèle GPT-2 124M et la longueur de sortie volontairement courte (64 jetons de contexte, 4 jetons nouveaux). Une sortie générée localement confirme le chemin de calcul, sans prétendre atteindre le niveau d'un modèle instructionnel moderne.
 
 ## Limites connues et prochaines améliorations
 
@@ -92,7 +92,7 @@ Le moteur conserve une limite de **64 jetons de contexte** et génère jusqu'à 
 
 L'ajout d'un vrai OpenAI ou d'un fournisseur en ligne exige encore une pile réseau bare-metal complète. La clé API ne doit jamais être placée dans l'ISO ; elle devra être injectée depuis une configuration locale protégée lorsque le réseau sera disponible.
 
-Les évolutions prioritaires sont l'implémentation complète du BPE byte-level/Unicode, la quantification INT8 ou INT4 des poids, des kernels SIMD supplémentaires, un amorçage UEFI natif et un chargeur pour d'autres architectures de modèles. Ces travaux amélioreraient à la fois la compatibilité et le temps de réponse.
+Les évolutions prioritaires sont les kernels GGUF Q3_K/Q4_K/Q6_K, la latence sous KVM, puis un **volume FAT** pour des checkpoints trop gros pour l'initrd ([aos_fat_volume.md](aos_fat_volume.md)). Un amorçage UEFI et d'autres familles de modèles restent hors du sprint courant.
 
 ## Intégrité de l'ISO
 

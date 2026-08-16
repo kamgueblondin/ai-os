@@ -1,6 +1,6 @@
 # Recherche Approfondie - Technologies pour MOHHOS
 
-> **État réel (août 2026).** Veille / spécification MOHHOS. TFLite, P2P, navigateur-OS, etc. **ne sont pas** dans le dépôt. Prototype : [ai_os_us.md](ai_os_us.md) et [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md).
+> **État réel (août 2026).** Veille / spécification MOHHOS. TFLite, P2P, navigateur-OS, etc. **ne sont pas** dans le dépôt. Prototype : [ai_os_us.md](ai_os_us.md) et [../docs/ETAT_REEL.md](../docs/ETAT_REEL.md). Les mentions de distributions Linux (ex. Ubuntu AI) sont de la veille, **pas** l’identité d’AI-OS.
 
 ## Vue d'Ensemble du Projet MOHHOS
 

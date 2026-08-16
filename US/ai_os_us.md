@@ -1,8 +1,8 @@
 # User stories AI-OS — backlog du prototype i386
 
-**Date :** 13 août 2026  
+**Date :** 16 août 2026  
 **Source de vérité runtime :** [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)  
-**Périmètre :** noyau i386 Multiboot, QEMU, shell Ring 3 et IA locale. Ce document ne constitue pas le plan MOHHOS à long terme.
+**Périmètre :** hobby OS i386 Multiboot, QEMU, shell Ring 3 et IA locale — pas une distribution Linux. Ce document ne constitue pas le plan MOHHOS à long terme. Lexique : [docs/vocabulaire.md](../docs/vocabulaire.md).
 
 La mention **fait** signifie que le comportement est observable dans le code et couvert par une commande de vérification. Les limites explicitement indiquées font partie du résultat : elles ne doivent pas être confondues avec des fonctionnalités livrées.
 
@@ -13,15 +13,15 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 | AOS-001 | Démarrer un noyau Multiboot i386 | Boot QEMU, VGA/série, `make run`, `make run-gui` et ISO GRUB BIOS |
 | AOS-002 | Gérer mémoire physique, virtuelle et tas | PMM, VMM, heap, paging et `SYS_MEMINFO` |
 | AOS-003 | Recevoir timer et clavier | PIC/PIT 100 Hz/i8042 ; EOI IRQ0 envoyé avant le gestionnaire C |
-| AOS-004 | Lire un initrd | TAR POSIX en lecture seule, `SYS_LISTDIR`, `SYS_READFILE` |
+| AOS-004 | Lire un initrd | Archive TAR (ustar) en lecture seule, `SYS_LISTDIR`, `SYS_READFILE` |
 | AOS-005 | Exécuter un shell isolé | Shell ELF utilisateur et retour Ring 3 par `iret` |
-| AOS-006 | Exposer une ABI de syscalls | Syscalls 0–22, `MAX_SYSCALLS = 23` |
+| AOS-006 | Exposer une ABI de syscalls | ABI propre `int 0x80` ; aujourd’hui syscalls 0–84, `MAX_SYSCALLS = 85` |
 | AOS-007 | Conserver de petits fichiers | Overlay ATA PIO persistant V2 et restauration V1/V2 |
 | AOS-008 | Gérer plusieurs tâches | `spawn`, `yield`, `ps`, `kill`, plus préemption IRQ0 sûre |
 | AOS-009 | Exécuter un ELF bloquant | `exec`, parent `TASK_WAITING`, réveil par `SYS_EXIT` |
 | AOS-010 | Compléter localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
 | AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et décodage UTF-8 brut |
-| AOS-012 | Prévenir les régressions | 161 tests C et contrats QEMU versionnés |
+| AOS-012 | Prévenir les régressions | 251 tests C et contrats QEMU versionnés |
 
 ## Tranche AOS-020 à AOS-025 — livrée
 
@@ -57,7 +57,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison.** Le format AIOV V2 porte l’overlay à 64 nœuds, 80 octets par chemin, 384 octets de données et 64 secteurs ATA. La restauration lit aussi les snapshots V1. Les tests couvrent une restauration V1 et un fichier V2 étendu.
 
-**Limite.** L’overlay reste un petit cache persistant, pas un ext2/FAT ni un système de fichiers disque général.
+**Limite.** L’overlay reste un petit snapshot AIOV persistant (64 nœuds, 384 octets), pas un volume FAT ni un système de fichiers disque général. Voir [docs/aos_fat_volume.md](../docs/aos_fat_volume.md).
 
 ### AOS-024 — Préemption IRQ0 sûre
 
@@ -75,14 +75,22 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Limite et suite.** Aucun NIC ni pile réseau n’est fourni. Un client OpenAI réel exige, dans l’ordre, un pilote NIC, Ethernet, ARP, IPv4, DHCP/UDP, DNS, TCP, TLS et HTTP. Les clés API doivent rester hors de l’initrd et du dépôt. La documentation QEMU confirme que l’émulateur peut relier une NIC ISA/PCI à un backend, mais cette fonction hôte ne remplace pas une pile dans le guest [1].
 
+### AOS-026 — Volume FAT sur disque IDE (prochaine tranche stockage)
+
+**En tant qu’**utilisateur, **je veux** un volume FAT sur le disque IDE, **afin de** lire des fichiers plus grands que l’overlay AIOV sans adopter un système à inodes.
+
+**Pas encore livré.** Conception : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md).
+
+**Critère de sortie.** Lire le BPB et la table d’allocation FAT16 (FAT12 acceptable), lister le répertoire racine 8.3, lire un fichier préparé sur l’image, sans toucher aux 64 secteurs AIOV. Écriture, noms longs et FAT32 sont hors de ce premier jalon. **ext2 n’est pas une option.**
+
 ## Prochaines tranches, hors livraison actuelle
 
 | Priorité | Sujet | Critère de sortie |
 |---|---|---|
 | 1 | Inference GGUF quantifiée | Kernels Q3_K/Q4_K/Q6_K, comparaison numérique et génération GPT-2 réelle |
 | 2 | Latence locale | Mesure sous matériel/KVM et optimisation documentée jusqu’à l’objectif cible |
-| 3 | Réseau effectif | NIC, DHCP, DNS, TCP/TLS et requête HTTP contrôlée, sans secret intégré |
-| 4 | Système de fichiers général | Driver de blocs et ext2 ou FAT avec tests de reprise |
+| 3 | Volume FAT (AOS-026) | FAT16 sur IDE, lecture racine et fichier, overlay AIOV intact ; pas ext2 |
+| 4 | Réseau effectif | NIC, DHCP, DNS, TCP/TLS et requête HTTP contrôlée, sans secret intégré |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
 

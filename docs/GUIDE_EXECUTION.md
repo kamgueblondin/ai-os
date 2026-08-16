@@ -12,7 +12,7 @@ make run
 ```
 - **Affichage** : Mode texte dans le terminal avec curses
 - **Clavier** : Pleinement fonctionnel avec interruptions PS/2
-- **Compatible** : Linux, macOS, Windows avec QEMU
+- **Hôte de l’émulateur** : Linux, macOS ou Windows avec QEMU (l’invité reste AI-OS, pas une distribution Linux)
 - **Avantages** : Pas de fenêtre séparée, performance optimale
 
 ### 2. Mode Interface Graphique
