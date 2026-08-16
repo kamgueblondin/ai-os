@@ -110,3 +110,49 @@ int gpt2_gguf_dot_quant_tensor_fat16(const fat16_volume_t* volume, const char* f
     *out_dot = total;
     return 0;
 }
+
+
+int gpt2_gguf_dot_quant_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                  const gpt2_gguf_loaded_model_t* model,
+                                  const gpt2_gguf_tensor_t* tensor,
+                                  uint32_t row_index, const float* input,
+                                  uint32_t count, uint8_t* scratch,
+                                  uint32_t scratch_capacity, float* out_dot) {
+    uint64_t width;
+    uint64_t rows = 1U;
+    uint32_t block_bytes;
+    uint64_t row_bytes;
+    uint64_t row_offset;
+    uint32_t first_block;
+    uint32_t blocks;
+    uint32_t block;
+    float total = 0.0f;
+    int status;
+    if (!tensor || tensor->dimensions == 0U || tensor->dimensions > 2U) return -9;
+    width = tensor->shape[0];
+    if (tensor->dimensions == 2U) rows = tensor->shape[1];
+    if (width == 0U || width > 0xFFFFFFFFU || rows == 0U || row_index >= rows) return -9;
+    if (count != (uint32_t)width || (count % GPT2_QK_K) != 0U) return -7;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    row_bytes = (width / GPT2_QK_K) * block_bytes;
+    row_offset = row_bytes * row_index;
+    if (row_offset > 0xFFFFFFFFU) return -9;
+    first_block = (uint32_t)(row_offset / block_bytes);
+    blocks = (uint32_t)(width / GPT2_QK_K);
+    for (block = 0U; block < blocks; block++) {
+        float partial = 0.0f;
+        if (first_block > 0xFFFFFFFFU - block) return -9;
+        status = gpt2_gguf_dot_quant_block_fat16(volume, filename, model, tensor,
+                                                  first_block + block,
+                                                  input + block * GPT2_QK_K,
+                                                  GPT2_QK_K, scratch,
+                                                  scratch_capacity, &partial);
+        if (status != 0) return status;
+        total += partial;
+    }
+    *out_dot = total;
+    return 0;
+}

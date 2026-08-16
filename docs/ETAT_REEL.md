@@ -42,7 +42,9 @@ Le lot 75 ajoute `gpt2_gguf_dot_quant_block_fat16`, qui lit un super-bloc Q3_K/Q
 
 Le lot 76 ajoute `gpt2_gguf_dot_quant_tensor_fat16`, qui lit et accumule plusieurs super-blocs Q3_K/Q4_K/Q6_K avec un scratch caller-owned. La fixture Q4_K contient deux blocs pour 512 valeurs et vérifie une accumulation nulle; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
 
-Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : l’accumulation porte sur une ligne bornée et ne réalise pas encore le parcours des matrices, des biais ou un forward complet. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
+Le lot 77 ajoute `gpt2_gguf_dot_quant_row_fat16`, qui valide une forme 1D/2D, exige `count == shape[0]`, calcule l’offset de ligne en 64-bit et accumule les super-blocs depuis FAT16. La fixture Q4_K valide une ligne 1D de 512 valeurs et rejette une seconde ligne; la suite reste à **265 tests réussis**, sans échec ni test ignoré.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : la façade ne traite qu’une ligne à la fois et ne réalise pas encore le parcours complet des matrices, des biais, des batches ou un forward complet. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches

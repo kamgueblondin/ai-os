@@ -40,5 +40,12 @@ int gpt2_gguf_dot_quant_tensor_fat16(const fat16_volume_t* volume, const char* f
                                      const float* input, uint32_t count,
                                      uint8_t* scratch, uint32_t scratch_capacity,
                                      float* out_dot);
+/* Calcule une ligne `shape[0]` d’un tenseur 1D ou 2D. */
+int gpt2_gguf_dot_quant_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                  const gpt2_gguf_loaded_model_t* model,
+                                  const gpt2_gguf_tensor_t* tensor,
+                                  uint32_t row_index, const float* input,
+                                  uint32_t count, uint8_t* scratch,
+                                  uint32_t scratch_capacity, float* out_dot);
 
 #endif
