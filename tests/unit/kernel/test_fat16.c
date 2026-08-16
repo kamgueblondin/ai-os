@@ -109,6 +109,17 @@ static void test_loads_gpt2_from_fat16(void) {
     make_gguf_file();
     TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
     TEST_ASSERT_EQUAL(0, gpt2_gguf_load_fat16(&volume, "gpt2.ggu", buffer, sizeof(buffer), &model));
+    {
+        gpt2_gguf_forward_context_t context;
+        uint8_t context_scratch[GPT2_Q4_K_BLOCK_BYTES];
+        char context_name[40];
+        TEST_ASSERT_EQUAL(-1, gpt2_gguf_forward_context_init(&model, 0U, 0U, 0U,
+                                                               context_name, sizeof(context_name),
+                                                               context_scratch, sizeof(context_scratch), &context));
+        TEST_ASSERT_EQUAL(-1, gpt2_gguf_forward_context_init(&model, 0U, 256U, 0U,
+                                                               context_name, sizeof(context_name),
+                                                               0, sizeof(context_scratch), &context));
+    }
     TEST_ASSERT_EQUAL(480, (int)model.bytes_loaded);
     TEST_ASSERT_EQUAL(1, model.index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&model.index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));

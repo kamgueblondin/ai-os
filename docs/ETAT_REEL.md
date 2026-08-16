@@ -255,3 +255,6 @@ Le lot 81 étend le mapping GGUF aux rôles répétés des blocs GPT-2 via `gpt2
 
 
 Le lot 82 ajoute `gpt2_gguf_layer_t` et `gpt2_gguf_map_layer`, qui regroupent les dix descripteurs d’un bloc GPT-2 dans une structure caller-owned et renseignent le masque `present_mask = 0x3FF`. Le buffer de nom est réutilisé séquentiellement, aucune allocation noyau n’est introduite, et une couche absente est rejetée. La fixture contient les quinze tenseurs globaux et de couche; `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Le descripteur ne réalise pas encore le forward GPT-2 ni la validation sémantique des dimensions par matrice.
+
+
+Le lot 83 ajoute `gpt2_gguf_forward_context_t` et `gpt2_gguf_forward_context_init`. Le contexte conserve une référence vers le modèle GGUF, le descripteur complet d’une couche, un scratch caller-owned, `channels` et `position`; il refuse les pointeurs, capacités ou dimensions invalides sans allocation dynamique. Les tests FAT16 vérifient les gardes de contexte et la suite reste à **265 tests réussis, 0 échec et 0 test ignoré**. Aucune attention, normalisation, MLP ou génération autoregressive n’est encore exécutée par ce contexte.

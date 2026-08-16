@@ -156,3 +156,22 @@ int gpt2_gguf_dot_quant_row_fat16(const fat16_volume_t* volume, const char* file
     *out_dot = total;
     return 0;
 }
+
+
+int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
+                                   uint32_t layer_index, uint32_t channels,
+                                   uint32_t position, char* name, uint32_t name_capacity,
+                                   uint8_t* scratch, uint32_t scratch_capacity,
+                                   gpt2_gguf_forward_context_t* out) {
+    int status;
+    if (!model || !model->index.info.is_valid || channels == 0U || !name ||
+        name_capacity == 0U || !scratch || scratch_capacity == 0U || !out) return -1;
+    status = gpt2_gguf_map_layer(&model->index, layer_index, name, name_capacity, &out->layer);
+    if (status != 0) return status;
+    out->model = model;
+    out->scratch = scratch;
+    out->scratch_capacity = scratch_capacity;
+    out->channels = channels;
+    out->position = position;
+    return 0;
+}

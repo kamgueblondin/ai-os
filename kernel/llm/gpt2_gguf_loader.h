@@ -10,6 +10,22 @@ typedef struct {
     uint32_t bytes_loaded;
 } gpt2_gguf_loaded_model_t;
 
+typedef struct {
+    const gpt2_gguf_loaded_model_t* model;
+    gpt2_gguf_layer_t layer;
+    uint8_t* scratch;
+    uint32_t scratch_capacity;
+    uint32_t channels;
+    uint32_t position;
+} gpt2_gguf_forward_context_t;
+
+/* Prépare une couche pour le futur forward sans prendre possession des buffers. */
+int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
+                                   uint32_t layer_index, uint32_t channels,
+                                   uint32_t position, char* name, uint32_t name_capacity,
+                                   uint8_t* scratch, uint32_t scratch_capacity,
+                                   gpt2_gguf_forward_context_t* out);
+
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
                          uint8_t* buffer, uint32_t capacity,
