@@ -83,13 +83,21 @@ static void test_accepts_gpt2_q8_0_envelope(void) {
     TEST_ASSERT_EQUAL(32, info.alignment);
 }
 
-static void test_reports_unsupported_quantized_tensor_without_accepting_execution(void) {
+static void test_reports_supported_k_quantized_tensors(void) {
     gpt2_gguf_info_t info;
-    uint32_t size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q3_K, 0U);
+    uint32_t size;
+    size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q3_K, 0U);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_probe_blob(blob, size, &info));
-    TEST_ASSERT_EQUAL(1, info.is_valid);
-    TEST_ASSERT_EQUAL(1, info.unsupported_quantized_tensors);
-    TEST_ASSERT_EQUAL(0, info.q8_0_tensors);
+    TEST_ASSERT_EQUAL(1, info.q3_k_tensors);
+    TEST_ASSERT_EQUAL(0, info.unsupported_quantized_tensors);
+    size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q4_K, 0U);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_probe_blob(blob, size, &info));
+    TEST_ASSERT_EQUAL(1, info.q4_k_tensors);
+    TEST_ASSERT_EQUAL(0, info.unsupported_quantized_tensors);
+    size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q6_K, 0U);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_probe_blob(blob, size, &info));
+    TEST_ASSERT_EQUAL(1, info.q6_k_tensors);
+    TEST_ASSERT_EQUAL(0, info.unsupported_quantized_tensors);
 }
 
 static void test_rejects_non_gpt2_architecture(void) {
@@ -122,7 +130,7 @@ static void test_rejects_bad_magic_and_truncation(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_accepts_gpt2_q8_0_envelope);
-    RUN_TEST(test_reports_unsupported_quantized_tensor_without_accepting_execution);
+    RUN_TEST(test_reports_supported_k_quantized_tensors);
     RUN_TEST(test_rejects_non_gpt2_architecture);
     RUN_TEST(test_rejects_unaligned_tensor_offset);
     RUN_TEST(test_rejects_bad_magic_and_truncation);

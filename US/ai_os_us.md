@@ -29,11 +29,11 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **En tant que** mainteneur du runtime local, **je veux** accepter de façon bornée la structure des checkpoints GGUF et préparer la quantification, **afin de** pouvoir évoluer au-delà du checkpoint FP32 initial.
 
-**Livraison.** `gpt2_gguf.c` analyse GGUF v3, ses métadonnées, les descripteurs de tenseurs et leurs alignements. Le parseur a été validé contre un checkpoint GPT-2 réel contenant F32, Q3_K, Q4_K et Q6_K. `gpt2_quant.c` fournit FP16→FP32 et le produit Q8_0×FP32 freestanding. Les tests Unity et les tests de robustesse couvrent les préfixes tronqués, compteurs excessifs et alignements invalides.
+**Livraison.** `gpt2_gguf.c` analyse GGUF v3, ses métadonnées, les descripteurs de tenseurs et leurs alignements. Le parseur a été validé contre un checkpoint GPT-2 réel contenant F32, Q3_K, Q4_K et Q6_K. `gpt2_quant.c` fournit FP16→FP32, le produit Q8_0×FP32 et les produits freestanding Q3_K/Q4_K/Q6_K × activation FP32, avec les tailles de super-blocs GGML (256 valeurs) et les contrôles de longueur associés. Le rapport GGUF expose désormais les compteurs de tenseurs K-quants supportés. Les tests Unity et les tests de robustesse couvrent les préfixes tronqués, compteurs excessifs, alignements invalides et comparaisons numériques synthétiques.
 
-**Limite.** Les kernels Q3_K/Q4_K/Q6_K manquent : un modèle GGUF n’est pas encore exécutable. Le cache KV et SSE2 améliorent le chemin GPT-2 FP32, mais le temps observé sous QEMU TCG sans KVM reste de l’ordre de 7 à 9 secondes pour une courte réponse, au-dessus de l’objectif inférieur à une seconde.
+**Limite.** Cette livraison ajoute les kernels de calcul et la classification structurelle, mais le chargeur ne conserve pas encore une table de tenseurs GGUF exploitable par `gpt2_infer.c`. Un checkpoint GGUF réel n’est donc pas encore sélectionnable pour une génération GPT-2 complète ; le chemin de génération livré reste le checkpoint FP32 `llm.c v3`. Le cache KV et SSE2 améliorent ce chemin, mais le temps observé sous QEMU TCG sans KVM reste de l’ordre de 7 à 9 secondes pour une courte réponse, au-dessus de l’objectif inférieur à une seconde.
 
-**Vérification.** `make test-all`, puis `make integration-qemu`. La conception est documentée dans [docs/aos020_gguf_quantization_design.md](../docs/aos020_gguf_quantization_design.md).
+**Vérification.** `make test-all` (256 tests), puis `make clean && make all`. La conception et les références de layouts sont documentées dans [docs/aos020_gguf_quantization_design.md](../docs/aos020_gguf_quantization_design.md) et [docs/research_ggml_kquant_reference.md](../docs/research_ggml_kquant_reference.md).
 
 ### AOS-021 — BPE Unicode
 
@@ -87,7 +87,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 | Priorité | Sujet | Critère de sortie |
 |---|---|---|
-| 1 | Inference GGUF quantifiée | Kernels Q3_K/Q4_K/Q6_K, comparaison numérique et génération GPT-2 réelle |
+| 1 | Intégration GGUF dans le runtime | Table de tenseurs, mapping GPT-2, génération réelle sur checkpoint GGUF et comparaison FP32/K-quants |
 | 2 | Latence locale | Mesure sous matériel/KVM et optimisation documentée jusqu’à l’objectif cible |
 | 3 | Volume FAT (AOS-026) | FAT16 sur IDE, lecture racine et fichier, overlay AIOV intact ; pas ext2 |
 | 4 | Réseau effectif | NIC, DHCP, DNS, TCP/TLS et requête HTTP contrôlée, sans secret intégré |

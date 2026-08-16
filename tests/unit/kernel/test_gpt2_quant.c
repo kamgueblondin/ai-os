@@ -57,6 +57,48 @@ static void test_q8_rejects_invalid_length(void) {
     TEST_ASSERT_EQUAL(0, (int)gpt2_q8_0_dot_f32(0, block, GPT2_Q8_0_BLOCK_SIZE));
 }
 
+static void test_q3_k_dot_one_super_block(void) {
+    float activation[GPT2_QK_K];
+    uint8_t block[GPT2_Q3_K_BLOCK_BYTES];
+    uint32_t i;
+    for (i = 0U; i < GPT2_QK_K; i++) activation[i] = 1.0f;
+    for (i = 0U; i < 32U; i++) block[i] = 0xffU;
+    for (i = 32U; i < 96U; i++) block[i] = 0x55U;
+    for (i = 96U; i < 104U; i++) block[i] = 0x11U;
+    for (i = 104U; i < 108U; i++) block[i] = 0xaaU;
+    block[108] = 0x00U;
+    block[109] = 0x3cU;
+    assert_close(gpt2_q3_k_dot_f32(activation, block, GPT2_QK_K), 256.0f, 0.0001f);
+    TEST_ASSERT_EQUAL(0, (int)gpt2_q3_k_dot_f32(activation, block, 128U));
+}
+
+static void test_q4_k_dot_one_super_block(void) {
+    float activation[GPT2_QK_K];
+    uint8_t block[GPT2_Q4_K_BLOCK_BYTES];
+    uint32_t i;
+    for (i = 0U; i < GPT2_QK_K; i++) activation[i] = 1.0f;
+    for (i = 0U; i < GPT2_Q4_K_BLOCK_BYTES; i++) block[i] = 0U;
+    block[0] = 0x00U; block[1] = 0x3cU;
+    for (i = 0U; i < 4U; i++) block[4U + i] = 1U;
+    for (i = 0U; i < 4U; i++) block[12U + i] = 1U;
+    for (i = 0U; i < 128U; i++) block[16U + i] = 0x11U;
+    assert_close(gpt2_q4_k_dot_f32(activation, block, GPT2_QK_K), 256.0f, 0.0001f);
+    TEST_ASSERT_EQUAL(0, (int)gpt2_q4_k_dot_f32(activation, block, 128U));
+}
+
+static void test_q6_k_dot_one_super_block(void) {
+    float activation[GPT2_QK_K];
+    uint8_t block[GPT2_Q6_K_BLOCK_BYTES];
+    uint32_t i;
+    for (i = 0U; i < GPT2_QK_K; i++) activation[i] = 1.0f;
+    for (i = 0U; i < 128U; i++) block[i] = 0x11U;
+    for (i = 128U; i < 192U; i++) block[i] = 0xaaU;
+    for (i = 192U; i < 208U; i++) block[i] = 1U;
+    block[208] = 0x00U; block[209] = 0x3cU;
+    assert_close(gpt2_q6_k_dot_f32(activation, block, GPT2_QK_K), 256.0f, 0.0001f);
+    TEST_ASSERT_EQUAL(0, (int)gpt2_q6_k_dot_f32(activation, block, 128U));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_f16_common_values);
@@ -64,6 +106,9 @@ int main(void) {
     RUN_TEST(test_q8_dot_one_block);
     RUN_TEST(test_q8_dot_two_blocks_with_signs);
     RUN_TEST(test_q8_rejects_invalid_length);
+    RUN_TEST(test_q3_k_dot_one_super_block);
+    RUN_TEST(test_q4_k_dot_one_super_block);
+    RUN_TEST(test_q6_k_dot_one_super_block);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

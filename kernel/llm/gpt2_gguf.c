@@ -145,6 +145,9 @@ int gpt2_gguf_probe_blob(const uint8_t* blob, uint32_t blob_size, gpt2_gguf_info
     info.tensor_data_offset = 0U;
     info.f32_tensors = 0U;
     info.q8_0_tensors = 0U;
+    info.q3_k_tensors = 0U;
+    info.q4_k_tensors = 0U;
+    info.q6_k_tensors = 0U;
     info.unsupported_quantized_tensors = 0U;
     info.is_gpt2 = 0U;
     info.is_valid = 0U;
@@ -191,6 +194,9 @@ int gpt2_gguf_probe_blob(const uint8_t* blob, uint32_t blob_size, gpt2_gguf_info
             data_offset > 0xffffffffULL || ((uint32_t)data_offset % info.alignment) != 0U) return -9;
         if (type == GPT2_GGUF_TENSOR_F32) info.f32_tensors++;
         else if (type == GPT2_GGUF_TENSOR_Q8_0) info.q8_0_tensors++;
+        else if (type == GPT2_GGUF_TENSOR_Q3_K) info.q3_k_tensors++;
+        else if (type == GPT2_GGUF_TENSOR_Q4_K) info.q4_k_tensors++;
+        else if (type == GPT2_GGUF_TENSOR_Q6_K) info.q6_k_tensors++;
         else if (type != GPT2_GGUF_TENSOR_F16) info.unsupported_quantized_tensors++;
     }
 
@@ -203,7 +209,7 @@ int gpt2_gguf_probe_blob(const uint8_t* blob, uint32_t blob_size, gpt2_gguf_info
 
 const char* gpt2_gguf_probe_status(int status) {
     switch (status) {
-        case 0: return "GGUF GPT-2 v3 valide (execution quantifiee non activee)";
+        case 0: return "GGUF GPT-2 v3 valide (kernels Q3_K/Q4_K/Q6_K disponibles)";
         case -1: return "GGUF: argument invalide";
         case -2: return "GGUF: magic, version ou compte invalide";
         case -3: return "GGUF: metadonnees tronquees";

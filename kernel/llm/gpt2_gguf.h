@@ -39,6 +39,9 @@ typedef struct {
     uint32_t tensor_data_offset;
     uint32_t f32_tensors;
     uint32_t q8_0_tensors;
+    uint32_t q3_k_tensors;
+    uint32_t q4_k_tensors;
+    uint32_t q6_k_tensors;
     uint32_t unsupported_quantized_tensors;
     uint8_t is_gpt2;
     uint8_t is_valid;
