@@ -32,7 +32,9 @@ Le lot 70 ajoute `gpt2_gguf_load_fat16`, qui lit un profil GGUF dans un buffer c
 
 Le lot 71 ajoute `fat16_read_file_range`, qui saute jusqu’au cluster demandé et copie uniquement la fenêtre utile dans un buffer caller-owned. Le test lit `ell` au milieu de `FATOK.TXT` et rejette un offset hors taille; `make test-all` atteint désormais **264 tests réussis**, sans échec ni test ignoré. Cette primitive prépare la lecture paginée des tenseurs GGUF, mais le forward GPT-2 réel n’est toujours pas annoncé.
 
-Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et les descripteurs GGUF ne sont pas encore servis par un curseur persistant ou une lecture de tenseur directe. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
+Le lot 72 ajoute `fat16_open_file` et `fat16_file_read`, un curseur caller-owned qui conserve cluster, position et garde FAT entre lectures successives. Le test lit `hel`, puis `lo`, puis la fin de `FATOK.TXT`; `make test-all` atteint désormais **265 tests réussis**, sans échec ni test ignoré. Le curseur prépare la lecture progressive des fenêtres GGUF, mais ne fournit pas encore de seek ou de forward GPT-2 complet.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et les descripteurs GGUF ne sont pas encore reliés à un lecteur de tenseur vérifié. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches
