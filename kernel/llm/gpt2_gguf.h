@@ -32,6 +32,16 @@
 
 /* A structural report. No pointer from an untrusted blob is exposed. */
 typedef struct {
+    const uint8_t* name;
+    uint32_t name_length;
+    uint32_t dimensions;
+    uint64_t shape[4];
+    uint32_t type;
+    uint32_t data_offset;
+    uint32_t byte_size;
+} gpt2_gguf_tensor_t;
+
+typedef struct {
     uint32_t version;
     uint32_t tensor_count;
     uint32_t metadata_count;
@@ -54,5 +64,9 @@ int gpt2_gguf_probe_blob(const uint8_t* blob, uint32_t blob_size,
 
 /* Human-readable status for `ai-runtime` and diagnostics. */
 const char* gpt2_gguf_probe_status(int status);
+
+/* Find one descriptor and validate its data range without copying the blob. */
+int gpt2_gguf_find_tensor(const uint8_t* blob, uint32_t blob_size,
+                          const char* name, gpt2_gguf_tensor_t* out);
 
 #endif

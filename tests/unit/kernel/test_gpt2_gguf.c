@@ -2,6 +2,7 @@
 
 #include "../../framework/unity.h"
 #include "../../../kernel/llm/gpt2_gguf.h"
+#include "../../../kernel/llm/gpt2_quant.h"
 
 #define BUF_SIZE 512U
 
@@ -70,6 +71,23 @@ static uint32_t make_valid_gpt2(uint32_t type, uint64_t data_offset) {
     return cursor;
 }
 
+static uint32_t make_small_tensor(uint32_t type, uint64_t data_offset) {
+    uint32_t padded;
+    uint32_t i;
+    reset_blob();
+    put_u32(GPT2_GGUF_MAGIC);
+    put_u32(GPT2_GGUF_VERSION);
+    put_u64(1U);
+    put_u64(2U);
+    put_metadata_string("general.architecture", "gpt2");
+    put_metadata_u32("general.alignment", 32U);
+    put_tensor("blk.0.weight", 1U, GPT2_QK_K, 0U, type, data_offset);
+    padded = (cursor + 31U) & ~31U;
+    while (cursor < padded) blob[cursor++] = 0U;
+    for (i = 0U; i < GPT2_Q4_K_BLOCK_BYTES; i++) blob[cursor++] = 0U;
+    return cursor;
+}
+
 static void test_accepts_gpt2_q8_0_envelope(void) {
     gpt2_gguf_info_t info;
     uint32_t size = make_valid_gpt2(GPT2_GGUF_TENSOR_Q8_0, 0U);
@@ -98,6 +116,20 @@ static void test_reports_supported_k_quantized_tensors(void) {
     TEST_ASSERT_EQUAL(0, gpt2_gguf_probe_blob(blob, size, &info));
     TEST_ASSERT_EQUAL(1, info.q6_k_tensors);
     TEST_ASSERT_EQUAL(0, info.unsupported_quantized_tensors);
+}
+
+static void test_finds_bounded_q4_tensor(void) {
+    gpt2_gguf_tensor_t tensor;
+    uint32_t size = make_small_tensor(GPT2_GGUF_TENSOR_Q4_K, 0U);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_find_tensor(blob, size, "blk.0.weight", &tensor));
+    TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
+    TEST_ASSERT_EQUAL(1, tensor.dimensions);
+    TEST_ASSERT_EQUAL(GPT2_QK_K, (int)tensor.shape[0]);
+    TEST_ASSERT_EQUAL(GPT2_Q4_K_BLOCK_BYTES, tensor.byte_size);
+    TEST_ASSERT_EQUAL(0, tensor.data_offset);
+    TEST_ASSERT_EQUAL(-8, gpt2_gguf_find_tensor(blob, size, "missing", &tensor));
+    size = make_small_tensor(GPT2_GGUF_TENSOR_Q4_K, 32U);
+    TEST_ASSERT_EQUAL(-7, gpt2_gguf_find_tensor(blob, size, "blk.0.weight", &tensor));
 }
 
 static void test_rejects_non_gpt2_architecture(void) {
@@ -131,6 +163,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_accepts_gpt2_q8_0_envelope);
     RUN_TEST(test_reports_supported_k_quantized_tensors);
+    RUN_TEST(test_finds_bounded_q4_tensor);
     RUN_TEST(test_rejects_non_gpt2_architecture);
     RUN_TEST(test_rejects_unaligned_tensor_offset);
     RUN_TEST(test_rejects_bad_magic_and_truncation);

@@ -173,7 +173,7 @@ build/gpt2_model.o: kernel/llm/gpt2_model.c kernel/llm/gpt2_model.h fs/initrd.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Sonde GGUF v3 et kernels quantifiés bornés ; le chargeur runtime complet reste séparé.
-build/gpt2_gguf.o: kernel/llm/gpt2_gguf.c kernel/llm/gpt2_gguf.h
+build/gpt2_gguf.o: kernel/llm/gpt2_gguf.c kernel/llm/gpt2_gguf.h kernel/llm/gpt2_quant.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

@@ -24,9 +24,9 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 
 ### GGUF et kernels de quantification
 
-Le runtime possède désormais des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. La suite `make test-all` atteint 256 tests réussis et compare chaque kernel à un super-bloc synthétique déterministe.
+Le runtime possède désormais des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. La suite `make test-all` atteint 257 tests réussis et compare chaque kernel à un super-bloc synthétique déterministe. `gpt2_gguf_find_tensor` permet en outre de retrouver un tenseur par nom et de vérifier sa forme, son type, sa taille de bloc et sa plage dans le blob avant utilisation.
 
-Cette livraison ne constitue pas encore une génération GPT-2 à partir d’un fichier GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et le parseur structural ne conserve pas de table de tenseurs utilisable par le forward. La prochaine étape doit ajouter cette table, le mapping GPT-2 et un chemin de sélection contrôlée ; elle ne doit pas annoncer une latence inférieure à une seconde sans mesure native ou KVM reproductible.
+Cette livraison ne constitue pas encore une génération GPT-2 à partir d’un fichier GGUF réel : la recherche bornée existe, mais `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3` et ne possèdent pas de table persistante de mapping utilisable par le forward. La prochaine étape doit ajouter cette table, le mapping GPT-2 et un chemin de sélection contrôlée ; elle ne doit pas annoncer une latence inférieure à une seconde sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches

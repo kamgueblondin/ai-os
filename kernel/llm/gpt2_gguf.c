@@ -1,4 +1,5 @@
 #include "gpt2_gguf.h"
+#include "gpt2_quant.h"
 
 #define GGUF_DEFAULT_ALIGNMENT 32U
 #define GGUF_MAX_TENSORS       512U
@@ -221,4 +222,117 @@ const char* gpt2_gguf_probe_status(int status) {
         case -9: return "GGUF: type ou offset de tenseur invalide";
         default: return "GGUF: donnees invalides";
     }
+}
+
+
+static int gguf_tensor_byte_size(uint32_t type, const uint64_t* shape,
+                                  uint32_t dimensions, uint32_t* out) {
+    uint64_t elements = 1U;
+    uint64_t bytes;
+    uint32_t i;
+    uint32_t block_size;
+    uint32_t block_bytes;
+
+    if (!shape || !out || dimensions == 0U || dimensions > GGUF_MAX_DIMS) return -1;
+    for (i = 0U; i < dimensions; i++) {
+        uint64_t next;
+        if (shape[i] == 0U || shape[i] > 0xffffffffULL) return -1;
+        next = elements * shape[i];
+        if (next > 0xffffffffULL) return -1;
+        elements = next;
+    }
+    switch (type) {
+        case GPT2_GGUF_TENSOR_F32: block_size = 1U; block_bytes = 4U; break;
+        case GPT2_GGUF_TENSOR_F16: block_size = 1U; block_bytes = 2U; break;
+        case GPT2_GGUF_TENSOR_Q8_0: block_size = GPT2_Q8_0_BLOCK_SIZE; block_bytes = GPT2_Q8_0_BLOCK_BYTES; break;
+        case GPT2_GGUF_TENSOR_Q3_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q3_K_BLOCK_BYTES; break;
+        case GPT2_GGUF_TENSOR_Q4_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q4_K_BLOCK_BYTES; break;
+        case GPT2_GGUF_TENSOR_Q6_K: block_size = GPT2_QK_K; block_bytes = GPT2_Q6_K_BLOCK_BYTES; break;
+        default: return -1;
+    }
+    if (block_size == GPT2_Q8_0_BLOCK_SIZE) {
+        if ((elements & (GPT2_Q8_0_BLOCK_SIZE - 1U)) != 0U) return -1;
+        bytes = (elements >> 5U) * block_bytes;
+    } else if (block_size == GPT2_QK_K) {
+        if ((elements & (GPT2_QK_K - 1U)) != 0U) return -1;
+        bytes = (elements >> 8U) * block_bytes;
+    } else {
+        bytes = elements * block_bytes;
+    }
+    if (bytes > 0xffffffffULL) return -1;
+    *out = (uint32_t)bytes;
+    return 0;
+}
+
+static int gguf_name_equals_cstr(const uint8_t* name, uint32_t length, const char* expected) {
+    uint32_t i = 0U;
+    if (!name || !expected) return 0;
+    while (expected[i]) {
+        if (i >= length || name[i] != (uint8_t)expected[i]) return 0;
+        i++;
+    }
+    return i == length;
+}
+
+int gpt2_gguf_find_tensor(const uint8_t* blob, uint32_t blob_size,
+                          const char* name, gpt2_gguf_tensor_t* out) {
+    gpt2_gguf_info_t info;
+    uint32_t offset = 0U;
+    uint32_t magic;
+    uint32_t version;
+    uint64_t tensor_count64;
+    uint64_t metadata_count64;
+    uint32_t tensor_count;
+    uint32_t metadata_count;
+    uint32_t i;
+    int probe_status;
+
+    if (!blob || !name || !out) return -1;
+    probe_status = gpt2_gguf_probe_blob(blob, blob_size, &info);
+    if (probe_status != 0) return probe_status;
+    if (gguf_read_u32(blob, blob_size, &offset, &magic) != 0 ||
+        gguf_read_u32(blob, blob_size, &offset, &version) != 0 ||
+        gguf_read_u64(blob, blob_size, &offset, &tensor_count64) != 0 ||
+        gguf_read_u64(blob, blob_size, &offset, &metadata_count64) != 0) return -2;
+    tensor_count = (uint32_t)tensor_count64;
+    metadata_count = (uint32_t)metadata_count64;
+    for (i = 0U; i < metadata_count; i++) {
+        uint32_t key_length;
+        uint32_t type;
+        if (gguf_read_string(blob, blob_size, &offset, 0, &key_length) != 0 ||
+            gguf_read_u32(blob, blob_size, &offset, &type) != 0 ||
+            gguf_skip_value(blob, blob_size, &offset, type, 0U) != 0) return -3;
+    }
+    for (i = 0U; i < tensor_count; i++) {
+        const uint8_t* tensor_name;
+        uint32_t name_length;
+        uint32_t dimensions;
+        uint64_t shape[GGUF_MAX_DIMS] = {0U, 0U, 0U, 0U};
+        uint32_t type;
+        uint64_t data_offset64;
+        uint32_t byte_size;
+        uint32_t j;
+        if (gguf_read_string(blob, blob_size, &offset, &tensor_name, &name_length) != 0 ||
+            gguf_read_u32(blob, blob_size, &offset, &dimensions) != 0 ||
+            dimensions == 0U || dimensions > GGUF_MAX_DIMS) return -4;
+        for (j = 0U; j < dimensions; j++) {
+            if (gguf_read_u64(blob, blob_size, &offset, &shape[j]) != 0) return -5;
+        }
+        if (gguf_read_u32(blob, blob_size, &offset, &type) != 0 ||
+            gguf_read_u64(blob, blob_size, &offset, &data_offset64) != 0 ||
+            data_offset64 > 0xffffffffULL ||
+            gguf_tensor_byte_size(type, shape, dimensions, &byte_size) != 0) return -6;
+        if (!gguf_name_equals_cstr(tensor_name, name_length, name)) continue;
+        if (data_offset64 > (uint64_t)(blob_size - info.tensor_data_offset) ||
+            byte_size > blob_size - info.tensor_data_offset - (uint32_t)data_offset64) return -7;
+        out->name = tensor_name;
+        out->name_length = name_length;
+        out->dimensions = dimensions;
+        for (j = 0U; j < GGUF_MAX_DIMS; j++) out->shape[j] = shape[j];
+        out->type = type;
+        out->data_offset = (uint32_t)data_offset64;
+        out->byte_size = byte_size;
+        return 0;
+    }
+    return -8;
 }
