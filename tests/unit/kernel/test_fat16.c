@@ -326,6 +326,9 @@ static void test_loads_gpt2_from_fat16(void) {
                         float mlp_hidden[2] = {0.0f};
                         float mlp_output[256] = {0.0f};
                         uint8_t mlp_row[2U * GPT2_Q6_K_BLOCK_BYTES];
+                        float block_gamma[256] = {0.0f};
+                        float block_beta[256] = {0.0f};
+                        float block_norm[256] = {0.0f};
                         TEST_ASSERT_EQUAL(-9, gpt2_gguf_mlp_forward_fat16(
                             &volume, "gpt2.ggu", &model, &tensor, &tensor,
                             GPT2_QK_K, 2U, mlp_input, mlp_row, sizeof(mlp_row), 0, 0,
@@ -342,6 +345,16 @@ static void test_loads_gpt2_from_fat16(void) {
                             &volume, "gpt2.ggu", &model, &tensor, &tensor,
                             GPT2_QK_K, 2U, mlp_input, mlp_row, sizeof(mlp_row), 0, 0,
                             mlp_hidden, 2U, 0, GPT2_QK_K));
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_block_mlp_forward_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, &tensor,
+                            GPT2_QK_K, 2U, mlp_input, block_gamma, block_beta, 0.0001f,
+                            block_norm, GPT2_QK_K - 1U, mlp_row, sizeof(mlp_row),
+                            0, 0, mlp_hidden, 2U, mlp_output, GPT2_QK_K));
+                        TEST_ASSERT_EQUAL(-1, gpt2_gguf_block_mlp_forward_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, &tensor,
+                            GPT2_QK_K, 2U, mlp_input, block_gamma, block_beta, 0.0001f,
+                            block_norm, GPT2_QK_K, mlp_row, sizeof(mlp_row),
+                            0, 0, mlp_hidden, 2U, 0, GPT2_QK_K));
                     }
                 }
             }
