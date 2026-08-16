@@ -431,3 +431,55 @@ int gpt2_gguf_kv_cache_accumulate_values(const gpt2_gguf_kv_cache_t* cache, uint
     *out_count = cache->channels;
     return 0;
 }
+
+
+static float gpt2_gguf_attention_inv_sqrt(float value) {
+    union { float f; uint32_t u; } convert;
+    float half;
+    convert.f = value;
+    half = 0.5f * value;
+    convert.u = 0x5f3759dfU - (convert.u >> 1);
+    convert.f = convert.f * (1.5f - half * convert.f * convert.f);
+    return convert.f;
+}
+
+
+static float gpt2_gguf_attention_fast_exp(float value) {
+    union { float f; uint32_t u; } convert;
+    if (value < -80.0f) return 0.0f;
+    if (value > 80.0f) value = 80.0f;
+    convert.u = (uint32_t)(12102203.0f * value + 1064866805.0f);
+    return convert.f;
+}
+
+
+int gpt2_gguf_attention_scale_scores(float* scores, uint32_t score_count, uint32_t head_size) {
+    uint32_t i;
+    float scale;
+    if (!scores || head_size == 0U) return -1;
+    scale = gpt2_gguf_attention_inv_sqrt((float)head_size);
+    for (i = 0U; i < score_count; i++) scores[i] *= scale;
+    return 0;
+}
+
+
+int gpt2_gguf_attention_softmax(float* scores, uint32_t score_count, uint32_t* out_count) {
+    uint32_t i;
+    float maximum;
+    float total = 0.0f;
+    if (out_count) *out_count = 0U;
+    if (!scores || !out_count) return -1;
+    if (score_count == 0U) return 0;
+    maximum = scores[0];
+    for (i = 1U; i < score_count; i++) {
+        if (scores[i] > maximum) maximum = scores[i];
+    }
+    for (i = 0U; i < score_count; i++) {
+        scores[i] = gpt2_gguf_attention_fast_exp(scores[i] - maximum);
+        total += scores[i];
+    }
+    if (total <= 0.0f) return -7;
+    for (i = 0U; i < score_count; i++) scores[i] /= total;
+    *out_count = score_count;
+    return 0;
+}
