@@ -74,6 +74,8 @@ typedef struct task {
     uint32_t supervision_delivery_delivered;
     uint32_t supervision_delivery_dropped;
     int32_t supervision_priority_child_pid;
+    uint32_t supervision_notify_budget_limit;
+    uint32_t supervision_notify_budget_used;
     ipc_endpoint_t ipc_endpoint; // Boîte aux lettres IPC propre à la tâche
     struct task* next;         // Pour la liste chaînée de tâches
     struct task* prev;         // Liste doublement chaînée
@@ -150,6 +152,9 @@ int task_replay_supervision_event(int requester_pid, uint32_t sequence);
 int task_set_supervision_priority(int requester_pid, int child_pid);
 int task_fill_supervision_priority_status(int requester_pid,
                                           os_task_supervision_priority_status_t* out);
+int task_set_supervision_notify_budget(int requester_pid, uint32_t limit);
+int task_fill_supervision_notify_budget_status(int requester_pid,
+                                                os_task_supervision_notify_budget_status_t* out);
 void task_wake_waiter(task_t* child);
 void task_report_parent_exit(task_t* child, int exit_code, uint32_t reason);
 

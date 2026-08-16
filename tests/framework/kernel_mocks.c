@@ -60,6 +60,8 @@ task_t* create_task(void (*entry_point)(void)) {
     task->supervision_delivery_delivered = 0U;
     task->supervision_delivery_dropped = 0U;
     task->supervision_priority_child_pid = -1;
+    task->supervision_notify_budget_limit = 0U;
+    task->supervision_notify_budget_used = 0U;
     task->next = NULL;
     task->prev = NULL;
     (void)entry_point;
@@ -282,7 +284,10 @@ static void task_notify_supervision_event(task_t* parent,
     priority = parent->supervision_priority_child_pid == event->child_pid;
     if (!priority && (bit == 0U || (parent->supervision_notify_mask & bit) == 0U)) return;
     if (!priority && !task_supervision_watch_allows(parent, event->child_pid)) return;
+    if (parent->supervision_notify_budget_limit != 0U &&
+        parent->supervision_notify_budget_used >= parent->supervision_notify_budget_limit) return;
     if (os_task_make_supervision_event(&payload, event) != 0) return;
+    parent->supervision_notify_budget_used++;
     parent->supervision_delivery_attempted++;
     if (parent->ipc_endpoint.count < IPC_ENDPOINT_CAPACITY) {
         mock_task_event_send(&parent->ipc_endpoint, &payload);
@@ -656,6 +661,23 @@ int task_fill_supervision_priority_status(int requester_pid,
     return 0;
 }
 
+int task_set_supervision_notify_budget(int requester_pid, uint32_t limit) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return OS_TASK_NOT_FOUND;
+    parent->supervision_notify_budget_limit = limit;
+    parent->supervision_notify_budget_used = 0U;
+    return 0;
+}
+
+int task_fill_supervision_notify_budget_status(int requester_pid,
+                                                os_task_supervision_notify_budget_status_t* out) {
+    task_t* parent = get_task_by_id(requester_pid);
+    if (!out || !parent || parent->type != TASK_TYPE_USER || parent->state == TASK_TERMINATED) return OS_TASK_NOT_FOUND;
+    out->limit = parent->supervision_notify_budget_limit;
+    out->used = parent->supervision_notify_budget_used;
+    return 0;
+}
+
 int task_fill_supervision_summary(int requester_pid, os_task_supervision_summary_t* out) {
     task_t* parent;
     task_t* t;
@@ -756,6 +778,16 @@ int sys_task_supervision_priority(int child_pid) {
 int sys_task_supervision_priority_status(os_task_supervision_priority_status_t* out) {
     if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_priority_status(current_task->id, out);
+}
+
+int sys_task_supervision_notify_budget(uint32_t limit) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_notify_budget(current_task->id, limit);
+}
+
+int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_status_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_notify_budget_status(current_task->id, out);
 }
 
 int sys_task_delegate_child(int child_pid, int supervisor_pid) {
@@ -1627,6 +1659,13 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_TASK_SUPERVISION_PRIORITY_STATUS:
             state->eax = (uint32_t)sys_task_supervision_priority_status(
                 (os_task_supervision_priority_status_t*)state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_BUDGET:
+            state->eax = (uint32_t)sys_task_supervision_notify_budget(state->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS:
+            state->eax = (uint32_t)sys_task_supervision_notify_budget_status(
+                (os_task_supervision_notify_budget_status_t*)state->ebx);
             break;
         case SYS_MKDIR:
             state->eax = (uint32_t)sys_mkdir((const char*)state->ebx);

@@ -366,6 +366,18 @@ int sys_task_supervision_priority_status(os_task_supervision_priority_status_t* 
     return result;
 }
 
+int sys_task_supervision_notify_budget(uint32_t limit) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_NOTIFY_BUDGET), "b"(limit));
+    return result;
+}
+
+int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_status_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS), "b"(out));
+    return result;
+}
+
 int sys_mkdir(const char* path) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MKDIR), "b"(path));
@@ -876,6 +888,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  task-event-replay <seq> - Rediffuser une transition retenue\n");
     print_string("  task-priority-child <pid|off> - Choisir l’enfant supervise prioritaire\n");
     print_string("  task-priority-child-status - Lire la priorite de supervision\n");
+    print_string("  task-events-budget <n|off> - Limiter les notifications detaillees\n");
+    print_string("  task-events-budget-status - Lire le budget de notifications\n");
     print_string("  child-result <pid> - Dernier résultat local d’un enfant terminé\n");
     print_string("  child-results      - Historique borné de résultats enfants\n");
     print_string("  child-results-clear - Acquitter l’historique enfant local\n");
@@ -1638,6 +1652,31 @@ void cmd_task_priority_child_status(shell_context_t* ctx, char args[][128], int 
     print_string("\n");
 }
 
+void cmd_task_events_budget(shell_context_t* ctx, char args[][128], int arg_count) {
+    int value;
+    int rc;
+    (void)ctx;
+    if (arg_count != 1) { print_error("Usage: task-events-budget <n|off>"); return; }
+    value = strcmp(args[0], "off") == 0 ? 0 : parse_int(args[0]);
+    if (value < 0) { print_error("task-events-budget: valeur invalide"); return; }
+    rc = sys_task_supervision_notify_budget((uint32_t)value);
+    if (rc != 0) { print_error("task-events-budget: syscall indisponible"); return; }
+    print_string("task-events-budget ok ");
+    if (value == 0) print_string("off"); else print_uint((uint32_t)value);
+    print_string("\n");
+}
+
+void cmd_task_events_budget_status(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_task_supervision_notify_budget_status_t status;
+    int rc;
+    (void)ctx;
+    if (arg_count != 0) { print_error("Usage: task-events-budget-status"); return; }
+    rc = sys_task_supervision_notify_budget_status(&status);
+    if (rc != 0) { print_error("task-events-budget-status: syscall indisponible"); return; }
+    print_string("task-events-budget-status ok "); print_uint(status.limit);
+    print_string(" "); print_uint(status.used); print_string("\n");
+}
+
 void cmd_task_summary(shell_context_t* ctx, char args[][128], int arg_count) {
     int rc;
     os_task_supervision_summary_t summary;
@@ -2335,7 +2374,7 @@ static void cmd_cat(shell_context_t* ctx, char args[][128], int arg_count) {
 
 static int is_builtin(const char* cmd) {
     static const char* names[] = {
-        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "task-priority-child", "task-priority-child-status", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
+        "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "task-priority-child", "task-priority-child-status", "task-events-budget", "task-events-budget-status", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
         "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
@@ -4594,6 +4633,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "task-priority-child-status") == 0) {
         cmd_task_priority_child_status(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-budget") == 0) {
+        cmd_task_events_budget(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "task-events-budget-status") == 0) {
+        cmd_task_events_budget_status(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "child-result") == 0) {
         cmd_child_result(ctx, args, arg_count);

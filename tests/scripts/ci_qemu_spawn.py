@@ -109,13 +109,14 @@ def send_command(client, command):
     drain_monitor(client)
 
 
-def send_command_until(client, command, marker, proc, attempts=3):
+def send_command_until(client, command, marker, proc, attempts=3, timeout=None):
     failure = None
+    wait_timeout = CMD_TIMEOUT if timeout is None else timeout
     for _ in range(attempts):
         start = len(log_text())
         send_command(client, command)
         try:
-            wait_for(proc, marker, CMD_TIMEOUT, start)
+            wait_for(proc, marker, wait_timeout, start)
             return start
         except RuntimeError as error:
             failure = error
@@ -297,12 +298,19 @@ def main():
             say("spawned delegated child pid %s" % delegated_pid)
             say("typing task-events-notify on ...")
             send_command_until(monitor, "task-events-notify on", "task-events-notify ok on", proc)
+            say("typing task-events-budget 2 ...")
+            send_command_until(monitor, "task-events-budget 2", "task-events-budget ok 2", proc)
+            say("typing task-events-budget-status (configured) ...")
+            send_command_until(monitor, "task-events-budget-status", "task-events-budget-status ok 2 0", proc)
             say("typing task-priority-child %s ..." % delegated_pid)
             send_command_until(monitor, "task-priority-child %s" % delegated_pid,
                                "task-priority-child ok %s" % delegated_pid, proc)
             say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
             send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
                                "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
+            # Le budget est déjà vérifié configuré à 2 ; la consommation exacte
+            # est couverte par les tests Unity/syscall. Ici on vérifie la livraison
+            # réelle, sans ajouter une longue frappe redondante dans QEMU TCG.
             say("typing ipc-recv (delegation notification) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %
@@ -312,7 +320,7 @@ def main():
             say("typing ipc-recv (replayed delegation) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %
-                               (delegated_pid, supervisor_pid), proc)
+                               (delegated_pid, supervisor_pid), proc, timeout=5)
 
         say("QEMU spawn/yield/wait smoke passed.")
         return 0

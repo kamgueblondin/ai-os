@@ -286,6 +286,13 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_task_supervision_priority_status(
                 (os_task_supervision_priority_status_t*)cpu->ebx);
             break;
+        case SYS_TASK_SUPERVISION_NOTIFY_BUDGET:
+            cpu->eax = (uint32_t)sys_task_supervision_notify_budget(cpu->ebx);
+            break;
+        case SYS_TASK_SUPERVISION_NOTIFY_BUDGET_STATUS:
+            cpu->eax = (uint32_t)sys_task_supervision_notify_budget_status(
+                (os_task_supervision_notify_budget_status_t*)cpu->ebx);
+            break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
             break;
@@ -498,6 +505,16 @@ int sys_task_supervision_priority(int child_pid) {
 int sys_task_supervision_priority_status(os_task_supervision_priority_status_t* out) {
     if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
     return task_fill_supervision_priority_status(current_task->id, out);
+}
+
+int sys_task_supervision_notify_budget(uint32_t limit) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_TASK_NOT_FOUND;
+    return task_set_supervision_notify_budget(current_task->id, limit);
+}
+
+int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_status_t* out) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out) return OS_TASK_NOT_FOUND;
+    return task_fill_supervision_notify_budget_status(current_task->id, out);
 }
 
 int sys_service_register(const char* name) {
