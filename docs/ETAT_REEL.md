@@ -273,3 +273,6 @@ Le lot 87 ajoute `gpt2_gguf_validate_tensor_size`, qui recalcule et compare `byt
 
 
 Le lot 88 ajoute `gpt2_gguf_validate_gpt2_layer_storage`, qui compose la validation des axes GPT-2 et la cohérence de `byte_size` des dix tenseurs. `gpt2_gguf_forward_context_init` appelle cette barrière après le mapping de couche; les matrices et vecteurs incohérents sont donc rejetés avant lecture FAT16. L’implémentation reste sans allocation et sans division 64 bits runtime. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 89 ajoute `gpt2_gguf_read_quant_row_fat16`, qui lit une ligne Q3_K, Q4_K ou Q6_K depuis FAT16 dans un buffer caller-owned, avec contrôle de largeur, index, capacité, offsets et lecture partielle. Les marqueurs physiques Q4_K `0x11` et `0x77` sont vérifiés ligne par ligne; Q3_K, Q6_K et le buffer insuffisant sont également couverts. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.

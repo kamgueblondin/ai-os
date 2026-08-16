@@ -146,6 +146,25 @@ static void test_loads_gpt2_from_fat16(void) {
         TEST_ASSERT_EQUAL(0x77, block[0]);
         TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, block, 1U, &block_read));
         {
+            uint8_t row[2U * GPT2_Q6_K_BLOCK_BYTES];
+            uint32_t row_read = 0U;
+            gpt2_gguf_tensor_t variant = tensor;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, sizeof(row), &row_read));
+            TEST_ASSERT_EQUAL(GPT2_Q4_K_BLOCK_BYTES, (int)row_read);
+            TEST_ASSERT_EQUAL(0x11, row[0]);
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 1U, row, sizeof(row), &row_read));
+            TEST_ASSERT_EQUAL(0x77, row[0]);
+            variant.type = GPT2_GGUF_TENSOR_Q3_K;
+            variant.byte_size = 2U * GPT2_Q3_K_BLOCK_BYTES;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &variant, 0U, row, sizeof(row), &row_read));
+            TEST_ASSERT_EQUAL(GPT2_Q3_K_BLOCK_BYTES, (int)row_read);
+            variant.type = GPT2_GGUF_TENSOR_Q6_K;
+            variant.byte_size = 2U * GPT2_Q6_K_BLOCK_BYTES;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &variant, 0U, row, sizeof(row), &row_read));
+            TEST_ASSERT_EQUAL(GPT2_Q6_K_BLOCK_BYTES, (int)row_read);
+            TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, 1U, &row_read));
+        }
+        {
             float input[GPT2_QK_K] = {0.0f};
             float dot = 1.0f;
             TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, input, GPT2_QK_K, block, sizeof(block), &dot));

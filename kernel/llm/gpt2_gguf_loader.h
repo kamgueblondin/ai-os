@@ -63,5 +63,11 @@ int gpt2_gguf_dot_quant_row_fat16(const fat16_volume_t* volume, const char* file
                                   uint32_t row_index, const float* input,
                                   uint32_t count, uint8_t* scratch,
                                   uint32_t scratch_capacity, float* out_dot);
+/* Lit les octets d’une ligne quantifiée sans allocation ni chargement complet. */
+int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t row_index, uint8_t* buffer,
+                                   uint32_t capacity, uint32_t* out_read);
 
 #endif
