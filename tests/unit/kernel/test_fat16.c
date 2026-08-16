@@ -89,7 +89,8 @@ static void make_gguf_file(void) {
     put64_at(p, 2U); p += 8U;
     put_text_at(&p, "general.architecture"); put32(p, GPT2_GGUF_VALUE_STRING); p += 4U; put_text_at(&p, "gpt2");
     put_text_at(&p, "general.alignment"); put32(p, GPT2_GGUF_VALUE_UINT32); p += 4U; put32(p, 32U); p += 4U;
-    put_text_at(&p, "output.weight"); put32(p, 1U); p += 4U; put64_at(p, GPT2_QK_K * 2U); p += 8U;
+    put_text_at(&p, "output.weight"); put32(p, 2U); p += 4U; put64_at(p, GPT2_QK_K * 2U); p += 8U;
+    put64_at(p, 1U); p += 8U;
     put32(p, GPT2_GGUF_TENSOR_Q4_K); p += 4U; put64_at(p, 0U); p += 8U;
     end = data + 512U + 480U;
     while (p < end) disk[p++] = 0U;
@@ -106,6 +107,7 @@ static void test_loads_gpt2_from_fat16(void) {
     TEST_ASSERT_EQUAL(480, (int)model.bytes_loaded);
     TEST_ASSERT_EQUAL(1, model.index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&model.index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
+    TEST_ASSERT_EQUAL(2, (int)tensor.dimensions);
     TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
     {
         uint8_t tensor_bytes[4] = {0xFFU, 0xFFU, 0xFFU, 0xFFU};
