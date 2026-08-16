@@ -128,6 +128,10 @@ static void test_loads_gpt2_from_fat16(void) {
         float value_out[4] = {0.0f};
         gpt2_gguf_kv_cache_t cache;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_init(storage, 48U, 2U, 3U, 4U, &cache));
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_put(&cache, 1U, 0U, key, value));
+        key[0] = 9.0f; value[0] = 19.0f;
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_put(&cache, 1U, 1U, key, value));
+        key[0] = 1.0f; value[0] = 5.0f;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_put(&cache, 1U, 2U, key, value));
         TEST_ASSERT_EQUAL(3, (int)cache.count);
         TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_get(&cache, 1U, 2U, key_out, value_out));
@@ -136,6 +140,24 @@ static void test_loads_gpt2_from_fat16(void) {
         TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_get(&cache, 2U, 0U, key_out, value_out));
         TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_init(storage, 47U, 2U, 3U, 4U, &cache));
         TEST_ASSERT_EQUAL(-1, gpt2_gguf_kv_cache_put(&cache, 0U, 0U, 0, value));
+        {
+            float history_key[12] = {0.0f};
+            float history_value[12] = {0.0f};
+            uint32_t history_count = 0U;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_copy_history(&cache, 1U, 0U, 3U,
+                                                                  history_key, 12U, history_value, 12U,
+                                                                  &history_count));
+            TEST_ASSERT_EQUAL(3, (int)history_count);
+            TEST_ASSERT_EQUAL(1, (int)history_key[0]);
+            TEST_ASSERT_EQUAL(9, (int)history_key[4]);
+            TEST_ASSERT_EQUAL(19, (int)history_value[4]);
+            TEST_ASSERT_EQUAL(-9, gpt2_gguf_kv_cache_copy_history(&cache, 0U, 2U, 2U,
+                                                                   history_key, 12U, history_value, 12U,
+                                                                   &history_count));
+            TEST_ASSERT_EQUAL(-6, gpt2_gguf_kv_cache_copy_history(&cache, 1U, 0U, 3U,
+                                                                   history_key, 8U, history_value, 12U,
+                                                                   &history_count));
+        }
     }
     TEST_ASSERT_EQUAL(480, (int)model.bytes_loaded);
     TEST_ASSERT_EQUAL(1, model.index.tensor_count);

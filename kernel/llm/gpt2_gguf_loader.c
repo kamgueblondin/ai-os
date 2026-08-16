@@ -347,3 +347,30 @@ int gpt2_gguf_kv_cache_get(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
     }
     return 0;
 }
+
+
+int gpt2_gguf_kv_cache_copy_history(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                    uint32_t start_position, uint32_t position_count,
+                                    float* key_out, uint32_t key_capacity,
+                                    float* value_out, uint32_t value_capacity,
+                                    uint32_t* out_count) {
+    uint32_t position;
+    uint32_t copied = 0U;
+    int status;
+    if (out_count) *out_count = 0U;
+    if (!cache || !key_out || !value_out || !out_count) return -1;
+    if (position_count == 0U) return 0;
+    if (position_count > 0xFFFFFFFFU / cache->channels ||
+        key_capacity < position_count * cache->channels ||
+        value_capacity < position_count * cache->channels) return -6;
+    if (start_position > cache->count || position_count > cache->count - start_position) return -9;
+    for (position = 0U; position < position_count; position++) {
+        status = gpt2_gguf_kv_cache_get(cache, layer, start_position + position,
+                                        key_out + position * cache->channels,
+                                        value_out + position * cache->channels);
+        if (status != 0) return status;
+        copied++;
+    }
+    *out_count = copied;
+    return 0;
+}

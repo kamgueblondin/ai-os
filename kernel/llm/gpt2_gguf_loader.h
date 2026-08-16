@@ -43,6 +43,12 @@ int gpt2_gguf_kv_cache_put(gpt2_gguf_kv_cache_t* cache, uint32_t layer,
 /* Relit les K/V d’une couche et d’une position dans les buffers appelant. */
 int gpt2_gguf_kv_cache_get(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
                            uint32_t position, float* key, float* value);
+/* Copie un intervalle de positions historiques d’une couche. */
+int gpt2_gguf_kv_cache_copy_history(const gpt2_gguf_kv_cache_t* cache, uint32_t layer,
+                                    uint32_t start_position, uint32_t position_count,
+                                    float* key_out, uint32_t key_capacity,
+                                    float* value_out, uint32_t value_capacity,
+                                    uint32_t* out_count);
 
 /* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
