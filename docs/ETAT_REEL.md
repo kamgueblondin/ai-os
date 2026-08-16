@@ -291,3 +291,6 @@ Le lot 93 ajoute `gpt2_gguf_kv_cache_t` et ses opérations d’initialisation, �
 
 
 Le lot 93 ajoute `gpt2_gguf_kv_cache_t` et ses opérations d’initialisation, écriture et lecture. Le cache caller-owned stocke `[couche][position][K puis V]`, contrôle la capacité totale et suit la plus grande position écrite via `count`, sans allocation noyau. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Le build i386 et la relance propre du smoke QEMU valident core, extras, persist, spawn et exec.
+
+
+Le lot 94 ajoute `gpt2_gguf_kv_cache_copy_history`, qui copie un intervalle de positions K/V historiques d’une couche vers des buffers caller-owned compacts. L’itération respecte `cache->count`, isole les couches et rejette les capacités ou intervalles hors bornes. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
