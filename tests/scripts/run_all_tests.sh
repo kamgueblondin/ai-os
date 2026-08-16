@@ -112,7 +112,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/llm/gpt2_quant.c"
     fi
     if [ "$(basename "$test_file")" = "test_fat16.c" ]; then
-        extra_src="$extra_src $BASE_DIR/kernel/fs/fat16.c $BASE_DIR/kernel/llm/gpt2_gguf.c $BASE_DIR/kernel/llm/gpt2_gguf_loader.c"
+        extra_src="$extra_src $BASE_DIR/kernel/fs/fat16.c $BASE_DIR/kernel/llm/gpt2_gguf.c $BASE_DIR/kernel/llm/gpt2_gguf_loader.c $BASE_DIR/kernel/llm/gpt2_quant.c"
     fi
     if [ "$(basename "$test_file")" = "test_ipc.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/ipc.c"

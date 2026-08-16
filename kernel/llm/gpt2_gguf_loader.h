@@ -26,5 +26,12 @@ int gpt2_gguf_read_quant_block_fat16(const fat16_volume_t* volume, const char* f
                                      const gpt2_gguf_tensor_t* tensor,
                                      uint32_t block_index, uint8_t* buffer,
                                      uint32_t capacity, uint32_t* out_read);
+/* Lit puis exécute un super-bloc quantifié avec un scratch caller-owned. */
+int gpt2_gguf_dot_quant_block_fat16(const fat16_volume_t* volume, const char* filename,
+                                    const gpt2_gguf_loaded_model_t* model,
+                                    const gpt2_gguf_tensor_t* tensor,
+                                    uint32_t block_index, const float* input,
+                                    uint32_t count, uint8_t* scratch,
+                                    uint32_t scratch_capacity, float* out_dot);
 
 #endif

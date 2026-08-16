@@ -55,3 +55,31 @@ int gpt2_gguf_read_quant_block_fat16(const fat16_volume_t* volume, const char* f
     return gpt2_gguf_read_tensor_fat16(volume, filename, model, tensor,
                                        block_offset, buffer, block_bytes, out_read);
 }
+
+
+int gpt2_gguf_dot_quant_block_fat16(const fat16_volume_t* volume, const char* filename,
+                                    const gpt2_gguf_loaded_model_t* model,
+                                    const gpt2_gguf_tensor_t* tensor,
+                                    uint32_t block_index, const float* input,
+                                    uint32_t count, uint8_t* scratch,
+                                    uint32_t scratch_capacity, float* out_dot) {
+    uint32_t block_bytes;
+    uint32_t read = 0U;
+    int status;
+    if (!input || !scratch || !out_dot) return -1;
+    if (count != GPT2_QK_K) return -7;
+    if (!tensor) return -1;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    if (scratch_capacity < block_bytes) return -6;
+    status = gpt2_gguf_read_quant_block_fat16(volume, filename, model, tensor,
+                                               block_index, scratch, scratch_capacity, &read);
+    if (status != 0) return status;
+    if (read != block_bytes) return -8;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) *out_dot = gpt2_q3_k_dot_f32(input, scratch, count);
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) *out_dot = gpt2_q4_k_dot_f32(input, scratch, count);
+    else *out_dot = gpt2_q6_k_dot_f32(input, scratch, count);
+    return 0;
+}

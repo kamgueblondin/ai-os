@@ -123,6 +123,13 @@ static void test_loads_gpt2_from_fat16(void) {
         TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, block, sizeof(block), &block_read));
         TEST_ASSERT_EQUAL(GPT2_Q4_K_BLOCK_BYTES, (int)block_read);
         TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, block, 1U, &block_read));
+        {
+            float input[GPT2_QK_K] = {0.0f};
+            float dot = 1.0f;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, input, GPT2_QK_K, block, sizeof(block), &dot));
+            TEST_ASSERT_EQUAL(0, (int)dot);
+            TEST_ASSERT_EQUAL(-7, gpt2_gguf_dot_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, input, 32U, block, sizeof(block), &dot));
+        }
     }
 }
 
