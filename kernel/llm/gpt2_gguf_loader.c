@@ -258,3 +258,30 @@ int gpt2_gguf_project_qkv_row_fat16(const fat16_volume_t* volume, const char* fi
     if (status != 0) return status;
     return gpt2_gguf_dot_quant_row_buffer(tensor, row_buffer, read, input, channels, out_value);
 }
+
+
+int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filename,
+                                const gpt2_gguf_loaded_model_t* model,
+                                const gpt2_gguf_tensor_t* tensor, uint32_t channels,
+                                const float* input, uint8_t* row_buffer,
+                                uint32_t row_capacity, float* query, uint32_t query_capacity,
+                                float* key, uint32_t key_capacity,
+                                float* value, uint32_t value_capacity) {
+    uint32_t output_index;
+    int status;
+    if (!query || !key || !value || channels == 0U ||
+        query_capacity < channels * sizeof(float) ||
+        key_capacity < channels * sizeof(float) ||
+        value_capacity < channels * sizeof(float)) return -6;
+    for (output_index = 0U; output_index < 3U * channels; output_index++) {
+        float result = 0.0f;
+        status = gpt2_gguf_project_qkv_row_fat16(volume, filename, model, tensor, channels,
+                                                  output_index, input, row_buffer,
+                                                  row_capacity, &result);
+        if (status != 0) return status;
+        if (output_index < channels) query[output_index] = result;
+        else if (output_index < 2U * channels) key[output_index - channels] = result;
+        else value[output_index - 2U * channels] = result;
+    }
+    return 0;
+}
