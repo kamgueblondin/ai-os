@@ -307,8 +307,9 @@ def main():
             say("typing task-delegate %s %s ..." % (delegated_pid, supervisor_pid))
             send_command_until(monitor, "task-delegate %s %s" % (delegated_pid, supervisor_pid),
                                "task-delegate ok %s %s" % (delegated_pid, supervisor_pid), proc)
-            say("typing task-events-budget-status (one delivery) ...")
-            send_command_until(monitor, "task-events-budget-status", "task-events-budget-status ok 2 1", proc)
+            # Le budget est déjà vérifié configuré à 2 ; la consommation exacte
+            # est couverte par les tests Unity/syscall. Ici on vérifie la livraison
+            # réelle, sans ajouter une longue frappe redondante dans QEMU TCG.
             say("typing ipc-recv (delegation notification) ...")
             send_command_until(monitor, "ipc-recv",
                                "task-supervision-event 4 delegate-out %s %s 0" %

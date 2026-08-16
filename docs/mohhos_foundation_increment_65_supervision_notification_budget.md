@@ -44,7 +44,7 @@ Après une transition détaillée admise, le statut devient par exemple `task-ev
 
 La suite `make test-all` exécute **253/253** tests verts. Les nouveaux tests Unity de tâche vérifient l’état initial, le plafonnement, la préservation du journal, la réinitialisation et le retour au mode illimité. Le test syscall valide les ABI 85 et 86 à travers `syscall_handler`.
 
-La reconstruction i386 par `make clean && make all` est réussie. Le scénario `tests/scripts/ci_qemu_spawn.py` configure `task-events-budget 2`, observe l’état `2 0`, réalise une délégation détaillée, puis confirme l’état `2 1`. Le smoke QEMU global `make qemu-smoke` est également vert, avec un budget de 240 secondes conservé pour le scénario `spawn`.
+La reconstruction i386 par `make clean && make all` est réussie. Le scénario `tests/scripts/ci_qemu_spawn.py` configure `task-events-budget 2`, observe l’état `2 0`, réalise une délégation détaillée et confirme la livraison réelle par `ipc-recv`. La consommation exacte `used = 1` est vérifiée par les tests Unity et syscall ; cette séparation évite une frappe redondante fragile sous QEMU TCG. Le smoke QEMU global `make qemu-smoke` est également vert, avec un budget de 240 secondes conservé pour le scénario `spawn`.
 
 ## Limites explicites
 
