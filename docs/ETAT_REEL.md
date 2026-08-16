@@ -246,3 +246,6 @@ AI-OS ne fournit pas encore de volume FAT sur le disque IDE, de pilote réseau, 
 ## Références
 
 [1] [QEMU, *Network emulation*](https://www.qemu.org/docs/master/system/devices/net.html)
+
+
+Le lot 80 ajoute une preuve différentielle de sélection disque dans la fixture GGUF/FAT16. Après alignement dynamique sur `general.alignment`, le premier super-bloc Q4_K commence par `0x11` et le second par `0x77`; les lectures de tenseur, de bloc 0 et de bloc 1 vérifient ces valeurs distinctes. La capacité insuffisante et les bornes de ligne restent rejetées. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. Cette preuve porte sur l’offset physique FAT16 et ne constitue toujours pas un forward GPT-2 complet.

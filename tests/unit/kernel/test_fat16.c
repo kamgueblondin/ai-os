@@ -76,6 +76,7 @@ static void make_gguf_file(void) {
     uint32_t fat;
     uint32_t p = data + 512U;
     uint32_t end;
+    uint32_t tensor_data;
     make_volume();
     for (fat = 1U; fat <= 2U; fat++) put16(fat * 17U * 512U + 6U, 0xFFFFU);
     disk[root + 32U] = 'G'; disk[root + 33U] = 'P'; disk[root + 34U] = 'T'; disk[root + 35U] = '2';
@@ -93,7 +94,11 @@ static void make_gguf_file(void) {
     put64_at(p, 2U); p += 8U;
     put32(p, GPT2_GGUF_TENSOR_Q4_K); p += 4U; put64_at(p, 0U); p += 8U;
     end = data + 512U + 480U;
+    tensor_data = p;
+    while ((tensor_data & 31U) != 0U) tensor_data++;
     while (p < end) disk[p++] = 0U;
+    disk[tensor_data] = 0x11U;
+    disk[tensor_data + GPT2_Q4_K_BLOCK_BYTES] = 0x77U;
 }
 
 static void test_loads_gpt2_from_fat16(void) {
@@ -114,7 +119,7 @@ static void test_loads_gpt2_from_fat16(void) {
         uint32_t tensor_read = 0U;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_read_tensor_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, tensor_bytes, sizeof(tensor_bytes), &tensor_read));
         TEST_ASSERT_EQUAL(4, (int)tensor_read);
-        TEST_ASSERT_EQUAL(0, tensor_bytes[0]);
+        TEST_ASSERT_EQUAL(0x11, tensor_bytes[0]);
         TEST_ASSERT_EQUAL(0, tensor_bytes[1]);
         TEST_ASSERT_EQUAL(0, tensor_bytes[2]);
         TEST_ASSERT_EQUAL(0, tensor_bytes[3]);
@@ -124,6 +129,10 @@ static void test_loads_gpt2_from_fat16(void) {
         uint32_t block_read = 0U;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, block, sizeof(block), &block_read));
         TEST_ASSERT_EQUAL(GPT2_Q4_K_BLOCK_BYTES, (int)block_read);
+        TEST_ASSERT_EQUAL(0x11, block[0]);
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 1U, block, sizeof(block), &block_read));
+        TEST_ASSERT_EQUAL(GPT2_Q4_K_BLOCK_BYTES, (int)block_read);
+        TEST_ASSERT_EQUAL(0x77, block[0]);
         TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, block, 1U, &block_read));
         {
             float input[GPT2_QK_K] = {0.0f};
