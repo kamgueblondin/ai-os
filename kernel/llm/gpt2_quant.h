@@ -7,6 +7,12 @@
 #define GPT2_Q8_0_BLOCK_SIZE 32U
 #define GPT2_Q8_0_BLOCK_BYTES 34U
 
+/* GGML K-quants use 256 values per super-block. */
+#define GPT2_QK_K 256U
+#define GPT2_Q3_K_BLOCK_BYTES 110U
+#define GPT2_Q4_K_BLOCK_BYTES 144U
+#define GPT2_Q6_K_BLOCK_BYTES 210U
+
 /* Convert an IEEE-754 binary16 bit pattern to FP32 without a libc dependency. */
 float gpt2_f16_to_f32(uint16_t bits);
 
@@ -15,5 +21,10 @@ float gpt2_f16_to_f32(uint16_t bits);
  * `count` must be a non-zero multiple of 32. Returns 0.0f for invalid input.
  */
 float gpt2_q8_0_dot_f32(const float* input, const uint8_t* q8_blocks, uint32_t count);
+
+/* Dot products for the GGML Q3_K, Q4_K and Q6_K super-block layouts. */
+float gpt2_q3_k_dot_f32(const float* input, const uint8_t* q3_blocks, uint32_t count);
+float gpt2_q4_k_dot_f32(const float* input, const uint8_t* q4_blocks, uint32_t count);
+float gpt2_q6_k_dot_f32(const float* input, const uint8_t* q6_blocks, uint32_t count);
 
 #endif

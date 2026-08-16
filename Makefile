@@ -172,12 +172,12 @@ build/gpt2_model.o: kernel/llm/gpt2_model.c kernel/llm/gpt2_model.h fs/initrd.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Sonde GGUF v3 (lecture structurelle bornée, sans exécution quantifiée).
+# Sonde GGUF v3 et kernels quantifiés bornés ; le chargeur runtime complet reste séparé.
 build/gpt2_gguf.o: kernel/llm/gpt2_gguf.c kernel/llm/gpt2_gguf.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Kernel de produit Q8_0 x FP32 pour la quantification GGUF.
+# Kernels de produits Q8_0/Q3_K/Q4_K/Q6_K x FP32 pour la quantification GGUF.
 build/gpt2_quant.o: kernel/llm/gpt2_quant.c kernel/llm/gpt2_quant.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -246,9 +246,9 @@ pack-initrd: userspace-all
 	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
 	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest
 	@echo "gpt2_124M.bin|gpt2|124M|FP32|local" >> $(INITRD_DIR)/models/models.manifest
-	@echo "gpt2.gguf|gpt2|optional|GGUF-v3|structural-probe" >> $(INITRD_DIR)/models/models.manifest
+	@echo "gpt2.gguf|gpt2|optional|GGUF-v3|kquant-kernels" >> $(INITRD_DIR)/models/models.manifest
 	@echo "# Provide gpt2_124M.bin and gpt2_tokenizer.bin in models/ before build." > $(INITRD_DIR)/models/README.txt
-	@echo "# models/gpt2.gguf is optional: v3 structure is validated at boot; quantized execution remains disabled until its kernels land." >> $(INITRD_DIR)/models/README.txt
+	@echo "# models/gpt2.gguf is optional: v3 structure and Q3_K/Q4_K/Q6_K kernel layouts are validated; full GGUF GPT-2 loading remains pending." >> $(INITRD_DIR)/models/README.txt
 	@if [ -f "$(GPT2_MODEL)" ] && [ -f "$(MODEL_DIR)/gpt2_tokenizer.bin" ]; then \
 		echo "[mkinitrd] Inclusion du checkpoint et du tokenizer GPT-2 locaux..."; \
 		cp -f "$(GPT2_MODEL)" "$(INITRD_DIR)/models/gpt2_124M.bin"; \

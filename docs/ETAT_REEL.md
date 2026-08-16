@@ -11,7 +11,7 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 | Périmètre | État vérifié |
 |---|---|
 | Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3 |
-| IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot |
+| IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; kernels GGML Q3_K/Q4_K/Q6_K vérifiés au niveau mathématique |
 | Stockage | Archive initrd TAR en lecture seule et overlay AIOV V2 sur ATA PIO ; volume FAT non livré |
 | Ordonnancement et télémétrie | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur ; instantané de ticks, sélections, priorité CPU, parent et enfants directs ; terminaison, réattribution, attente et capacité de création limitées à la filiation directe |
 | IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; capacité de deux messages clients et état borné pour un propriétaire de service, médiateur VFS, métadonnées et listage de racine ou de sous-répertoire source-spécifiques, sources virtuelles, compteurs volatils et alias initrd/overlay dynamiques |
@@ -21,6 +21,13 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 > Les poids GPT-2 ne sont pas versionnés dans Git. Une image utilisable sans réseau les embarque dans l’initrd au moment du build.
 
 ## Fonctions livrées
+
+### GGUF et kernels de quantification
+
+Le runtime possède désormais des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. La suite `make test-all` atteint 256 tests réussis et compare chaque kernel à un super-bloc synthétique déterministe.
+
+Cette livraison ne constitue pas encore une génération GPT-2 à partir d’un fichier GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et le parseur structural ne conserve pas de table de tenseurs utilisable par le forward. La prochaine étape doit ajouter cette table, le mapping GPT-2 et un chemin de sélection contrôlée ; elle ne doit pas annoncer une latence inférieure à une seconde sans mesure native ou KVM reproductible.
+
 
 ### Noyau, stockage et tâches
 
