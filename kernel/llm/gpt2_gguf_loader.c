@@ -287,6 +287,33 @@ int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filena
 }
 
 
+int gpt2_gguf_project_matrix_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t input_channels, uint32_t output_channels,
+                                   const float* input, uint8_t* row_buffer,
+                                   uint32_t row_capacity, float* output,
+                                   uint32_t output_capacity) {
+    uint32_t row;
+    int status;
+    if (!volume || !filename || !model || !tensor || !input || !row_buffer || !output) return -1;
+    if (input_channels == 0U || output_channels == 0U ||
+        tensor->dimensions != 2U || tensor->shape[0] != input_channels ||
+        tensor->shape[1] != output_channels) return -9;
+    if (output_capacity < output_channels * sizeof(float)) return -6;
+    for (row = 0U; row < output_channels; row++) {
+        uint32_t read = 0U;
+        status = gpt2_gguf_read_quant_row_fat16(volume, filename, model, tensor,
+                                                row, row_buffer, row_capacity, &read);
+        if (status != 0) return status;
+        status = gpt2_gguf_dot_quant_row_buffer(tensor, row_buffer, read,
+                                                input, input_channels, &output[row]);
+        if (status != 0) return status;
+    }
+    return 0;
+}
+
+
 static int gpt2_gguf_kv_cache_offset(const gpt2_gguf_kv_cache_t* cache,
                                      uint32_t layer, uint32_t position,
                                      uint32_t* out_offset) {

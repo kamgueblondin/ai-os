@@ -140,5 +140,13 @@ int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filena
                                 uint32_t row_capacity, float* query, uint32_t query_capacity,
                                 float* key, uint32_t key_capacity,
                                 float* value, uint32_t value_capacity);
+/* Projette un vecteur dans une matrice GGUF quantifiée `[input, output]`. */
+int gpt2_gguf_project_matrix_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t input_channels, uint32_t output_channels,
+                                   const float* input, uint8_t* row_buffer,
+                                   uint32_t row_capacity, float* output,
+                                   uint32_t output_capacity);
 
 #endif
