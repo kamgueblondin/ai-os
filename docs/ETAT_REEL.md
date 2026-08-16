@@ -26,9 +26,11 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 
 Le runtime possède des produits scalaires freestanding pour les super-blocs GGML **Q3_K**, **Q4_K** et **Q6_K**, en plus de Q8_0. Les blocs sont contrôlés sur 256 valeurs et leurs tailles binaires sont explicites : 110, 144 et 210 octets. Le parseur GGUF classe séparément les tenseurs Q3_K, Q4_K et Q6_K au lieu de les signaler comme types quantifiés inconnus. `gpt2_gguf_find_tensor` vérifie la forme, le type, la taille de bloc et la plage avant utilisation.
 
-Le lot 69 ajoute `gpt2_gguf_build_index`, une table caller-owned bornée à 512 tenseurs, puis `gpt2_gguf_index_find` pour les recherches répétées sans rescanner les métadonnées. `gpt2_gguf_map_role` associe les cinq tenseurs structurants GPT-2 (`token_embd`, `position_embd`, `output_norm` et `output`) à des rôles stables pour le futur forward quantifié. La suite `make test-all` atteint désormais **262 tests réussis**, dont la nouvelle fixture d’index et de mapping.
+Le lot 69 ajoute `gpt2_gguf_build_index`, une table caller-owned bornée à 512 tenseurs, puis `gpt2_gguf_index_find` pour les recherches répétées sans rescanner les métadonnées. `gpt2_gguf_map_role` associe les cinq tenseurs structurants GPT-2 (`token_embd`, `position_embd`, `output_norm` et `output`) à des rôles stables pour le futur forward quantifié. La suite `make test-all` atteint désormais **263 tests réussis**, dont les fixtures d’index, de mapping et de chargement FAT16.
 
-Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un fichier GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et le chargement depuis FAT16 ainsi que le mapping des blocs d’attention restent à faire. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
+Le lot 70 ajoute `gpt2_gguf_load_fat16`, qui lit un profil GGUF dans un buffer caller-owned depuis le volume FAT16, puis construit l’index et vérifie le rôle `output.weight`. La fixture de bout en bout utilise le nom FAT16 8.3 `gpt2.ggu`, charge 320 octets et traverse le montage, la chaîne de clusters, le parseur et le mapping sans allocation dynamique.
+
+Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’un checkpoint GGUF réel : `gpt2_model.c` et `gpt2_infer.c` utilisent encore le checkpoint FP32 `llm.c v3`, et les tenseurs ne sont pas encore lus à la demande par plages depuis FAT16. Aucune latence inférieure à une seconde n’est annoncée sans mesure native ou KVM reproductible.
 
 
 ### Noyau, stockage et tâches
