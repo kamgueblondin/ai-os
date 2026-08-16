@@ -240,3 +240,21 @@ int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
     *out_dot = total;
     return 0;
 }
+
+
+int gpt2_gguf_project_qkv_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                    const gpt2_gguf_loaded_model_t* model,
+                                    const gpt2_gguf_tensor_t* tensor, uint32_t channels,
+                                    uint32_t output_index, const float* input,
+                                    uint8_t* row_buffer, uint32_t row_capacity,
+                                    float* out_value) {
+    uint32_t read = 0U;
+    int status;
+    if (!tensor || channels == 0U || !input || !row_buffer || !out_value) return -1;
+    if (tensor->dimensions != 2U || tensor->shape[0] != channels ||
+        tensor->shape[1] != 3ULL * channels || output_index >= 3U * channels) return -9;
+    status = gpt2_gguf_read_quant_row_fat16(volume, filename, model, tensor,
+                                             output_index, row_buffer, row_capacity, &read);
+    if (status != 0) return status;
+    return gpt2_gguf_dot_quant_row_buffer(tensor, row_buffer, read, input, channels, out_value);
+}

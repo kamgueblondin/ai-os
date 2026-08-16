@@ -73,5 +73,12 @@ int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* fil
 int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
                                    const uint8_t* row_buffer, uint32_t row_capacity,
                                    const float* input, uint32_t count, float* out_dot);
+/* Lit et calcule une sortie QKV unique d’une matrice GGUF `[C,3C]`. */
+int gpt2_gguf_project_qkv_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                    const gpt2_gguf_loaded_model_t* model,
+                                    const gpt2_gguf_tensor_t* tensor, uint32_t channels,
+                                    uint32_t output_index, const float* input,
+                                    uint8_t* row_buffer, uint32_t row_capacity,
+                                    float* out_value);
 
 #endif
