@@ -169,6 +169,12 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
     TEST_ASSERT_EQUAL(0, gpt2_gguf_index_find(&index, "output.weight", &tensor));
     TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
     TEST_ASSERT_EQUAL(4 * 160, (int)tensor.data_offset);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_validate_tensor_size(&tensor));
+    tensor.byte_size--;
+    TEST_ASSERT_EQUAL(-9, gpt2_gguf_validate_tensor_size(&tensor));
+    tensor.byte_size++;
+    tensor.shape[0] = GPT2_QK_K - 1U;
+    TEST_ASSERT_EQUAL(-9, gpt2_gguf_validate_tensor_size(&tensor));
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_TOKEN_EMBEDDING, &tensor));
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_POSITION_EMBEDDING, &tensor));
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&index, GPT2_GGUF_ROLE_OUTPUT_NORM_WEIGHT, &tensor));

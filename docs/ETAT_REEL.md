@@ -267,3 +267,6 @@ Le lot 85 ajoute `gpt2_gguf_validate_layer`, qui exige les dix rôles présents,
 
 
 Le lot 86 ajoute `gpt2_gguf_validate_gpt2_layer`, qui applique les formes du forward legacy: biais et normalisations `[C]`, QKV `[C,3C]`, projection attention `[C,C]`, expansion MLP `[C,4C]` et projection MLP `[4C,C]`. Une fixture synthétique couvre les formes 2D et rejette un axe QKV incorrect. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. La correspondance entre formes et tailles de données quantifiées FAT16 reste à vérifier au prochain incrément.
+
+
+Le lot 87 ajoute `gpt2_gguf_validate_tensor_size`, qui recalcule et compare `byte_size` pour F32/F16 et les super-blocs Q3_K (110 octets), Q4_K (144 octets) et Q6_K (210 octets) sur 256 valeurs. Les produits d’axes, les dépassements et les formes non alignées sont rejetés sans allocation ni lecture de blob. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
