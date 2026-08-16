@@ -508,3 +508,29 @@ int gpt2_gguf_validate_layer(const gpt2_gguf_layer_t* layer, uint32_t channels) 
     }
     return 0;
 }
+
+
+static int gpt2_gguf_shape_is(const gpt2_gguf_tensor_t* tensor, uint64_t first,
+                              uint64_t second) {
+    if (!tensor || tensor->dimensions != (second == 0U ? 1U : 2U)) return 0;
+    if (tensor->shape[0] != first) return 0;
+    if (second != 0U && tensor->shape[1] != second) return 0;
+    return 1;
+}
+
+int gpt2_gguf_validate_gpt2_layer(const gpt2_gguf_layer_t* layer, uint32_t channels) {
+    const gpt2_gguf_tensor_t* t;
+    if (!layer || channels == 0U || layer->present_mask != 0x3FFU) return -8;
+    if ((channels % GPT2_QK_K) != 0U) return -9;
+    t = &layer->tensors[0]; if (!gpt2_gguf_shape_is(t, channels, 0U)) return -9;
+    t = &layer->tensors[1]; if (!gpt2_gguf_shape_is(t, channels, 0U)) return -9;
+    t = &layer->tensors[2]; if (!gpt2_gguf_shape_is(t, channels, 3U * channels)) return -9;
+    t = &layer->tensors[3]; if (!gpt2_gguf_shape_is(t, 3U * channels, 0U)) return -9;
+    t = &layer->tensors[4]; if (!gpt2_gguf_shape_is(t, channels, channels)) return -9;
+    t = &layer->tensors[5]; if (!gpt2_gguf_shape_is(t, channels, 0U)) return -9;
+    t = &layer->tensors[6]; if (!gpt2_gguf_shape_is(t, channels, 0U)) return -9;
+    t = &layer->tensors[7]; if (!gpt2_gguf_shape_is(t, channels, 0U)) return -9;
+    t = &layer->tensors[8]; if (!gpt2_gguf_shape_is(t, channels, 4U * channels)) return -9;
+    t = &layer->tensors[9]; if (!gpt2_gguf_shape_is(t, 4U * channels, channels)) return -9;
+    return 0;
+}
