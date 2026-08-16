@@ -325,6 +325,23 @@ static void test_loads_gpt2_from_fat16(void) {
                 TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_buffer(&variant, row, sizeof(row), input, GPT2_QK_K, &dot));
                 TEST_ASSERT_EQUAL(-6, gpt2_gguf_dot_quant_row_buffer(&tensor, row, 1U, input, GPT2_QK_K, &dot));
                 TEST_ASSERT_EQUAL(-7, gpt2_gguf_dot_quant_row_buffer(&tensor, row, sizeof(row), input, 32U, &dot));
+                {
+                    float projected[2] = {99.0f, 99.0f};
+                    TEST_ASSERT_EQUAL(0, gpt2_gguf_project_matrix_fat16(&volume, "gpt2.ggu", &model,
+                                                                        &tensor, GPT2_QK_K, 2U,
+                                                                        input, row, sizeof(row),
+                                                                        projected, 2U * sizeof(float)));
+                    TEST_ASSERT_EQUAL(0, (int)projected[0]);
+                    TEST_ASSERT_EQUAL(0, (int)projected[1]);
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_project_matrix_fat16(&volume, "gpt2.ggu", &model,
+                                                                         &tensor, GPT2_QK_K, 2U,
+                                                                         input, row, sizeof(row),
+                                                                         projected, sizeof(float)));
+                    TEST_ASSERT_EQUAL(-9, gpt2_gguf_project_matrix_fat16(&volume, "gpt2.ggu", &model,
+                                                                         &tensor, 32U, 2U,
+                                                                         input, row, sizeof(row),
+                                                                         projected, 2U * sizeof(float)));
+                }
             {
                 gpt2_gguf_tensor_t qkv = tensor;
                 qkv.shape[1] = 3U * GPT2_QK_K;
