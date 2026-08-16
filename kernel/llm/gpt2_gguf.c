@@ -478,3 +478,15 @@ int gpt2_gguf_map_layer(const gpt2_gguf_index_t* index, uint32_t layer,
     }
     return 0;
 }
+
+
+int gpt2_gguf_layer_get(const gpt2_gguf_layer_t* layer, gpt2_gguf_role_t role,
+                        gpt2_gguf_tensor_t* out) {
+    uint32_t index;
+    if (!layer || !out || (uint32_t)role < GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT ||
+        (uint32_t)role > GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT) return -1;
+    index = (uint32_t)role - GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT;
+    if ((layer->present_mask & (1U << index)) == 0U) return -8;
+    *out = layer->tensors[index];
+    return 0;
+}

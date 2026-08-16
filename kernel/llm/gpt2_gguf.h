@@ -118,5 +118,8 @@ int gpt2_gguf_map_layer_role(const gpt2_gguf_index_t* index, uint32_t layer,
 /* Résout les dix rôles d’une couche dans un descripteur caller-owned. */
 int gpt2_gguf_map_layer(const gpt2_gguf_index_t* index, uint32_t layer,
                         char* name, uint32_t capacity, gpt2_gguf_layer_t* out);
+/* Retourne une vue bornée d’un rôle déjà résolu dans une couche. */
+int gpt2_gguf_layer_get(const gpt2_gguf_layer_t* layer, gpt2_gguf_role_t role,
+                        gpt2_gguf_tensor_t* out);
 
 #endif
