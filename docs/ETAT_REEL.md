@@ -282,3 +282,6 @@ Le lot 90 ajoute `gpt2_gguf_dot_quant_row_buffer`, qui calcule une ligne quantif
 
 
 Le lot 91 ajoute `gpt2_gguf_project_qkv_row_fat16`, qui valide une matrice QKV `[C,3C]`, lit une sortie quantifiée à la fois depuis FAT16 et la calcule avec un buffer caller-owned. Les bornes `output_index < 3C` et la forme incompatible sont rejetées; aucune matrice complète ni allocation noyau n’est utilisée. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.
+
+
+Le lot 92 ajoute `gpt2_gguf_project_qkv_fat16`, qui accumule les `3C` projections d’une matrice `[C,3C]` en séparant query, key et value dans trois buffers caller-owned. Un unique buffer de ligne quantifiée est réutilisé et les capacités de sortie sont contrôlées avant lecture. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**.

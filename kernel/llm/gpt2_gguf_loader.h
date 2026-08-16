@@ -80,5 +80,13 @@ int gpt2_gguf_project_qkv_row_fat16(const fat16_volume_t* volume, const char* fi
                                     uint32_t output_index, const float* input,
                                     uint8_t* row_buffer, uint32_t row_capacity,
                                     float* out_value);
+/* Accumule les 3C sorties dans trois buffers query/key/value caller-owned. */
+int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filename,
+                                const gpt2_gguf_loaded_model_t* model,
+                                const gpt2_gguf_tensor_t* tensor, uint32_t channels,
+                                const float* input, uint8_t* row_buffer,
+                                uint32_t row_capacity, float* query, uint32_t query_capacity,
+                                float* key, uint32_t key_capacity,
+                                float* value, uint32_t value_capacity);
 
 #endif

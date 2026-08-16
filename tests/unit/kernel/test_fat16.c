@@ -186,6 +186,17 @@ static void test_loads_gpt2_from_fat16(void) {
                 qkv.shape[1] = 2U * GPT2_QK_K;
                 TEST_ASSERT_EQUAL(-9, gpt2_gguf_project_qkv_row_fat16(&volume, "gpt2.ggu", &model, &qkv,
                                                                         GPT2_QK_K, 0U, input, row, sizeof(row), &dot));
+                {
+                    float query[GPT2_QK_K] = {0.0f};
+                    float key[GPT2_QK_K] = {0.0f};
+                    float value[GPT2_QK_K] = {0.0f};
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_project_qkv_fat16(&volume, "gpt2.ggu", &model, &qkv,
+                                                                       GPT2_QK_K, input, row, sizeof(row),
+                                                                       query, sizeof(query) - 1U, key, sizeof(key), value, sizeof(value)));
+                    TEST_ASSERT_EQUAL(-6, gpt2_gguf_project_qkv_fat16(&volume, "gpt2.ggu", &model, &qkv,
+                                                                       GPT2_QK_K, input, row, sizeof(row),
+                                                                       query, sizeof(query), key, sizeof(key), 0, sizeof(value)));
+                }
             }
             }
         }
