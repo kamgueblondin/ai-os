@@ -258,3 +258,6 @@ Le lot 82 ajoute `gpt2_gguf_layer_t` et `gpt2_gguf_map_layer`, qui regroupent le
 
 
 Le lot 83 ajoute `gpt2_gguf_forward_context_t` et `gpt2_gguf_forward_context_init`. Le contexte conserve une référence vers le modèle GGUF, le descripteur complet d’une couche, un scratch caller-owned, `channels` et `position`; il refuse les pointeurs, capacités ou dimensions invalides sans allocation dynamique. Les tests FAT16 vérifient les gardes de contexte et la suite reste à **265 tests réussis, 0 échec et 0 test ignoré**. Aucune attention, normalisation, MLP ou génération autoregressive n’est encore exécutée par ce contexte.
+
+
+Le lot 84 ajoute `gpt2_gguf_layer_get`, un accès borné aux dix rôles déjà résolus dans `gpt2_gguf_layer_t`. Les rôles globaux, rôles hors intervalle et bits absents du masque sont refusés; le descripteur retourné reste caller-owned. `make test-all` reste à **265 tests réussis, 0 échec et 0 test ignoré**. La validation dimensionnelle sémantique à partir de `channels`, `num_heads` et `num_layers` reste à réaliser avant le branchement aux kernels quantifiés.

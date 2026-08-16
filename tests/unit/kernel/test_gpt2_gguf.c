@@ -186,6 +186,10 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
         TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer(&index, 0U, name, sizeof(name), &layer));
         TEST_ASSERT_EQUAL(0x3FF, (int)layer.present_mask);
         TEST_ASSERT_EQUAL(0, (int)layer.layer_index);
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &tensor));
+        TEST_ASSERT_EQUAL(-1, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
+        layer.present_mask = 0U;
+        TEST_ASSERT_EQUAL(-8, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &tensor));
         TEST_ASSERT_EQUAL(-8, gpt2_gguf_map_layer(&index, 1U, name, sizeof(name), &layer));
     }
 }
