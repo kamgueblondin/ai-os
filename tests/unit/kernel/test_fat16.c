@@ -107,6 +107,16 @@ static void test_loads_gpt2_from_fat16(void) {
     TEST_ASSERT_EQUAL(1, model.index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_role(&model.index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
     TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
+    {
+        uint8_t tensor_bytes[4] = {0xFFU, 0xFFU, 0xFFU, 0xFFU};
+        uint32_t tensor_read = 0U;
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_read_tensor_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, tensor_bytes, sizeof(tensor_bytes), &tensor_read));
+        TEST_ASSERT_EQUAL(4, (int)tensor_read);
+        TEST_ASSERT_EQUAL(0, tensor_bytes[0]);
+        TEST_ASSERT_EQUAL(0, tensor_bytes[1]);
+        TEST_ASSERT_EQUAL(0, tensor_bytes[2]);
+        TEST_ASSERT_EQUAL(0, tensor_bytes[3]);
+    }
 }
 
 static void test_mount_list_and_read(void) {
