@@ -138,6 +138,28 @@ static void test_reads_bounded_file_range(void) {
     TEST_ASSERT_EQUAL(0, (int)read);
 }
 
+static void test_cursor_reads_successive_windows(void) {
+    fat16_volume_t volume;
+    fat16_file_t file;
+    uint8_t first[3] = {0U, 0U, 0U};
+    uint8_t second[3] = {0U, 0U, 0U};
+    uint32_t read = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_open_file(&volume, "fatok.txt", &file));
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, first, sizeof(first), &read));
+    TEST_ASSERT_EQUAL(3, (int)read);
+    TEST_ASSERT_EQUAL('h', first[0]);
+    TEST_ASSERT_EQUAL('e', first[1]);
+    TEST_ASSERT_EQUAL('l', first[2]);
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, second, sizeof(second), &read));
+    TEST_ASSERT_EQUAL(2, (int)read);
+    TEST_ASSERT_EQUAL('l', second[0]);
+    TEST_ASSERT_EQUAL('o', second[1]);
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, second, sizeof(second), &read));
+    TEST_ASSERT_EQUAL(0, (int)read);
+}
+
 static void test_rejects_bad_bpb(void) {
     fat16_volume_t volume;
     make_volume();
@@ -160,6 +182,7 @@ int main(void) {
     RUN_TEST(test_mount_list_and_read);
     RUN_TEST(test_loads_gpt2_from_fat16);
     RUN_TEST(test_reads_bounded_file_range);
+    RUN_TEST(test_cursor_reads_successive_windows);
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     unity_print_results();
