@@ -89,8 +89,8 @@ static void make_gguf_file(void) {
     put64_at(p, 2U); p += 8U;
     put_text_at(&p, "general.architecture"); put32(p, GPT2_GGUF_VALUE_STRING); p += 4U; put_text_at(&p, "gpt2");
     put_text_at(&p, "general.alignment"); put32(p, GPT2_GGUF_VALUE_UINT32); p += 4U; put32(p, 32U); p += 4U;
-    put_text_at(&p, "output.weight"); put32(p, 2U); p += 4U; put64_at(p, GPT2_QK_K * 2U); p += 8U;
-    put64_at(p, 1U); p += 8U;
+    put_text_at(&p, "output.weight"); put32(p, 2U); p += 4U; put64_at(p, GPT2_QK_K); p += 8U;
+    put64_at(p, 2U); p += 8U;
     put32(p, GPT2_GGUF_TENSOR_Q4_K); p += 4U; put64_at(p, 0U); p += 8U;
     end = data + 512U + 480U;
     while (p < end) disk[p++] = 0U;
@@ -132,12 +132,15 @@ static void test_loads_gpt2_from_fat16(void) {
             TEST_ASSERT_EQUAL(0, (int)dot);
             TEST_ASSERT_EQUAL(-7, gpt2_gguf_dot_quant_block_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, input, 32U, block, sizeof(block), &dot));
             {
-                float row[GPT2_QK_K * 2U] = {0.0f};
-                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_tensor_fat16(&volume, "gpt2.ggu", &model, &tensor, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
+                float row[GPT2_QK_K] = {0.0f};
+                float tensor_input[GPT2_QK_K * 2U] = {0.0f};
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_tensor_fat16(&volume, "gpt2.ggu", &model, &tensor, tensor_input, GPT2_QK_K * 2U, block, sizeof(block), &dot));
                 TEST_ASSERT_EQUAL(0, (int)dot);
-                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 0U, row, GPT2_QK_K, block, sizeof(block), &dot));
                 TEST_ASSERT_EQUAL(0, (int)dot);
-                TEST_ASSERT_EQUAL(-9, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 1U, row, GPT2_QK_K * 2U, block, sizeof(block), &dot));
+                TEST_ASSERT_EQUAL(0, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 1U, row, GPT2_QK_K, block, sizeof(block), &dot));
+                TEST_ASSERT_EQUAL(0, (int)dot);
+                TEST_ASSERT_EQUAL(-9, gpt2_gguf_dot_quant_row_fat16(&volume, "gpt2.ggu", &model, &tensor, 2U, row, GPT2_QK_K, block, sizeof(block), &dot));
             }
         }
     }

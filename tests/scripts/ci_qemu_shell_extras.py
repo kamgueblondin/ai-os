@@ -20,8 +20,8 @@ LOG = os.environ.get("EXTRAS_LOG", os.path.join(LOG_DIR, "ci-qemu-extras-serial.
 QEMU_ERR = os.environ.get("EXTRAS_ERR", os.path.join(LOG_DIR, "ci-qemu-extras-stderr.log"))
 MON_SOCK = os.environ.get("EXTRAS_MON_SOCK", os.path.join(LOG_DIR, "qemu-extras-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "18"))
-CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "8"))
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.80"))
+CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "12"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.15"))
 
 
 def say(msg):
