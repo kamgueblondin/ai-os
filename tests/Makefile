@@ -108,9 +108,9 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_n
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_ne2k: $(UNIT_DIR)/kernel/test_ne2k.c ../kernel/ne2k.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_ne2k: $(UNIT_DIR)/kernel/test_ne2k.c ../kernel/ne2k.c ../kernel/net_nic.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/ne2k.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/ne2k.c ../kernel/net_nic.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 

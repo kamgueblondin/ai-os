@@ -36,6 +36,18 @@ void test_probe_and_prepare_use_injected_io(void) {
     { uint8_t multicast[6] = {0x01, 0, 0, 0, 0, 1}; TEST_ASSERT_NOT_EQUAL(0, ne2k_set_mac(&device, multicast)); }
 }
 
+void test_rx_extract_publishes_bounded_frame(void) {
+    uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
+    uint8_t dma[9] = {NE2K_RX_STATUS_OK, 0, 9, 0, 1, 2, 3, 4, 5};
+    net_nic_queue_t queue; uint8_t* frame; uint16_t length;
+    TEST_ASSERT_EQUAL(0, net_nic_queue_init(&queue, storage, sizeof(storage), 64));
+    TEST_ASSERT_EQUAL(0, ne2k_rx_extract(dma, sizeof(dma), &queue));
+    TEST_ASSERT_EQUAL(0, net_nic_queue_pop(&queue, &frame, &length));
+    TEST_ASSERT_EQUAL(5, length); TEST_ASSERT_EQUAL(1, frame[0]); TEST_ASSERT_EQUAL(5, frame[4]);
+    dma[0] = 0; TEST_ASSERT_NOT_EQUAL(0, ne2k_rx_extract(dma, sizeof(dma), &queue));
+}
+
+
 void test_probe_rejects_missing_reset_ack(void) {
     fake_ne2k_t fake = {0, 0, 0};
     ne2k_io_t io = {&fake, fake_inb, fake_outb};
@@ -46,6 +58,7 @@ void test_probe_rejects_missing_reset_ack(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);
+    RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
     unity_print_results();
     unity_cleanup();
