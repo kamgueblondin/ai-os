@@ -53,6 +53,17 @@ int net_tcp_build_syn_ipv4(uint8_t* packet, uint32_t capacity,
     return 40;
 }
 
+int net_tcp_is_syn_ack_for(const net_tcp_view_t* view, uint16_t local_port,
+                           uint16_t remote_port, uint32_t local_sequence,
+                           uint32_t* remote_sequence) {
+    if (!view || !remote_sequence || local_port == 0U || remote_port == 0U) return -1;
+    if (view->source_port != remote_port || view->destination_port != local_port ||
+        (view->flags & (NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK)) != (NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK) ||
+        view->acknowledgment != local_sequence + 1U) return -2;
+    *remote_sequence = view->sequence;
+    return 0;
+}
+
 int net_tcp_parse(const uint8_t* segment, uint32_t length, net_tcp_view_t* out) {
     uint8_t header_words;
     uint16_t header_size;
