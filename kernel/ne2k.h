@@ -5,6 +5,7 @@
 #include "net_nic.h"
 #include "net_ethernet_arp.h"
 #include "net_ipv4_udp.h"
+#include "net_dhcp.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -99,6 +100,9 @@ int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
                         uint16_t source_port, uint16_t destination_port,
                         const uint8_t* payload, uint16_t payload_length,
                         uint16_t attempts);
+/* Construit et diffuse un DHCP Discover dans un buffer Ethernet caller-owned. */
+int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
+                       uint8_t* frame, uint16_t frame_capacity, uint32_t xid);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

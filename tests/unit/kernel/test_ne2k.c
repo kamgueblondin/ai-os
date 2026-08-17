@@ -70,6 +70,10 @@ void test_probe_and_prepare_use_injected_io(void) {
                                        source_ip, destination_ip, 4000, 4001, payload, sizeof(payload)));
       TEST_ASSERT_EQUAL(0x52, frame[0]); TEST_ASSERT_EQUAL(0x08, frame[12]);
       TEST_ASSERT_EQUAL(0x00, frame[13]); }
+    { uint8_t frame[300] = {0}; fake.isr = NE2K_ISR_RDC;
+      TEST_ASSERT_EQUAL(0, ne2k_dhcp_discover(&device, &io, frame, sizeof(frame), 0x12345678U));
+      TEST_ASSERT_EQUAL(0xff, frame[0]); TEST_ASSERT_EQUAL(0x08, frame[12]);
+      TEST_ASSERT_EQUAL(0x63, frame[42U + 236U]); TEST_ASSERT_EQUAL(0x82, frame[43U + 236U]); }
     fake.isr = NE2K_ISR_RDC; TEST_ASSERT_EQUAL(0, ne2k_irq_attach(&device, &io));
     TEST_ASSERT_EQUAL(0, ne2k_irq_count()); ne2k_irq_service();
     TEST_ASSERT_EQUAL(1, ne2k_irq_count());
