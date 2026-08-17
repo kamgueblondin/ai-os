@@ -271,3 +271,12 @@ L’API `net_tls_x25519_client_flight_build` construit désormais le flight clie
 La construction est transactionnelle : état du handshake, contexte X25519, transcript et longueur de sortie sont restaurés ou annulés sur erreur. Le chemin refuse actuellement les certificats clients pour ne pas émettre un flight incomplet. Référence : [aos249_256_x25519_client_flight.md](aos249_256_x25519_client_flight.md).
 
 Le transport TCP de ce flight, la validation du ChangeCipherSpec/Finished serveur dans ce même contexte, la chaîne X.509, les dates, le nom d’hôte, les certificats clients, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés. X25519 reste non constante-temps sur le backend bigint actuel.
+
+
+### AOS-257 à AOS-264 — transport TCP du flight X25519 et post-flight serveur
+
+Le transport TCP expose désormais `net_tcp_connection_build_tls_x25519_flight`, qui encapsule le flight client X25519 transactionnel dans un segment TCP et restaure connexion, handshake, contexte X25519, transcript, session, secrets et longueur publiée sur erreur. Le codec TLS calcule aussi le `server finished`, tandis que `net_tcp_connection_accept_tls_x25519_postflight` accepte le ChangeCipherSpec serveur puis déchiffre, vérifie et transcrit le Finished AES-GCM.
+
+Le test de transport couvre le rollback d’une capacité TCP insuffisante, le suivi des séquences TCP, le rejet transactionnel d’un tag AES-GCM falsifié, le Finished serveur valide et le premier record applicatif chiffré après handshake complet. Référence : [aos257_264_tcp_tls_x25519.md](aos257_264_tcp_tls_x25519.md).
+
+La connexion automatique entre le réassembleur TCP de production et cette orchestration, la chaîne X.509, les dates, le nom d’hôte, les certificats clients, HTTP, l’authentification HTTP, la reprise de session et les appels LLM HTTPS de bout en bout restent non implémentés. Le backend X25519/bigint reste non constante-temps.
