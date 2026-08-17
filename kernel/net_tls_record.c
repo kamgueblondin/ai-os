@@ -60,14 +60,14 @@ int net_tls_transcript_sha256(const net_tls_transcript_t* transcript,uint8_t dig
     sha256_init(&context); sha256_update(&context,transcript->buffer,transcript->length); sha256_final(&context,digest); return 0;
 }
 int net_tls_prf_sha256(uint8_t* output,uint16_t output_length,const uint8_t* secret,uint16_t secret_length,const uint8_t* label,uint16_t label_length,const uint8_t* seed_a,uint16_t seed_a_length,const uint8_t* seed_b,uint16_t seed_b_length,uint8_t* workspace,uint32_t workspace_capacity){
-    uint32_t seed_length=(uint32_t)label_length+seed_a_length+seed_b_length,required,offset=0U; uint16_t i; uint8_t digest[32]; uint8_t *seed,*a,*message;
+    uint32_t seed_length=(uint32_t)label_length+seed_a_length+seed_b_length,required,offset=0U,j; uint16_t i; uint8_t digest[32]; uint8_t *seed,*a,*message;
     if(!output||output_length==0U||!secret||secret_length==0U||!label||label_length==0U||(!seed_a&&seed_a_length)||(!seed_b&&seed_b_length)||!workspace)return -1;
     required=2U*seed_length+64U; if(workspace_capacity<required)return -2;
     seed=workspace; a=workspace+seed_length; message=a+32U;
     for(i=0U;i<label_length;i++)seed[i]=label[i]; for(i=0U;i<seed_a_length;i++)seed[label_length+i]=seed_a[i]; for(i=0U;i<seed_b_length;i++)seed[label_length+seed_a_length+i]=seed_b[i];
     hmac_sha256(secret,secret_length,seed,seed_length,a);
     while(offset<output_length){
-        for(i=0U;i<32U;i++)message[i]=a[i]; for(i=0U;i<seed_length;i++)message[32U+i]=seed[i];
+        for(i=0U;i<32U;i++)message[i]=a[i]; for(j=0U;j<seed_length;j++)message[32U+j]=seed[j];
         hmac_sha256(secret,secret_length,message,32U+seed_length,digest);
         for(i=0U;i<32U&&offset<output_length;i++)output[offset++]=digest[i];
         hmac_sha256(secret,secret_length,a,32U,a);
