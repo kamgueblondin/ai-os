@@ -31,6 +31,9 @@ void test_probe_and_prepare_use_injected_io(void) {
     TEST_ASSERT_EQUAL(0, ne2k_prepare(&device, &io));
     TEST_ASSERT_EQUAL(1, device.initialized);
     TEST_ASSERT_GREATER_THAN(2, fake.writes);
+    { uint8_t mac[6] = {0x02, 0, 0, 0, 0, 1}; TEST_ASSERT_EQUAL(0, ne2k_set_mac(&device, mac)); TEST_ASSERT_EQUAL(0x02, device.mac[0]); }
+    { uint8_t zero[6] = {0, 0, 0, 0, 0, 0}; TEST_ASSERT_NOT_EQUAL(0, ne2k_set_mac(&device, zero)); }
+    { uint8_t multicast[6] = {0x01, 0, 0, 0, 0, 1}; TEST_ASSERT_NOT_EQUAL(0, ne2k_set_mac(&device, multicast)); }
 }
 
 void test_probe_rejects_missing_reset_ack(void) {

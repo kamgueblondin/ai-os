@@ -16,6 +16,17 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
     return 0;
 }
 
+int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]) {
+    uint32_t i;
+    uint8_t nonzero = 0U;
+    if (!device || !mac || (mac[0] & 1U) != 0U) return -1;
+    for (i = 0; i < 6U; ++i) {
+        device->mac[i] = mac[i];
+        if (mac[i] != 0U) nonzero = 1U;
+    }
+    return nonzero ? 0 : -2;
+}
+
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io) {
     uint16_t base;
     if (!device || !io || !io->outb || device->base_port == 0U) return -1;

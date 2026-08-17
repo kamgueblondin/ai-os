@@ -32,5 +32,7 @@ typedef struct {
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io);
 /* Initialise les paramètres invariants du contrôleur sans allocation. */
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io);
+/* Définit une MAC locale valide: non nulle et non multicast. */
+int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]);
 
 #endif
