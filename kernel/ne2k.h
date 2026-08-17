@@ -40,6 +40,8 @@ typedef struct {
 
 /* Sonde le registre reset et prépare le mode arrêt/word pour une init ultérieure. */
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io);
+/* Prépare les callbacks de ports i386 réels; retourne -1 hors noyau i386. */
+int ne2k_i386_io(ne2k_io_t* io);
 /* Initialise les paramètres invariants du contrôleur sans allocation. */
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io);
 /* Configure un anneau RX et une page TX dans la mémoire locale du NE2000. */
