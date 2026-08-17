@@ -1,5 +1,6 @@
 #include "net_tls_record.h"
 static uint16_t get16(const uint8_t* p){return (uint16_t)(((uint16_t)p[0]<<8)|p[1]);}
+static uint32_t get24(const uint8_t* p){return ((uint32_t)p[0]<<16)|((uint32_t)p[1]<<8)|p[2];}
 static void put16(uint8_t* p,uint16_t v){p[0]=(uint8_t)(v>>8);p[1]=(uint8_t)v;}
 int net_tls_record_build(uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* payload,uint16_t payload_length){uint16_t i;if(!record||(!payload&&payload_length)||capacity<(uint32_t)NET_TLS_RECORD_HEADER+payload_length||content_type==0U)return -1;record[0]=content_type;record[1]=NET_TLS_VERSION_1_2_MAJOR;record[2]=NET_TLS_VERSION_1_2_MINOR;put16(record+3,payload_length);for(i=0;i<payload_length;i++)record[5+i]=payload[i];return (int)(5U+payload_length);}
 int net_tls_record_parse(const uint8_t* record,uint32_t length,net_tls_record_view_t* out){uint16_t payload_length;if(!record||!out||length<NET_TLS_RECORD_HEADER||record[1]!=NET_TLS_VERSION_1_2_MAJOR||record[2]!=NET_TLS_VERSION_1_2_MINOR)return -1;payload_length=get16(record+3);if((uint32_t)payload_length+NET_TLS_RECORD_HEADER>length||record[0]==0U)return -2;out->content_type=record[0];out->major=record[1];out->minor=record[2];out->payload=record+5;out->payload_length=payload_length;return 0;}
@@ -34,8 +35,28 @@ int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_
     out->extensions=handshake+pos; return 0;
 }
 
+int net_tls_certificate_parse(const uint8_t* handshake,uint16_t length,net_tls_certificate_view_t* out){
+    uint32_t body_length,list_length,pos,certificate_length;
+    if(!handshake||!out||length<7U)return -1;
+    body_length=get24(handshake+1);
+    if(handshake[0]!=11U||body_length!=(uint32_t)length-4U||body_length<6U)return -2;
+    list_length=get24(handshake+4);
+    if(list_length<3U||list_length!=(uint32_t)length-7U)return -3;
+    pos=7U; certificate_length=0U; out->certificate=0; out->certificate_length=0U;
+    while(pos<(uint32_t)length){
+        if((uint32_t)length-pos<3U)return -4;
+        certificate_length=get24(handshake+pos);
+        pos+=3U;
+        if(certificate_length==0U||(uint32_t)length-pos<certificate_length)return -5;
+        if(!out->certificate){out->certificate=handshake+pos;out->certificate_length=certificate_length;}
+        pos+=certificate_length;
+    }
+    if(pos!=(uint32_t)length)return -6;
+    out->certificate_list_length=list_length; return 0;
+}
+
 int net_tls_handshake_init(net_tls_handshake_t* handshake){
-    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; return 0;
+    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U; return 0;
 }
 int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_IDLE)return -1; handshake->state=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT; return 0;
@@ -45,6 +66,12 @@ int net_tls_handshake_accept_server_hello(net_tls_handshake_t* handshake,const u
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT)return -1;
     if(net_tls_server_hello_parse(message,length,&view)!=0)return -2;
     handshake->cipher_suite=view.cipher_suite; handshake->server_random=view.random; handshake->state=NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_certificate(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+    net_tls_certificate_view_t view;
+    if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED)return -1;
+    if(net_tls_certificate_parse(message,length,&view)!=0)return -2;
+    handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
 }
 
 int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){

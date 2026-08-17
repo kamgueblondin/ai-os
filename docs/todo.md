@@ -166,3 +166,10 @@ Le handshake TLS caller-owned suit désormais l’ordre `IDLE → CLIENT_HELLO_S
 Le parseur `ServerHello` expose désormais le bloc d’extensions TLS via une vue caller-owned (`extensions` et `extensions_length`). Il accepte l’absence d’extensions ou un vecteur correctement borné, et rejette toute longueur incohérente sans `kmalloc`. Le faux échec de `test_net_tls_record` provenait d’un dépassement de pile dans le test, corrigé par un buffer dimensionné pour le cas d’extension.
 
 Validation AOS-177 : **312/312 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi. Le décodage sémantique des extensions, X.509, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos177_tls_server_hello_extensions.md](aos177_tls_server_hello_extensions.md).
+
+
+### AOS-178 — Parsing Certificate TLS 1.2
+
+Le message `Certificate` TLS 1.2 est maintenant validé sans allocation dynamique. Le codec contrôle les longueurs 24 bits du corps, de la liste et de chaque certificat, publie la première chaîne via une vue caller-owned et parcourt les entrées supplémentaires. L’automate accepte Certificate uniquement après `SERVER_HELLO_RECEIVED` et passe à `CERTIFICATE_RECEIVED`.
+
+Validation ciblée : **8/8 tests TLS verts**. La suite complète, le build i386 et les smokes QEMU restent à confirmer avant publication. La validation X.509, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos178_tls_certificate_parse.md](aos178_tls_certificate_parse.md).
