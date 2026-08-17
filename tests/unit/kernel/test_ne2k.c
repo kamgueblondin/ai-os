@@ -8,6 +8,8 @@ typedef struct {
     uint8_t dcr;
     uint8_t prom[12];
     uint8_t prom_index;
+    uint8_t tx_data[NE2K_ETHERNET_MAX_FRAME];
+    uint16_t tx_count;
 } fake_ne2k_t;
 
 void setUp(void) {}
@@ -28,6 +30,8 @@ static void fake_outb(void* context, uint16_t port, uint8_t value) {
     fake->writes++;
     if ((port & 0x1fU) == NE2K_REG_RESET) fake->reset = value;
     if ((port & 0x1fU) == NE2K_REG_DCR) fake->dcr = value;
+    if ((port & 0x1fU) == NE2K_REG_DATA && fake->tx_count < NE2K_ETHERNET_MAX_FRAME)
+        fake->tx_data[fake->tx_count++] = value;
 }
 
 void test_probe_and_prepare_use_injected_io(void) {
@@ -52,6 +56,13 @@ void test_probe_and_prepare_use_injected_io(void) {
     TEST_ASSERT_EQUAL(0x10, device.mac[1]); TEST_ASSERT_EQUAL(0x20, device.mac[2]);
     TEST_ASSERT_EQUAL(0x30, device.mac[3]); TEST_ASSERT_EQUAL(0x40, device.mac[4]);
     TEST_ASSERT_EQUAL(0x50, device.mac[5]);
+    { uint8_t frame[10] = {1,2,3,4,5,6,7,8,9,10};
+      fake.isr = (uint8_t)(NE2K_ISR_RESET | NE2K_ISR_RDC); fake.tx_count = 0U;
+      TEST_ASSERT_EQUAL(0, ne2k_tx_submit(&device, &io, frame, sizeof(frame)));
+      TEST_ASSERT_EQUAL(NE2K_ETHERNET_MIN_FRAME, fake.tx_count);
+      TEST_ASSERT_EQUAL(1, fake.tx_data[0]); TEST_ASSERT_EQUAL(10, fake.tx_data[9]);
+      TEST_ASSERT_EQUAL(0, fake.tx_data[59]);
+      TEST_ASSERT_NOT_EQUAL(0, ne2k_tx_submit(&device, &io, frame, NE2K_ETHERNET_MAX_FRAME + 1U)); }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {
