@@ -280,3 +280,12 @@ Le transport TCP expose désormais `net_tcp_connection_build_tls_x25519_flight`,
 Le test de transport couvre le rollback d’une capacité TCP insuffisante, le suivi des séquences TCP, le rejet transactionnel d’un tag AES-GCM falsifié, le Finished serveur valide et le premier record applicatif chiffré après handshake complet. Référence : [aos257_264_tcp_tls_x25519.md](aos257_264_tcp_tls_x25519.md).
 
 La connexion automatique entre le réassembleur TCP de production et cette orchestration, la chaîne X.509, les dates, le nom d’hôte, les certificats clients, HTTP, l’authentification HTTP, la reprise de session et les appels LLM HTTPS de bout en bout restent non implémentés. Le backend X25519/bigint reste non constante-temps.
+
+
+### AOS-265 à AOS-272 — flux TCP/TLS authentifié et framing HTTP
+
+Le contexte caller-owned `net_tcp_tls_stream_t` réassemble désormais record et message handshake TLS à travers des fragments TCP, puis applique le dispatcher RSA authentifié. Les fragments incomplets sont conservés et signalés par le statut `1`; un message invalide restaure connexion, handshake, transcript et accumulateurs. Le test couvre un `ServerKeyExchange` RSA authentifié sur deux fragments et le rollback d’une signature falsifiée.
+
+Le module `net_http_tls` construit un GET HTTP/1.1 minimal, le chiffre via la session TLS AES-GCM/TCP et ouvre transactionnellement une réponse HTTP/1.1 complète déjà déchiffrée. Référence : [aos265_272_tls_stream_http.md](aos265_272_tls_stream_http.md).
+
+Le flux ne prend encore en charge qu’un message handshake par record et une réponse HTTP complète dans un seul plaintext. La chaîne X.509, les dates, le nom d’hôte, les certificats clients, `Content-Length`, chunked, les réponses streaming, HTTP POST, l’authentification HTTP, les appels LLM et HTTPS de production complet restent non implémentés. Le backend X25519/bigint reste non constante-temps.

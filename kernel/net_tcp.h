@@ -19,15 +19,9 @@
 #define NET_TCP_STATE_CLOSE_WAIT 5U
 #define NET_TCP_STATE_LAST_ACK 6U
 
-typedef struct {
-    uint16_t source_port;
-    uint16_t destination_port;
-    uint32_t sequence;
-    uint32_t acknowledgment;
-    uint8_t flags;
-    const uint8_t* payload;
-    uint16_t payload_length;
-} net_tcp_view_t;
+typedef struct { uint16_t source_port; uint16_t destination_port; uint32_t sequence; uint32_t acknowledgment; uint8_t flags; const uint8_t* payload; uint16_t payload_length; } net_tcp_view_t;
+typedef struct { net_tls_record_accumulator_t record_accumulator; net_tls_handshake_accumulator_t handshake_accumulator; } net_tcp_tls_stream_t;
+
 
 typedef struct {
     uint16_t local_port;
@@ -88,6 +82,13 @@ int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,
                                          const net_tcp_view_t* view,
                                          net_tls_record_view_t* record,
                                          uint16_t* consumed);
+int net_tcp_tls_stream_init(net_tcp_tls_stream_t* stream,uint8_t* record_buffer,uint16_t record_capacity,uint8_t* handshake_buffer,uint16_t handshake_capacity);
+/* Accepte un fragment TCP, réassemble record et handshake TLS, puis applique le dispatch RSA authentifié.
+ * Retourne 1 tant que le message TLS reste incomplet, 0 après un message serveur authentifié. */
+int net_tcp_connection_accept_tls_authenticated_fragment(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                                         net_tcp_tls_stream_t* stream,net_tls_handshake_t* handshake,
+                                                         const uint8_t client_random[32],net_tls_transcript_t* transcript,
+                                                         uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint16_t* consumed);
 int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,
                                             const net_tcp_view_t* view,
                                             net_tls_handshake_t* handshake,
