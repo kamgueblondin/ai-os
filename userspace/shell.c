@@ -150,6 +150,12 @@ unsigned int sys_ticks(void) {
     return result;
 }
 
+unsigned int sys_net_status(void) {
+    unsigned int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_NET_STATUS));
+    return result;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -4410,12 +4416,13 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
 static void cmd_net_status(shell_context_t* ctx, char args[][128], int arg_count) {
     (void)ctx;
     if (arg_count > 0 && strcmp(args[0], "json") == 0) {
-        print_string("{\"nic\":\"absent\",\"ethernet\":\"absent\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n");
+        unsigned int status = sys_net_status();
+        print_string(status & 1U ? "{\"nic\":\"detected\",\"ethernet\":\"configured\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n" : "{\"nic\":\"absent\",\"ethernet\":\"absent\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n");
         return;
     }
     (void)args;
     print_colored("\n=== Reseau bare-metal ===\n", COLOR_CYAN);
-    print_string("Carte Ethernet : absente (aucun pilote NIC initialise)\n");
+    print_string(sys_net_status() & 1U ? "Carte Ethernet : detectee (NE2000 initialise)\n" : "Carte Ethernet : absente (aucun pilote NIC initialise)\n");
     print_string("ARP / IPv4 / DHCP : absents\n");
     print_string("DNS / TCP / TLS   : absents\n");
     print_string("OpenAI en ligne   : bloque, aucune requete n'est emise\n");

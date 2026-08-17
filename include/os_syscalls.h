@@ -162,8 +162,10 @@
 #define SYS_FAT16_READ 87
 /* EBX = tableau os_dirent_t, ECX = capacité ; liste de la racine FAT16. */
 #define SYS_FAT16_LIST 88
+/* Aucun argument; bit 0 = NIC détectée, bit 1 = anneaux initialisés. */
+#define SYS_NET_STATUS 89
 
-#define MAX_SYSCALLS 89
+#define MAX_SYSCALLS 90
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
