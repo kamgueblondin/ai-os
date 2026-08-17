@@ -88,6 +88,24 @@ int ne2k_rx_poll(ne2k_device_t* device, const ne2k_io_t* io,
     return 0;
 }
 
+int ne2k_rx_poll_arp(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* frame, uint16_t frame_capacity,
+                     uint16_t* frame_length,
+                     net_ethernet_header_t* ethernet,
+                     net_arp_packet_t* arp) {
+    int status;
+    if (!ethernet || !arp) return -1;
+    status = ne2k_rx_poll(device, io, frame, frame_capacity, frame_length);
+    if (status != 0) return status;
+    if (net_ethernet_parse(frame, *frame_length, ethernet) != 0)
+        return -2;
+    if (ethernet->ethertype != NET_ETHERTYPE_ARP)
+        return 2;
+    if (net_arp_parse(frame, *frame_length, arp) != 0)
+        return -3;
+    return 0;
+}
+
 int ne2k_i386_io(ne2k_io_t* io) {
     if (!io) return -1;
 #ifdef __i386__
