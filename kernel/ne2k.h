@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "net_nic.h"
+#include "net_ethernet_arp.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -82,6 +83,12 @@ uint32_t ne2k_irq_count(void);
 int ne2k_rx_poll(ne2k_device_t* device, const ne2k_io_t* io,
                  uint8_t* frame, uint16_t frame_capacity,
                  uint16_t* frame_length);
+/* Lit une trame puis décode son en-tête Ethernet et son ARP caller-owned. */
+int ne2k_rx_poll_arp(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* frame, uint16_t frame_capacity,
+                     uint16_t* frame_length,
+                     net_ethernet_header_t* ethernet,
+                     net_arp_packet_t* arp);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);
