@@ -312,3 +312,12 @@ Référence : [aos281_288_http_post_json.md](aos281_288_http_post_json.md). L’
 Le parseur X.509 publie le `commonName` et les `subjectAltName` DNS, puis `x509_certificate_hostname_validate` applique une comparaison DNS ASCII bornée. Les dNSName SAN sont prioritaires sur le CN, la casse ASCII est ignorée, et le wildcard `*.suffix` ne couvre qu’un seul label. Les tests couvrent le CN, la priorité SAN, le fallback sans SAN, la casse et le rejet d’un wildcard multi-label.
 
 Référence : [aos289_296_tls_hostname.md](aos289_296_tls_hostname.md). Les IP, IDNA, Unicode, contraintes de nom, usages de clé, chaîne de confiance, ancres, dates, signatures de certificats et l’invocation automatique depuis le pilote restent à implémenter ; X25519/bigint demeure non constante-temps.
+
+
+### AOS-297 à AOS-304 — chaîne X.509 RSA minimale à une ancre
+
+`x509_certificate_chain_validate_one` valide désormais une feuille directement émise par une ancre X.509 caller-owned. Il impose l’égalité `issuer`/`subject`, valide la clé RSA de l’ancre, hash le DER complet TBSCertificate avec SHA-256 et vérifie la signature `sha256WithRSAEncryption` via RSA PKCS#1 v1.5 avec workspace fourni. Les vues TBS DER, algorithme et signature sont publiées par le parseur.
+
+Le test utilise une racine RSA 1024 bits et une feuille RSA/SHA-256 signée, intégrées comme vecteur DER hors ligne ; il couvre le succès, un émetteur d’ancre altéré et une signature tronquée. Référence : [aos297_304_x509_trust_chain.md](aos297_304_x509_trust_chain.md).
+
+Les intermédiaires, dates, contraintes et usages de clé, révocation, ECDSA/EdDSA, algorithmes SHA-384+, configuration des ancres et invocation automatique depuis NE2000 restent absents. Le hostname demeure une validation séparée et X25519/bigint reste non constante-temps.

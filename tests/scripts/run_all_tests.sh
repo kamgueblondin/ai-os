@@ -148,6 +148,8 @@ run_test() {
     fi
     if [ "$(basename "$test_file")" = "test_x509_der.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
+        extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
+        extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
     if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
