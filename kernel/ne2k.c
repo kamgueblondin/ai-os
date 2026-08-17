@@ -93,6 +93,28 @@ int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
                        payload, payload_length);
 }
 
+int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
+                       uint8_t* frame, uint16_t frame_capacity, uint32_t xid) {
+    static const uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    static const uint8_t zero_ip[4] = {0, 0, 0, 0};
+    static const uint8_t broadcast_ip[4] = {255, 255, 255, 255};
+    int payload_length;
+    if (!device || !io || !frame ||
+        frame_capacity < NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE +
+                          NET_UDP_HEADER_SIZE + 244U)
+        return -1;
+    payload_length = net_dhcp_build_discover(frame + NET_ETHERNET_HEADER_SIZE +
+                                              NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+                                              frame_capacity - NET_ETHERNET_HEADER_SIZE -
+                                              NET_IPV4_HEADER_SIZE - NET_UDP_HEADER_SIZE,
+                                              xid, device->mac);
+    if (payload_length < 0) return -2;
+    return ne2k_tx_udp(device, io, frame, frame_capacity, broadcast_mac,
+                       zero_ip, broadcast_ip, 68U, 67U,
+                       frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE +
+                       NET_UDP_HEADER_SIZE, (uint16_t)payload_length);
+}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;
