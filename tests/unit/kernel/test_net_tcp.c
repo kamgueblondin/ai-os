@@ -27,7 +27,25 @@ void test_build_and_parse_syn_ack(void) {
       TEST_ASSERT_EQUAL(49152, (packet[20] << 8) | packet[21]); TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN, packet[33] & 0x3f); }
 }
 
+void test_connection_builds_first_ack(void) {
+    uint8_t segment[20] = {0}; net_tcp_view_t view; net_tcp_connection_t connection;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_SYN_SENT, connection.state);
+    view.source_port = 443; view.destination_port = 49152; view.sequence = 700U;
+    view.acknowledgment = 101U; view.flags = NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_ESTABLISHED, connection.state);
+    TEST_ASSERT_EQUAL(701U, connection.remote_sequence);
+    TEST_ASSERT_EQUAL(20, net_tcp_connection_build_ack(&connection, segment, sizeof(segment)));
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, 20, &view));
+    TEST_ASSERT_EQUAL(49152, view.source_port); TEST_ASSERT_EQUAL(443, view.destination_port);
+    TEST_ASSERT_EQUAL(101U, view.sequence); TEST_ASSERT_EQUAL(701U, view.acknowledgment);
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_ACK, view.flags);
+    view.acknowledgment = 102U;
+    TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
+}
+
 int main(void) {
-    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); unity_print_results(); unity_cleanup();
+    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
 }
