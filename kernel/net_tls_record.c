@@ -1,6 +1,7 @@
 #include "net_tls_record.h"
 #include "sha256.h"
 #include "aes_gcm.h"
+#include "rsa_verify.h"
 static uint16_t get16(const uint8_t* p){return (uint16_t)(((uint16_t)p[0]<<8)|p[1]);}
 static uint32_t get24(const uint8_t* p){return ((uint32_t)p[0]<<16)|((uint32_t)p[1]<<8)|p[2];}
 static void put16(uint8_t* p,uint16_t v){p[0]=(uint8_t)(v>>8);p[1]=(uint8_t)v;}
@@ -239,6 +240,17 @@ int net_tls_handshake_accept_server_key_exchange(net_tls_handshake_t* handshake,
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED)return -1;
     if(net_tls_server_key_exchange_parse(message,length,&view)!=0)return -2;
     handshake->server_named_curve=view.named_curve; handshake->server_public_key=view.public_key; handshake->server_public_key_length=view.public_key_length; handshake->state=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_server_key_exchange_rsa(net_tls_handshake_t* handshake,const uint8_t client_random[32],const uint8_t* message,uint16_t length,uint32_t* rsa_workspace,uint16_t rsa_workspace_length){
+    net_tls_server_key_exchange_view_t view;sha256_ctx_t context;uint8_t digest[32];uint16_t parameters_length;
+    if(!handshake||!client_random||!message||!rsa_workspace||handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED||!handshake->server_x509_valid||!handshake->server_random)return -1;
+    if(net_tls_server_key_exchange_parse(message,length,&view)!=0)return -2;
+    if(view.hash_algorithm!=4U||view.signature_algorithm!=1U||handshake->server_x509.rsa_modulus_length>65535U||handshake->server_x509.rsa_exponent_length>65535U)return -3;
+    if(length<(uint16_t)(8U+view.public_key_length+4U+view.signature_length))return -4;
+    parameters_length=(uint16_t)(length-4U-4U-view.signature_length);
+    sha256_init(&context);sha256_update(&context,client_random,32U);sha256_update(&context,handshake->server_random,32U);sha256_update(&context,message+4U,parameters_length);sha256_final(&context,digest);
+    if(rsa_pkcs1_v15_sha256_verify(handshake->server_x509.rsa_modulus,(uint16_t)handshake->server_x509.rsa_modulus_length,handshake->server_x509.rsa_exponent,(uint16_t)handshake->server_x509.rsa_exponent_length,digest,view.signature,view.signature_length,rsa_workspace,rsa_workspace_length)!=0)return -5;
+    return net_tls_handshake_accept_server_key_exchange(handshake,message,length);
 }
 int net_tls_handshake_accept_certificate_request(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
     net_tls_certificate_request_view_t view;

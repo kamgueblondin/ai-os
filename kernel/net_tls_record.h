@@ -103,8 +103,14 @@ int net_tls_handshake_accept_server_hello(net_tls_handshake_t* handshake,
 int net_tls_handshake_accept_certificate(net_tls_handshake_t* handshake,
                                          const uint8_t* message, uint16_t length);
 int net_tls_handshake_parse_server_certificate_x509(net_tls_handshake_t* handshake);
+/* Analyse seulement la structure ServerKeyExchange ; ne l’utilisez pas comme validation cryptographique. */
 int net_tls_handshake_accept_server_key_exchange(net_tls_handshake_t* handshake,
                                                const uint8_t* message, uint16_t length);
+/* Vérifie SHA-256(client_random || server_random || ServerECDHParams) avec la clé RSA du certificat, puis accepte le message. */
+int net_tls_handshake_accept_server_key_exchange_rsa(net_tls_handshake_t* handshake,
+                                                     const uint8_t client_random[32],
+                                                     const uint8_t* message,uint16_t length,
+                                                     uint32_t* rsa_workspace,uint16_t rsa_workspace_length);
 int net_tls_handshake_accept_certificate_request(net_tls_handshake_t* handshake,
                                                  const uint8_t* message, uint16_t length);
 int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,

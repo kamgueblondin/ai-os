@@ -233,3 +233,12 @@ Validation AOS-209/AOS-216 : **332/332 tests verts**, build i386 réussi. La cha
 ### AOS-217 — Interface RSA PKCS#1 v1.5 SHA-256 : état
 
 L’interface caller-owned `rsa_pkcs1_v15_sha256_verify` est réservée pour la future vérification de signature. Elle ne contient encore ni bigint, ni exponentiation modulaire, ni décodage PKCS#1, ni tests RSA, ni intégration `ServerKeyExchange` ; elle ne fournit donc aucune authentification. Référence : [aos217_rsa_interface_status.md](aos217_rsa_interface_status.md).
+
+
+### AOS-225 à AOS-232 — bigint multi-limb, RSA PKCS#1 v1.5 et ServerKeyExchange
+
+Le noyau contient désormais une arithmétique bigint caller-owned multi-limb, une réduction modulaire binaire, une exponentiation publique et `rsa_pkcs1_v15_sha256_verify`. La vérification exige un workspace de `7 × ceil(taille_module/4)` limbs fourni et aligné par l’appelant ; elle ne recourt à aucune allocation dynamique. Les tests couvrent une signature RSA-512 PKCS#1 v1.5 SHA-256 valide, les rejets de digest et de signature falsifiés, ainsi qu’une exponentiation à deux limbs.
+
+Une API TLS authentifiée `net_tls_handshake_accept_server_key_exchange_rsa` vérifie désormais `SHA-256(client_random || server_random || ServerECDHParams)` avec la clé RSA extraite du certificat, avant la transition de l’automate. Le dispatcher historique ne reçoit pas encore le random client ni le workspace RSA et reste donc un chemin de parsing non authentifié ; il ne faut pas l’employer comme preuve d’un handshake TLS valide. Référence : [aos225_232_rsa_verify.md](aos225_232_rsa_verify.md).
+
+Les validations de chaîne X.509 et de nom d’hôte, ECDHE réel, les signatures ECDSA, le secret partagé, le raccordement du dispatcher TLS authentifié, HTTP et les appels LLM TLS de bout en bout restent non implémentés.
