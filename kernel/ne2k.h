@@ -152,6 +152,11 @@ int ne2k_tcp_retransmit(ne2k_device_t* device, const ne2k_io_t* io,
 int ne2k_tcp_receive(const uint8_t* frame, uint16_t frame_length,
                      net_tcp_connection_t* connection, uint8_t* payload,
                      uint16_t payload_capacity, uint16_t* payload_length);
+/* Polling et extraction TCP en une étape, tous les buffers appartenant à l’appelant. */
+int ne2k_tcp_poll(ne2k_device_t* device, const ne2k_io_t* io,
+                  uint8_t* frame, uint16_t frame_capacity,
+                  net_tcp_connection_t* connection, uint8_t* payload,
+                  uint16_t payload_capacity, uint16_t* payload_length);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

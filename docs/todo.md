@@ -111,3 +111,9 @@ Les lots ajoutent la retransmission NE2000 caller-owned, la confirmation et purg
 ### AOS-159 à AOS-162 — envoi suivi d’ACK, réception, fenêtre et checksums
 
 AOS-159 ajoute la construction data suivie d’un pending caller-owned avant commit TX. AOS-160 ajoute la réception TCP NE2000 bornée avec copie vers le buffer appelant. AOS-161 ajoute la fenêtre de réception explicite. AOS-162 valide les checksums IPv4 et TCP en réception. Validation : 304 tests verts, build i386 réussi, smoke IA réussi et smoke NE2000 réussi.
+
+### AOS-163 à AOS-165 — polling TCP et orchestration RX
+
+AOS-163 ajoute `ne2k_tcp_poll`, AOS-164 formalise le retour non bloquant RX vide avec longueur nulle, et AOS-165 regroupe les contrôles de bornes, checksums, séquence et fenêtre dans le chemin de réception caller-owned. Le prochain incrément reste la génération d’un ACK automatique après payload accepté.
+
+Validation AOS-163/AOS-165 : **305/305 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi.

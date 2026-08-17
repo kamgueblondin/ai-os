@@ -159,6 +159,15 @@ void test_tcp_receive_copies_bounded_payload(void) {
     TEST_ASSERT_NOT_EQUAL(0, ne2k_tcp_receive(frame, 58U, &connection, payload, 3U, &length));
 }
 
+void test_tcp_poll_is_bounded_when_rx_empty(void) {
+    fake_ne2k_t fake = {0x12, 0, 0, 0}; ne2k_io_t io = {&fake, fake_inb, fake_outb}; ne2k_device_t device;
+    net_tcp_connection_t connection; uint8_t frame[64] = {0}; uint8_t payload[8] = {0}; uint16_t length = 99U;
+    fake.isr = NE2K_ISR_RESET; TEST_ASSERT_EQUAL(0, ne2k_probe(&device, 0x300, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_prepare(&device, &io)); TEST_ASSERT_EQUAL(0, ne2k_configure_rings(&device, &io));
+    TEST_ASSERT_EQUAL(1, ne2k_tcp_poll(&device, &io, frame, sizeof(frame), &connection, payload, sizeof(payload), &length));
+    TEST_ASSERT_EQUAL(0U, length);
+}
+
 void test_rx_extract_publishes_bounded_frame(void) {
     uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
     uint8_t dma[9] = {NE2K_RX_STATUS_OK, 0, 9, 0, 1, 2, 3, 4, 5};
@@ -182,6 +191,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);
     RUN_TEST(test_tcp_receive_copies_bounded_payload);
+    RUN_TEST(test_tcp_poll_is_bounded_when_rx_empty);
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
