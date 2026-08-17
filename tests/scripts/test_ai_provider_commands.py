@@ -104,6 +104,8 @@ def main():
             run_command(monitor, proc, "ai-model", "control.bin")
             run_command(monitor, proc, "ai-runtime", "Runtime IA bare-metal")
             run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
+            run_command(monitor, proc, "net-status json", "\"nic\":\"absent\"")
+            run_command(monitor, proc, "net-status json", "\"openai\":\"blocked\"")
             run_command(monitor, proc, "ai-provider openai", "OpenAI selectionne")
             run_command(monitor, proc, "ai hello", "OpenAI configure mais indisponible")
             run_command(monitor, proc, "ai-provider local", "Fournisseur local selectionne")
