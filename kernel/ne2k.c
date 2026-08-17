@@ -16,6 +16,34 @@ static ne2k_device_t* ne2k_irq_device;
 static const ne2k_io_t* ne2k_irq_io;
 static volatile uint32_t ne2k_irq_events;
 
+int ne2k_tx_udp(ne2k_device_t* device, const ne2k_io_t* io,
+                uint8_t* frame, uint16_t frame_capacity,
+                const uint8_t destination_mac[6],
+                const uint8_t source_ipv4[4], const uint8_t destination_ipv4[4],
+                uint16_t source_port, uint16_t destination_port,
+                const uint8_t* payload, uint16_t payload_length) {
+    uint16_t ip_length;
+    uint32_t total_length;
+    uint8_t i;
+    if (!device || !io || !frame || !destination_mac || !source_ipv4 ||
+        !destination_ipv4 || (!payload && payload_length != 0U) ||
+        !device->mac_valid) return -1;
+    total_length = NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE +
+                   NET_UDP_HEADER_SIZE + payload_length;
+    if (total_length > frame_capacity || total_length > NE2K_ETHERNET_MAX_FRAME)
+        return -2;
+    for (i = 0; i < 6U; ++i) { frame[i] = destination_mac[i]; frame[6U + i] = device->mac[i]; }
+    frame[12] = (uint8_t)(NET_ETHERTYPE_IPV4 >> 8);
+    frame[13] = (uint8_t)NET_ETHERTYPE_IPV4;
+    ip_length = (uint16_t)net_udp_build_ipv4(frame + NET_ETHERNET_HEADER_SIZE,
+                                             frame_capacity - NET_ETHERNET_HEADER_SIZE,
+                                             source_ipv4, destination_ipv4,
+                                             source_port, destination_port,
+                                             payload, payload_length);
+    if (ip_length == 0U) return -3;
+    return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + ip_length));
+}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;

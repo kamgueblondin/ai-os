@@ -63,6 +63,13 @@ void test_probe_and_prepare_use_injected_io(void) {
       TEST_ASSERT_EQUAL(1, fake.tx_data[0]); TEST_ASSERT_EQUAL(10, fake.tx_data[9]);
       TEST_ASSERT_EQUAL(0, fake.tx_data[59]);
       TEST_ASSERT_NOT_EQUAL(0, ne2k_tx_submit(&device, &io, frame, NE2K_ETHERNET_MAX_FRAME + 1U)); }
+    { uint8_t frame[128] = {0}; uint8_t destination_mac[6] = {0x52, 0x54, 0, 0, 0, 2};
+      uint8_t source_ip[4] = {10, 0, 2, 15}; uint8_t destination_ip[4] = {10, 0, 2, 2};
+      uint8_t payload[3] = {1, 2, 3}; fake.isr = NE2K_ISR_RDC;
+      TEST_ASSERT_EQUAL(0, ne2k_tx_udp(&device, &io, frame, sizeof(frame), destination_mac,
+                                       source_ip, destination_ip, 4000, 4001, payload, sizeof(payload)));
+      TEST_ASSERT_EQUAL(0x52, frame[0]); TEST_ASSERT_EQUAL(0x08, frame[12]);
+      TEST_ASSERT_EQUAL(0x00, frame[13]); }
     fake.isr = NE2K_ISR_RDC; TEST_ASSERT_EQUAL(0, ne2k_irq_attach(&device, &io));
     TEST_ASSERT_EQUAL(0, ne2k_irq_count()); ne2k_irq_service();
     TEST_ASSERT_EQUAL(1, ne2k_irq_count());
