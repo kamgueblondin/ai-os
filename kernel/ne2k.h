@@ -2,6 +2,7 @@
 #define AIOS_NE2K_H
 
 #include <stdint.h>
+#include "net_nic.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -12,6 +13,8 @@
 #define NE2K_COMMAND_PAGE1 0x40U
 #define NE2K_DCR_WORD_MODE 0x49U
 #define NE2K_ISR_RESET 0x80U
+#define NE2K_RX_HEADER_SIZE 4U
+#define NE2K_RX_STATUS_OK 0x01U
 
 typedef uint8_t (*ne2k_inb_fn)(void* context, uint16_t port);
 typedef void (*ne2k_outb_fn)(void* context, uint16_t port, uint8_t value);
@@ -34,5 +37,8 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io);
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io);
 /* Définit une MAC locale valide: non nulle et non multicast. */
 int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]);
+/* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
+int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
+                    net_nic_queue_t* rx_queue);
 
 #endif

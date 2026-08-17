@@ -27,6 +27,29 @@ int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]) {
     return nonzero ? 0 : -2;
 }
 
+int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
+                    net_nic_queue_t* rx_queue) {
+    uint16_t packet_length;
+    uint8_t* destination;
+    uint16_t capacity;
+    if (!dma_buffer || !rx_queue || dma_length < NE2K_RX_HEADER_SIZE)
+        return -1;
+    if ((dma_buffer[0] & NE2K_RX_STATUS_OK) == 0U) return -2;
+    packet_length = (uint16_t)(dma_buffer[2] | ((uint16_t)dma_buffer[3] << 8));
+    if (packet_length < NE2K_RX_HEADER_SIZE || packet_length > dma_length)
+        return -3;
+    if (net_nic_queue_acquire(rx_queue, &destination, &capacity) != 0 ||
+        packet_length - NE2K_RX_HEADER_SIZE > capacity)
+        return -4;
+    {
+        uint16_t i;
+        for (i = 0; i < packet_length - NE2K_RX_HEADER_SIZE; ++i)
+            destination[i] = dma_buffer[NE2K_RX_HEADER_SIZE + i];
+    }
+    return net_nic_queue_commit(rx_queue,
+                                 (uint16_t)(packet_length - NE2K_RX_HEADER_SIZE));
+}
+
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io) {
     uint16_t base;
     if (!device || !io || !io->outb || device->base_port == 0U) return -1;
