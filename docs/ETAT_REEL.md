@@ -10,7 +10,7 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 
 | Périmètre | État vérifié |
 |---|---|
-| Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3 |
+| Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3, curseur bloc et historique d’écran (Page Up/Down) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; kernels GGML Q3_K/Q4_K/Q6_K vérifiés au niveau mathématique |
 | Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63 et volume FAT16 lecture seule à partir du LBA 64 |
 | Ordonnancement et télémétrie | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur ; instantané de ticks, sélections, priorité CPU, parent et enfants directs ; terminaison, réattribution, attente et capacité de création limitées à la filiation directe |
@@ -54,6 +54,8 @@ Cette livraison ne constitue toujours pas une génération GPT-2 à partir d’u
 ### Noyau, stockage et tâches
 
 Le noyau configure GDT, IDT, PIC 8259, PIT 100 Hz, i8042 PS/2, PMM/VMM/heap, paging, chargement ELF 32-bit, syscalls et initrd TAR. L’EOI de l’IRQ0 est envoyé **avant** le gestionnaire C : lorsqu’un changement de contexte effectue un `iret` sans revenir dans le stub, IRQ1 clavier n’est donc pas laissée bloquée.
+
+La console VGA 80×25 programme le curseur matériel (bloc clignotant) à la position de saisie. Un historique de 80 lignes retient les lignes éjectées par le défilement automatique. **Page Up** / flèche haut remontent d’un écran ou d’une ligne ; **Page Down** / flèche bas redescendent. Une écriture à l’écran ramène à la vue courante. Ce n’est pas un terminal Unix : pas de scrollbar, pas de sélection souris.
 
 L’overlay RAM persistant utilise le format snapshot **AIOV V2** : 64 nœuds, chemins de 80 octets, contenu de 384 octets et 64 secteurs ATA PIO (LBA 0–63). `overlay_restore()` reconnaît également le format V1 afin de restaurer les images déjà créées. Le volume FAT16 lecture seule est maintenant monté à partir du LBA 64, avec BPB, table d’allocation, racine 8.3 et chaînes de clusters bornés. L’écriture, FAT32, LFN et sous-répertoires restent hors périmètre. Conception : [aos_fat_volume.md](aos_fat_volume.md) ; livraison : [mohhos_foundation_increment_68_fat16_volume.md](mohhos_foundation_increment_68_fat16_volume.md).
 
