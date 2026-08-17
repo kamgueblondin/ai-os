@@ -44,6 +44,55 @@ int ne2k_tx_udp(ne2k_device_t* device, const ne2k_io_t* io,
     return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + ip_length));
 }
 
+int ne2k_arp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
+                     net_arp_cache_t* cache,
+                     uint8_t* request_frame, uint16_t request_capacity,
+                     uint8_t* rx_frame, uint16_t rx_capacity,
+                     const uint8_t local_mac[6], const uint8_t local_ipv4[4],
+                     const uint8_t target_ipv4[4], uint16_t attempts) {
+    uint8_t destination_mac[6]; uint16_t request_length, rx_length, i;
+    net_ethernet_header_t ethernet; net_arp_packet_t arp; int status;
+    if (!device || !io || !cache || !request_frame || !rx_frame || !local_mac ||
+        !local_ipv4 || !target_ipv4 || attempts == 0U) return -1;
+    if (net_arp_cache_lookup(cache, target_ipv4, destination_mac) == 0) return 0;
+    request_length = (uint16_t)net_arp_build_request(request_frame, request_capacity,
+                                                      local_mac, local_ipv4, target_ipv4);
+    if (request_length == 0U) return -2;
+    status = ne2k_tx_submit(device, io, request_frame, request_length);
+    if (status != 0) return -3;
+    for (i = 0; i < attempts; ++i) {
+        status = ne2k_rx_poll_arp(device, io, rx_frame, rx_capacity, &rx_length,
+                                  &ethernet, &arp);
+        if (status == 1) continue;
+        if (status != 0) continue;
+        if (net_arp_is_reply_for(&arp, local_ipv4, target_ipv4)) {
+            if (net_arp_cache_put(cache, target_ipv4, arp.sender_mac) != 0) return -4;
+            return 0;
+        }
+    }
+    return -5;
+}
+
+int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
+                        net_arp_cache_t* cache,
+                        uint8_t* request_frame, uint16_t request_capacity,
+                        uint8_t* rx_frame, uint16_t rx_capacity,
+                        uint8_t* tx_frame, uint16_t tx_capacity,
+                        const uint8_t local_ipv4[4], const uint8_t target_ipv4[4],
+                        uint16_t source_port, uint16_t destination_port,
+                        const uint8_t* payload, uint16_t payload_length,
+                        uint16_t attempts) {
+    uint8_t destination_mac[6]; int status;
+    status = ne2k_arp_resolve(device, io, cache, request_frame, request_capacity,
+                              rx_frame, rx_capacity, device ? device->mac : 0,
+                              local_ipv4, target_ipv4, attempts);
+    if (status != 0) return status;
+    if (net_arp_cache_lookup(cache, target_ipv4, destination_mac) != 0) return -6;
+    return ne2k_tx_udp(device, io, tx_frame, tx_capacity, destination_mac,
+                       local_ipv4, target_ipv4, source_port, destination_port,
+                       payload, payload_length);
+}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;

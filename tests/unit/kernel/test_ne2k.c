@@ -80,7 +80,15 @@ void test_probe_and_prepare_use_injected_io(void) {
       uint8_t local_mac[6] = {0x02, 0, 0, 0, 0, 1};
       uint8_t local_ip[4] = {10, 0, 2, 15};
       TEST_ASSERT_EQUAL(1, ne2k_arp_service(&device, &io, rx_frame, sizeof(rx_frame),
-                                             tx_frame, sizeof(tx_frame), local_mac, local_ip)); }
+                                             tx_frame, sizeof(tx_frame), local_mac, local_ip));
+      { net_arp_cache_t cache; uint8_t target_ip[4] = {10, 0, 2, 2};
+        uint8_t target_mac[6] = {0x52, 0x54, 0, 0, 0, 2};
+        TEST_ASSERT_EQUAL(0, net_arp_cache_init(&cache));
+        TEST_ASSERT_EQUAL(0, net_arp_cache_put(&cache, target_ip, target_mac));
+        TEST_ASSERT_EQUAL(0, ne2k_arp_resolve(&device, &io, &cache, rx_frame, sizeof(rx_frame),
+                                              tx_frame, sizeof(tx_frame), local_mac, local_ip,
+                                              target_ip, 2)); }
+    }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {
