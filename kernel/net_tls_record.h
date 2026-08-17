@@ -20,6 +20,7 @@
 #define NET_TLS_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256 0xc02fU
 #define NET_TLS_NAMED_CURVE_X25519 29U
 #define NET_TLS_X25519_KEY_LENGTH 32U
+#define NET_TLS_X25519_CLIENT_FLIGHT_MINIMUM 93U
 typedef struct { uint8_t content_type; uint8_t major; uint8_t minor; const uint8_t* payload; uint16_t payload_length; } net_tls_record_view_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_record_accumulator_t;
 typedef struct { uint8_t type; const uint8_t* body; uint32_t body_length; } net_tls_handshake_view_t;
@@ -143,6 +144,19 @@ int net_tls_x25519_prepare_client(net_tls_x25519_context_t* context,const net_tl
 int net_tls_derive_x25519_master_secret(uint8_t master_secret[48],const net_tls_x25519_context_t* context,
                                         const uint8_t client_random[32],const net_tls_handshake_t* handshake,
                                         uint8_t* prf_workspace,uint32_t prf_workspace_capacity);
+/* Construit transactionnellement le flight client TLS 1.2 à partir de X25519.
+ * `records` contient ClientKeyExchange, ChangeCipherSpec puis Finished chiffré;
+ * la longueur est publiée uniquement en cas de succès. */
+int net_tls_x25519_client_flight_build(net_tls_handshake_t* handshake,
+                                       net_tls_x25519_context_t* context,
+                                       const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                       const uint8_t client_random[32],
+                                       net_tls_transcript_t* transcript,
+                                       uint8_t master_secret[48],uint8_t key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH],
+                                       net_tls_aes_gcm_session_t* session,
+                                       uint8_t* records,uint32_t records_capacity,uint32_t* records_length,
+                                       uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                                       uint8_t* prf_workspace,uint32_t prf_workspace_capacity);
 int net_tls_handshake_note_client_certificate(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_client_key_exchange(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_change_cipher_spec(net_tls_handshake_t* handshake);
