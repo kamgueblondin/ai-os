@@ -85,6 +85,14 @@ int net_tls_finished_verify_data(uint8_t verify_data[12],const uint8_t master_se
     if(net_tls_transcript_sha256(transcript,transcript_hash)!=0)return -2;
     return net_tls_prf_sha256(verify_data,12U,master_secret,48U,label,sizeof(label),transcript_hash,32U,0,0U,workspace,workspace_capacity);
 }
+int net_tls_derive_aes128_gcm_key_block(uint8_t* key_block,uint32_t key_block_capacity,const uint8_t master_secret[48],const uint8_t client_random[32],const uint8_t server_random[32],net_tls_aes128_gcm_key_block_t* out,uint8_t* workspace,uint32_t workspace_capacity){
+    static const uint8_t label[]={'k','e','y',' ','e','x','p','a','n','s','i','o','n'};
+    int status;
+    if(!key_block||key_block_capacity<NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH||!master_secret||!client_random||!server_random||!out)return -1;
+    status=net_tls_prf_sha256(key_block,NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH,master_secret,48U,label,sizeof(label),server_random,32U,client_random,32U,workspace,workspace_capacity);
+    if(status!=0)return -2;
+    out->client_write_key=key_block; out->server_write_key=key_block+16U; out->client_fixed_iv=key_block+32U; out->server_fixed_iv=key_block+36U; return 0;
+}
 
 int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_server_hello_view_t* out){
     uint32_t body_length; uint8_t session_length; uint16_t pos;

@@ -14,11 +14,13 @@
 #define NET_TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE 16U
 #define NET_TLS_HANDSHAKE_FINISHED 20U
 #define NET_TLS_CONTENT_CHANGE_CIPHER_SPEC 20U
+#define NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH 40U
 typedef struct { uint8_t content_type; uint8_t major; uint8_t minor; const uint8_t* payload; uint16_t payload_length; } net_tls_record_view_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_record_accumulator_t;
 typedef struct { uint8_t type; const uint8_t* body; uint32_t body_length; } net_tls_handshake_view_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_handshake_accumulator_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_transcript_t;
+typedef struct { const uint8_t* client_write_key; const uint8_t* server_write_key; const uint8_t* client_fixed_iv; const uint8_t* server_fixed_iv; } net_tls_aes128_gcm_key_block_t;
 typedef struct { const uint8_t* random; const uint8_t* session_id; uint8_t session_id_length; uint16_t cipher_suite; uint8_t compression_method; const uint8_t* extensions; uint16_t extensions_length; } net_tls_server_hello_view_t;
 typedef struct { const uint8_t* certificate; uint32_t certificate_length; uint32_t certificate_list_length; } net_tls_certificate_view_t;
 typedef struct { uint16_t named_curve; const uint8_t* public_key; uint8_t public_key_length; uint8_t hash_algorithm; uint8_t signature_algorithm; const uint8_t* signature; uint16_t signature_length; } net_tls_server_key_exchange_view_t;
@@ -59,6 +61,11 @@ int net_tls_derive_master_secret(uint8_t master_secret[48],
 int net_tls_finished_verify_data(uint8_t verify_data[12], const uint8_t master_secret[48],
                                  const net_tls_transcript_t* transcript, uint8_t transcript_hash[32],
                                  uint8_t* workspace, uint32_t workspace_capacity);
+int net_tls_derive_aes128_gcm_key_block(uint8_t* key_block, uint32_t key_block_capacity,
+                                        const uint8_t master_secret[48],
+                                        const uint8_t client_random[32], const uint8_t server_random[32],
+                                        net_tls_aes128_gcm_key_block_t* out,
+                                        uint8_t* workspace, uint32_t workspace_capacity);
 int net_tls_server_hello_parse(const uint8_t* handshake, uint16_t length,
                                net_tls_server_hello_view_t* out);
 int net_tls_certificate_parse(const uint8_t* handshake, uint16_t length,
