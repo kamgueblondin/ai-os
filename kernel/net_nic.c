@@ -62,3 +62,17 @@ int net_nic_queue_pop(net_nic_queue_t* queue, uint8_t** buffer,
 uint8_t net_nic_queue_count(const net_nic_queue_t* queue) {
     return queue ? queue->count : 0U;
 }
+
+int net_nic_queue_push_frame(net_nic_queue_t* queue, const uint8_t* frame,
+                             uint16_t length) {
+    uint8_t* destination;
+    uint16_t capacity;
+    uint16_t i;
+    if (!queue || !frame || length < NET_NIC_ETHERNET_MIN_FRAME)
+        return -1;
+    if (net_nic_queue_acquire(queue, &destination, &capacity) != 0 ||
+        length > capacity)
+        return -2;
+    for (i = 0; i < length; ++i) destination[i] = frame[i];
+    return net_nic_queue_commit(queue, length);
+}

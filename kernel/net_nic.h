@@ -5,6 +5,7 @@
 
 #define NET_NIC_QUEUE_CAPACITY 8U
 #define NET_NIC_FRAME_CAPACITY 1536U
+#define NET_NIC_ETHERNET_MIN_FRAME 60U
 
 typedef struct {
     uint8_t* storage;
@@ -34,5 +35,8 @@ int net_nic_queue_commit(net_nic_queue_t* queue, uint16_t length);
 int net_nic_queue_pop(net_nic_queue_t* queue, uint8_t** buffer,
                       uint16_t* length);
 uint8_t net_nic_queue_count(const net_nic_queue_t* queue);
+/* Copie et publie une trame Ethernet TX après validation des bornes. */
+int net_nic_queue_push_frame(net_nic_queue_t* queue, const uint8_t* frame,
+                             uint16_t length);
 
 #endif

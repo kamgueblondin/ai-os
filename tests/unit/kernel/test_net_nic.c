@@ -21,6 +21,21 @@ void test_queue_is_fifo_and_caller_owned(void) {
     TEST_ASSERT_EQUAL(0xa5, buffer[0]);
 }
 
+void test_queue_push_frame_validates_ethernet_size(void) {
+    uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
+    uint8_t frame[60] = {0};
+    net_nic_queue_t queue;
+    uint8_t* received;
+    uint16_t length;
+    frame[0] = 0xa5;
+    TEST_ASSERT_EQUAL(0, net_nic_queue_init(&queue, storage, sizeof(storage), 64));
+    TEST_ASSERT_NOT_EQUAL(0, net_nic_queue_push_frame(&queue, frame, 59));
+    TEST_ASSERT_EQUAL(0, net_nic_queue_push_frame(&queue, frame, 60));
+    TEST_ASSERT_EQUAL(0, net_nic_queue_pop(&queue, &received, &length));
+    TEST_ASSERT_EQUAL(60, length);
+    TEST_ASSERT_EQUAL(0xa5, received[0]);
+}
+
 void test_queue_rejects_bad_capacity_and_reset(void) {
     uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
     net_nic_queue_t queue;
@@ -37,6 +52,7 @@ void test_queue_rejects_bad_capacity_and_reset(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_queue_is_fifo_and_caller_owned);
+    RUN_TEST(test_queue_push_frame_validates_ethernet_size);
     RUN_TEST(test_queue_rejects_bad_capacity_and_reset);
     unity_print_results();
     unity_cleanup();
