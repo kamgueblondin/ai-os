@@ -34,6 +34,30 @@ void test_http_tls_get_and_response(void){
     TEST_ASSERT_EQUAL(200,response.status_code);TEST_ASSERT_EQUAL(2,response.body_length);TEST_ASSERT_EQUAL('o',response.body[0]);TEST_ASSERT_EQUAL('k',response.body[1]);
 }
 
+void test_http_post_json_build_and_bounds(void){
+    static const uint8_t json[]={ '{','"','m','o','d','e','l','"',':','"','g','p','t','2','"',',','"','p','r','o','m','p','t','"',':','"','h','i','"','}' };
+    static const uint8_t expected[]="POST /v1/completions HTTP/1.1\r\nHost: api.example.test\r\nContent-Type: application/json\r\nContent-Length: 30\r\nConnection: close\r\n\r\n{\"model\":\"gpt2\",\"prompt\":\"hi\"}";
+    uint8_t request[192]={0};
+    TEST_ASSERT_EQUAL((int)(sizeof(expected)-1U),net_http_build_post_json(request,sizeof(request),"api.example.test","/v1/completions",json,sizeof(json)));
+    TEST_ASSERT_EQUAL_MEMORY(expected,request,sizeof(expected)-1U);
+    TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json(request,12U,"api.example.test","/v1/completions",json,sizeof(json)));
+    TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json(request,sizeof(request),"api.example.test","v1/completions",json,sizeof(json)));
+    TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json(request,sizeof(request),"api.example.test","/v1/completions",0,1U));
+}
+
+void test_http_tls_post_json_encrypted(void){
+    net_tcp_connection_t client,server;net_tls_aes_gcm_session_t client_session,server_session;net_tcp_view_t view;net_tls_record_view_t record;
+    static const uint8_t json[]={ '{','"','m','o','d','e','l','"',':','"','g','p','t','2','"',',','"','p','r','o','m','p','t','"',':','"','h','i','"','}' };
+    static const uint8_t expected[]="POST /v1/completions HTTP/1.1\r\nHost: api.example.test\r\nContent-Type: application/json\r\nContent-Length: 30\r\nConnection: close\r\n\r\n{\"model\":\"gpt2\",\"prompt\":\"hi\"}";
+    uint8_t key_material[40]={0},tcp_segment[256]={0},tls_record[224]={0},request[192]={0},plaintext[192]={0};uint16_t consumed=0U;int length;
+    open_pair(&client,&server,&client_session,&server_session,key_material);
+    length=net_http_tls_build_post_json(&client,&client_session,tcp_segment,sizeof(tcp_segment),tls_record,sizeof(tls_record),request,sizeof(request),"api.example.test","/v1/completions",json,sizeof(json),1U);
+    TEST_ASSERT_EQUAL((int)(20U+5U+8U+sizeof(expected)-1U+16U),length);TEST_ASSERT_EQUAL(1,client_session.write_sequence);
+    TEST_ASSERT_EQUAL(0,net_tcp_parse(tcp_segment,(uint16_t)length,&view));
+    TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_tls_aes_gcm(&server,&server_session,&view,plaintext,sizeof(plaintext),&record,&consumed));
+    TEST_ASSERT_EQUAL(sizeof(expected)-1U,record.payload_length);TEST_ASSERT_EQUAL_MEMORY(expected,plaintext,sizeof(expected)-1U);TEST_ASSERT_EQUAL(1,server_session.read_sequence);
+}
+
 void test_http_tls_response_stream_content_length(void){net_tcp_connection_t client,server;net_tls_aes_gcm_session_t client_session,server_session;net_tcp_view_t view;net_http_response_accumulator_t accumulator;net_http_response_view_t response;uint8_t key_material[40]={0},first_segment[128]={0},second_segment[96]={0},first_record[96]={0},second_record[64]={0},plaintext[96]={0},response_buffer[96]={0},first_response[]={ 'H','T','T','P','/','1','.','1',' ','2','0','0',' ','O','K','\r','\n','C','o','n','t','e','n','t','-','L','e','n','g','t','h',':',' ','5','\r','\n','\r','\n','h','e'},second_response[]={ 'l','l','o'};uint16_t consumed=0U;int length;open_pair(&client,&server,&client_session,&server_session,key_material);TEST_ASSERT_EQUAL(0,net_http_response_accumulator_init(&accumulator,response_buffer,sizeof(response_buffer)));length=net_tcp_connection_build_tls_aes_gcm(&server,&server_session,first_segment,sizeof(first_segment),first_record,sizeof(first_record),NET_TLS_CONTENT_APPLICATION_DATA,first_response,sizeof(first_response),1U);TEST_ASSERT_EQUAL(89,length);TEST_ASSERT_EQUAL(0,net_tcp_parse(first_segment,(uint16_t)length,&view));TEST_ASSERT_EQUAL(1,net_http_tls_open_response_stream(&client,&client_session,&view,plaintext,sizeof(plaintext),&accumulator,&response,&consumed));TEST_ASSERT_EQUAL(sizeof(first_response),accumulator.length);TEST_ASSERT_EQUAL(1,accumulator.headers_complete);TEST_ASSERT_EQUAL(1,client_session.read_sequence);TEST_ASSERT_EQUAL(0,net_tcp_connection_commit_send(&server,69U));length=net_tcp_connection_build_tls_aes_gcm(&server,&server_session,second_segment,sizeof(second_segment),second_record,sizeof(second_record),NET_TLS_CONTENT_APPLICATION_DATA,second_response,sizeof(second_response),1U);TEST_ASSERT_EQUAL(52,length);TEST_ASSERT_EQUAL(0,net_tcp_parse(second_segment,(uint16_t)length,&view));TEST_ASSERT_EQUAL(0,net_http_tls_open_response_stream(&client,&client_session,&view,plaintext,sizeof(plaintext),&accumulator,&response,&consumed));TEST_ASSERT_EQUAL(200,response.status_code);TEST_ASSERT_EQUAL(5,response.body_length);TEST_ASSERT_EQUAL('h',response.body[0]);TEST_ASSERT_EQUAL('o',response.body[4]);TEST_ASSERT_EQUAL(2,client_session.read_sequence);}
 void test_http_response_parse_rejects_invalid_framing(void){
     net_http_response_view_t response;uint8_t invalid[]={ 'N','O','T',' ','H','T','T','P','\r','\n','\r','\n'};uint8_t incomplete[]={ 'H','T','T','P','/','1','.','1',' ','2','0','0',' ','O','K','\r','\n'};
@@ -41,4 +65,4 @@ void test_http_response_parse_rejects_invalid_framing(void){
     TEST_ASSERT_NOT_EQUAL(0,net_http_response_parse(incomplete,sizeof(incomplete),&response));
 }
 
-int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_response_parse_rejects_invalid_framing);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_post_json_build_and_bounds);RUN_TEST(test_http_tls_post_json_encrypted);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_response_parse_rejects_invalid_framing);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
