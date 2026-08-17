@@ -1,4 +1,5 @@
 #include "net_tls_record.h"
+#include "sha256.h"
 static uint16_t get16(const uint8_t* p){return (uint16_t)(((uint16_t)p[0]<<8)|p[1]);}
 static uint32_t get24(const uint8_t* p){return ((uint32_t)p[0]<<16)|((uint32_t)p[1]<<8)|p[2];}
 static void put16(uint8_t* p,uint16_t v){p[0]=(uint8_t)(v>>8);p[1]=(uint8_t)v;}
@@ -51,6 +52,38 @@ int net_tls_transcript_append(net_tls_transcript_t* transcript,const uint8_t* ha
     if((uint32_t)transcript->length+length>transcript->capacity)return -3;
     for(i=0U;i<length;i++)transcript->buffer[transcript->length+i]=handshake[i];
     transcript->length=(uint16_t)(transcript->length+length); return 0;
+}
+
+int net_tls_transcript_sha256(const net_tls_transcript_t* transcript,uint8_t digest[32]){
+    sha256_ctx_t context;
+    if(!transcript||!transcript->buffer||!digest)return -1;
+    sha256_init(&context); sha256_update(&context,transcript->buffer,transcript->length); sha256_final(&context,digest); return 0;
+}
+int net_tls_prf_sha256(uint8_t* output,uint16_t output_length,const uint8_t* secret,uint16_t secret_length,const uint8_t* label,uint16_t label_length,const uint8_t* seed_a,uint16_t seed_a_length,const uint8_t* seed_b,uint16_t seed_b_length,uint8_t* workspace,uint32_t workspace_capacity){
+    uint32_t seed_length=(uint32_t)label_length+seed_a_length+seed_b_length,required,offset=0U; uint16_t i; uint8_t digest[32]; uint8_t *seed,*a,*message;
+    if(!output||output_length==0U||!secret||secret_length==0U||!label||label_length==0U||(!seed_a&&seed_a_length)||(!seed_b&&seed_b_length)||!workspace)return -1;
+    required=2U*seed_length+64U; if(workspace_capacity<required)return -2;
+    seed=workspace; a=workspace+seed_length; message=a+32U;
+    for(i=0U;i<label_length;i++)seed[i]=label[i]; for(i=0U;i<seed_a_length;i++)seed[label_length+i]=seed_a[i]; for(i=0U;i<seed_b_length;i++)seed[label_length+seed_a_length+i]=seed_b[i];
+    hmac_sha256(secret,secret_length,seed,seed_length,a);
+    while(offset<output_length){
+        for(i=0U;i<32U;i++)message[i]=a[i]; for(i=0U;i<seed_length;i++)message[32U+i]=seed[i];
+        hmac_sha256(secret,secret_length,message,32U+seed_length,digest);
+        for(i=0U;i<32U&&offset<output_length;i++)output[offset++]=digest[i];
+        hmac_sha256(secret,secret_length,a,32U,a);
+    }
+    return 0;
+}
+int net_tls_derive_master_secret(uint8_t master_secret[48],const uint8_t* premaster_secret,uint16_t premaster_length,const uint8_t client_random[32],const uint8_t server_random[32],uint8_t* workspace,uint32_t workspace_capacity){
+    static const uint8_t label[]={'m','a','s','t','e','r',' ','s','e','c','r','e','t'};
+    if(!master_secret||!premaster_secret||premaster_length==0U||!client_random||!server_random)return -1;
+    return net_tls_prf_sha256(master_secret,48U,premaster_secret,premaster_length,label,sizeof(label),client_random,32U,server_random,32U,workspace,workspace_capacity);
+}
+int net_tls_finished_verify_data(uint8_t verify_data[12],const uint8_t master_secret[48],const net_tls_transcript_t* transcript,uint8_t transcript_hash[32],uint8_t* workspace,uint32_t workspace_capacity){
+    static const uint8_t label[]={'c','l','i','e','n','t',' ','f','i','n','i','s','h','e','d'};
+    if(!verify_data||!master_secret||!transcript_hash)return -1;
+    if(net_tls_transcript_sha256(transcript,transcript_hash)!=0)return -2;
+    return net_tls_prf_sha256(verify_data,12U,master_secret,48U,label,sizeof(label),transcript_hash,32U,0,0U,workspace,workspace_capacity);
 }
 
 int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_server_hello_view_t* out){

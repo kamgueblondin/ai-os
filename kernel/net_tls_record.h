@@ -45,6 +45,20 @@ int net_tls_handshake_accumulator_feed(net_tls_handshake_accumulator_t* accumula
                                        net_tls_handshake_view_t* out);
 int net_tls_transcript_init(net_tls_transcript_t* transcript, uint8_t* buffer, uint16_t capacity);
 int net_tls_transcript_append(net_tls_transcript_t* transcript, const uint8_t* handshake, uint16_t length);
+int net_tls_transcript_sha256(const net_tls_transcript_t* transcript, uint8_t digest[32]);
+int net_tls_prf_sha256(uint8_t* output, uint16_t output_length,
+                       const uint8_t* secret, uint16_t secret_length,
+                       const uint8_t* label, uint16_t label_length,
+                       const uint8_t* seed_a, uint16_t seed_a_length,
+                       const uint8_t* seed_b, uint16_t seed_b_length,
+                       uint8_t* workspace, uint32_t workspace_capacity);
+int net_tls_derive_master_secret(uint8_t master_secret[48],
+                                 const uint8_t* premaster_secret, uint16_t premaster_length,
+                                 const uint8_t client_random[32], const uint8_t server_random[32],
+                                 uint8_t* workspace, uint32_t workspace_capacity);
+int net_tls_finished_verify_data(uint8_t verify_data[12], const uint8_t master_secret[48],
+                                 const net_tls_transcript_t* transcript, uint8_t transcript_hash[32],
+                                 uint8_t* workspace, uint32_t workspace_capacity);
 int net_tls_server_hello_parse(const uint8_t* handshake, uint16_t length,
                                net_tls_server_hello_view_t* out);
 int net_tls_certificate_parse(const uint8_t* handshake, uint16_t length,
