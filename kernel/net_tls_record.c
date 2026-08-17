@@ -30,6 +30,19 @@ int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_
     return 0;
 }
 
+int net_tls_handshake_init(net_tls_handshake_t* handshake){
+    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; return 0;
+}
+int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake){
+    if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_IDLE)return -1; handshake->state=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT; return 0;
+}
+int net_tls_handshake_accept_server_hello(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+    net_tls_server_hello_view_t view;
+    if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT)return -1;
+    if(net_tls_server_hello_parse(message,length,&view)!=0)return -2;
+    handshake->cipher_suite=view.cipher_suite; handshake->server_random=view.random; handshake->state=NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED; return 0;
+}
+
 int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
     if(!accumulator||!buffer||capacity<NET_TLS_RECORD_HEADER)return -1;
     accumulator->buffer=buffer; accumulator->capacity=capacity; accumulator->length=0U; return 0;
