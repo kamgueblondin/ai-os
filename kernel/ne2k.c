@@ -16,6 +16,22 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
     return 0;
 }
 
+int ne2k_configure_rings(ne2k_device_t* device, const ne2k_io_t* io) {
+    uint16_t base;
+    if (!device || !io || !io->outb || device->base_port == 0U) return -1;
+    base = device->base_port;
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
+             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_TPSR), 0x40U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_PSTART), 0x46U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_PSTOP), 0x60U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_BNRY), 0x46U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RCR), 0x04U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_TCR), 0x00U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), 0x22U);
+    return 0;
+}
+
 int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]) {
     uint32_t i;
     uint8_t nonzero = 0U;
