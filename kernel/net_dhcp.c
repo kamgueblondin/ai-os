@@ -26,6 +26,20 @@ int net_dhcp_build_discover(uint8_t* packet, uint32_t capacity,
     return 244;
 }
 
+int net_dhcp_build_request(uint8_t* packet, uint32_t capacity,
+                           uint32_t xid, const uint8_t mac[6],
+                           const uint8_t requested_ip[4], const uint8_t server_ip[4]) {
+    uint32_t i;
+    if (!packet || !mac || !requested_ip || !server_ip || capacity < 252U) return -1;
+    for (i = 0; i < 252U; ++i) packet[i] = 0U;
+    packet[0] = 1U; packet[1] = 1U; packet[2] = 6U; put_be32(packet + 4, xid);
+    copy_bytes(packet + 28, mac, 6U); put_be32(packet + 236, NET_DHCP_MAGIC_COOKIE);
+    packet[240] = NET_DHCP_OPTION_MESSAGE_TYPE; packet[241] = 1U; packet[242] = NET_DHCP_REQUEST;
+    packet[243] = NET_DHCP_OPTION_SERVER_ID; packet[244] = 4U; copy_bytes(packet + 245, server_ip, 4U);
+    packet[249] = 50U; packet[250] = 4U; copy_bytes(packet + 251, requested_ip, 4U);
+    return 255;
+}
+
 int net_dhcp_parse_offer(const uint8_t* packet, uint32_t length,
                          uint32_t expected_xid, net_dhcp_offer_t* out) {
     uint32_t pos;
@@ -70,4 +84,24 @@ int net_dhcp_lease_apply(net_dhcp_lease_t* lease, const net_dhcp_offer_t* offer)
 void net_dhcp_lease_clear(net_dhcp_lease_t* lease) {
     if (!lease) return;
     lease->valid = 0U;
+}
+int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
+                       uint32_t expected_xid, net_dhcp_lease_t* lease) {
+    uint32_t pos; uint8_t type = 0U; uint8_t server_seen = 0U;
+    if (!packet || !lease || length < 244U || packet[0] != 2U ||
+        get_be32(packet + 4) != expected_xid || get_be32(packet + 236) != NET_DHCP_MAGIC_COOKIE)
+        return -1;
+    for (pos = 240U; pos < length;) {
+        uint8_t code = packet[pos++], size;
+        if (code == NET_DHCP_OPTION_END) break;
+        if (code == 0U) continue;
+        if (pos >= length) return -2;
+        size = packet[pos++]; if (pos + size > length) return -2;
+        if (code == NET_DHCP_OPTION_MESSAGE_TYPE && size == 1U) type = packet[pos];
+        if (code == NET_DHCP_OPTION_SERVER_ID && size == 4U) { copy_bytes(lease->server_ipv4, packet + pos, 4U); server_seen = 1U; }
+        pos += size;
+    }
+    if (type != NET_DHCP_ACK || !server_seen) return -3;
+    copy_bytes(lease->ipv4, packet + 16, 4U); lease->xid = expected_xid; lease->valid = 1U;
+    return 0;
 }
