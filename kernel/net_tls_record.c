@@ -15,6 +15,24 @@ int net_tls_record_parse_stream(const uint8_t* stream,uint32_t length,net_tls_re
     *consumed=total; return 0;
 }
 
+int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
+    if(!accumulator||!buffer||capacity<NET_TLS_RECORD_HEADER)return -1;
+    accumulator->buffer=buffer; accumulator->capacity=capacity; accumulator->length=0U; return 0;
+}
+
+int net_tls_record_accumulator_feed(net_tls_record_accumulator_t* accumulator,const uint8_t* fragment,uint16_t fragment_length,net_tls_record_view_t* out){
+    uint16_t i, consumed=0U; int status;
+    if(!accumulator||!accumulator->buffer||!fragment||!out)return -1;
+    if((uint32_t)accumulator->length+fragment_length>accumulator->capacity)return -2;
+    for(i=0;i<fragment_length;i++) accumulator->buffer[accumulator->length+i]=fragment[i];
+    accumulator->length=(uint16_t)(accumulator->length+fragment_length);
+    status=net_tls_record_parse_stream(accumulator->buffer,accumulator->length,out,&consumed);
+    if(status==-2||status==-3)return 1;
+    if(status!=0)return -3;
+    if(consumed!=accumulator->length)return -4;
+    return 0;
+}
+
 int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t random[32]){
     uint8_t hello[45]; uint8_t i; int length;
     if(!record||!random||capacity<NET_TLS_RECORD_HEADER+49U)return -1;
