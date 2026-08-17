@@ -140,6 +140,25 @@ void test_tcp_ack_is_emitted_from_connection_state(void) {
       TEST_ASSERT_EQUAL((NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK), frame[47]); }
 }
 
+void test_tcp_receive_copies_bounded_payload(void) {
+    uint8_t frame[128] = {0}, payload[4] = {0}; net_tcp_connection_t connection; uint16_t length = 0U, i;
+    uint8_t tcp_payload[4] = {'P','O','N','G'}; uint8_t remote_ip[4] = {10,0,2,2}; uint8_t local_ip[4] = {10,0,2,15}; uint16_t checksum;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    { net_tcp_view_t syn_ack = {443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &syn_ack)); }
+    for (i = 0; i < 6U; ++i) { frame[i] = 0x52U; frame[6U+i] = 0x02U; }
+    frame[12] = 0x08U; frame[13] = 0x00U; frame[14] = 0x45U; frame[16] = 0U; frame[17] = 44U; frame[22] = 64U; frame[23] = NET_TCP_PROTOCOL;
+    for (i = 0; i < 4U; ++i) { frame[26U+i] = remote_ip[i]; frame[30U+i] = local_ip[i]; }
+    { uint16_t ip_checksum = net_ipv4_checksum(frame + 14U, 20U); frame[24] = (uint8_t)(ip_checksum >> 8); frame[25] = (uint8_t)ip_checksum; }
+    TEST_ASSERT_EQUAL(24, net_tcp_build_data(frame + 34U, sizeof(frame) - 34U, 443, 49152, 701U, 101U, tcp_payload, sizeof(tcp_payload)));
+    checksum = net_tcp_checksum_ipv4(remote_ip, local_ip, frame + 34U, 24U); frame[50] = (uint8_t)(checksum >> 8); frame[51] = (uint8_t)checksum;
+    TEST_ASSERT_EQUAL(0, ne2k_tcp_receive(frame, 58U, &connection, payload, sizeof(payload), &length));
+    TEST_ASSERT_EQUAL(4U, length); TEST_ASSERT_EQUAL('P', payload[0]); TEST_ASSERT_EQUAL('G', payload[3]);
+    frame[50] ^= 0xffU; TEST_ASSERT_NOT_EQUAL(0, ne2k_tcp_receive(frame, 58U, &connection, payload, sizeof(payload), &length));
+    frame[50] ^= 0xffU; frame[24] ^= 0xffU; TEST_ASSERT_NOT_EQUAL(0, ne2k_tcp_receive(frame, 58U, &connection, payload, sizeof(payload), &length));
+    TEST_ASSERT_NOT_EQUAL(0, ne2k_tcp_receive(frame, 58U, &connection, payload, 3U, &length));
+}
+
 void test_rx_extract_publishes_bounded_frame(void) {
     uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
     uint8_t dma[9] = {NE2K_RX_STATUS_OK, 0, 9, 0, 1, 2, 3, 4, 5};
@@ -162,6 +181,7 @@ void test_probe_rejects_missing_reset_ack(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);
+    RUN_TEST(test_tcp_receive_copies_bounded_payload);
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);

@@ -37,6 +37,7 @@ typedef struct {
     uint16_t pending_length;
     uint8_t retransmit_count;
     uint8_t retransmit_limit;
+    uint16_t receive_window;
     uint8_t state;
 } net_tcp_connection_t;
 
@@ -69,10 +70,16 @@ int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,
                                       const net_tcp_view_t* view);
 int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,
                                  uint8_t* segment, uint32_t capacity);
+int net_tcp_connection_build_data(net_tcp_connection_t* connection,
+                                  uint8_t* segment, uint32_t capacity,
+                                  const uint8_t* payload, uint16_t payload_length,
+                                  uint8_t retransmit_limit);
 int net_tcp_connection_commit_send(net_tcp_connection_t* connection, uint16_t payload_length);
 int net_tcp_connection_accept_data(net_tcp_connection_t* connection,
                                    const net_tcp_view_t* view,
                                    uint16_t* accepted_length);
+int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,
+                                           uint16_t receive_window);
 int net_tcp_connection_track_send(net_tcp_connection_t* connection,
                                   const uint8_t* payload, uint16_t payload_length,
                                   uint8_t retransmit_limit);
