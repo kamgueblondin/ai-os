@@ -137,7 +137,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/bigint.c"
     fi
     case "$(basename "$test_file")" in
-        test_net_tls_record.c|test_tls_rsa_handshake.c|test_net_tcp.c|test_ne2k.c)
+        test_net_tls_record.c|test_tls_rsa_handshake.c|test_net_tcp.c|test_net_http_tls.c|test_ne2k.c)
             extra_src="$extra_src $BASE_DIR/kernel/x25519.c" ;;
     esac
     if [ "$(basename "$test_file")" = "test_x25519.c" ]; then
@@ -152,13 +152,16 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_tcp.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
         extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/net_http_tls.c"
     fi
     if [ "$(basename "$test_file")" = "test_net_dns.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_dns.c"
