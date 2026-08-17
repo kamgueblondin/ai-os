@@ -8,6 +8,9 @@
 typedef struct { uint8_t content_type; uint8_t major; uint8_t minor; const uint8_t* payload; uint16_t payload_length; } net_tls_record_view_t;
 int net_tls_record_build(uint8_t* record, uint32_t capacity, uint8_t content_type, const uint8_t* payload, uint16_t payload_length);
 int net_tls_record_parse(const uint8_t* record,uint32_t length,net_tls_record_view_t* out);
+/* Parse le premier record d’un flux TCP et publie les octets consommés. */
+int net_tls_record_parse_stream(const uint8_t* stream, uint32_t length,
+                                net_tls_record_view_t* out, uint16_t* consumed);
 /* Construit un ClientHello TLS 1.2 minimal dans un record caller-owned. */
 int net_tls_client_hello_build(uint8_t* record, uint32_t capacity,
                                const uint8_t random[32]);

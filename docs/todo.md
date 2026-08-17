@@ -141,3 +141,9 @@ Validation AOS-170 : **306/306 tests verts**, build i386 réussi, smoke `qemu-ai
 `net_tcp_connection_build_tls_record` construit un record TLS dans un buffer caller-owned puis l’encapsule dans un segment TCP pending, réutilisable pour commit et retransmission. Le raccordement ne fournit encore ni cryptographie TLS, ni certificat, ni HTTP ou appel LLM en ligne.
 
 Validation AOS-171 : **307/307 tests verts**, après ajout de `net_tls_record.c` aux chemins de linkage TCP/NE2000 du harness ; build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
+
+### AOS-172/AOS-173 — parsing TLS depuis TCP
+
+Le parsing stream TLS distingue les fragments incomplets et les records complets. La connexion TCP accepte un record complet uniquement lorsqu’il occupe exactement le payload reçu, puis avance le sequence distant ; les buffers d’assemblage restent caller-owned.
+
+Validation AOS-172/AOS-173 : **309/309 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
