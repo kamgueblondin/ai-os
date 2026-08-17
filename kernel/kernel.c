@@ -19,6 +19,7 @@
 #include "keyboard.h"
 #include "service_registry.h"
 #include "vga_console.h"
+#include "ne2k.h"
 #include <stddef.h>
 
 // Function to read a byte from a port
@@ -27,6 +28,27 @@ unsigned char inb(unsigned short port);
 void outb(unsigned short port, unsigned char data);
 // Function to print string to serial port (forward declaration)
 void print_string_serial(const char* str);
+void print_string(const char* str);
+
+static ne2k_device_t boot_ne2k_device;
+static uint8_t boot_ne2k_present;
+
+static void ne2k_boot_probe(void) {
+    ne2k_io_t io;
+    boot_ne2k_present = 0U;
+    if (ne2k_i386_io(&io) != 0) return;
+    if (ne2k_probe(&boot_ne2k_device, 0x300U, &io) != 0) {
+        print_string("NE2000 ISA absent; reseau reste desactive.\\n");
+        return;
+    }
+    if (ne2k_prepare(&boot_ne2k_device, &io) != 0 ||
+        ne2k_configure_rings(&boot_ne2k_device, &io) != 0) {
+        print_string("NE2000 detecte mais initialisation incomplete.\\n");
+        return;
+    }
+    boot_ne2k_present = 1U;
+    print_string("NE2000 ISA detecte et anneaux RX/TX configures.\\n");
+}
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
     return ata_read_sectors(lba, 1U, buffer);
@@ -482,6 +504,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     asm volatile("sti");
     
     print_string("=== Systeme interruptions PRET ===\n");
+    ne2k_boot_probe();
     print_string("IRQ0 (timer): OK\n");
     print_string("IRQ1 (keyboard): OK\n");
     print_string("QEMU devrait maintenant generer les interruptions clavier.\n");
