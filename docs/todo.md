@@ -123,3 +123,9 @@ Validation AOS-163/AOS-165 : **305/305 tests verts**, build i386 réussi, `qemu-
 `ne2k_tcp_poll_ack` reçoit et valide un payload TCP, le publie dans le buffer appelant puis émet son ACK via le cache ARP caller-owned. RX vide retourne `1` sans émission ; une erreur ARP/TX est propagée après acceptation afin que l’appelant puisse décider d’une nouvelle tentative. Documentation : `docs/aos166_167_tcp_poll_ack.md`.
 
 Validation AOS-166/AOS-167 : **305/305 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
+
+### AOS-168/AOS-169 — FIN→ACK et contrôle TCP
+
+Le polling FIN caller-owned valide la trame, effectue la transition de fermeture et émet l’ACK via NE2000. Les ACK purs ne déclenchent pas de réponse automatique afin d’éviter les boucles. Le framing TLS 1.2 existe séparément, mais son handshake cryptographique et son raccordement TCP restent à implémenter.
+
+Validation AOS-168/AOS-169 : **305/305 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
