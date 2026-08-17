@@ -2,6 +2,7 @@
 #include "sha256.h"
 #include "aes_gcm.h"
 #include "rsa_verify.h"
+#include "x25519.h"
 static uint16_t get16(const uint8_t* p){return (uint16_t)(((uint16_t)p[0]<<8)|p[1]);}
 static uint32_t get24(const uint8_t* p){return ((uint32_t)p[0]<<16)|((uint32_t)p[1]<<8)|p[2];}
 static void put16(uint8_t* p,uint16_t v){p[0]=(uint8_t)(v>>8);p[1]=(uint8_t)v;}
@@ -148,6 +149,8 @@ int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_
     out->extensions=handshake+pos; return 0;
 }
 
+int net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(uint16_t cipher_suite){return cipher_suite==NET_TLS_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256?1:0;}
+
 int net_tls_certificate_parse(const uint8_t* handshake,uint16_t length,net_tls_certificate_view_t* out){
     uint32_t body_length,list_length,pos,certificate_length;
     if(!handshake||!out||length<7U)return -1;
@@ -183,7 +186,7 @@ int net_tls_server_key_exchange_parse(const uint8_t* handshake,uint16_t length,n
 int net_tls_server_key_exchange_params_validate(const net_tls_server_key_exchange_view_t* view){
     if(!view||!view->public_key)return -1;
     if(view->named_curve==23U){if(view->public_key_length!=65U||view->public_key[0]!=4U)return -2;return 0;}
-    if(view->named_curve==29U){if(view->public_key_length!=32U)return -3;return 0;}
+    if(view->named_curve==NET_TLS_NAMED_CURVE_X25519){if(view->public_key_length!=NET_TLS_X25519_KEY_LENGTH)return -3;return 0;}
     return -4;
 }
 int net_tls_certificate_request_parse(const uint8_t* handshake,uint16_t length,net_tls_certificate_request_view_t* out){
@@ -252,6 +255,7 @@ int net_tls_handshake_accept_server_key_exchange_rsa(net_tls_handshake_t* handsh
     if(!handshake||!client_random||!message||!rsa_workspace||handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED||!handshake->server_x509_valid||!handshake->server_random)return -1;
     if(net_tls_server_key_exchange_parse(message,length,&view)!=0)return -2;
     if(net_tls_server_key_exchange_params_validate(&view)!=0)return -3;
+    if(net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(handshake->cipher_suite)&&view.named_curve!=NET_TLS_NAMED_CURVE_X25519)return -3;
     if(x509_rsa_public_key_validate(&handshake->server_x509)!=0||view.hash_algorithm!=4U||view.signature_algorithm!=1U||handshake->server_x509.rsa_modulus_length>65535U||handshake->server_x509.rsa_exponent_length>65535U)return -4;
     if(length<(uint16_t)(8U+view.public_key_length+4U+view.signature_length))return -5;
     parameters_length=(uint16_t)(length-4U-4U-view.signature_length);
@@ -289,7 +293,7 @@ int net_tls_handshake_accept_server_message_authenticated(net_tls_handshake_t* h
     net_tls_handshake_t previous;int status;
     if(!handshake||!client_random||!message)return -1;
     previous=*handshake;
-    if(message[0]==NET_TLS_HANDSHAKE_SERVER_HELLO)status=net_tls_handshake_accept_server_hello(handshake,message,length);
+    if(message[0]==NET_TLS_HANDSHAKE_SERVER_HELLO){status=net_tls_handshake_accept_server_hello(handshake,message,length);if(status==0&&!net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(handshake->cipher_suite))status=-5;}
     else if(message[0]==NET_TLS_HANDSHAKE_CERTIFICATE){status=net_tls_handshake_accept_certificate(handshake,message,length);if(status==0)status=net_tls_handshake_parse_server_certificate_x509(handshake);if(status==0)status=x509_rsa_public_key_validate(&handshake->server_x509);}
     else if(message[0]==NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE)status=net_tls_handshake_accept_server_key_exchange_rsa(handshake,client_random,message,length,rsa_workspace,rsa_workspace_length);
     else if(message[0]==NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST)status=net_tls_handshake_accept_certificate_request(handshake,message,length);
@@ -334,6 +338,17 @@ int net_tls_finished_build(uint8_t* record,uint32_t capacity,const uint8_t verif
     finished[0]=NET_TLS_HANDSHAKE_FINISHED; finished[1]=0U; finished[2]=0U; finished[3]=12U;
     for(i=0U;i<12U;i++)finished[4U+i]=verify_data[i]; return net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,finished,sizeof(finished));
 }
+int net_tls_x25519_prepare_client(net_tls_x25519_context_t* context,const net_tls_handshake_t* handshake,const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],uint32_t* x25519_workspace,uint16_t x25519_workspace_length){
+    if(!context||!handshake||!client_private||!x25519_workspace||handshake->state!=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED||!net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(handshake->cipher_suite)||handshake->server_named_curve!=NET_TLS_NAMED_CURVE_X25519||handshake->server_public_key_length!=NET_TLS_X25519_KEY_LENGTH)return -1;
+    context->ready=0U;
+    if(x25519_public_key(context->client_public,client_private,x25519_workspace,x25519_workspace_length)!=0)return -2;
+    if(x25519_shared_secret(context->shared_secret,client_private,handshake->server_public_key,x25519_workspace,x25519_workspace_length)!=0)return -3;
+    context->ready=1U;return 0;
+}
+int net_tls_derive_x25519_master_secret(uint8_t master_secret[48],const net_tls_x25519_context_t* context,const uint8_t client_random[32],const net_tls_handshake_t* handshake,uint8_t* prf_workspace,uint32_t prf_workspace_capacity){
+    if(!master_secret||!context||!context->ready||!client_random||!handshake||!handshake->server_random)return -1;
+    return net_tls_derive_master_secret(master_secret,context->shared_secret,NET_TLS_X25519_KEY_LENGTH,client_random,handshake->server_random,prf_workspace,prf_workspace_capacity);
+}
 int net_tls_handshake_note_client_certificate(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED||handshake->certificate_requested==0U)return -1;
     handshake->state=NET_TLS_HANDSHAKE_CLIENT_CERTIFICATE_SENT; return 0;
@@ -363,11 +378,13 @@ int net_tls_handshake_accept_server_finished(net_tls_handshake_t* handshake,cons
 int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake){return handshake&&handshake->state==NET_TLS_HANDSHAKE_SERVER_FINISHED_RECEIVED;}
 
 int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t random[32]){
-    uint8_t hello[45]; uint8_t i; int length;
-    if(!record||!random||capacity<NET_TLS_RECORD_HEADER+49U)return -1;
-    hello[0]=1U; hello[1]=0U; hello[2]=0U; hello[3]=44U; hello[4]=NET_TLS_VERSION_1_2_MAJOR; hello[5]=NET_TLS_VERSION_1_2_MINOR;
-    for(i=0;i<32U;i++) hello[6U+i]=random[i];
-    hello[38]=0U; hello[39]=0U; hello[40]=2U; hello[41]=0x00U; hello[42]=0x9cU; hello[43]=1U; hello[44]=0U;
-    length=net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello));
-    return length;
+    uint8_t hello[63]; uint8_t i; int length;
+    if(!record||!random||capacity<NET_TLS_RECORD_HEADER+sizeof(hello))return -1;
+    hello[0]=1U; hello[1]=0U; hello[2]=0U; hello[3]=59U; hello[4]=NET_TLS_VERSION_1_2_MAJOR; hello[5]=NET_TLS_VERSION_1_2_MINOR;
+    for(i=0U;i<32U;i++)hello[6U+i]=random[i];
+    hello[38]=0U;hello[39]=0U;hello[40]=2U;hello[41]=0xc0U;hello[42]=0x2fU;hello[43]=1U;hello[44]=0U;
+    hello[45]=0U;hello[46]=16U;
+    hello[47]=0U;hello[48]=10U;hello[49]=0U;hello[50]=4U;hello[51]=0U;hello[52]=2U;hello[53]=0U;hello[54]=29U;
+    hello[55]=0U;hello[56]=13U;hello[57]=0U;hello[58]=4U;hello[59]=0U;hello[60]=2U;hello[61]=4U;hello[62]=1U;
+    length=net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello));return length;
 }

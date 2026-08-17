@@ -121,7 +121,7 @@ static void bigint_mod_shift_add(bigint_t* remainder,const bigint_t* modulus,uin
     remainder->length=modulus->length;bigint_normalize(remainder);
 }
 
-static int bigint_mod_reduce(bigint_t* output,const bigint_t* input,const bigint_t* modulus){
+int bigint_mod_reduce(bigint_t* output,const bigint_t* input,const bigint_t* modulus){
     uint16_t i,bit;
     if(!output||!input||!modulus||modulus->length==0U||output->capacity<modulus->length)return -1;
     bigint_zero(output);
@@ -129,7 +129,7 @@ static int bigint_mod_reduce(bigint_t* output,const bigint_t* input,const bigint
     return 0;
 }
 
-static int bigint_mod_add(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus){
+int bigint_mod_add(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus){
     uint16_t i;uint64_t carry=0U;
     if(output->capacity<modulus->length)return -1;
     for(i=0U;i<modulus->length;i++){
@@ -141,7 +141,7 @@ static int bigint_mod_add(bigint_t* output,const bigint_t* left,const bigint_t* 
 }
 
 /* Produit modulaire par doublement et addition : lent mais borné, portable i386 et sans heap. */
-static int bigint_mod_multiply(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus,bigint_t* temporary){
+int bigint_mod_multiply(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus,bigint_t* temporary){
     uint16_t i,bit;
     if(!output||!left||!right||!modulus||!temporary||output->capacity<modulus->length||temporary->capacity<modulus->length)return -1;
     bigint_zero(output);

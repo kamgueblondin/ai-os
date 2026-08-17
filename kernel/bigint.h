@@ -9,6 +9,9 @@ int bigint_compare(const bigint_t* left,const bigint_t* right);
 int bigint_add(bigint_t* output,const bigint_t* left,const bigint_t* right);
 int bigint_subtract(bigint_t* output,const bigint_t* left,const bigint_t* right);
 int bigint_multiply(bigint_t* output,const bigint_t* left,const bigint_t* right);
+int bigint_mod_reduce(bigint_t* output,const bigint_t* input,const bigint_t* modulus);
+int bigint_mod_add(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus);
+int bigint_mod_multiply(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus,bigint_t* temporary);
 /* workspace contient au moins 4 * modulus->capacity limbs : résultat, base réduite, produit et quotient. */
 int bigint_modexp_u32(bigint_t* output,const bigint_t* base,uint32_t exponent,const bigint_t* modulus,uint32_t* workspace,uint16_t workspace_length);
 #endif

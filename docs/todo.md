@@ -251,3 +251,14 @@ Le dispatcher `net_tls_handshake_accept_server_message_authenticated` reçoit d�
 Les paramètres ECDHE font l’objet d’une validation de forme pour secp256r1 (point non compressé de 65 octets) et X25519 (32 octets). Cette validation ne réalise ni multiplication de courbe, ni validation d’appartenance du point, ni dérivation de secret. Le flux historique reste un parseur non authentifié et ne doit pas être confondu avec le nouveau dispatcher. Référence : [aos233_240_tls_authenticated_flow.md](aos233_240_tls_authenticated_flow.md).
 
 La chaîne de confiance, les dates, le nom d’hôte, les usages, les signatures de certificats, ECDSA, ECDHE P-256/X25519 réel, le secret partagé, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés.
+
+
+### AOS-241 à AOS-248 — X25519, ECDHE et secret partagé TLS
+
+Le noyau contient une implémentation caller-owned de X25519 sur Curve25519 : ladder Montgomery, clamp, clé publique, secret partagé et rejet du résultat nul. Le calcul emploie un workspace fixe de 136 limbs de 32 bits et ne fait appel à aucune allocation dynamique. Le vecteur RFC 7748 est couvert par `test_x25519` [1].
+
+Le ClientHello offre désormais `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F`), X25519 et RSA/SHA-256. Le dispatcher authentifié impose cette suite, exige X25519 au ServerKeyExchange signé, puis fournit la préparation du ClientKeyExchange et la dérivation du master secret depuis le secret partagé. Référence : [aos241_248_x25519_ecdhe.md](aos241_248_x25519_ecdhe.md).
+
+**Limite critique :** le backend bigint modulaire est fonctionnel mais non constant-temps. X25519 ne doit pas encore protéger un secret dans un contexte hostile. Le transcript automatique du ClientKeyExchange, la chaîne X.509, les dates, le nom d’hôte, les signatures de certificats, ECDSA, l’achèvement TLS associé à ce contexte, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés.
+
+[1] [RFC 7748 — Elliptic Curves for Security](https://datatracker.ietf.org/doc/html/rfc7748)
