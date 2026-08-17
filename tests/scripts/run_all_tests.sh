@@ -120,6 +120,9 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_service_registry.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/service_registry.c"
     fi
+    if [ "$(basename "$test_file")" = "test_net_dhcp.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/net_dhcp.c"
+    fi
     if [ "$(basename "$test_file")" = "test_ne2k.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/ne2k.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_nic.c"
