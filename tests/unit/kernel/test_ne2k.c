@@ -66,6 +66,9 @@ void test_probe_and_prepare_use_injected_io(void) {
     fake.isr = NE2K_ISR_RDC; TEST_ASSERT_EQUAL(0, ne2k_irq_attach(&device, &io));
     TEST_ASSERT_EQUAL(0, ne2k_irq_count()); ne2k_irq_service();
     TEST_ASSERT_EQUAL(1, ne2k_irq_count());
+    { uint8_t rx[64] = {0}; uint16_t rx_len = 99U; fake.isr = 0U;
+      TEST_ASSERT_EQUAL(1, ne2k_rx_poll(&device, &io, rx, sizeof(rx), &rx_len));
+      TEST_ASSERT_EQUAL(0, rx_len); }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {

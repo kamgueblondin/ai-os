@@ -40,6 +40,54 @@ uint32_t ne2k_irq_count(void) {
     return ne2k_irq_events;
 }
 
+static void ne2k_remote_read_setup(const ne2k_io_t* io, uint16_t base,
+                                   uint16_t address, uint16_t length) {
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR0), (uint8_t)length);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR1), (uint8_t)(length >> 8));
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR0), (uint8_t)address);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR1), (uint8_t)(address >> 8));
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
+             NE2K_COMMAND_REMOTE_READ);
+}
+
+int ne2k_rx_poll(ne2k_device_t* device, const ne2k_io_t* io,
+                 uint8_t* frame, uint16_t frame_capacity,
+                 uint16_t* frame_length) {
+    uint16_t base, page, packet_length, payload_length;
+    uint8_t header[NE2K_RX_HEADER_SIZE];
+    uint8_t next_page;
+    uint32_t i;
+    if (!device || !io || !io->inb || !io->outb || !frame || !frame_length ||
+        !device->initialized || frame_capacity == 0U || device->base_port == 0U)
+        return -1;
+    *frame_length = 0U;
+    base = device->base_port;
+    if ((io->inb(io->context, (uint16_t)(base + NE2K_REG_ISR)) & NE2K_ISR_PRX) == 0U)
+        return 1;
+    page = (uint16_t)io->inb(io->context, (uint16_t)(base + NE2K_REG_BNRY)) + 1U;
+    if (page >= NE2K_RX_PAGE_STOP) page = NE2K_RX_PAGE_START;
+    ne2k_remote_read_setup(io, base, (uint16_t)(page << 8), NE2K_RX_HEADER_SIZE);
+    for (i = 0; i < NE2K_RX_HEADER_SIZE; ++i)
+        header[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
+    if ((header[0] & NE2K_RX_STATUS_OK) == 0U) return -2;
+    next_page = header[1];
+    packet_length = (uint16_t)(header[2] | ((uint16_t)header[3] << 8));
+    if (packet_length < NE2K_RX_HEADER_SIZE || packet_length > NE2K_ETHERNET_MAX_FRAME)
+        return -3;
+    payload_length = (uint16_t)(packet_length - NE2K_RX_HEADER_SIZE);
+    if (payload_length > frame_capacity) return -4;
+    ne2k_remote_read_setup(io, base, (uint16_t)((page << 8) + NE2K_RX_HEADER_SIZE),
+                           payload_length);
+    for (i = 0; i < payload_length; ++i)
+        frame[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
+    if (next_page < NE2K_RX_PAGE_START || next_page >= NE2K_RX_PAGE_STOP)
+        return -5;
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_BNRY),
+             (uint8_t)(next_page == NE2K_RX_PAGE_START ? NE2K_RX_PAGE_STOP - 1U : next_page - 1U));
+    *frame_length = payload_length;
+    return 0;
+}
+
 int ne2k_i386_io(ne2k_io_t* io) {
     if (!io) return -1;
 #ifdef __i386__
