@@ -330,3 +330,12 @@ Les intermédiaires, dates, contraintes et usages de clé, révocation, ECDSA/Ed
 Le contexte et tous les buffers/workspaces sont caller-owned. Les tests NE2000 couvrent l’initialisation, l’émission ClientHello, les séquences/transcript et le polling vide sans mutation ; les tests TCP/TLS existants couvrent le flux cryptographique sous-jacent. Référence : [aos305_312_ne2k_tls_orchestrator.md](aos305_312_ne2k_tls_orchestrator.md).
 
 Le flux ne constitue pas encore un HTTPS de production : un message serveur par record, pas de certificats clients, chaîne RSA directe sans intermédiaires/dates/usages/révocation/ECDSA, pas de test QEMU contre un serveur externe, ni résolution/connexion complète, HTTP LLM, auth API, retries ou fragmentation de grosses requêtes. X25519/bigint reste non constante-temps.
+
+
+### AOS-313 à AOS-320 — client HTTPS LLM sur NE2000
+
+`ne2k_https_llm_post_json` construit et chiffre un POST JSON HTTP/1.1 uniquement après le Finished TLS complet, puis l’émet via TCP/NE2000 avec rollback de la séquence TCP et du compteur AEAD en cas d’échec. `ne2k_https_llm_poll_response` ouvre les records AES-GCM reçus puis alimente l’accumulateur HTTP Content-Length caller-owned et ACK seulement après traitement réussi.
+
+Le module HTTP/TLS est désormais lié au test NE2000 ; les tests HTTP/TLS couvrent le framing POST et le round-trip AES-GCM, tandis que le test NE2000 couvre la préparation TLS et le polling vide. Référence : [aos313_320_https_llm_client.md](aos313_320_https_llm_client.md).
+
+Aucune clé API, auth Authorization, intégration spécifique OpenAI/Ollama, DNS/SYN de connexion, test QEMU contre serveur externe, streaming SSE, chunked, HTTP/2, retries, pagination, compression, grandes requêtes ni parsing JSON n’est encore livré. La PKI reste une ancre RSA directe et X25519/bigint reste non constante-temps.

@@ -757,3 +757,44 @@ int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
 rollback:
     *client=previous_client;*connection=previous_connection;*consumed=0U;*flight_records_length=0U;return -2;
 }
+
+int ne2k_https_llm_post_json(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                             uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                             net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                             uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                             const uint8_t* json,uint16_t json_length,uint8_t* tls_record,uint32_t tls_capacity,
+                             uint8_t retransmit_limit){
+    net_tcp_connection_t previous_connection;uint64_t previous_sequence;int request_length,record_length,status;
+    if(!device||!io||!cache||!tx_frame||!local_ip||!remote_ip||!connection||!client||!request||!host||!path||(!json&&json_length)||!tls_record)return -1;
+    if(!client->complete||!net_tls_handshake_is_complete(&client->handshake))return -2;
+    previous_connection=*connection;previous_sequence=client->session.write_sequence;
+    request_length=net_http_build_post_json(request,request_capacity,host,path,json,json_length);
+    if(request_length<0)return -3;
+    record_length=net_tls_aes_gcm_session_build(&client->session,tls_record,tls_capacity,NET_TLS_CONTENT_APPLICATION_DATA,request,(uint16_t)request_length);
+    if(record_length<0)goto rollback;
+    if(net_tcp_connection_track_send(connection,tls_record,(uint16_t)record_length,retransmit_limit)!=0)goto rollback;
+    status=ne2k_tcp_data(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection,tls_record,(uint16_t)record_length);
+    if(status!=0)goto rollback;
+    if(net_tcp_connection_commit_send(connection,(uint16_t)record_length)!=0)goto rollback;
+    return record_length;
+rollback:
+    *connection=previous_connection;client->session.write_sequence=previous_sequence;return -4;
+}
+
+int ne2k_https_llm_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                  uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                  const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                                  ne2k_tls_client_t* client,uint8_t* plaintext,uint16_t plaintext_capacity,
+                                  net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,uint16_t* consumed){
+    ne2k_tls_client_t previous_client;net_tcp_connection_t previous_connection;net_tcp_view_t view;uint16_t frame_length=0U;int status;
+    if(!device||!io||!cache||!rx_frame||!tx_frame||!local_ip||!remote_ip||!connection||!client||!plaintext||!accumulator||!response||!consumed)return -1;
+    if(!client->complete||!net_tls_handshake_is_complete(&client->handshake))return -2;
+    *consumed=0U;status=ne2k_rx_poll_tcp(device,io,rx_frame,rx_capacity,&frame_length,&view);if(status!=0)return status;
+    previous_client=*client;previous_connection=*connection;
+    status=net_http_tls_open_response_stream(connection,&client->session,&view,plaintext,plaintext_capacity,accumulator,response,consumed);
+    if(status<0)goto rollback;
+    if(ne2k_tcp_ack(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection)!=0)goto rollback;
+    return status;
+rollback:
+    *client=previous_client;*connection=previous_connection;*consumed=0U;return -3;
+}
