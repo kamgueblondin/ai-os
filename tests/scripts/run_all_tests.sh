@@ -120,6 +120,9 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_service_registry.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/service_registry.c"
     fi
+    if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
+    fi
     if [ "$(basename "$test_file")" = "test_net_tcp.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
     fi
