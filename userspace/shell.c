@@ -4401,7 +4401,12 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
 }
 
 static void cmd_net_status(shell_context_t* ctx, char args[][128], int arg_count) {
-    (void)ctx; (void)args; (void)arg_count;
+    (void)ctx;
+    if (arg_count > 0 && strcmp(args[0], "json") == 0) {
+        print_string("{\"nic\":\"absent\",\"ethernet\":\"absent\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n");
+        return;
+    }
+    (void)args;
     print_colored("\n=== Reseau bare-metal ===\n", COLOR_CYAN);
     print_string("Carte Ethernet : absente (aucun pilote NIC initialise)\n");
     print_string("ARP / IPv4 / DHCP : absents\n");
