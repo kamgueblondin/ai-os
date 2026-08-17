@@ -136,6 +136,13 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_bigint.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/bigint.c"
     fi
+    case "$(basename "$test_file")" in
+        test_net_tls_record.c|test_tls_rsa_handshake.c|test_net_tcp.c|test_ne2k.c)
+            extra_src="$extra_src $BASE_DIR/kernel/x25519.c" ;;
+    esac
+    if [ "$(basename "$test_file")" = "test_x25519.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/x25519.c $BASE_DIR/kernel/bigint.c"
+    fi
     if [ "$(basename "$test_file")" = "test_rsa_verify.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
