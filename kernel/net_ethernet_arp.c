@@ -80,6 +80,32 @@ int net_arp_build_request(uint8_t* frame, uint32_t capacity,
     return (int)(NET_ETHERNET_HEADER_SIZE + NET_ARP_PACKET_SIZE);
 }
 
+int net_arp_build_reply(uint8_t* frame, uint32_t capacity,
+                        const net_arp_packet_t* request,
+                        const uint8_t local_mac[6], const uint8_t local_ipv4[4]) {
+    uint8_t* arp;
+    if (!frame || !request || !local_mac || !local_ipv4 ||
+        capacity < NET_ETHERNET_HEADER_SIZE + NET_ARP_PACKET_SIZE ||
+        request->opcode != NET_ARP_OPCODE_REQUEST ||
+        request->hardware_type != NET_ARP_HTYPE_ETHERNET ||
+        request->protocol_type != NET_ARP_PTYPE_IPV4 ||
+        request->hardware_size != 6U || request->protocol_size != 4U)
+        return -1;
+    copy_bytes(frame, request->sender_mac, 6);
+    copy_bytes(frame + 6, local_mac, 6);
+    write_be16(frame + 12, NET_ETHERTYPE_ARP);
+    arp = frame + NET_ETHERNET_HEADER_SIZE;
+    write_be16(arp + 0, NET_ARP_HTYPE_ETHERNET);
+    write_be16(arp + 2, NET_ARP_PTYPE_IPV4);
+    arp[4] = 6U; arp[5] = 4U;
+    write_be16(arp + 6, NET_ARP_OPCODE_REPLY);
+    copy_bytes(arp + 8, local_mac, 6);
+    copy_bytes(arp + 14, local_ipv4, 4);
+    copy_bytes(arp + 18, request->sender_mac, 6);
+    copy_bytes(arp + 24, request->sender_ipv4, 4);
+    return (int)(NET_ETHERNET_HEADER_SIZE + NET_ARP_PACKET_SIZE);
+}
+
 int net_arp_is_reply_for(const net_arp_packet_t* packet,
                          const uint8_t local_ipv4[4],
                          const uint8_t requested_ipv4[4]) {

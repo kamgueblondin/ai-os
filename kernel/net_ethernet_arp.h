@@ -41,6 +41,10 @@ int net_arp_parse(const uint8_t* frame, uint32_t length,
 int net_arp_build_request(uint8_t* frame, uint32_t capacity,
                           const uint8_t sender_mac[6], const uint8_t sender_ipv4[4],
                           const uint8_t target_ipv4[4]);
+/* Construit une réponse ARP à partir d’une requête décodée, sans allocation. */
+int net_arp_build_reply(uint8_t* frame, uint32_t capacity,
+                        const net_arp_packet_t* request,
+                        const uint8_t local_mac[6], const uint8_t local_ipv4[4]);
 /* Reconnaît uniquement une réponse ARP destinée à l’adresse IPv4 fournie. */
 int net_arp_is_reply_for(const net_arp_packet_t* packet,
                          const uint8_t local_ipv4[4],
