@@ -18,10 +18,18 @@ typedef struct {
     uint8_t server_ip[4];
     uint8_t message_type;
 } net_dhcp_offer_t;
+typedef struct {
+    uint8_t valid;
+    uint8_t ipv4[4];
+    uint8_t server_ipv4[4];
+    uint32_t xid;
+} net_dhcp_lease_t;
 
 int net_dhcp_build_discover(uint8_t* packet, uint32_t capacity,
                             uint32_t xid, const uint8_t mac[6]);
 int net_dhcp_parse_offer(const uint8_t* packet, uint32_t length,
                          uint32_t expected_xid, net_dhcp_offer_t* out);
+int net_dhcp_lease_apply(net_dhcp_lease_t* lease, const net_dhcp_offer_t* offer);
+void net_dhcp_lease_clear(net_dhcp_lease_t* lease);
 
 #endif

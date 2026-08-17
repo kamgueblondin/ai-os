@@ -20,6 +20,11 @@ void test_build_and_parse_dhcp_offer(void) {
     TEST_ASSERT_EQUAL(0, net_dhcp_parse_offer(packet, 250, 0x12345678U, &offer));
     TEST_ASSERT_EQUAL(10, offer.offered_ip[0]);
     TEST_ASSERT_EQUAL(2, offer.server_ip[3]);
+    { net_dhcp_lease_t lease = {0};
+      TEST_ASSERT_EQUAL(0, net_dhcp_lease_apply(&lease, &offer));
+      TEST_ASSERT_EQUAL(1, lease.valid); TEST_ASSERT_EQUAL(10, lease.ipv4[0]);
+      TEST_ASSERT_EQUAL(2, lease.server_ipv4[3]);
+      net_dhcp_lease_clear(&lease); TEST_ASSERT_EQUAL(0, lease.valid); }
     TEST_ASSERT_NOT_EQUAL(0, net_dhcp_parse_offer(packet, 250, 0x87654321U, &offer));
 }
 

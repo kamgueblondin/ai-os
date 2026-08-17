@@ -56,3 +56,18 @@ int net_dhcp_parse_offer(const uint8_t* packet, uint32_t length,
     out->message_type = type;
     return 0;
 }
+int net_dhcp_lease_apply(net_dhcp_lease_t* lease, const net_dhcp_offer_t* offer) {
+    uint32_t i;
+    if (!lease || !offer || offer->message_type != NET_DHCP_OFFER) return -1;
+    for (i = 0; i < 4U; ++i) {
+        lease->ipv4[i] = offer->offered_ip[i];
+        lease->server_ipv4[i] = offer->server_ip[i];
+    }
+    lease->xid = offer->xid;
+    lease->valid = 1U;
+    return 0;
+}
+void net_dhcp_lease_clear(net_dhcp_lease_t* lease) {
+    if (!lease) return;
+    lease->valid = 0U;
+}
