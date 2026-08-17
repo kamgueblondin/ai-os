@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define NET_TCP_HEADER_SIZE 20U
+#define NET_TCP_PROTOCOL 6U
 #define NET_TCP_FLAG_FIN 0x01U
 #define NET_TCP_FLAG_SYN 0x02U
 #define NET_TCP_FLAG_RST 0x04U
@@ -24,5 +25,8 @@ int net_tcp_build_syn(uint8_t* segment, uint32_t capacity,
                       uint32_t sequence);
 int net_tcp_parse(const uint8_t* segment, uint32_t length,
                   net_tcp_view_t* out);
+/* Calcule le checksum TCP IPv4 sur le segment caller-owned. */
+uint16_t net_tcp_checksum_ipv4(const uint8_t source_ip[4], const uint8_t destination_ip[4],
+                               const uint8_t* segment, uint16_t length);
 
 #endif
