@@ -38,6 +38,21 @@ void test_builds_reply_from_request(void) {
     TEST_ASSERT_EQUAL_MEMORY(sender_ip, reply.target_ipv4, 4);
 }
 
+void test_arp_cache_put_lookup_update_invalidate(void) {
+    net_arp_cache_t cache; uint8_t ip[4] = {10, 0, 2, 2};
+    uint8_t mac[6] = {0x52, 0x54, 0, 0, 0, 2}; uint8_t out[6] = {0};
+    TEST_ASSERT_EQUAL(0, net_arp_cache_init(&cache));
+    TEST_ASSERT_EQUAL(-2, net_arp_cache_lookup(&cache, ip, out));
+    TEST_ASSERT_EQUAL(0, net_arp_cache_put(&cache, ip, mac));
+    TEST_ASSERT_EQUAL(0, net_arp_cache_lookup(&cache, ip, out));
+    TEST_ASSERT_EQUAL_MEMORY(mac, out, 6);
+    mac[5] = 3; TEST_ASSERT_EQUAL(0, net_arp_cache_put(&cache, ip, mac));
+    TEST_ASSERT_EQUAL(0, net_arp_cache_lookup(&cache, ip, out));
+    TEST_ASSERT_EQUAL(3, out[5]);
+    TEST_ASSERT_EQUAL(0, net_arp_cache_invalidate(&cache, ip));
+    TEST_ASSERT_EQUAL(-2, net_arp_cache_lookup(&cache, ip, out));
+}
+
 void test_rejects_short_or_non_arp_frame(void) {
     uint8_t frame[42] = {0};
     net_arp_packet_t packet;
@@ -65,6 +80,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_build_and_parse_arp_request);
     RUN_TEST(test_builds_reply_from_request);
+    RUN_TEST(test_arp_cache_put_lookup_update_invalidate);
     RUN_TEST(test_rejects_short_or_non_arp_frame);
     RUN_TEST(test_reply_matches_local_and_requested_addresses);
     unity_print_results();
