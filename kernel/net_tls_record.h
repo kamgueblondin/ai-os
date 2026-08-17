@@ -84,6 +84,9 @@ int net_tls_derive_master_secret(uint8_t master_secret[48],
 int net_tls_finished_verify_data(uint8_t verify_data[12], const uint8_t master_secret[48],
                                  const net_tls_transcript_t* transcript, uint8_t transcript_hash[32],
                                  uint8_t* workspace, uint32_t workspace_capacity);
+int net_tls_server_finished_verify_data(uint8_t verify_data[12], const uint8_t master_secret[48],
+                                        const net_tls_transcript_t* transcript, uint8_t transcript_hash[32],
+                                        uint8_t* workspace, uint32_t workspace_capacity);
 int net_tls_derive_aes128_gcm_key_block(uint8_t* key_block, uint32_t key_block_capacity,
                                         const uint8_t master_secret[48],
                                         const uint8_t client_random[32], const uint8_t server_random[32],

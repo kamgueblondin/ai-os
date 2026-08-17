@@ -181,6 +181,17 @@ int net_tcp_connection_accept_tls_aes_gcm(net_tcp_connection_t* connection,net_t
     if(net_tls_aes_gcm_session_open(session,view->payload,view->payload_length,plaintext,plaintext_capacity,out)!=0){*connection=previous_connection;session->read_sequence=previous_sequence;return -4;} return 0;
 }
 
+int net_tcp_connection_build_tls_x25519_flight(net_tcp_connection_t* connection,net_tls_handshake_t* handshake,net_tls_x25519_context_t* context,const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],const uint8_t client_random[32],net_tls_transcript_t* transcript,uint8_t master_secret[48],uint8_t key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH],net_tls_aes_gcm_session_t* session,uint8_t* segment,uint32_t segment_capacity,uint8_t* records,uint32_t records_capacity,uint32_t* records_length,uint32_t* x25519_workspace,uint16_t x25519_workspace_length,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,uint8_t retransmit_limit){
+    net_tcp_connection_t previous_connection;net_tls_handshake_t previous_handshake;net_tls_x25519_context_t previous_context;net_tls_aes_gcm_session_t previous_session;uint8_t previous_master[48],previous_key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH],i;uint16_t previous_transcript_length;uint32_t local_records_length=0U;int status;
+    if(!connection||!handshake||!context||!client_private||!client_random||!transcript||!master_secret||!key_block||!session||!segment||!records||!records_length||!x25519_workspace||!prf_workspace)return -1;
+    previous_connection=*connection;previous_handshake=*handshake;previous_context=*context;previous_session=*session;previous_transcript_length=transcript->length;for(i=0U;i<48U;i++)previous_master[i]=master_secret[i];for(i=0U;i<NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH;i++)previous_key_block[i]=key_block[i];*records_length=0U;
+    status=net_tls_x25519_client_flight_build(handshake,context,client_private,client_random,transcript,master_secret,key_block,session,records,records_capacity,&local_records_length,x25519_workspace,x25519_workspace_length,prf_workspace,prf_workspace_capacity);
+    if(status!=0)goto rollback;
+    status=net_tcp_connection_build_data(connection,segment,segment_capacity,records,(uint16_t)local_records_length,retransmit_limit);if(status<0)goto rollback;
+    *records_length=local_records_length;return status;
+rollback:
+    *connection=previous_connection;*handshake=previous_handshake;*context=previous_context;*session=previous_session;transcript->length=previous_transcript_length;for(i=0U;i<48U;i++)master_secret[i]=previous_master[i];for(i=0U;i<NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH;i++)key_block[i]=previous_key_block[i];*records_length=0U;return -2;
+}
 int net_tcp_connection_accept_tls_postflight(net_tcp_connection_t* connection,const net_tcp_view_t* view,
                                              net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
                                              const uint8_t expected_verify_data[12],uint16_t* consumed){
@@ -198,6 +209,25 @@ int net_tcp_connection_accept_tls_postflight(net_tcp_connection_t* connection,co
     return 0;
 }
 
+int net_tcp_connection_accept_tls_x25519_postflight(net_tcp_connection_t* connection,net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,const uint8_t master_secret[48],net_tls_aes_gcm_session_t* session,const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,uint16_t* consumed){
+    net_tcp_connection_t previous_connection;net_tls_handshake_t previous_handshake;net_tls_aes_gcm_session_t previous_session;net_tls_record_view_t record;uint8_t expected[12]={0},transcript_hash[32]={0};uint16_t previous_transcript_length;int status;
+    if(!connection||!handshake||!transcript||!master_secret||!session||!view||!plaintext||!prf_workspace||!consumed)return -1;
+    previous_connection=*connection;previous_handshake=*handshake;previous_session=*session;previous_transcript_length=transcript->length;
+    if(handshake->state==NET_TLS_HANDSHAKE_FINISHED_SENT){
+        status=net_tcp_connection_accept_tls_record(connection,view,&record,consumed);
+        if(status!=0||record.content_type!=NET_TLS_CONTENT_CHANGE_CIPHER_SPEC||net_tls_handshake_accept_server_change_cipher_spec(handshake,record.payload,record.payload_length)!=0)goto rollback;
+        return 0;
+    }
+    if(handshake->state!=NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED)goto rollback;
+    status=net_tcp_connection_accept_tls_aes_gcm(connection,session,view,plaintext,plaintext_capacity,&record,consumed);
+    if(status!=0||record.content_type!=NET_TLS_CONTENT_HANDSHAKE)goto rollback;
+    if(net_tls_server_finished_verify_data(expected,master_secret,transcript,transcript_hash,prf_workspace,prf_workspace_capacity)!=0)goto rollback;
+    if(net_tls_handshake_accept_server_finished(handshake,record.payload,record.payload_length,expected)!=0)goto rollback;
+    if(net_tls_transcript_append(transcript,record.payload,record.payload_length)!=0)goto rollback;
+    return 0;
+rollback:
+    *connection=previous_connection;*handshake=previous_handshake;*session=previous_session;transcript->length=previous_transcript_length;return -2;
+}
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,uint16_t receive_window) {
     if (!connection) return -1;
     connection->receive_window = receive_window; return 0;
