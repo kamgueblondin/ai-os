@@ -291,6 +291,19 @@ int ne2k_tcp_receive(const uint8_t* frame, uint16_t frame_length,
     *payload_length = accepted; return 0;
 }
 
+int ne2k_tcp_poll(ne2k_device_t* device, const ne2k_io_t* io,
+                  uint8_t* frame, uint16_t frame_capacity,
+                  net_tcp_connection_t* connection, uint8_t* payload,
+                  uint16_t payload_capacity, uint16_t* payload_length) {
+    uint16_t frame_length = 0U; int status;
+    if (!device || !io || !frame || !connection || !payload_length) return -1;
+    *payload_length = 0U;
+    status = ne2k_rx_poll(device, io, frame, frame_capacity, &frame_length);
+    if (status != 0) return status;
+    if (frame_length == 0U) return 1;
+    return ne2k_tcp_receive(frame, frame_length, connection, payload, payload_capacity, payload_length);
+}
+
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result) {
