@@ -50,6 +50,10 @@ static void ne2k_boot_probe(void) {
     print_string("NE2000 ISA detecte et anneaux RX/TX configures.\\n");
 }
 
+uint32_t kernel_net_status(void) {
+    return boot_ne2k_present ? 3U : 0U;
+}
+
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
     return ata_read_sectors(lba, 1U, buffer);
 }

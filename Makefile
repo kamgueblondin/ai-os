@@ -533,13 +533,14 @@ qemu-smoke: $(OS_IMAGE) pack-initrd disk
 
 # Contrats d’intégration QEMU versionnés : boot, shell/overlay, préemption IRQ0
 # et absence réseau OpenAI explicitement vérifiable.
-.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ipc-foundation qemu-vfs-service qemu-service-grant
+.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ipc-foundation qemu-vfs-service qemu-service-grant
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
 qemu-ai-provider: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/test_ai_provider_commands.py
-
+qemu-ne2k-status: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/scripts/test_qemu_ne2k_status.py
 qemu-ipc-foundation: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_ipc_foundation.py
 
@@ -551,6 +552,7 @@ qemu-service-grant: $(OS_IMAGE) pack-initrd disk
 
 integration-qemu: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_core_contract.py
+	@python3 tests/scripts/test_qemu_ne2k_status.py
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 	@python3 tests/scripts/test_ai_provider_commands.py
 	@python3 tests/integration/test_qemu_ipc_foundation.py

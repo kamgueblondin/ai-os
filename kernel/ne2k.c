@@ -23,6 +23,7 @@ int ne2k_i386_io(ne2k_io_t* io) {
 
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
     uint8_t reset_value;
+    uint8_t isr_value;
     if (!device || !io || !io->inb || !io->outb || base_port == 0U) return -1;
     device->base_port = base_port;
     device->initialized = 0U;
@@ -32,8 +33,12 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
              NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
     reset_value = io->inb(io->context, (uint16_t)(base_port + NE2K_REG_RESET));
     io->outb(io->context, (uint16_t)(base_port + NE2K_REG_RESET), reset_value);
-    if ((io->inb(io->context, (uint16_t)(base_port + NE2K_REG_ISR)) & NE2K_ISR_RESET) == 0U)
+    isr_value = io->inb(io->context, (uint16_t)(base_port + NE2K_REG_ISR));
+    if ((isr_value & NE2K_ISR_RESET) == 0U)
         return -2;
+    io->outb(io->context, (uint16_t)(base_port + NE2K_REG_DCR), NE2K_DCR_WORD_MODE);
+    /* QEMU ne relit pas le DCR sur ce modèle; les ports flottants renvoient 0xff. */
+    if (reset_value == 0xffU || isr_value == 0xffU) return -3;
     return 0;
 }
 

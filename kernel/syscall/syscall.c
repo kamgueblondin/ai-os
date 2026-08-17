@@ -24,6 +24,7 @@ extern void vmm_switch_page_directory(uint32_t phys_addr);
 
 // Fonctions externes
 extern void print_string_serial(const char* str);
+extern uint32_t kernel_net_status(void);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
 
@@ -300,6 +301,9 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_FAT16_LIST:
             cpu->eax = (uint32_t)sys_fat16_list((os_fat16_dirent_t*)cpu->ebx, cpu->ecx);
+            break;
+        case SYS_NET_STATUS:
+            cpu->eax = kernel_net_status();
             break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);
