@@ -152,6 +152,17 @@ int net_tls_certificate_request_parse(const uint8_t* handshake,uint16_t length,n
     out->certificate_authorities=handshake+pos; out->certificate_authorities_length=authorities_length; return 0;
 }
 
+int net_tls_change_cipher_spec_parse(const uint8_t* payload,uint16_t length){
+    if(!payload||length!=1U||payload[0]!=1U)return -1;
+    return 0;
+}
+int net_tls_finished_parse(const uint8_t* handshake,uint16_t length,const uint8_t expected_verify_data[12]){
+    uint8_t difference=0U,i;
+    if(!handshake||!expected_verify_data||length!=16U)return -1;
+    if(handshake[0]!=NET_TLS_HANDSHAKE_FINISHED||handshake[1]!=0U||handshake[2]!=0U||handshake[3]!=12U)return -2;
+    for(i=0U;i<12U;i++)difference|=(uint8_t)(handshake[4U+i]^expected_verify_data[i]);
+    return difference==0U?0:-3;
+}
 int net_tls_server_hello_done_parse(const uint8_t* handshake,uint16_t length){
     if(!handshake||length!=4U)return -1;
     if(handshake[0]!=14U||handshake[1]!=0U||handshake[2]!=0U||handshake[3]!=0U)return -2;
@@ -259,6 +270,17 @@ int net_tls_handshake_note_finished(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_CHANGE_CIPHER_SPEC_SENT)return -1;
     handshake->state=NET_TLS_HANDSHAKE_FINISHED_SENT; return 0;
 }
+int net_tls_handshake_accept_server_change_cipher_spec(net_tls_handshake_t* handshake,const uint8_t* payload,uint16_t length){
+    if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_FINISHED_SENT)return -1;
+    if(net_tls_change_cipher_spec_parse(payload,length)!=0)return -2;
+    handshake->state=NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_server_finished(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length,const uint8_t expected_verify_data[12]){
+    if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED)return -1;
+    if(net_tls_finished_parse(message,length,expected_verify_data)!=0)return -2;
+    handshake->state=NET_TLS_HANDSHAKE_SERVER_FINISHED_RECEIVED; return 0;
+}
+int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake){return handshake&&handshake->state==NET_TLS_HANDSHAKE_SERVER_FINISHED_RECEIVED;}
 
 int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t random[32]){
     uint8_t hello[45]; uint8_t i; int length;

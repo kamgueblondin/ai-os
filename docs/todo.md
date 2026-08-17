@@ -200,3 +200,10 @@ Validation AOS-185/AOS-188 : **321/321 tests verts**. La dérivation du secret p
 Le PRF TLS 1.2 HMAC-SHA256 est maintenant disponible avec workspace caller-owned, ainsi que le hash SHA-256 du transcript, la dérivation d’un master secret de 48 octets à partir d’un premaster secret fourni et le `verify_data` client Finished de 12 octets. Les vecteurs déterministes valident les quatre primitives. Les dépendances SHA-256 sont déclarées pour les tests TLS, TCP et NE2000 dans les deux couches du harness.
 
 Validation AOS-189/AOS-192 : **322/322 tests verts**. ECDHE réel, le premaster secret, X.509, la signature ServerKeyExchange, les clés de trafic, AEAD, Finished serveur, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos189_192_tls_prf_finished.md](aos189_192_tls_prf_finished.md).
+
+
+### AOS-193 à AOS-196 — post-flight serveur ChangeCipherSpec et Finished
+
+Le post-flight serveur est maintenant encadré par le parsing strict de ChangeCipherSpec (`0x01`) puis de Finished (12 octets). La comparaison de `verify_data` est effectuée sans sortie anticipée. L’intégration TCP accepte les deux records de manière transactionnelle, ajoute Finished validé au transcript et restaure la connexion, l’automate et la longueur du transcript en cas d’erreur.
+
+Validation AOS-193/AOS-196 : **324/324 tests verts**. Le code ne déchiffre ni n’authentifie de records TLS chiffrés : ECDHE, X.509, clés de trafic, AEAD, HTTP et appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos193_196_tls_server_postflight.md](aos193_196_tls_server_postflight.md).

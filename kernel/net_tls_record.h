@@ -23,7 +23,7 @@ typedef struct { const uint8_t* random; const uint8_t* session_id; uint8_t sessi
 typedef struct { const uint8_t* certificate; uint32_t certificate_length; uint32_t certificate_list_length; } net_tls_certificate_view_t;
 typedef struct { uint16_t named_curve; const uint8_t* public_key; uint8_t public_key_length; uint8_t hash_algorithm; uint8_t signature_algorithm; const uint8_t* signature; uint16_t signature_length; } net_tls_server_key_exchange_view_t;
 typedef struct { const uint8_t* certificate_types; uint8_t certificate_types_length; const uint8_t* signature_algorithms; uint16_t signature_algorithms_length; const uint8_t* certificate_authorities; uint16_t certificate_authorities_length; } net_tls_certificate_request_view_t;
-typedef enum { NET_TLS_HANDSHAKE_IDLE=0, NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT=1, NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED=2, NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED=3, NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED=4, NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST_RECEIVED=5, NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED=6, NET_TLS_HANDSHAKE_CLIENT_CERTIFICATE_SENT=7, NET_TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE_SENT=8, NET_TLS_HANDSHAKE_CHANGE_CIPHER_SPEC_SENT=9, NET_TLS_HANDSHAKE_FINISHED_SENT=10 } net_tls_handshake_state_t;
+typedef enum { NET_TLS_HANDSHAKE_IDLE=0, NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT=1, NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED=2, NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED=3, NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED=4, NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST_RECEIVED=5, NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED=6, NET_TLS_HANDSHAKE_CLIENT_CERTIFICATE_SENT=7, NET_TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE_SENT=8, NET_TLS_HANDSHAKE_CHANGE_CIPHER_SPEC_SENT=9, NET_TLS_HANDSHAKE_FINISHED_SENT=10, NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED=11, NET_TLS_HANDSHAKE_SERVER_FINISHED_RECEIVED=12 } net_tls_handshake_state_t;
 typedef struct { net_tls_handshake_state_t state; uint16_t cipher_suite; const uint8_t* server_random; const uint8_t* server_certificate; uint32_t server_certificate_length; uint16_t server_named_curve; const uint8_t* server_public_key; uint8_t server_public_key_length; uint8_t certificate_requested; } net_tls_handshake_t;
 int net_tls_record_build(uint8_t* record, uint32_t capacity, uint8_t content_type, const uint8_t* payload, uint16_t payload_length);
 int net_tls_record_parse(const uint8_t* record,uint32_t length,net_tls_record_view_t* out);
@@ -68,6 +68,9 @@ int net_tls_server_key_exchange_parse(const uint8_t* handshake, uint16_t length,
 int net_tls_certificate_request_parse(const uint8_t* handshake, uint16_t length,
                                       net_tls_certificate_request_view_t* out);
 int net_tls_server_hello_done_parse(const uint8_t* handshake, uint16_t length);
+int net_tls_change_cipher_spec_parse(const uint8_t* payload, uint16_t length);
+int net_tls_finished_parse(const uint8_t* handshake, uint16_t length,
+                           const uint8_t expected_verify_data[12]);
 int net_tls_handshake_init(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake);
 int net_tls_handshake_accept_server_hello(net_tls_handshake_t* handshake,
@@ -92,6 +95,12 @@ int net_tls_handshake_note_client_certificate(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_client_key_exchange(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_change_cipher_spec(net_tls_handshake_t* handshake);
 int net_tls_handshake_note_finished(net_tls_handshake_t* handshake);
+int net_tls_handshake_accept_server_change_cipher_spec(net_tls_handshake_t* handshake,
+                                                        const uint8_t* payload, uint16_t length);
+int net_tls_handshake_accept_server_finished(net_tls_handshake_t* handshake,
+                                             const uint8_t* message, uint16_t length,
+                                             const uint8_t expected_verify_data[12]);
+int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake);
 /* Construit un ClientHello TLS 1.2 minimal dans un record caller-owned. */
 int net_tls_client_hello_build(uint8_t* record, uint32_t capacity,
                                const uint8_t random[32]);
