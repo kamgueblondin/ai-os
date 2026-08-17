@@ -108,6 +108,12 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_n
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_sha256: $(UNIT_DIR)/kernel/test_sha256.c ../kernel/sha256.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/sha256.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_tcp: $(UNIT_DIR)/kernel/test_net_tcp.c ../kernel/net_tcp.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tcp.c $(FRAMEWORK_SOURCES)
