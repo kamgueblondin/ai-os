@@ -1,8 +1,8 @@
 # AOS-025 — Stub réseau bare-metal et profil OpenAI
 
-**Statut :** livré comme **stub contrôlé**, pas comme pile réseau.
+**Statut :** livré comme **stub OpenAI contrôlé**. Un pilote NE2000 ISA et des codecs caller-owned existent (AOS-113…154) ; ils ne rendent pas OpenAI fonctionnel.
 
-**Date :** 13 août 2026.
+**Date :** 17 août 2026.
 
 ## Objet
 
@@ -12,10 +12,10 @@ Le shell historique possédait un profil `ai-provider openai`, mais le noyau ne 
 |---|---|
 | `ai-provider openai` | Sélection de profil seulement |
 | `ai <texte>` avec profil OpenAI | Refus explicite, aucune requête émise |
-| `net-status` | Diagnostic en lecture seule des composants absents |
-| Pilote Ethernet | Absent |
-| ARP / IPv4 / DHCP | Absents |
-| DNS / TCP / TLS / HTTP | Absents |
+| `net-status` / `net-status json` | Diagnostic : NIC absente ou NE2000 détectée ; ARP/IPv4/DHCP/DNS/TCP/TLS affichés absents |
+| Pilote Ethernet | NE2000 ISA sondé au boot (`0x300`) ; smoke `make qemu-ne2k-status` |
+| ARP / IPv4 / DHCP / DNS / TCP | Codecs et TX/RX caller-owned unit-testés ; **pas** de configuration live ni de commande shell |
+| TLS / HTTP | Framing TLS record seulement ; pas de handshake, certificat, HTTP |
 | Clé API dans l’image | Interdite |
 
 > Le résultat attendu n’est pas une connexion simulée : l’utilisateur doit voir qu’aucune requête OpenAI ne peut partir du noyau actuel.
@@ -44,20 +44,20 @@ qemu-system-i386 \
   -netdev user,id=n0 -device ne2k_isa,netdev=n0
 ```
 
-Cette ligne ne doit être utilisée comme test de transport qu’après ajout d’un pilote dans AI-OS ; aujourd’hui, le noyau ne l’initialise pas.
+Cette ligne est le contrat de `make qemu-ne2k-status`. Le noyau sonde désormais `ne2k_isa` ; elle ne démarre pas DHCP, TCP, TLS ni HTTP dans le guest.
 
 ## Critères de sortie d’un client OpenAI effectif
 
-Le passage du stub au client réseau demande une série de jalons séparés, chacun avec tests de bornes et intégration QEMU.
+Le passage du stub au client réseau demande encore, au-delà des primitives déjà livrées :
 
-| Ordre | Composant | Critère de sortie |
-|---|---|---|
-| 1 | Pilote NIC | Initialisation, MAC, RX/TX et gestion d’interruptions ou polling |
-| 2 | Ethernet/ARP | Encapsulation et résolution MAC vérifiées en QEMU |
-| 3 | IPv4/UDP/DHCP | Bail DHCP et configuration de route sans configuration statique secrète |
-| 4 | DNS/TCP | Résolution et flux TCP bornés, temporisations et nettoyage |
-| 5 | TLS | Validation de certificat et stockage de confiance minimal documenté |
-| 6 | HTTP OpenAI | Requête sortante explicitement autorisée, secret injecté hors image et effacé après usage |
+| Ordre | Composant | État | Critère de sortie restant |
+|---|---|---|---|
+| 1 | Pilote NIC | Partiel | Chemin live utilisé par le shell, pas seulement la sonde |
+| 2 | Ethernet/ARP | Codecs + TX/RX | Résolution et cache raccordés à une config IPv4 live |
+| 3 | IPv4/UDP/DHCP | Codecs + Discover/ACK | Bail automatique et route sans secret |
+| 4 | DNS/TCP | Codecs + SYN/ACK/data | Flux TCP utilisateur, temporisations |
+| 5 | TLS | Record framing | Handshake, certificats, secrets hors image |
+| 6 | HTTP OpenAI | Absent | Requête autorisée, secret injecté hors image |
 
 Aucune clé API ne doit être committée, placée dans l’initrd, écrite dans l’overlay par défaut, copiée sur un futur volume FAT ou reproduite dans la sortie série. Une future interface de configuration devra demander le consentement de l’utilisateur avant toute requête externe.
 

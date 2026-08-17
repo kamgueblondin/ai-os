@@ -4,7 +4,7 @@ Deux couches distinctes. Ne pas les mélanger.
 
 | Couche | Document | Statut |
 |---|---|---|
-| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-025 et Foundation MOHHOS vérifiés ; AOS-026 (FAT) conçu, pas livré |
+| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-026 vérifiés ; lots réseau 113–154 : primitives NE2000/codecs, pas client OpenAI |
 | **Vision MOHHOS** | fichiers `mohhos_*.md` + [individual_us/](individual_us/INDEX.md) | Spécifications, sauf incrément Foundation IPC documenté |
 
 En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
@@ -13,16 +13,16 @@ En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
 
 Hobby OS i386 32-bit — pas une distribution Linux : boot QEMU, shell Ring 3, overlay AIOV persisté, `spawn`/`yield`/`exec`, GPT-2 124M optionnel. Lexique : [docs/vocabulaire.md](../docs/vocabulaire.md).
 
-- Backlog réel : [ai_os_us.md](ai_os_us.md) (`AOS-001` … `AOS-025` livrés, `AOS-026` volume FAT à faire)
+- Backlog réel : [ai_os_us.md](ai_os_us.md) (`AOS-001` … `AOS-026` livrés ; lots réseau 113–154 = primitives)
 - Runtime : [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)
-- Volume disque suivant : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md) (FAT uniquement)
+- Volume FAT16 lecture seule : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md)
 - Roadmap courte : [README.md](../README.md)
 
 Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur principal (`fake_ai` est un binaire historique ; `ai <texte>` appelle `SYS_GPT2_GENERATE`).
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US). **Soixante-quatre** incréments de **Foundation** sont maintenant livrés (IPC, médiateur de chemins, registre, montages, capacités backend, supervision de tâches). Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le stockage, ni les pilotes, ni le réseau hors du noyau ; le noyau reste monolithique. Le prochain volume disque du prototype est FAT ([docs/aos_fat_volume.md](../docs/aos_fat_volume.md)), pas un système à inodes.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US). **Soixante-quatre** incréments de **Foundation** sont maintenant livrés (IPC, médiateur de chemins, registre, montages, capacités backend, supervision de tâches). Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le stockage, ni les pilotes, ni le réseau hors du noyau ; le noyau reste monolithique. Le volume FAT16 lecture seule du prototype est livré ([docs/aos_fat_volume.md](../docs/aos_fat_volume.md)) ; le réseau est un pilote NE2000 et des codecs caller-owned dans le noyau, pas un service Ring 3.
 
 Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant, IPC local, médiateur VFS et découverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
 

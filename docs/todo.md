@@ -52,17 +52,19 @@
 - [x] Commandes listées dans `help` branchées dans `execute_builtin_command` (overlay noyau + initrd ; `procsim.c` n'alimente plus `ps`/`kill`)
 - [x] `ls` / `cat` / `ps` / `kill` / `uptime` / `mem` : syscalls noyau (initrd + overlay + `task.c` + PIT + PMM)
 - [x] Overlay noyau RAM : `mkdir` / `rm` / `cp` (fichier et dossier via `SYS_COPY`) / `mv` (fichier et dossier via `SYS_RENAME`) / `write` / `append` (`SYS_APPEND`) / `touch` / `echo >` visibles par `ls`/`cat` (initrd toujours read-only)
-- [x] Overlay persisté : snapshot AIOV V2 ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; pas un volume FAT
+- [x] Overlay persisté : snapshot AIOV V2 ATA PIO LBA28 sur disque IDE QEMU (`write` survit à un reboot) ; volume FAT16 lecture seule à partir du LBA 64
 - [x] `spawn` / `yield` coopératifs (cadre syscall user) et préemption IRQ0 sûre entre tâches Ring 3
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
-- [x] AOS-020…025 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI
-- [ ] Kernels GGUF Q3_K/Q4_K/Q6_K et latence locale &lt; 1 s
-- [ ] Volume FAT sur IDE (AOS-026) — [aos_fat_volume.md](aos_fat_volume.md) ; pas ext2
-- [ ] Pilote NIC, DHCP, DNS, TCP/TLS et client OpenAI effectif
-- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, IPC, VFS, services)
+- [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
+- [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index et mapping ; génération shell encore FP32
+- [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s
+- [ ] Écriture FAT, LFN et FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; pas ext2
+- [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
+- [ ] Bail DHCP live, socket TCP utilisateur, handshake TLS et client OpenAI effectif
+- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 251 Unity ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 299 Unity ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
@@ -79,14 +81,12 @@ Les lots réseau AOS-132 à AOS-150 sont désormais intégrés progressivement e
 
 | Domaine | Statut réel |
 |---|---|
-| Ethernet, ARP, DHCP, DNS A | Implémentés et couverts par tests/smokes. |
-| TCP SYN, réception, validation SYN-ACK, premier ACK en mémoire | Implémentés ; 295 tests verts sur AOS-150. |
-| Émission physique de l’ACK via l’orchestrateur NE2000 | Prochain lot. |
-| Segments TCP avec données caller-owned | Prochain lot. |
-| Retransmissions, timers, congestion et fermeture complète | Non implémentés. |
-| TLS et appels LLM en ligne | Non fonctionnels de bout en bout à ce stade. |
+| Ethernet, ARP, DHCP, DNS A | Implémentés et couverts par tests Unity / smokes NIC. |
+| TCP SYN, SYN-ACK, ACK, payload, séquence, retransmission bornée | Implémentés (AOS-147…154) ; 299 tests verts. |
+| Timer RTO, congestion, fermeture TCP, API socket | Non implémentés. |
+| Handshake TLS, X.509, HTTP, OpenAI | Non fonctionnels de bout en bout. |
 
-Cette section remplace toute interprétation de la ligne générique « Pilote NIC, DHCP, DNS, TCP/TLS et client OpenAI effectif » : les sous-composants réalisés sont précisés ci-dessus, tandis que TCP/TLS et le client LLM restent partiels.
+Cette section remplace toute interprétation de la ligne générique « Pilote NIC, DHCP, DNS, TCP/TLS et client OpenAI effectif » : le pilote et les codecs jusqu’à AOS-154 sont livrés, tandis que le bail live, le handshake TLS et le client LLM restent hors périmètre.
 
 Références détaillées : [AOS-149](aos149_tcp_synack_validation.md) et [AOS-150](aos150_tcp_first_ack.md).
 

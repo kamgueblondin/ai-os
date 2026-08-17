@@ -1,8 +1,8 @@
 # Volume FAT sur disque IDE — conception
 
-**Statut :** conception du prochain stockage disque. **Pas livré.**
+**Statut :** jalon **lecture seule livré** (AOS-026). Écriture, LFN et FAT32 restent hors périmètre.
 
-**Date :** 16 août 2026.
+**Date :** 17 août 2026.
 
 **Source de vérité runtime :** [ETAT_REEL.md](ETAT_REEL.md). Vocabulaire : [vocabulaire.md](vocabulaire.md). Backlog : [../US/ai_os_us.md](../US/ai_os_us.md) (AOS-026).
 
@@ -18,14 +18,14 @@ AI-OS n’est pas un clone Unix. Un volume à table d’allocation (clusters, r�
 |---|---|---|---|
 | Initrd | Archive TAR (ustar) en RAM | Programmes, modèles, lecture seule | Pas un volume disque |
 | Overlay | Snapshot **AIOV** V2 sur ATA PIO | Petits fichiers persistants du shell | 64 nœuds, 80 octets de chemin, 384 octets de contenu, 64 secteurs (32 Kio) à LBA 0 |
-| Disque IDE QEMU | Image brute `build/overlay.img` | Porte uniquement le snapshot AIOV | Pas de table d’allocation, pas de répertoire sur disque |
+| Disque IDE QEMU | Image brute `build/overlay.img` (4224 secteurs) | Snapshot AIOV aux LBA 0–63, volume FAT16 à partir du LBA 64 | Écriture FAT, LFN et sous-répertoires hors périmètre |
 
 L’overlay occupe les **64 premiers secteurs** (LBA 0–63). Un volume FAT ne doit **pas** les écraser. Deux placements possibles, dans cet ordre de préférence :
 
 1. **Second disque IDE** dédié (`-drive …,if=ide`), image FAT préparée à la construction.
 2. **Même disque**, volume FAT à partir d’un LBA réservé (par exemple 64), une fois l’image agrandie.
 
-Le jalon AOS-026 doit choisir l’une des deux et la documenter dans les tests QEMU. Le médiateur `vfsserver` pourra plus tard exposer un préfixe `fat/` ; le pilote de volume reste une affaire de secteurs et de clusters, pas un « VFS Linux ».
+Le jalon AOS-026 est livré en lecture seule : volume FAT16 à partir du LBA 64 sur le même disque IDE, overlay AIOV intact. `fat16-list` et `fat16-cat` sont les commandes shell. Un préfixe VFS `fat/` n’est pas encore exposé.
 
 ## Pourquoi FAT, et pas un FS Unix
 
@@ -63,12 +63,12 @@ L’écriture (création, allongement, suppression) est une **tranche suivante**
 
 Ce n’est **pas** le moment d’introduire ext2 « pour faire comme un Unix », ni de prétendre qu’AI-OS a un système de fichiers généraliste.
 
-## Vérification prévue
+## Vérification
 
 ```text
 make test-all              # parseur BPB, chaînes, refus de volume invalide
 make qemu-smoke            # overlay AIOV inchangé
-make integration-qemu      # contrat : ls/cat d’un fichier préparé sur l’image FAT
+make integration-qemu      # contrats QEMU ; FAT16 est aussi exercé par la suite Unity
 ```
 
 Aucun secret, aucun modèle et aucune clé API ne doivent être committés sur l’image FAT de test.

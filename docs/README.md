@@ -8,16 +8,16 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 
 1. [ETAT_REEL.md](ETAT_REEL.md) - **état actuel du code**, y compris GPT-2 local et limites vérifiées
 2. [vocabulaire.md](vocabulaire.md) - termes du hobby OS (pas une identité Linux)
-3. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite, dont AOS-026 FAT)
-4. [aos_fat_volume.md](aos_fat_volume.md) - prochain volume disque FAT (pas ext2)
+3. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite, dont FAT lecture seule et réseau caller-owned)
+4. [aos_fat_volume.md](aos_fat_volume.md) - volume FAT16 lecture seule (pas ext2) ; écriture encore hors périmètre
 5. [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) - IPC Foundation MOHHOS, limites et contrat QEMU
 6. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
-7. [aos025_network_stub.md](aos025_network_stub.md) - statut réseau/OpenAI et suite de livraison
+7. [aos025_network_stub.md](aos025_network_stub.md) - stub OpenAI ; voir aussi AOS-113…154 pour le pilote NE2000
 8. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
-9. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic)
+9. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic / NE2000)
 10. [../README.md](../README.md) - compilation, tests, architecture des sources
 
-Les incréments Foundation 02 à 64 restent dans le tableau ci-dessous ; ils décrivent des tranches déjà livrées, pas l’identité du système. Le nombre de tests Unity cité dans un incrément est le **constat à la livraison** de cette tranche ; le chiffre courant est dans [ETAT_REEL.md](ETAT_REEL.md) (251).
+Les incréments Foundation 02 à 64 restent dans le tableau ci-dessous ; ils décrivent des tranches déjà livrées, pas l’identité du système. Le nombre de tests Unity cité dans un incrément est le **constat à la livraison** de cette tranche ; le chiffre courant est dans [ETAT_REEL.md](ETAT_REEL.md) (**299**).
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -27,16 +27,18 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
 | [vocabulaire.md](vocabulaire.md) | Lexique du hobby OS ; distance volontaire d’une identité Linux |
-| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…026 et limites restantes |
-| [aos_fat_volume.md](aos_fat_volume.md) | Volume FAT sur IDE : conception, hors ext2, relation à l’overlay AIOV |
+| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…026 et lots réseau 113…154 |
+| [aos_fat_volume.md](aos_fat_volume.md) | Volume FAT16 lecture seule sur IDE ; écriture/LFN/FAT32 hors périmètre |
+| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI ; la NIC NE2000 est désormais sondée, le client HTTP ne l’est pas |
+| [aos132_net_status_dynamic.md](aos132_net_status_dynamic.md) | `SYS_NET_STATUS` et smoke `qemu-ne2k-status` |
+| [aos153_154_tcp_sequence_retransmit.md](aos153_154_tcp_sequence_retransmit.md) | Dernière tranche TCP caller-owned (séquence et retransmission bornée) |
 | [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) | IPC Foundation entre tâches Ring 3, limites de la tranche et contrat QEMU |
 | [mohhos_foundation_increment_02_vfs_service.md](mohhos_foundation_increment_02_vfs_service.md) | Médiateur VFS Ring 3, protocole de lecture et limites du backend noyau |
 | [mohhos_foundation_increment_03_service_registry.md](mohhos_foundation_increment_03_service_registry.md) | Registre nommé, découverte `vfs` et absence de capabilities |
 | [mohhos_foundation_increment_04_service_lifecycle.md](mohhos_foundation_increment_04_service_lifecycle.md) | Retrait propriétaire et nettoyage du registre à la terminaison |
 | [mohhos_foundation_increment_05_ipc_correlation.md](mohhos_foundation_increment_05_ipc_correlation.md) | Identifiant de corrélation IPC, filtre VFS et limites non bloquantes |
 | [mohhos_foundation_increment_06_service_grant.md](mohhos_foundation_increment_06_service_grant.md) | Transfert de propriété d’un nom, handoff et limites sans capabilities |
-| [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0 et limites des kernels quantifiés |
-| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI, diagnostic réseau et critères de sortie d’un transport réel |
+| [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) | Sonde GGUF v3, primitives Q8_0/K-quants et limites de l’inférence quantifiée |
 | [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) | Préparation des artefacts, construction et démarrage d'une ISO GPT-2 hors ligne |
 | [kv_cache_performance_report.md](kv_cache_performance_report.md) | Cache KV, SSE2, test de reprise du shell et mesures de latence |
 | [baremetal_llm_architecture.md](baremetal_llm_architecture.md) | Architecture de référence et évolutions envisagées pour un LLM bare-metal |
@@ -96,8 +98,8 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 
 ## User stories
 
-- [../US/ai_os_us.md](../US/ai_os_us.md) — backlog du **prototype** (AOS-001…025 livrés, AOS-026 FAT conçu)
+- [../US/ai_os_us.md](../US/ai_os_us.md) — backlog du **prototype** (AOS-001…026 livrés ; lots réseau 113…154 : primitives, pas client OpenAI)
 - [../US/README.md](../US/README.md) — deux couches : hobby OS AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les phases MOHHOS restent majoritairement des **spécifications**. Les incréments Foundation 01–64 (IPC, médiateur de chemins, registre, supervision de tâches) sont compilés et testés ; ils ne transforment pas le noyau monolithique en microkernel et n’implémentent pas les autres phases. Le volume disque suivant est FAT, pas un système à inodes.
+Les phases MOHHOS restent majoritairement des **spécifications**. Les incréments Foundation 01–64 (IPC, médiateur de chemins, registre, supervision de tâches) sont compilés et testés ; ils ne transforment pas le noyau monolithique en microkernel et n’implémentent pas les autres phases. Le volume FAT16 lecture seule est livré ; l’écriture FAT et le client OpenAI restent hors périmètre.

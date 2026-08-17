@@ -24,25 +24,27 @@ Elle produit une seule ligne JSON compacte, sans texte décoratif :
 {"nic":"absent","ethernet":"absent","arp":"absent","ipv4":"absent","dhcp":"absent","dns":"absent","tcp":"absent","tls":"absent","openai":"blocked"}
 ```
 
-| Champ | Valeur actuelle | Signification |
+Avec `-device ne2k_isa`, le smoke `make qemu-ne2k-status` exige `"nic":"detected"` et `"ethernet":"configured"`. ARP, IPv4, DHCP, DNS, TCP et TLS restent `absent` : les codecs existent, aucune configuration live n’est raccordée. `openai` reste `blocked`.
+
+| Champ | Valeurs observées | Signification |
 |---|---|---|
-| `nic` | `absent` | Aucun pilote de carte réseau n’est initialisé dans le noyau. |
-| `ethernet` | `absent` | Aucune trame Ethernet n’est émise ou reçue. |
-| `arp` | `absent` | La résolution d’adresses matérielles n’est pas disponible. |
-| `ipv4` | `absent` | Aucune configuration IPv4 n’est attribuée. |
-| `dhcp` | `absent` | Aucun bail DHCP n’est demandé. |
-| `dns` | `absent` | Aucune résolution de nom n’est possible. |
-| `tcp` | `absent` | Aucun flux TCP n’est ouvert. |
-| `tls` | `absent` | Aucun canal TLS n’est établi et aucun certificat n’est validé. |
-| `openai` | `blocked` | Le fournisseur en ligne est refusé tant qu’un transport complet n’existe pas. |
+| `nic` | `absent` ou `detected` | Carte NE2000 ISA absente, ou sondée au boot (`0x300`) |
+| `ethernet` | `absent` ou `configured` | Anneaux RX/TX configurés lorsque la NIC est présente |
+| `arp` | `absent` | Codec ARP unit-testé ; pas de table live |
+| `ipv4` | `absent` | Codec IPv4/UDP unit-testé ; pas d’adresse attribuée |
+| `dhcp` | `absent` | Discover/ACK caller-owned ; pas de bail automatique |
+| `dns` | `absent` | Codec DNS A unit-testé ; pas de résolution shell |
+| `tcp` | `absent` | SYN/ACK/payload caller-owned ; pas de socket utilisateur |
+| `tls` | `absent` | Framing TLS record seulement ; pas de handshake |
+| `openai` | `blocked` | Le fournisseur en ligne est refusé tant qu’un transport complet n’existe pas |
 
 > Le champ `openai=blocked` est volontaire : la sélection du profil `ai-provider openai` ne doit jamais être interprétée comme l’émission effective d’une requête réseau.
 
 ## Validation
 
-Le test `tests/scripts/test_ai_provider_commands.py` vérifie désormais les deux formes de diagnostic. Il démarre l’image i386 sous QEMU, exécute `net-status`, puis exécute deux fois `net-status json` et recherche les champs `nic=absent` et `openai=blocked` dans la sortie série.
+Le test `tests/scripts/test_ai_provider_commands.py` vérifie les deux formes de diagnostic **sans** carte NE2000. Il démarre l’image i386 sous QEMU, exécute `net-status`, puis `net-status json` et recherche `nic=absent` et `openai=blocked`. Le smoke avec carte est `make qemu-ne2k-status` (`nic=detected`).
 
-La suite de non-régression reste à **265 tests verts**. Le build complet doit être lancé avec `make all`, car la première cible du Makefile est un artefact assembleur implicite lorsqu’aucune cible n’est explicitement demandée. Le smoke ciblé est ensuite exécuté par :
+La suite de non-régression courante est dans [ETAT_REEL.md](ETAT_REEL.md) (**299** tests). Le build complet doit être lancé avec `make all`. Le smoke NIC est `make qemu-ne2k-status` ; le smoke OpenAI bloqué reste :
 
 ```sh
 make test-all
@@ -50,7 +52,7 @@ make all
 python3 tests/scripts/test_ai_provider_commands.py
 ```
 
-Ce lot ne prétend pas implémenter le réseau. Les prochaines étapes restent le pilote NIC, Ethernet/ARP, IPv4/DHCP, DNS/TCP, puis TLS et le client OpenAI borné.
+Ce lot ne prétend pas implémenter un transport live. Les lots AOS-114 et suivants ajoutent codecs et pilote NE2000 ; `net-status json` continue d’afficher `openai=blocked`.
 
 ## Statut
 
