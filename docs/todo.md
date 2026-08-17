@@ -129,3 +129,9 @@ Validation AOS-166/AOS-167 : **305/305 tests verts**, build i386 réussi, smoke 
 Le polling FIN caller-owned valide la trame, effectue la transition de fermeture et émet l’ACK via NE2000. Les ACK purs ne déclenchent pas de réponse automatique afin d’éviter les boucles. Le framing TLS 1.2 existe séparément, mais son handshake cryptographique et son raccordement TCP restent à implémenter.
 
 Validation AOS-168/AOS-169 : **305/305 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
+
+### AOS-170 — ClientHello TLS 1.2 minimal
+
+Le codec TLS record construit maintenant un ClientHello minimal caller-owned avec random fourni, sans génération cryptographique ni négociation complète. SNI/ALPN, dérivation de clés, chiffrement, X.509, HTTP et appels LLM en ligne restent hors périmètre fonctionnel.
+
+Validation AOS-170 : **306/306 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
