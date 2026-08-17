@@ -106,6 +106,49 @@ int net_arp_build_reply(uint8_t* frame, uint32_t capacity,
     return (int)(NET_ETHERNET_HEADER_SIZE + NET_ARP_PACKET_SIZE);
 }
 
+int net_arp_cache_init(net_arp_cache_t* cache) {
+    uint32_t i;
+    if (!cache) return -1;
+    for (i = 0; i < NET_ARP_CACHE_CAPACITY; ++i) cache->entries[i].valid = 0U;
+    return 0;
+}
+
+int net_arp_cache_put(net_arp_cache_t* cache, const uint8_t ipv4[4], const uint8_t mac[6]) {
+    uint32_t i; uint32_t free_index = NET_ARP_CACHE_CAPACITY;
+    if (!cache || !ipv4 || !mac) return -1;
+    for (i = 0; i < NET_ARP_CACHE_CAPACITY; ++i) {
+        if (cache->entries[i].valid && bytes_equal(cache->entries[i].ipv4, ipv4, 4U)) {
+            copy_bytes(cache->entries[i].mac, mac, 6U); return 0;
+        }
+        if (!cache->entries[i].valid && free_index == NET_ARP_CACHE_CAPACITY) free_index = i;
+    }
+    if (free_index == NET_ARP_CACHE_CAPACITY) return -2;
+    cache->entries[free_index].valid = 1U;
+    copy_bytes(cache->entries[free_index].ipv4, ipv4, 4U);
+    copy_bytes(cache->entries[free_index].mac, mac, 6U);
+    return 0;
+}
+
+int net_arp_cache_lookup(const net_arp_cache_t* cache, const uint8_t ipv4[4], uint8_t mac[6]) {
+    uint32_t i;
+    if (!cache || !ipv4 || !mac) return -1;
+    for (i = 0; i < NET_ARP_CACHE_CAPACITY; ++i)
+        if (cache->entries[i].valid && bytes_equal(cache->entries[i].ipv4, ipv4, 4U)) {
+            copy_bytes(mac, cache->entries[i].mac, 6U); return 0;
+        }
+    return -2;
+}
+
+int net_arp_cache_invalidate(net_arp_cache_t* cache, const uint8_t ipv4[4]) {
+    uint32_t i;
+    if (!cache || !ipv4) return -1;
+    for (i = 0; i < NET_ARP_CACHE_CAPACITY; ++i)
+        if (cache->entries[i].valid && bytes_equal(cache->entries[i].ipv4, ipv4, 4U)) {
+            cache->entries[i].valid = 0U; return 0;
+        }
+    return -2;
+}
+
 int net_arp_is_reply_for(const net_arp_packet_t* packet,
                          const uint8_t local_ipv4[4],
                          const uint8_t requested_ipv4[4]) {
