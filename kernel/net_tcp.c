@@ -27,6 +27,12 @@ int net_tcp_build_ack(uint8_t* segment, uint32_t capacity, uint16_t source_port,
     return build_control(segment, capacity, source_port, destination_port, sequence, acknowledgment, NET_TCP_FLAG_ACK);
 }
 
+int net_tcp_build_fin_ack(uint8_t* segment, uint32_t capacity, uint16_t source_port,
+                          uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment) {
+    return build_control(segment, capacity, source_port, destination_port, sequence, acknowledgment,
+                         NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK);
+}
+
 int net_tcp_build_data(uint8_t* segment, uint32_t capacity, uint16_t source_port,
                        uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment,
                        const uint8_t* payload, uint16_t payload_length) {
@@ -90,7 +96,9 @@ int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,const net
 }
 
 int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,uint8_t* segment,uint32_t capacity) {
-    if (!connection || connection->state!=NET_TCP_STATE_ESTABLISHED) return -1;
+    if (!connection || (connection->state != NET_TCP_STATE_ESTABLISHED &&
+                        connection->state != NET_TCP_STATE_FIN_WAIT_2 &&
+                        connection->state != NET_TCP_STATE_CLOSE_WAIT)) return -1;
     return net_tcp_build_ack(segment,capacity,connection->local_port,connection->remote_port,
                              connection->local_sequence,connection->remote_sequence);
 }
@@ -126,6 +134,39 @@ int net_tcp_connection_retransmit_allowed(const net_tcp_connection_t* connection
 int net_tcp_connection_note_retransmit(net_tcp_connection_t* connection) {
     if (!net_tcp_connection_retransmit_allowed(connection)) return -1;
     connection->retransmit_count++; return 0;
+}
+
+int net_tcp_connection_begin_close(net_tcp_connection_t* connection,uint8_t* segment,uint32_t capacity) {
+    int length;
+    if (!connection || connection->state != NET_TCP_STATE_ESTABLISHED) return -1;
+    length = net_tcp_build_fin_ack(segment, capacity, connection->local_port, connection->remote_port,
+                                   connection->local_sequence, connection->remote_sequence);
+    if (length < 0) return -2;
+    connection->local_sequence++; connection->state = NET_TCP_STATE_FIN_WAIT_1;
+    return length;
+}
+
+int net_tcp_connection_accept_ack(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
+    if (!connection || !view || (connection->state != NET_TCP_STATE_ESTABLISHED && connection->state != NET_TCP_STATE_FIN_WAIT_1)) return -1;
+    if (view->source_port != connection->remote_port || view->destination_port != connection->local_port ||
+        (view->flags & NET_TCP_FLAG_ACK) == 0U || view->acknowledgment > connection->local_sequence) return -2;
+    if (connection->pending_length != 0U && view->acknowledgment < connection->local_sequence) return -3;
+    if (connection->pending_length != 0U) {
+        connection->pending_payload = 0; connection->pending_length = 0U;
+        connection->retransmit_count = 0U; connection->retransmit_limit = 0U;
+    }
+    if (connection->state == NET_TCP_STATE_FIN_WAIT_1 && view->acknowledgment == connection->local_sequence)
+        connection->state = NET_TCP_STATE_FIN_WAIT_2;
+    return 0;
+}
+
+int net_tcp_connection_accept_fin(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
+    if (!connection || !view || (connection->state != NET_TCP_STATE_ESTABLISHED && connection->state != NET_TCP_STATE_FIN_WAIT_2)) return -1;
+    if (view->source_port != connection->remote_port || view->destination_port != connection->local_port ||
+        (view->flags & NET_TCP_FLAG_FIN) == 0U || view->sequence != connection->remote_sequence) return -2;
+    connection->remote_sequence++;
+    connection->state = (connection->state == NET_TCP_STATE_FIN_WAIT_2) ? NET_TCP_STATE_CLOSED : NET_TCP_STATE_CLOSE_WAIT;
+    return 0;
 }
 
 int net_tcp_parse(const uint8_t* segment,uint32_t length,net_tcp_view_t* out) {

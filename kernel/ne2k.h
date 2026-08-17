@@ -132,12 +132,22 @@ int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
                  const net_tcp_connection_t* connection);
+/* Construit et émet le FIN+ACK caller-owned de fermeture. */
+int ne2k_tcp_fin(ne2k_device_t* device, const ne2k_io_t* io,
+                 const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                 const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                 net_tcp_connection_t* connection);
 /* Construit et émet un segment TCP ACK+payload caller-owned. */
 int ne2k_tcp_data(ne2k_device_t* device, const ne2k_io_t* io,
                   const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                   const uint8_t local_ip[4], const uint8_t remote_ip[4],
                   const net_tcp_connection_t* connection, const uint8_t* payload,
                   uint16_t payload_length);
+/* Retransmet le dernier payload caller-owned sans avancer le sequence. */
+int ne2k_tcp_retransmit(ne2k_device_t* device, const ne2k_io_t* io,
+                        const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                        const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                        net_tcp_connection_t* connection);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

@@ -13,6 +13,10 @@
 #define NET_TCP_STATE_CLOSED 0U
 #define NET_TCP_STATE_SYN_SENT 1U
 #define NET_TCP_STATE_ESTABLISHED 2U
+#define NET_TCP_STATE_FIN_WAIT_1 3U
+#define NET_TCP_STATE_FIN_WAIT_2 4U
+#define NET_TCP_STATE_CLOSE_WAIT 5U
+#define NET_TCP_STATE_LAST_ACK 6U
 
 typedef struct {
     uint16_t source_port;
@@ -74,5 +78,14 @@ int net_tcp_connection_track_send(net_tcp_connection_t* connection,
                                   uint8_t retransmit_limit);
 int net_tcp_connection_retransmit_allowed(const net_tcp_connection_t* connection);
 int net_tcp_connection_note_retransmit(net_tcp_connection_t* connection);
+int net_tcp_connection_accept_ack(net_tcp_connection_t* connection,
+                                  const net_tcp_view_t* view);
+int net_tcp_build_fin_ack(uint8_t* segment, uint32_t capacity,
+                          uint16_t source_port, uint16_t destination_port,
+                          uint32_t sequence, uint32_t acknowledgment);
+int net_tcp_connection_begin_close(net_tcp_connection_t* connection,
+                                   uint8_t* segment, uint32_t capacity);
+int net_tcp_connection_accept_fin(net_tcp_connection_t* connection,
+                                  const net_tcp_view_t* view);
 
 #endif
