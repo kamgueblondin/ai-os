@@ -17,6 +17,25 @@ int net_tcp_build_syn(uint8_t* segment, uint32_t capacity,
     return NET_TCP_HEADER_SIZE;
 }
 
+uint16_t net_tcp_checksum_ipv4(const uint8_t source_ip[4], const uint8_t destination_ip[4],
+                               const uint8_t* segment, uint16_t length) {
+    uint32_t sum = 0U; uint16_t i;
+    if (!source_ip || !destination_ip || !segment || length == 0U) return 0U;
+    sum += ((uint16_t)source_ip[0] << 8) | source_ip[1];
+    sum += ((uint16_t)source_ip[2] << 8) | source_ip[3];
+    sum += ((uint16_t)destination_ip[0] << 8) | destination_ip[1];
+    sum += ((uint16_t)destination_ip[2] << 8) | destination_ip[3];
+    sum += NET_TCP_PROTOCOL;
+    sum += length;
+    for (i = 0; i + 1U < length; i += 2U) {
+        sum += get16(segment + i);
+        while (sum >> 16) sum = (sum & 0xffffU) + (sum >> 16);
+    }
+    if (length & 1U) sum += (uint16_t)segment[length - 1U] << 8;
+    while (sum >> 16) sum = (sum & 0xffffU) + (sum >> 16);
+    return (uint16_t)~sum;
+}
+
 int net_tcp_parse(const uint8_t* segment, uint32_t length, net_tcp_view_t* out) {
     uint8_t header_words;
     uint16_t header_size;
