@@ -262,3 +262,12 @@ Le ClientHello offre désormais `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (`0xC02F
 **Limite critique :** le backend bigint modulaire est fonctionnel mais non constant-temps. X25519 ne doit pas encore protéger un secret dans un contexte hostile. Le transcript automatique du ClientKeyExchange, la chaîne X.509, les dates, le nom d’hôte, les signatures de certificats, ECDSA, l’achèvement TLS associé à ce contexte, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés.
 
 [1] [RFC 7748 — Elliptic Curves for Security](https://datatracker.ietf.org/doc/html/rfc7748)
+
+
+### AOS-249 à AOS-256 — flight client X25519 transactionnel
+
+L’API `net_tls_x25519_client_flight_build` construit désormais le flight client TLS dans des buffers caller-owned : ClientKeyExchange X25519, ChangeCipherSpec et Finished AES-128-GCM. Elle ajoute ClientKeyExchange puis Finished au transcript, dérive le master secret et le key block depuis le contexte X25519, initialise la session AEAD et publie trois records totalisant 93 octets.
+
+La construction est transactionnelle : état du handshake, contexte X25519, transcript et longueur de sortie sont restaurés ou annulés sur erreur. Le chemin refuse actuellement les certificats clients pour ne pas émettre un flight incomplet. Référence : [aos249_256_x25519_client_flight.md](aos249_256_x25519_client_flight.md).
+
+Le transport TCP de ce flight, la validation du ChangeCipherSpec/Finished serveur dans ce même contexte, la chaîne X.509, les dates, le nom d’hôte, les certificats clients, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés. X25519 reste non constante-temps sur le backend bigint actuel.
