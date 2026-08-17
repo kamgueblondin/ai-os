@@ -186,3 +186,10 @@ Validation AOS-179 : **316/316 tests verts**, build i386 réussi, `qemu-ai-provi
 Le handshake TLS dispose maintenant d’une vue générique, d’un accumulateur de fragments et d’un transcript borné fournis par l’appelant. Le macro-lot parse `ServerKeyExchange` ECDHE et `CertificateRequest`, étend l’automate jusqu’à `ServerHelloDone`, puis connecte le dispatch serveur au record TLS reçu sur TCP. Le chemin TCP est transactionnel : une erreur de type de record ou de handshake restaure sa séquence et sa fenêtre de réception.
 
 Validation AOS-180/AOS-184 : **320/320 tests verts**. Les 13 tests TLS ciblés et le test TCP d’intégration couvrent le framing, les limites, les transitions, le transcript et la restauration transport. Aucun `kmalloc` n’est introduit. La validation X.509, la signature ServerKeyExchange, ECDHE, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos180_184_tls_server_macro.md](aos180_184_tls_server_macro.md).
+
+
+### AOS-185 à AOS-188 — flight client TLS après ServerHelloDone
+
+Le macro-lot construit maintenant `Certificate` client vide, `ClientKeyExchange`, `ChangeCipherSpec` et `Finished` dans des buffers caller-owned. L’automate distingue le chemin avec `CertificateRequest` du chemin sans certificat client, puis impose l’ordre ClientKeyExchange → ChangeCipherSpec → Finished. Le `verify_data` est fourni par l’appelant : aucune dérivation ECDHE, PRF TLS, signature ou cryptographie de record n’est simulée.
+
+Validation AOS-185/AOS-188 : **321/321 tests verts**. La dérivation du secret partagé, l’authentification X.509, la vérification de signature, le PRF TLS 1.2, le chiffrement AEAD, Finished authentique, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos185_188_tls_client_flight.md](aos185_188_tls_client_flight.md).
