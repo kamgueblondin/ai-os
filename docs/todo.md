@@ -173,3 +173,9 @@ Validation AOS-177 : **312/312 tests verts**, build i386 réussi, `qemu-ai-provi
 Le message `Certificate` TLS 1.2 est maintenant validé sans allocation dynamique. Le codec contrôle les longueurs 24 bits du corps, de la liste et de chaque certificat, publie la première chaîne via une vue caller-owned et parcourt les entrées supplémentaires. L’automate accepte Certificate uniquement après `SERVER_HELLO_RECEIVED` et passe à `CERTIFICATE_RECEIVED`.
 
 Validation ciblée : **8/8 tests TLS verts**. La suite complète, le build i386 et les smokes QEMU restent à confirmer avant publication. La validation X.509, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos178_tls_certificate_parse.md](aos178_tls_certificate_parse.md).
+
+### AOS-179 — ServerHelloDone TLS 1.2
+
+Le message `ServerHelloDone` est désormais validé comme handshake de type 14 à corps vide. L’automate caller-owned l’accepte uniquement après `CERTIFICATE_RECEIVED`, passe à `SERVER_HELLO_DONE_RECEIVED` et rejette les transitions hors ordre ou répétées. Aucun `kmalloc`, buffer interne ou copie n’est introduit.
+
+Validation AOS-179 : **316/316 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi. Le harnais IA réessaie une seule fois une commande en cas de perte ponctuelle d’un caractère par l’injection clavier QEMU. Les échanges de clés, la dérivation de secrets, X.509, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos179_tls_server_hello_done.md](aos179_tls_server_hello_done.md).
