@@ -157,6 +157,13 @@ int ne2k_tcp_poll(ne2k_device_t* device, const ne2k_io_t* io,
                   uint8_t* frame, uint16_t frame_capacity,
                   net_tcp_connection_t* connection, uint8_t* payload,
                   uint16_t payload_capacity, uint16_t* payload_length);
+/* Reçoit un payload TCP puis émet son ACK avec les adresses IP et le cache ARP fournis. */
+int ne2k_tcp_poll_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                      const net_arp_cache_t* cache, uint8_t* rx_frame,
+                      uint16_t rx_capacity, uint8_t* tx_frame, uint16_t tx_capacity,
+                      const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                      net_tcp_connection_t* connection, uint8_t* payload,
+                      uint16_t payload_capacity, uint16_t* payload_length);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

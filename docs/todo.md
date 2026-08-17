@@ -117,3 +117,9 @@ AOS-159 ajoute la construction data suivie d’un pending caller-owned avant com
 AOS-163 ajoute `ne2k_tcp_poll`, AOS-164 formalise le retour non bloquant RX vide avec longueur nulle, et AOS-165 regroupe les contrôles de bornes, checksums, séquence et fenêtre dans le chemin de réception caller-owned. Le prochain incrément reste la génération d’un ACK automatique après payload accepté.
 
 Validation AOS-163/AOS-165 : **305/305 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi.
+
+### AOS-166/AOS-167 — polling TCP suivi d’ACK
+
+`ne2k_tcp_poll_ack` reçoit et valide un payload TCP, le publie dans le buffer appelant puis émet son ACK via le cache ARP caller-owned. RX vide retourne `1` sans émission ; une erreur ARP/TX est propagée après acceptation afin que l’appelant puisse décider d’une nouvelle tentative. Documentation : `docs/aos166_167_tcp_poll_ack.md`.
+
+Validation AOS-166/AOS-167 : **305/305 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
