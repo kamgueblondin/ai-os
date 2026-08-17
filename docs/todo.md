@@ -289,3 +289,12 @@ Le contexte caller-owned `net_tcp_tls_stream_t` réassemble désormais record et
 Le module `net_http_tls` construit un GET HTTP/1.1 minimal, le chiffre via la session TLS AES-GCM/TCP et ouvre transactionnellement une réponse HTTP/1.1 complète déjà déchiffrée. Référence : [aos265_272_tls_stream_http.md](aos265_272_tls_stream_http.md).
 
 Le flux ne prend encore en charge qu’un message handshake par record et une réponse HTTP complète dans un seul plaintext. La chaîne X.509, les dates, le nom d’hôte, les certificats clients, `Content-Length`, chunked, les réponses streaming, HTTP POST, l’authentification HTTP, les appels LLM et HTTPS de production complet restent non implémentés. Le backend X25519/bigint reste non constante-temps.
+
+
+### AOS-273 à AOS-280 — réponse HTTP Content-Length progressive
+
+Le module HTTP/TLS expose désormais `net_http_response_accumulator_t` et `net_http_tls_open_response_stream`. Ils accumulent une réponse HTTP/1.1 sur plusieurs records AES-GCM, exigent un `Content-Length` décimal unique borné à 65 535, et publient une vue body uniquement lorsque la taille reçue correspond exactement à la taille annoncée. Les erreurs HTTP, TCP ou AEAD restaurent le contexte de l’appel.
+
+Le test couvre une réponse `200` dont le body de cinq octets arrive en deux records TLS successifs. Référence : [aos273_280_http_content_length_stream.md](aos273_280_http_content_length_stream.md).
+
+`Transfer-Encoding: chunked`, les réponses terminées par fermeture, trailers, compression, HTTP/2, POST, authentification applicative, pagination, streaming LLM, handshake de production, chaîne X.509, dates, nom d’hôte et backend X25519 constante-temps restent non implémentés.
