@@ -3,6 +3,7 @@
 #include <stdint.h>
 #define NET_TLS_RECORD_HEADER 5U
 #define NET_TLS_CONTENT_HANDSHAKE 22U
+#define NET_TLS_CONTENT_APPLICATION_DATA 23U
 #define NET_TLS_VERSION_1_2_MAJOR 3U
 #define NET_TLS_VERSION_1_2_MINOR 3U
 #define NET_TLS_HANDSHAKE_HEADER 4U
@@ -21,6 +22,7 @@ typedef struct { uint8_t type; const uint8_t* body; uint32_t body_length; } net_
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_handshake_accumulator_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; } net_tls_transcript_t;
 typedef struct { const uint8_t* client_write_key; const uint8_t* server_write_key; const uint8_t* client_fixed_iv; const uint8_t* server_fixed_iv; } net_tls_aes128_gcm_key_block_t;
+typedef struct { const uint8_t* write_key; const uint8_t* read_key; const uint8_t* write_fixed_iv; const uint8_t* read_fixed_iv; uint64_t write_sequence; uint64_t read_sequence; } net_tls_aes_gcm_session_t;
 typedef struct { const uint8_t* random; const uint8_t* session_id; uint8_t session_id_length; uint16_t cipher_suite; uint8_t compression_method; const uint8_t* extensions; uint16_t extensions_length; } net_tls_server_hello_view_t;
 typedef struct { const uint8_t* certificate; uint32_t certificate_length; uint32_t certificate_list_length; } net_tls_certificate_view_t;
 typedef struct { uint16_t named_curve; const uint8_t* public_key; uint8_t public_key_length; uint8_t hash_algorithm; uint8_t signature_algorithm; const uint8_t* signature; uint16_t signature_length; } net_tls_server_key_exchange_view_t;
@@ -29,6 +31,21 @@ typedef enum { NET_TLS_HANDSHAKE_IDLE=0, NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT=1, 
 typedef struct { net_tls_handshake_state_t state; uint16_t cipher_suite; const uint8_t* server_random; const uint8_t* server_certificate; uint32_t server_certificate_length; uint16_t server_named_curve; const uint8_t* server_public_key; uint8_t server_public_key_length; uint8_t certificate_requested; } net_tls_handshake_t;
 int net_tls_record_build(uint8_t* record, uint32_t capacity, uint8_t content_type, const uint8_t* payload, uint16_t payload_length);
 int net_tls_record_parse(const uint8_t* record,uint32_t length,net_tls_record_view_t* out);
+int net_tls_aes_gcm_record_build(uint8_t* record, uint32_t capacity, uint8_t content_type,
+                                 uint64_t sequence_number, const uint8_t key[16], const uint8_t fixed_iv[4],
+                                 const uint8_t* plaintext, uint16_t plaintext_length);
+int net_tls_aes_gcm_record_open(const uint8_t* record, uint32_t length, uint64_t sequence_number,
+                                const uint8_t key[16], const uint8_t fixed_iv[4],
+                                uint8_t* plaintext, uint16_t plaintext_capacity,
+                                net_tls_record_view_t* out);
+int net_tls_aes_gcm_session_init(net_tls_aes_gcm_session_t* session,
+                                 const net_tls_aes128_gcm_key_block_t* key_block, uint8_t is_client);
+int net_tls_aes_gcm_session_build(net_tls_aes_gcm_session_t* session, uint8_t* record,
+                                  uint32_t capacity, uint8_t content_type,
+                                  const uint8_t* plaintext, uint16_t plaintext_length);
+int net_tls_aes_gcm_session_open(net_tls_aes_gcm_session_t* session, const uint8_t* record,
+                                 uint32_t length, uint8_t* plaintext, uint16_t plaintext_capacity,
+                                 net_tls_record_view_t* out);
 /* Parse le premier record d’un flux TCP et publie les octets consommés. */
 int net_tls_record_parse_stream(const uint8_t* stream, uint32_t length,
                                 net_tls_record_view_t* out, uint16_t* consumed);

@@ -99,6 +99,17 @@ int net_tcp_connection_accept_tls_postflight(net_tcp_connection_t* connection,
                                              net_tls_transcript_t* transcript,
                                              const uint8_t expected_verify_data[12],
                                              uint16_t* consumed);
+int net_tcp_connection_build_tls_aes_gcm(net_tcp_connection_t* connection,
+                                         net_tls_aes_gcm_session_t* session,
+                                         uint8_t* segment, uint32_t segment_capacity,
+                                         uint8_t* record, uint32_t record_capacity,
+                                         uint8_t content_type, const uint8_t* plaintext,
+                                         uint16_t plaintext_length, uint8_t retransmit_limit);
+int net_tcp_connection_accept_tls_aes_gcm(net_tcp_connection_t* connection,
+                                          net_tls_aes_gcm_session_t* session,
+                                          const net_tcp_view_t* view, uint8_t* plaintext,
+                                          uint16_t plaintext_capacity, net_tls_record_view_t* out,
+                                          uint16_t* consumed);
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,
                                            uint16_t receive_window);
 int net_tcp_connection_track_send(net_tcp_connection_t* connection,

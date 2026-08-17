@@ -214,3 +214,10 @@ Validation AOS-193/AOS-196 : **324/324 tests verts**. Le code ne déchiffre ni n
 Une fonction caller-owned dérive maintenant le bloc de 40 octets `key expansion` pour AES-128-GCM à partir du master secret et de `server_random || client_random`. Elle publie les vues client/server write keys de 16 octets et les IV fixes de 4 octets. Le vecteur HMAC-SHA256 couvre le bloc entier et les bornes de capacité.
 
 Validation AOS-197/AOS-200 : **325/325 tests verts**. AES-128-GCM, nonce explicite, tags, chiffrement/déchiffrement de records, ECDHE réel, X.509, HTTP et les appels LLM TLS sécurisés de bout en bout restent non implémentés. Référence : [aos197_200_tls_key_block.md](aos197_200_tls_key_block.md).
+
+
+### AOS-201 à AOS-208 — AES-128-GCM, records protégés et TCP transactionnel
+
+AES-128, GHASH et GCM sont maintenant implémentés en freestanding. Les records TLS 1.2 utilisent le nonce explicite de huit octets, l’AAD de séquence TLS et un tag de seize octets. Les sessions caller-owned sélectionnent les clés client/serveur, avancent les séquences après succès seulement et les adaptateurs TCP restaurent les états TCP/TLS en cas d’échec de chiffrement, d’authentification ou de déchiffrement.
+
+Validation AOS-201/AOS-208 : **330/330 tests verts**, build i386 réussi, smokes `qemu-ai-provider` et `qemu-ne2k-status` réussis. ECDHE réel, X.509, vérification `ServerKeyExchange`, validation des suites négociées, orchestration TLS de production, HTTP et appels LLM sécurisés de bout en bout restent à implémenter. Référence : [aos201_208_tls_aes_gcm.md](aos201_208_tls_aes_gcm.md).
