@@ -228,3 +228,8 @@ Validation AOS-201/AOS-208 : **330/330 tests verts**, build i386 réussi, smokes
 Un lecteur DER borné et un parseur X.509 minimal publient maintenant sans copie le TBSCertificate, le serial, issuer, subject, dates de validité et la clé publique RSA du certificat serveur. Le handshake peut déclencher explicitement cette analyse après réception de Certificate. Les longueurs tronquées, indéfinies ou incohérentes sont rejetées.
 
 Validation AOS-209/AOS-216 : **332/332 tests verts**, build i386 réussi. La chaîne de confiance, les dates, l’hôte, les usages, les signatures de certificats, ECDHE réel, la signature ServerKeyExchange et l’orchestration TLS de production restent à implémenter. Référence : [aos209_216_x509_der.md](aos209_216_x509_der.md).
+
+
+### AOS-217 — Interface RSA PKCS#1 v1.5 SHA-256 : état
+
+L’interface caller-owned `rsa_pkcs1_v15_sha256_verify` est réservée pour la future vérification de signature. Elle ne contient encore ni bigint, ni exponentiation modulaire, ni décodage PKCS#1, ni tests RSA, ni intégration `ServerKeyExchange` ; elle ne fournit donc aucune authentification. Référence : [aos217_rsa_interface_status.md](aos217_rsa_interface_status.md).
