@@ -34,7 +34,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
           build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/fat16.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_gguf_loader.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
-          build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/kbd_buffer.o build/net_ethernet_arp.o build/net_nic.o
+          build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/kbd_buffer.o build/net_ethernet_arp.o build/net_nic.o build/pci.o
 
 # L'ABI partagée influence notamment la taille de task_t et des messages IPC.
 # Une évolution de structure doit donc reconstruire toute l'image, pas seulement ipc.o.
@@ -160,6 +160,10 @@ build/net_ethernet_arp.o: kernel/net_ethernet_arp.c kernel/net_ethernet_arp.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/net_nic.o: kernel/net_nic.c kernel/net_nic.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/pci.o: kernel/pci.c kernel/pci.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
