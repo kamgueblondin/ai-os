@@ -72,3 +72,30 @@ Le mode simulation fonctionnait parfaitement mais le passage au mode utilisateur
 
 **Statut 2026 :** ce blocage est levé. Le kernel pose `g_reschedule_needed` puis le timer appelle `schedule()` une fois vers le shell ELF.
 
+
+## Mise à jour réseau TCP — août 2026
+
+Les lots réseau AOS-132 à AOS-150 sont désormais intégrés progressivement et validés par CI. Le pilote NE2000 sait lire la PROM MAC, émettre en PIO, sonder la réception et traiter IRQ3 ; ARP statique et actif, DHCP et DNS A sont disponibles dans leurs chemins caller-owned. AOS-147 construit un SYN IPv4 TCP, AOS-148 expose les segments TCP reçus, AOS-149 valide strictement un SYN-ACK et AOS-150 construit le premier ACK avec un état `SYN_SENT`/`ESTABLISHED` appartenant à l’appelant.
+
+| Domaine | Statut réel |
+|---|---|
+| Ethernet, ARP, DHCP, DNS A | Implémentés et couverts par tests/smokes. |
+| TCP SYN, réception, validation SYN-ACK, premier ACK en mémoire | Implémentés ; 295 tests verts sur AOS-150. |
+| Émission physique de l’ACK via l’orchestrateur NE2000 | Prochain lot. |
+| Segments TCP avec données caller-owned | Prochain lot. |
+| Retransmissions, timers, congestion et fermeture complète | Non implémentés. |
+| TLS et appels LLM en ligne | Non fonctionnels de bout en bout à ce stade. |
+
+Cette section remplace toute interprétation de la ligne générique « Pilote NIC, DHCP, DNS, TCP/TLS et client OpenAI effectif » : les sous-composants réalisés sont précisés ci-dessus, tandis que TCP/TLS et le client LLM restent partiels.
+
+Références détaillées : [AOS-149](aos149_tcp_synack_validation.md) et [AOS-150](aos150_tcp_first_ack.md).
+
+### AOS-151 — émission du premier ACK via NE2000
+
+AOS-151 est implémenté localement : `ne2k_tcp_ack` utilise le cache ARP caller-owned, construit Ethernet/IPv4/TCP, calcule les checksums et transmet via `ne2k_tx_submit`. Le test NE2000 valide les ports, séquences, ACK et adresses MAC. La validation complète et la PR restent à effectuer après la non-régression.
+
+Le prochain lot logique est AOS-152 : codec TCP avec données caller-owned et émission bornée d’un segment ACK+payload. Cela ne constitue pas encore un client HTTP, TLS ou LLM fonctionnel.
+
+### AOS-152 — données TCP caller-owned
+
+AOS-152 ajoute le codec `ACK+payload` et `ne2k_tcp_data`, avec longueur IPv4 exacte, checksums TCP/IPv4 et contrôles de capacité. La suite locale atteint 297 tests verts. Le smoke `qemu-ai-provider` a échoué une première fois sur l’absence de sortie `Runtime IA bare-metal`, puis a réussi lors d’une relance immédiate ; le smoke `qemu-ne2k-status` est vert. Cette anomalie de smoke IA reste à surveiller séparément du chemin TCP.

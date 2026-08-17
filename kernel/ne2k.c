@@ -171,6 +171,63 @@ int ne2k_tcp_syn(ne2k_device_t* device, const ne2k_io_t* io,
       return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + tcp_length)); }
 }
 
+int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                 const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                 const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                 const net_tcp_connection_t* connection) {
+    uint8_t destination_mac[6]; uint16_t tcp_length, i; uint32_t sum = 0U;
+    if (!device || !io || !cache || !frame || !local_ip || !remote_ip || !connection ||
+        !device->mac_valid || frame_capacity < NET_ETHERNET_HEADER_SIZE + 40U) return -1;
+    if (net_arp_cache_lookup(cache, remote_ip, destination_mac) != 0) return -2;
+    for (i = 0; i < 6U; ++i) { frame[i] = destination_mac[i]; frame[6U+i] = device->mac[i]; }
+    frame[12] = 0x08U; frame[13] = 0x00U;
+    for (i = 0; i < 40U; ++i) frame[NET_ETHERNET_HEADER_SIZE+i] = 0U;
+    frame[NET_ETHERNET_HEADER_SIZE] = 0x45U;
+    frame[NET_ETHERNET_HEADER_SIZE+2U] = 0U; frame[NET_ETHERNET_HEADER_SIZE+3U] = 40U;
+    frame[NET_ETHERNET_HEADER_SIZE+8U] = 64U; frame[NET_ETHERNET_HEADER_SIZE+9U] = NET_TCP_PROTOCOL;
+    for (i = 0; i < 4U; ++i) { frame[NET_ETHERNET_HEADER_SIZE+12U+i] = local_ip[i]; frame[NET_ETHERNET_HEADER_SIZE+16U+i] = remote_ip[i]; }
+    tcp_length = (uint16_t)net_tcp_connection_build_ack(connection, frame + NET_ETHERNET_HEADER_SIZE + 20U,
+                                                         frame_capacity - NET_ETHERNET_HEADER_SIZE - 20U);
+    if ((int16_t)tcp_length < 0) return -3;
+    /* Le segment TCP est construit dans la zone caller-owned; calculer son checksum. */
+    frame[NET_ETHERNET_HEADER_SIZE+36U] = 0U; frame[NET_ETHERNET_HEADER_SIZE+37U] = 0U;
+    { uint16_t checksum = net_tcp_checksum_ipv4(local_ip, remote_ip, frame + NET_ETHERNET_HEADER_SIZE + 20U, tcp_length);
+      frame[NET_ETHERNET_HEADER_SIZE+36U] = (uint8_t)(checksum >> 8); frame[NET_ETHERNET_HEADER_SIZE+37U] = (uint8_t)checksum; }
+    for (i = 0; i < 20U; i += 2U) { sum += ((uint16_t)frame[NET_ETHERNET_HEADER_SIZE+i] << 8) | frame[NET_ETHERNET_HEADER_SIZE+i+1U]; while (sum >> 16) sum = (sum & 0xffffU) + (sum >> 16); }
+    sum = (~sum) & 0xffffU; frame[NET_ETHERNET_HEADER_SIZE+10U] = (uint8_t)(sum >> 8); frame[NET_ETHERNET_HEADER_SIZE+11U] = (uint8_t)sum;
+    return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + 40U));
+}
+
+int ne2k_tcp_data(ne2k_device_t* device, const ne2k_io_t* io,
+                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                  const net_tcp_connection_t* connection, const uint8_t* payload,
+                  uint16_t payload_length) {
+    uint8_t destination_mac[6]; uint16_t tcp_length, i, ip_length; uint32_t sum = 0U;
+    if (!device || !io || !cache || !frame || !local_ip || !remote_ip || !connection ||
+        (!payload && payload_length != 0U) || !device->mac_valid) return -1;
+    if (net_arp_cache_lookup(cache, remote_ip, destination_mac) != 0) return -2;
+    ip_length = (uint16_t)(20U + NET_TCP_HEADER_SIZE + payload_length);
+    if ((uint32_t)NET_ETHERNET_HEADER_SIZE + ip_length > frame_capacity ||
+        (uint32_t)NET_ETHERNET_HEADER_SIZE + ip_length > NE2K_ETHERNET_MAX_FRAME) return -3;
+    for (i = 0; i < 6U; ++i) { frame[i] = destination_mac[i]; frame[6U+i] = device->mac[i]; }
+    frame[12] = 0x08U; frame[13] = 0x00U;
+    for (i = 0; i < ip_length; ++i) frame[NET_ETHERNET_HEADER_SIZE+i] = 0U;
+    frame[14] = 0x45U; frame[16] = (uint8_t)(ip_length >> 8); frame[17] = (uint8_t)ip_length;
+    frame[22] = 64U; frame[23] = NET_TCP_PROTOCOL;
+    for (i = 0; i < 4U; ++i) { frame[26U+i] = local_ip[i]; frame[30U+i] = remote_ip[i]; }
+    tcp_length = (uint16_t)net_tcp_build_data(frame + 34U, frame_capacity - 34U,
+                                               connection->local_port, connection->remote_port,
+                                               connection->local_sequence, connection->remote_sequence,
+                                               payload, payload_length);
+    if ((int16_t)tcp_length < 0) return -4;
+    { uint16_t checksum = net_tcp_checksum_ipv4(local_ip, remote_ip, frame + 34U, tcp_length);
+      frame[50U] = (uint8_t)(checksum >> 8); frame[51U] = (uint8_t)checksum; }
+    for (i = 0; i < 20U; i += 2U) { sum += ((uint16_t)frame[14U+i] << 8) | frame[15U+i]; while (sum >> 16) sum = (sum & 0xffffU) + (sum >> 16); }
+    sum = (~sum) & 0xffffU; frame[24] = (uint8_t)(sum >> 8); frame[25] = (uint8_t)sum;
+    return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + ip_length));
+}
+
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result) {

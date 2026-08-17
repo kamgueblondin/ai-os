@@ -38,6 +38,10 @@ int net_tcp_build_syn(uint8_t* segment, uint32_t capacity,
 int net_tcp_build_ack(uint8_t* segment, uint32_t capacity,
                       uint16_t source_port, uint16_t destination_port,
                       uint32_t sequence, uint32_t acknowledgment);
+int net_tcp_build_data(uint8_t* segment, uint32_t capacity,
+                       uint16_t source_port, uint16_t destination_port,
+                       uint32_t sequence, uint32_t acknowledgment,
+                       const uint8_t* payload, uint16_t payload_length);
 int net_tcp_parse(const uint8_t* segment, uint32_t length,
                   net_tcp_view_t* out);
 /* Calcule le checksum TCP IPv4 sur le segment caller-owned. */

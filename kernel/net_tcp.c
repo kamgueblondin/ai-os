@@ -27,6 +27,16 @@ int net_tcp_build_ack(uint8_t* segment, uint32_t capacity, uint16_t source_port,
     return build_control(segment, capacity, source_port, destination_port, sequence, acknowledgment, NET_TCP_FLAG_ACK);
 }
 
+int net_tcp_build_data(uint8_t* segment, uint32_t capacity, uint16_t source_port,
+                       uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment,
+                       const uint8_t* payload, uint16_t payload_length) {
+    uint16_t i; uint32_t total = NET_TCP_HEADER_SIZE + payload_length;
+    if (!segment || (!payload && payload_length != 0U) || total > capacity) return -1;
+    if (build_control(segment, capacity, source_port, destination_port, sequence, acknowledgment, NET_TCP_FLAG_ACK) < 0) return -2;
+    for (i = 0; i < payload_length; ++i) segment[NET_TCP_HEADER_SIZE + i] = payload[i];
+    return (int)total;
+}
+
 uint16_t net_tcp_checksum_ipv4(const uint8_t source_ip[4], const uint8_t destination_ip[4],
                                const uint8_t* segment, uint16_t length) {
     uint32_t sum = 0U; uint16_t i;

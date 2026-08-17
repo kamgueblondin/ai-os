@@ -45,7 +45,17 @@ void test_connection_builds_first_ack(void) {
     TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
 }
 
+void test_build_and_parse_ack_payload(void) {
+    uint8_t segment[32] = {0}; uint8_t payload[4] = {'P','I','N','G'}; net_tcp_view_t view;
+    TEST_ASSERT_EQUAL(24, net_tcp_build_data(segment, sizeof(segment), 49152, 443, 101U, 701U, payload, sizeof(payload)));
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, 24, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_ACK, view.flags); TEST_ASSERT_EQUAL(101U, view.sequence);
+    TEST_ASSERT_EQUAL(701U, view.acknowledgment); TEST_ASSERT_EQUAL(4, view.payload_length);
+    TEST_ASSERT_EQUAL('P', view.payload[0]); TEST_ASSERT_EQUAL('G', view.payload[3]);
+    TEST_ASSERT_NOT_EQUAL(0, net_tcp_build_data(segment, 23, 49152, 443, 101U, 701U, payload, sizeof(payload)));
+}
+
 int main(void) {
-    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); unity_print_results(); unity_cleanup();
+    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
 }
