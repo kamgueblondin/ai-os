@@ -82,6 +82,23 @@ int ne2k_tx_udp(ne2k_device_t* device, const ne2k_io_t* io,
                 const uint8_t source_ipv4[4], const uint8_t destination_ipv4[4],
                 uint16_t source_port, uint16_t destination_port,
                 const uint8_t* payload, uint16_t payload_length);
+/* Résout une IPv4 par ARP avec nombre d’essais borné et cache caller-owned. */
+int ne2k_arp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
+                     net_arp_cache_t* cache,
+                     uint8_t* request_frame, uint16_t request_capacity,
+                     uint8_t* rx_frame, uint16_t rx_capacity,
+                     const uint8_t local_mac[6], const uint8_t local_ipv4[4],
+                     const uint8_t target_ipv4[4], uint16_t attempts);
+/* Résout la MAC puis construit et émet un paquet IPv4/UDP. */
+int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
+                        net_arp_cache_t* cache,
+                        uint8_t* request_frame, uint16_t request_capacity,
+                        uint8_t* rx_frame, uint16_t rx_capacity,
+                        uint8_t* tx_frame, uint16_t tx_capacity,
+                        const uint8_t local_ipv4[4], const uint8_t target_ipv4[4],
+                        uint16_t source_port, uint16_t destination_port,
+                        const uint8_t* payload, uint16_t payload_length,
+                        uint16_t attempts);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
