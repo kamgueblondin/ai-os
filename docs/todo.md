@@ -155,3 +155,7 @@ L’état d’assemblage TLS est désormais caller-owned : les fragments TCP son
 ### AOS-175 — parsing ServerHello TLS
 
 Le ServerHello TLS minimal est désormais parsé sans copie dans une vue caller-owned, avec contrôles de longueur, version, random, session ID, cipher suite et compression. Validation : **311/311 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi. Extensions TLS, dérivation de clés, chiffrement, X.509, HTTP et appels LLM en ligne restent hors périmètre.
+
+### AOS-176 — état minimal du handshake TLS
+
+Le handshake TLS caller-owned suit désormais l’ordre `IDLE → CLIENT_HELLO_SENT → SERVER_HELLO_RECEIVED`, conserve la suite et une vue du random serveur, et rejette les transitions invalides. Validation : **312/312 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi. La cryptographie, Finished, X.509, HTTP et les appels LLM en ligne restent hors périmètre.
