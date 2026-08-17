@@ -69,6 +69,11 @@ int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io);
 /* Copie une trame caller-owned dans la RAM distante puis déclenche TX. */
 int ne2k_tx_submit(ne2k_device_t* device, const ne2k_io_t* io,
                    const uint8_t* frame, uint16_t length);
+/* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
+int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
+/* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
+void ne2k_irq_service(void);
+uint32_t ne2k_irq_count(void);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);

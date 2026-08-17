@@ -1,9 +1,11 @@
 extern keyboard_interrupt_handler
 extern timer_handler
+extern ne2k_irq_handler
 extern syscall_handler
 
 global irq0
 global irq1
+global irq3
 global isr_syscall
 
 ; ISR pour le timer (IRQ 0) - Version robuste
@@ -73,6 +75,28 @@ irq1:
     pop ds
     
     ; Retour d'interruption
+    iret
+
+; ISR pour la carte réseau NE2000 (IRQ 3)
+irq3:
+    push ds
+    push es
+    push fs
+    push gs
+    pushad
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    call ne2k_irq_handler
+    mov al, 0x20
+    out 0x20, al
+    popad
+    pop gs
+    pop fs
+    pop es
+    pop ds
     iret
 
 ; ISR pour le scheduler volontaire (INT 0x30)
