@@ -2,6 +2,7 @@
 #define AIOS_NET_TCP_H
 
 #include <stdint.h>
+#include "net_tls_record.h"
 
 #define NET_TCP_HEADER_SIZE 20U
 #define NET_TCP_PROTOCOL 6U
@@ -74,6 +75,11 @@ int net_tcp_connection_build_data(net_tcp_connection_t* connection,
                                   uint8_t* segment, uint32_t capacity,
                                   const uint8_t* payload, uint16_t payload_length,
                                   uint8_t retransmit_limit);
+int net_tcp_connection_build_tls_record(net_tcp_connection_t* connection,
+                                        uint8_t* segment, uint32_t capacity,
+                                        uint8_t* record, uint32_t record_capacity,
+                                        uint8_t content_type, const uint8_t* payload,
+                                        uint16_t payload_length, uint8_t retransmit_limit);
 int net_tcp_connection_commit_send(net_tcp_connection_t* connection, uint16_t payload_length);
 int net_tcp_connection_accept_data(net_tcp_connection_t* connection,
                                    const net_tcp_view_t* view,

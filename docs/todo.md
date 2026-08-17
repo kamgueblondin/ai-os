@@ -135,3 +135,9 @@ Validation AOS-168/AOS-169 : **305/305 tests verts**, build i386 réussi, smoke 
 Le codec TLS record construit maintenant un ClientHello minimal caller-owned avec random fourni, sans génération cryptographique ni négociation complète. SNI/ALPN, dérivation de clés, chiffrement, X.509, HTTP et appels LLM en ligne restent hors périmètre fonctionnel.
 
 Validation AOS-170 : **306/306 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
+
+### AOS-171 — composition TLS sur TCP
+
+`net_tcp_connection_build_tls_record` construit un record TLS dans un buffer caller-owned puis l’encapsule dans un segment TCP pending, réutilisable pour commit et retransmission. Le raccordement ne fournit encore ni cryptographie TLS, ni certificat, ni HTTP ou appel LLM en ligne.
+
+Validation AOS-171 : **307/307 tests verts**, après ajout de `net_tls_record.c` aux chemins de linkage TCP/NE2000 du harness ; build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
