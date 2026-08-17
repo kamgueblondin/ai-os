@@ -26,8 +26,12 @@ int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_
     out->session_id_length=session_length; out->session_id=handshake+39; pos=(uint16_t)(39U+session_length);
     out->cipher_suite=get16(handshake+pos); out->compression_method=handshake[pos+2U];
     if(out->compression_method!=0U)return -5;
-    if((uint32_t)pos+3U!=length)return -6;
-    return 0;
+    pos=(uint16_t)(pos+3U); out->extensions=0; out->extensions_length=0U;
+    if((uint32_t)pos==length)return 0;
+    if((uint32_t)pos+2U>length)return -6;
+    out->extensions_length=get16(handshake+pos); pos=(uint16_t)(pos+2U);
+    if((uint32_t)pos+out->extensions_length!=length)return -7;
+    out->extensions=handshake+pos; return 0;
 }
 
 int net_tls_handshake_init(net_tls_handshake_t* handshake){
