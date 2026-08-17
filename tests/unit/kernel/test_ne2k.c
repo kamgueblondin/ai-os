@@ -123,6 +123,21 @@ void test_tcp_ack_is_emitted_from_connection_state(void) {
       TEST_ASSERT_EQUAL(0, ne2k_tcp_data(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection, payload, sizeof(payload)));
       TEST_ASSERT_EQUAL(44, ((uint16_t)frame[16] << 8) | frame[17]);
       TEST_ASSERT_EQUAL('P', frame[54]); TEST_ASSERT_EQUAL('G', frame[57]); }
+    { uint8_t payload[4] = {'P','I','N','G'}; uint32_t first_sequence;
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_track_send(&connection, payload, sizeof(payload), 1U));
+      TEST_ASSERT_EQUAL(0, ne2k_tcp_data(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection, payload, sizeof(payload)));
+      first_sequence = ((uint32_t)frame[38] << 24) | ((uint32_t)frame[39] << 16) | ((uint32_t)frame[40] << 8) | frame[41];
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_commit_send(&connection, sizeof(payload)));
+      TEST_ASSERT_EQUAL(0, ne2k_tcp_retransmit(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection));
+      TEST_ASSERT_EQUAL(first_sequence, ((uint32_t)frame[38] << 24) | ((uint32_t)frame[39] << 16) | ((uint32_t)frame[40] << 8) | frame[41]);
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_retransmit_allowed(&connection));
+      TEST_ASSERT_NOT_EQUAL(0, ne2k_tcp_retransmit(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection)); }
+    { net_tcp_view_t syn_ack = {443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &syn_ack));
+      TEST_ASSERT_EQUAL(0, ne2k_tcp_fin(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection));
+      TEST_ASSERT_EQUAL(NET_TCP_STATE_FIN_WAIT_1, connection.state);
+      TEST_ASSERT_EQUAL((NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK), frame[47]); }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {

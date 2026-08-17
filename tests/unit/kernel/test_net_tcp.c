@@ -70,6 +70,43 @@ void test_connection_advances_sequences_and_accepts_data(void) {
     TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_commit_send(&connection, 0U));
 }
 
+void test_ack_confirms_pending_payload(void) {
+    net_tcp_connection_t connection; uint8_t payload[2] = {'O','K'}; net_tcp_view_t view;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    view = (net_tcp_view_t){443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_track_send(&connection, payload, sizeof(payload), 2U));
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_commit_send(&connection, sizeof(payload)));
+    view = (net_tcp_view_t){443, 49152, 701U, 103U, NET_TCP_FLAG_ACK, 0, 0};
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_ack(&connection, &view));
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_retransmit_allowed(&connection));
+    view.acknowledgment = 104U; TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_ack(&connection, &view));
+}
+
+void test_fin_close_transitions(void) {
+    net_tcp_connection_t connection; net_tcp_view_t view; uint8_t segment[20] = {0};
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    view = (net_tcp_view_t){443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
+    TEST_ASSERT_EQUAL(20, net_tcp_connection_begin_close(&connection, segment, sizeof(segment)));
+    TEST_ASSERT_EQUAL((NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK), segment[13]);
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_FIN_WAIT_1, connection.state); TEST_ASSERT_EQUAL(102U, connection.local_sequence);
+    view.flags = NET_TCP_FLAG_ACK; view.acknowledgment = 102U; view.sequence = 700U;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_ack(&connection, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_FIN_WAIT_2, connection.state);
+    view.flags = NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK; view.sequence = 701U;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_fin(&connection, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_CLOSED, connection.state);
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    view.flags = NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK; view.sequence = 700U; view.acknowledgment = 101U;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &view));
+    view.flags = NET_TCP_FLAG_FIN | NET_TCP_FLAG_ACK; view.sequence = 701U; view.acknowledgment = 101U;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_fin(&connection, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_CLOSE_WAIT, connection.state); TEST_ASSERT_EQUAL(702U, connection.remote_sequence);
+    TEST_ASSERT_EQUAL(20, net_tcp_connection_build_ack(&connection, segment, sizeof(segment)));
+    view.sequence = 704U; TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_fin(&connection, &view));
+}
+
 void test_bounded_retransmission_metadata(void) {
     net_tcp_connection_t connection; uint8_t payload[2] = {'O','K'};
     TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
@@ -84,6 +121,6 @@ void test_bounded_retransmission_metadata(void) {
 }
 
 int main(void) {
-    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
+    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
 }

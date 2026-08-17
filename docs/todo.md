@@ -103,3 +103,7 @@ AOS-152 ajoute le codec `ACK+payload` et `ne2k_tcp_data`, avec longueur IPv4 exa
 ### AOS-153/AOS-154 — séquences, ACK reçus et retransmission bornée
 
 AOS-153 fait progresser explicitement `local_sequence` après envoi confirmé et `remote_sequence` après acceptation d’un payload en séquence. AOS-154 conserve une vue caller-owned du dernier payload et borne le nombre de retransmissions autorisées. Aucun timer, RTO, mécanisme de congestion ou stockage copié n’est introduit. La validation complète atteint désormais 299 tests verts, avec build i386 et deux smokes QEMU réussis.
+
+### AOS-155 à AOS-158 — retransmission, ACK final et fermeture TCP
+
+Les lots ajoutent la retransmission NE2000 caller-owned, la confirmation et purge du payload pending, le codec et l’émission FIN+ACK, puis les transitions FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT et CLOSED. La validation complète atteint 301 tests verts, avec build i386, smoke IA et smoke NE2000 réussis. Les timers RTO, la congestion, TLS, HTTP et l’appel LLM en ligne restent hors périmètre fonctionnel.
