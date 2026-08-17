@@ -118,6 +118,40 @@ int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                                  (uint16_t)(packet_length - NE2K_RX_HEADER_SIZE));
 }
 
+int ne2k_tx_submit(ne2k_device_t* device, const ne2k_io_t* io,
+                   const uint8_t* frame, uint16_t length) {
+    uint16_t base;
+    uint16_t wire_length;
+    uint32_t i;
+    if (!device || !io || !io->inb || !io->outb || !frame ||
+        !device->initialized || device->base_port == 0U || length == 0U ||
+        length > NE2K_ETHERNET_MAX_FRAME)
+        return -1;
+    base = device->base_port;
+    wire_length = length < NE2K_ETHERNET_MIN_FRAME ? NE2K_ETHERNET_MIN_FRAME : length;
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
+             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_DCR), NE2K_DCR_BYTE_MODE);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR0), (uint8_t)wire_length);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR1), (uint8_t)(wire_length >> 8));
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR0), 0U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR1), NE2K_TX_PAGE);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), NE2K_COMMAND_REMOTE_WRITE);
+    for (i = 0; i < (uint32_t)wire_length; ++i)
+        io->outb(io->context, (uint16_t)(base + NE2K_REG_DATA),
+                 i < length ? frame[i] : 0U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_ISR), NE2K_ISR_RDC);
+    for (i = 0; i < 65535U; ++i)
+        if ((io->inb(io->context, (uint16_t)(base + NE2K_REG_ISR)) & NE2K_ISR_RDC) != 0U)
+            break;
+    if (i == 65535U) return -2;
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_TPSR), NE2K_TX_PAGE);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_TBCR0), (uint8_t)wire_length);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_TBCR1), (uint8_t)(wire_length >> 8));
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), NE2K_COMMAND_TRANSMIT);
+    return 0;
+}
+
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io) {
     uint16_t base;
     if (!device || !io || !io->outb || device->base_port == 0U) return -1;

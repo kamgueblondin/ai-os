@@ -15,6 +15,12 @@
 #define NE2K_REG_RCR     0x0cU
 #define NE2K_REG_TCR    0x0dU
 #define NE2K_REG_DATA   0x10U
+#define NE2K_REG_TBCR0  0x05U
+#define NE2K_REG_TBCR1  0x06U
+#define NE2K_REG_RBCR0  0x0aU
+#define NE2K_REG_RBCR1  0x0bU
+#define NE2K_REG_RSAR0  0x08U
+#define NE2K_REG_RSAR1  0x09U
 
 #define NE2K_REG_CURR    0x07U
 #define NE2K_COMMAND_STOP 0x01U
@@ -22,6 +28,13 @@
 #define NE2K_COMMAND_PAGE1 0x40U
 #define NE2K_DCR_WORD_MODE 0x49U
 #define NE2K_ISR_RESET 0x80U
+#define NE2K_ISR_RDC    0x40U
+#define NE2K_DCR_BYTE_MODE 0x48U
+#define NE2K_COMMAND_REMOTE_WRITE 0x12U
+#define NE2K_COMMAND_TRANSMIT 0x26U
+#define NE2K_TX_PAGE 0x40U
+#define NE2K_ETHERNET_MIN_FRAME 60U
+#define NE2K_ETHERNET_MAX_FRAME 1514U
 #define NE2K_RX_HEADER_SIZE 4U
 #define NE2K_RX_STATUS_OK 0x01U
 
@@ -53,6 +66,9 @@ int ne2k_configure_rings(ne2k_device_t* device, const ne2k_io_t* io);
 int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]);
 /* Lit les six octets pairs de la PROM NE2000 sans conserver de buffer externe. */
 int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io);
+/* Copie une trame caller-owned dans la RAM distante puis déclenche TX. */
+int ne2k_tx_submit(ne2k_device_t* device, const ne2k_io_t* io,
+                   const uint8_t* frame, uint16_t length);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);
