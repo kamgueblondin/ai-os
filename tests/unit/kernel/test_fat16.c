@@ -329,6 +329,7 @@ static void test_loads_gpt2_from_fat16(void) {
                         float block_gamma[256] = {0.0f};
                         float block_beta[256] = {0.0f};
                         float block_norm[256] = {0.0f};
+                        gpt2_gguf_runtime_t runtime;
                         TEST_ASSERT_EQUAL(-9, gpt2_gguf_mlp_forward_fat16(
                             &volume, "gpt2.ggu", &model, &tensor, &tensor,
                             GPT2_QK_K, 2U, mlp_input, mlp_row, sizeof(mlp_row), 0, 0,
@@ -371,6 +372,12 @@ static void test_loads_gpt2_from_fat16(void) {
                         TEST_ASSERT_EQUAL(0, gpt2_gguf_kv_cache_reset(&cache));
                         TEST_ASSERT_EQUAL(0, (int)cache.count);
                         TEST_ASSERT_EQUAL(-1, gpt2_gguf_kv_cache_reset(0));
+                        TEST_ASSERT_EQUAL(-1, gpt2_gguf_runtime_prepare(
+                            0, 1U, GPT2_QK_K, (char*)mlp_row, sizeof(mlp_row),
+                            (gpt2_gguf_layer_t*)mlp_output, 1U, 0));
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_runtime_prepare(
+                            &model, 1U, GPT2_QK_K, (char*)mlp_row, sizeof(mlp_row),
+                            (gpt2_gguf_layer_t*)mlp_output, 0U, &runtime));
                     }
                 }
             }

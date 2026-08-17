@@ -158,6 +158,33 @@ int gpt2_gguf_dot_quant_row_fat16(const fat16_volume_t* volume, const char* file
 }
 
 
+int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
+                              uint32_t layer_count, uint32_t channels,
+                              char* name, uint32_t name_capacity,
+                              gpt2_gguf_layer_t* layers,
+                              uint32_t layer_capacity,
+                              gpt2_gguf_runtime_t* out) {
+    uint32_t layer;
+    int status;
+    if (!model || !name || !layers || !out) return -1;
+    if (layer_count == 0U || channels == 0U || name_capacity == 0U ||
+        layer_capacity < layer_count) return -6;
+    for (layer = 0U; layer < layer_count; layer++) {
+        status = gpt2_gguf_map_layer(&model->index, layer, name, name_capacity,
+                                     &layers[layer]);
+        if (status != 0) return status;
+        status = gpt2_gguf_validate_gpt2_layer_storage(&layers[layer], channels);
+        if (status != 0) return status;
+    }
+    out->model = model;
+    out->layers = layers;
+    out->layer_count = layer_count;
+    out->channels = channels;
+    out->ready = 1U;
+    return 0;
+}
+
+
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
                                    uint32_t layer_index, uint32_t channels,
                                    uint32_t position, char* name, uint32_t name_capacity,

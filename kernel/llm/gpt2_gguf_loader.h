@@ -27,6 +27,22 @@ typedef struct {
     uint32_t count;
 } gpt2_gguf_kv_cache_t;
 
+typedef struct {
+    const gpt2_gguf_loaded_model_t* model;
+    gpt2_gguf_layer_t* layers;
+    uint32_t layer_count;
+    uint32_t channels;
+    uint8_t ready;
+} gpt2_gguf_runtime_t;
+
+/* Construit et valide une table de couches persistante caller-owned. */
+int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
+                              uint32_t layer_count, uint32_t channels,
+                              char* name, uint32_t name_capacity,
+                              gpt2_gguf_layer_t* layers,
+                              uint32_t layer_capacity,
+                              gpt2_gguf_runtime_t* out);
+
 /* Prépare une couche pour le futur forward sans prendre possession des buffers. */
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
                                    uint32_t layer_index, uint32_t channels,
