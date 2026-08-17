@@ -90,6 +90,8 @@ int net_tls_certificate_parse(const uint8_t* handshake, uint16_t length,
                               net_tls_certificate_view_t* out);
 int net_tls_server_key_exchange_parse(const uint8_t* handshake, uint16_t length,
                                       net_tls_server_key_exchange_view_t* out);
+/* Valide les formes de clés éphémères actuellement acceptées, sans calcul ECDHE. */
+int net_tls_server_key_exchange_params_validate(const net_tls_server_key_exchange_view_t* view);
 int net_tls_certificate_request_parse(const uint8_t* handshake, uint16_t length,
                                       net_tls_certificate_request_view_t* out);
 int net_tls_server_hello_done_parse(const uint8_t* handshake, uint16_t length);
@@ -118,6 +120,12 @@ int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,
 int net_tls_handshake_accept_server_message(net_tls_handshake_t* handshake,
                                             const uint8_t* message, uint16_t length,
                                             net_tls_transcript_t* transcript);
+/* Dispatch authentifié : analyse X.509 à Certificate et exige RSA signé à ServerKeyExchange. */
+int net_tls_handshake_accept_server_message_authenticated(net_tls_handshake_t* handshake,
+                                                          const uint8_t client_random[32],
+                                                          const uint8_t* message,uint16_t length,
+                                                          net_tls_transcript_t* transcript,
+                                                          uint32_t* rsa_workspace,uint16_t rsa_workspace_length);
 int net_tls_client_certificate_empty_build(uint8_t* handshake, uint32_t capacity);
 int net_tls_client_key_exchange_build(uint8_t* handshake, uint32_t capacity,
                                       const uint8_t* public_key, uint8_t public_key_length);
