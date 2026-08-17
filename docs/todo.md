@@ -321,3 +321,12 @@ Référence : [aos289_296_tls_hostname.md](aos289_296_tls_hostname.md). Les IP, 
 Le test utilise une racine RSA 1024 bits et une feuille RSA/SHA-256 signée, intégrées comme vecteur DER hors ligne ; il couvre le succès, un émetteur d’ancre altéré et une signature tronquée. Référence : [aos297_304_x509_trust_chain.md](aos297_304_x509_trust_chain.md).
 
 Les intermédiaires, dates, contraintes et usages de clé, révocation, ECDSA/EdDSA, algorithmes SHA-384+, configuration des ancres et invocation automatique depuis NE2000 restent absents. Le hostname demeure une validation séparée et X25519/bigint reste non constante-temps.
+
+
+### AOS-305 à AOS-312 — orchestrateur handshake TLS depuis NE2000
+
+`ne2k_tls_client_t` relie désormais le polling TCP NE2000 au réassembleur TLS authentifié, à la validation de chaîne RSA à une ancre et hostname, au flight X25519 et au post-flight AES-GCM. `ne2k_tls_client_start` émet ClientHello transactionnellement ; `ne2k_tls_client_poll` accumule les fragments, contrôle l’identité, émet le flight une fois `ServerHelloDone` reçu et marque le handshake complet après Finished serveur.
+
+Le contexte et tous les buffers/workspaces sont caller-owned. Les tests NE2000 couvrent l’initialisation, l’émission ClientHello, les séquences/transcript et le polling vide sans mutation ; les tests TCP/TLS existants couvrent le flux cryptographique sous-jacent. Référence : [aos305_312_ne2k_tls_orchestrator.md](aos305_312_ne2k_tls_orchestrator.md).
+
+Le flux ne constitue pas encore un HTTPS de production : un message serveur par record, pas de certificats clients, chaîne RSA directe sans intermédiaires/dates/usages/révocation/ECDSA, pas de test QEMU contre un serveur externe, ni résolution/connexion complète, HTTP LLM, auth API, retries ou fragmentation de grosses requêtes. X25519/bigint reste non constante-temps.

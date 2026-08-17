@@ -193,6 +193,18 @@ void test_probe_rejects_missing_reset_ack(void) {
     TEST_ASSERT_NOT_EQUAL(0, ne2k_probe(&device, 0x300, &io));
 }
 
+void test_ne2k_tls_client_start_and_empty_poll(void) {
+    fake_ne2k_t fake = {0x12, NE2K_ISR_RESET | NE2K_ISR_RDC, 0, 0};ne2k_io_t io = {&fake, fake_inb, fake_outb};ne2k_device_t device;net_arp_cache_t cache;net_tcp_connection_t connection;ne2k_tls_client_t client;x509_certificate_view_t anchor={0};
+    uint8_t local_mac[6]={0x02,0,0,0,0,1},remote_mac[6]={0x52,0x54,0,0,0,2},local_ip[4]={10,0,2,15},remote_ip[4]={10,0,2,2},client_random[32]={0},client_private[32]={0};
+    uint8_t record_buffer[256]={0},handshake_buffer[256]={0},transcript_buffer[512]={0},hello_record[256]={0},rx_frame[256]={0},tx_frame[512]={0},tcp_segment[256]={0},flight_records[128]={0},plaintext[128]={0};uint32_t rsa_workspace[224]={0},x25519_workspace[136]={0},flight_length=99U;uint8_t prf_workspace[256]={0};uint16_t consumed=99U;int length;
+    TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));TEST_ASSERT_EQUAL(0,net_arp_cache_put(&cache,remote_ip,remote_mac));TEST_ASSERT_EQUAL(0,net_tcp_connection_open(&connection,49152U,443U,100U));
+    {net_tcp_view_t syn_ack={443U,49152U,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0};TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_syn_ack(&connection,&syn_ack));}
+    TEST_ASSERT_EQUAL(0,ne2k_tls_client_init(&client,record_buffer,sizeof(record_buffer),handshake_buffer,sizeof(handshake_buffer),transcript_buffer,sizeof(transcript_buffer)));
+    length=ne2k_tls_client_start(&device,&io,&cache,tx_frame,sizeof(tx_frame),local_ip,remote_ip,&connection,&client,client_random,hello_record,sizeof(hello_record),1U);
+    TEST_ASSERT_GREATER_THAN(0,length);TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT,client.handshake.state);TEST_ASSERT_EQUAL((uint16_t)(length-5),client.transcript.length);TEST_ASSERT_EQUAL((uint32_t)(101U+length),connection.local_sequence);TEST_ASSERT_EQUAL(NET_TLS_CONTENT_HANDSHAKE,tx_frame[54]);
+    fake.isr=NE2K_ISR_RESET;TEST_ASSERT_EQUAL(1,ne2k_tls_client_poll(&device,&io,&cache,rx_frame,sizeof(rx_frame),tx_frame,sizeof(tx_frame),local_ip,remote_ip,&connection,&client,client_random,client_private,&anchor,"api.example.test",rsa_workspace,224U,x25519_workspace,136U,prf_workspace,sizeof(prf_workspace),tcp_segment,sizeof(tcp_segment),flight_records,sizeof(flight_records),&flight_length,plaintext,sizeof(plaintext),1U,&consumed));TEST_ASSERT_EQUAL(0U,consumed);TEST_ASSERT_EQUAL(0U,flight_length);TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT,client.handshake.state);
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);
@@ -201,6 +213,7 @@ int main(void) {
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
+    RUN_TEST(test_ne2k_tls_client_start_and_empty_poll);
     unity_print_results();
     unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
