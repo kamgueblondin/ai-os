@@ -185,6 +185,15 @@ int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
 }
 
 
+int gpt2_gguf_runtime_get_layer(const gpt2_gguf_runtime_t* runtime,
+                                uint32_t layer_index, gpt2_gguf_layer_t* out) {
+    if (!runtime || !out || !runtime->ready || !runtime->layers) return -1;
+    if (layer_index >= runtime->layer_count) return -6;
+    *out = runtime->layers[layer_index];
+    return 0;
+}
+
+
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
                                    uint32_t layer_index, uint32_t channels,
                                    uint32_t position, char* name, uint32_t name_capacity,
