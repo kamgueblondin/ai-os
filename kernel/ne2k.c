@@ -679,3 +679,81 @@ int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io) {
     device->initialized = 1U;
     return 0;
 }
+
+int ne2k_tls_client_init(ne2k_tls_client_t* client,uint8_t* record_buffer,uint16_t record_capacity,
+                         uint8_t* handshake_buffer,uint16_t handshake_capacity,
+                         uint8_t* transcript_buffer,uint16_t transcript_capacity){
+    uint8_t index;
+    if(!client)return -1;
+    if(net_tcp_tls_stream_init(&client->stream,record_buffer,record_capacity,handshake_buffer,handshake_capacity)!=0)return -2;
+    if(net_tls_handshake_init(&client->handshake)!=0)return -3;
+    if(net_tls_transcript_init(&client->transcript,transcript_buffer,transcript_capacity)!=0)return -4;
+    for(index=0U;index<48U;index++)client->master_secret[index]=0U;
+    for(index=0U;index<NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH;index++)client->key_block[index]=0U;
+    for(index=0U;index<NET_TLS_X25519_KEY_LENGTH;index++){client->x25519.client_public[index]=0U;client->x25519.shared_secret[index]=0U;}
+    client->x25519.ready=0U;client->session.write_key=0;client->session.read_key=0;client->session.write_fixed_iv=0;client->session.read_fixed_iv=0;client->session.write_sequence=0U;client->session.read_sequence=0U;client->peer_identity_validated=0U;client->complete=0U;
+    return 0;
+}
+
+int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                          net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                          const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                          uint8_t retransmit_limit){
+    ne2k_tls_client_t next_client;net_tcp_connection_t next_connection;net_tls_record_view_t record;int length,status;
+    if(!device||!io||!cache||!tx_frame||!local_ip||!remote_ip||!connection||!client||!client_random||!client_hello_record)return -1;
+    if(connection->state!=NET_TCP_STATE_ESTABLISHED||client->handshake.state!=NET_TLS_HANDSHAKE_IDLE)return -2;
+    next_client=*client;next_connection=*connection;
+    length=net_tls_client_hello_build(client_hello_record,client_hello_capacity,client_random);
+    if(length<0||net_tls_record_parse(client_hello_record,(uint32_t)length,&record)!=0)return -3;
+    if(net_tls_handshake_note_client_hello(&next_client.handshake)!=0||net_tls_transcript_append(&next_client.transcript,record.payload,record.payload_length)!=0)return -4;
+    if(net_tcp_connection_track_send(&next_connection,client_hello_record,(uint16_t)length,retransmit_limit)!=0)return -5;
+    status=ne2k_tcp_data(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,&next_connection,client_hello_record,(uint16_t)length);
+    if(status!=0)return -6;
+    if(net_tcp_connection_commit_send(&next_connection,(uint16_t)length)!=0)return -7;
+    *connection=next_connection;*client=next_client;return length;
+}
+
+int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                         uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                         const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                         ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                         const x509_certificate_view_t* trust_anchor,const char* hostname,
+                         uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                         uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                         uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                         uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                         uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                         uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed){
+    ne2k_tls_client_t previous_client;net_tcp_connection_t previous_connection;net_tcp_view_t view;uint16_t frame_length=0U;uint32_t local_flight_length=0U;int status;
+    if(!device||!io||!cache||!rx_frame||!tx_frame||!local_ip||!remote_ip||!connection||!client||!client_random||!client_private||!trust_anchor||!hostname||!rsa_workspace||!x25519_workspace||!prf_workspace||!tcp_segment||!flight_records||!flight_records_length||!plaintext||!consumed)return -1;
+    *consumed=0U;*flight_records_length=0U;
+    status=ne2k_rx_poll_tcp(device,io,rx_frame,rx_capacity,&frame_length,&view);
+    if(status!=0)return status;
+    previous_client=*client;previous_connection=*connection;
+    if(client->handshake.state==NET_TLS_HANDSHAKE_FINISHED_SENT||client->handshake.state==NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED){
+        status=net_tcp_connection_accept_tls_x25519_postflight(connection,&client->handshake,&client->transcript,client->master_secret,&client->session,&view,plaintext,plaintext_capacity,prf_workspace,prf_workspace_capacity,consumed);
+        if(status!=0)goto rollback;
+        if(ne2k_tcp_ack(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection)!=0)goto rollback;
+        if(net_tls_handshake_is_complete(&client->handshake))client->complete=1U;
+        return 0;
+    }
+    status=net_tcp_connection_accept_tls_authenticated_fragment(connection,&view,&client->stream,&client->handshake,client_random,&client->transcript,rsa_workspace,rsa_workspace_length,consumed);
+    if(status<0)goto rollback;
+    if(ne2k_tcp_ack(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection)!=0)goto rollback;
+    if(status==1)return 1;
+    if(client->handshake.state==NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED){
+        if(x509_certificate_chain_validate_one(&client->handshake.server_x509,trust_anchor,rsa_workspace,rsa_workspace_length)!=0||x509_certificate_hostname_validate(&client->handshake.server_x509,hostname)!=0)goto rollback;
+        client->peer_identity_validated=1U;
+    }
+    if(client->handshake.state!=NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED)return 0;
+    if(!client->peer_identity_validated||client->handshake.certificate_requested)return 0;
+    status=net_tcp_connection_build_tls_x25519_flight(connection,&client->handshake,&client->x25519,client_private,client_random,&client->transcript,client->master_secret,client->key_block,&client->session,tcp_segment,tcp_segment_capacity,flight_records,flight_records_capacity,&local_flight_length,x25519_workspace,x25519_workspace_length,prf_workspace,prf_workspace_capacity,retransmit_limit);
+    if(status<0)goto rollback;
+    if(ne2k_tcp_data(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection,flight_records,(uint16_t)local_flight_length)!=0)goto rollback;
+    if(net_tcp_connection_commit_send(connection,(uint16_t)local_flight_length)!=0)goto rollback;
+    *flight_records_length=local_flight_length;
+    return 0;
+rollback:
+    *client=previous_client;*connection=previous_connection;*consumed=0U;*flight_records_length=0U;return -2;
+}

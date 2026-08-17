@@ -63,6 +63,18 @@ typedef struct {
     uint8_t mac_valid;
 } ne2k_device_t;
 
+typedef struct {
+    net_tcp_tls_stream_t stream;
+    net_tls_handshake_t handshake;
+    net_tls_transcript_t transcript;
+    net_tls_x25519_context_t x25519;
+    net_tls_aes_gcm_session_t session;
+    uint8_t master_secret[48];
+    uint8_t key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH];
+    uint8_t peer_identity_validated;
+    uint8_t complete;
+} ne2k_tls_client_t;
+
 /* Sonde le registre reset et prépare le mode arrêt/word pour une init ultérieure. */
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io);
 /* Prépare les callbacks de ports i386 réels; retourne -1 hors noyau i386. */
@@ -170,6 +182,29 @@ int ne2k_tcp_poll_fin_ack(ne2k_device_t* device, const ne2k_io_t* io,
                           uint16_t rx_capacity, uint8_t* tx_frame, uint16_t tx_capacity,
                           const uint8_t local_ip[4], const uint8_t remote_ip[4],
                           net_tcp_connection_t* connection);
+
+/* Initialise l’état TLS intégralement caller-owned : stream, transcript, clés et session. */
+int ne2k_tls_client_init(ne2k_tls_client_t* client,uint8_t* record_buffer,uint16_t record_capacity,
+                         uint8_t* handshake_buffer,uint16_t handshake_capacity,
+                         uint8_t* transcript_buffer,uint16_t transcript_capacity);
+/* Construit, émet et confirme transactionnellement le ClientHello TLS sur TCP établi. */
+int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                          net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                          const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                          uint8_t retransmit_limit);
+/* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
+int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                         uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                         const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                         ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                         const x509_certificate_view_t* trust_anchor,const char* hostname,
+                         uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                         uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                         uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                         uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                         uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                         uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
