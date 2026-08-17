@@ -242,3 +242,12 @@ Le noyau contient désormais une arithmétique bigint caller-owned multi-limb, u
 Une API TLS authentifiée `net_tls_handshake_accept_server_key_exchange_rsa` vérifie désormais `SHA-256(client_random || server_random || ServerECDHParams)` avec la clé RSA extraite du certificat, avant la transition de l’automate. Le dispatcher historique ne reçoit pas encore le random client ni le workspace RSA et reste donc un chemin de parsing non authentifié ; il ne faut pas l’employer comme preuve d’un handshake TLS valide. Référence : [aos225_232_rsa_verify.md](aos225_232_rsa_verify.md).
 
 Les validations de chaîne X.509 et de nom d’hôte, ECDHE réel, les signatures ECDSA, le secret partagé, le raccordement du dispatcher TLS authentifié, HTTP et les appels LLM TLS de bout en bout restent non implémentés.
+
+
+### AOS-233 à AOS-240 — flux TLS authentifié, X.509 RSA et ECDHE structurel
+
+Le dispatcher `net_tls_handshake_accept_server_message_authenticated` reçoit désormais explicitement le `client_random`, le transcript et le workspace RSA caller-owned. Il parse et transcrit `ServerHello`, analyse `Certificate` en DER/X.509, impose une clé `rsaEncryption` valide, puis vérifie la signature RSA/SHA-256 de `ServerKeyExchange` avant toute transition d’état. L’état du handshake et le transcript sont restaurés transactionnellement sur erreur.
+
+Les paramètres ECDHE font l’objet d’une validation de forme pour secp256r1 (point non compressé de 65 octets) et X25519 (32 octets). Cette validation ne réalise ni multiplication de courbe, ni validation d’appartenance du point, ni dérivation de secret. Le flux historique reste un parseur non authentifié et ne doit pas être confondu avec le nouveau dispatcher. Référence : [aos233_240_tls_authenticated_flow.md](aos233_240_tls_authenticated_flow.md).
+
+La chaîne de confiance, les dates, le nom d’hôte, les usages, les signatures de certificats, ECDSA, ECDHE P-256/X25519 réel, le secret partagé, HTTP et les appels LLM HTTPS de bout en bout restent non implémentés.
