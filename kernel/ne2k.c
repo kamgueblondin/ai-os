@@ -153,6 +153,24 @@ int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
         (uint16_t)payload_length, 8U);
 }
 
+int ne2k_tcp_syn(ne2k_device_t* device, const ne2k_io_t* io,
+                 net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                 uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                 const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                 uint16_t local_port, uint16_t remote_port, uint32_t sequence) {
+    int tcp_length;
+    if (!device || !io || !cache || !arp_request || !arp_rx || !frame || !local_ip || !remote_ip ||
+        frame_capacity < NET_ETHERNET_HEADER_SIZE + 40U) return -1;
+    tcp_length = net_tcp_build_syn_ipv4(frame + NET_ETHERNET_HEADER_SIZE,
+        frame_capacity - NET_ETHERNET_HEADER_SIZE, local_ip, remote_ip, local_port, remote_port, sequence);
+    if (tcp_length < 0) return -2;
+    { uint8_t destination_mac[6]; uint16_t i;
+      if (net_arp_cache_lookup(cache, remote_ip, destination_mac) != 0) return -3;
+      for (i = 0; i < 6U; ++i) { frame[i] = destination_mac[i]; frame[6U+i] = device->mac[i]; }
+      frame[12] = 0x08U; frame[13] = 0x00U;
+      return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + tcp_length)); }
+}
+
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result) {
