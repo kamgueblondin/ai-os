@@ -143,6 +143,16 @@ int net_tcp_connection_accept_data(net_tcp_connection_t* connection,const net_tc
     return 0;
 }
 
+int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                         net_tls_record_view_t* record,uint16_t* consumed) {
+    uint16_t accepted;
+    if (!connection || !view || !record || !consumed) return -1;
+    if (net_tls_record_parse_stream(view->payload, view->payload_length, record, consumed) != 0) return -2;
+    if (*consumed != view->payload_length) return -3;
+    if (net_tcp_connection_accept_data(connection, view, &accepted) != 0) return -4;
+    return accepted == *consumed ? 0 : -5;
+}
+
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,uint16_t receive_window) {
     if (!connection) return -1;
     connection->receive_window = receive_window; return 0;

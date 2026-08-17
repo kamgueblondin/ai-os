@@ -84,6 +84,10 @@ int net_tcp_connection_commit_send(net_tcp_connection_t* connection, uint16_t pa
 int net_tcp_connection_accept_data(net_tcp_connection_t* connection,
                                    const net_tcp_view_t* view,
                                    uint16_t* accepted_length);
+int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,
+                                         const net_tcp_view_t* view,
+                                         net_tls_record_view_t* record,
+                                         uint16_t* consumed);
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,
                                            uint16_t receive_window);
 int net_tcp_connection_track_send(net_tcp_connection_t* connection,
