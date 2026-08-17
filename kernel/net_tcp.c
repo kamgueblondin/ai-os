@@ -165,6 +165,22 @@ int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,con
     if(status!=0){*connection=previous;return -4;}
     return 0;
 }
+int net_tcp_connection_build_tls_aes_gcm(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,uint8_t* segment,uint32_t segment_capacity,uint8_t* record,uint32_t record_capacity,uint8_t content_type,const uint8_t* plaintext,uint16_t plaintext_length,uint8_t retransmit_limit){
+    uint64_t previous_sequence; int record_length,status;
+    if(!connection||!session||!record)return -1; previous_sequence=session->write_sequence;
+    record_length=net_tls_aes_gcm_session_build(session,record,record_capacity,content_type,plaintext,plaintext_length);
+    if(record_length<0)return -2;
+    status=net_tcp_connection_build_data(connection,segment,segment_capacity,record,(uint16_t)record_length,retransmit_limit);
+    if(status<0){session->write_sequence=previous_sequence;return -3;} return status;
+}
+int net_tcp_connection_accept_tls_aes_gcm(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out,uint16_t* consumed){
+    net_tcp_connection_t previous_connection; uint64_t previous_sequence; net_tls_record_view_t encrypted; uint16_t accepted;
+    if(!connection||!session||!view||!plaintext||!out||!consumed)return -1; previous_connection=*connection; previous_sequence=session->read_sequence;
+    if(net_tls_record_parse_stream(view->payload,view->payload_length,&encrypted,consumed)!=0||*consumed!=view->payload_length)return -2;
+    if(net_tcp_connection_accept_data(connection,view,&accepted)!=0||accepted!=*consumed){*connection=previous_connection;return -3;}
+    if(net_tls_aes_gcm_session_open(session,view->payload,view->payload_length,plaintext,plaintext_capacity,out)!=0){*connection=previous_connection;session->read_sequence=previous_sequence;return -4;} return 0;
+}
+
 int net_tcp_connection_accept_tls_postflight(net_tcp_connection_t* connection,const net_tcp_view_t* view,
                                              net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
                                              const uint8_t expected_verify_data[12],uint16_t* consumed){

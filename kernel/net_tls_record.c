@@ -1,10 +1,44 @@
 #include "net_tls_record.h"
 #include "sha256.h"
+#include "aes_gcm.h"
 static uint16_t get16(const uint8_t* p){return (uint16_t)(((uint16_t)p[0]<<8)|p[1]);}
 static uint32_t get24(const uint8_t* p){return ((uint32_t)p[0]<<16)|((uint32_t)p[1]<<8)|p[2];}
 static void put16(uint8_t* p,uint16_t v){p[0]=(uint8_t)(v>>8);p[1]=(uint8_t)v;}
+static void put64(uint8_t* p,uint64_t v){uint8_t i;for(i=0U;i<8U;i++)p[i]=(uint8_t)(v>>(56U-8U*i));}
 int net_tls_record_build(uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* payload,uint16_t payload_length){uint16_t i;if(!record||(!payload&&payload_length)||capacity<(uint32_t)NET_TLS_RECORD_HEADER+payload_length||content_type==0U)return -1;record[0]=content_type;record[1]=NET_TLS_VERSION_1_2_MAJOR;record[2]=NET_TLS_VERSION_1_2_MINOR;put16(record+3,payload_length);for(i=0;i<payload_length;i++)record[5+i]=payload[i];return (int)(5U+payload_length);}
 int net_tls_record_parse(const uint8_t* record,uint32_t length,net_tls_record_view_t* out){uint16_t payload_length;if(!record||!out||length<NET_TLS_RECORD_HEADER||record[1]!=NET_TLS_VERSION_1_2_MAJOR||record[2]!=NET_TLS_VERSION_1_2_MINOR)return -1;payload_length=get16(record+3);if((uint32_t)payload_length+NET_TLS_RECORD_HEADER>length||record[0]==0U)return -2;out->content_type=record[0];out->major=record[1];out->minor=record[2];out->payload=record+5;out->payload_length=payload_length;return 0;}
+int net_tls_aes_gcm_record_build(uint8_t* record,uint32_t capacity,uint8_t content_type,uint64_t sequence_number,const uint8_t key[16],const uint8_t fixed_iv[4],const uint8_t* plaintext,uint16_t plaintext_length){
+    uint8_t nonce[8],additional[13],tag[16]; uint16_t payload_length;
+    if(!record||!key||!fixed_iv||(!plaintext&&plaintext_length)||content_type==0U||plaintext_length>65511U)return -1;
+    payload_length=(uint16_t)(plaintext_length+24U); if(capacity<(uint32_t)NET_TLS_RECORD_HEADER+payload_length)return -2;
+    record[0]=content_type; record[1]=NET_TLS_VERSION_1_2_MAJOR; record[2]=NET_TLS_VERSION_1_2_MINOR; put16(record+3U,payload_length); put64(nonce,sequence_number); put64(record+5U,sequence_number);
+    put64(additional,sequence_number); additional[8]=content_type; additional[9]=NET_TLS_VERSION_1_2_MAJOR; additional[10]=NET_TLS_VERSION_1_2_MINOR; put16(additional+11U,plaintext_length);
+    if(aes128_gcm_encrypt(key,fixed_iv,nonce,additional,sizeof(additional),plaintext,plaintext_length,record+13U,tag)!=0)return -3;
+    {uint8_t i;for(i=0U;i<16U;i++)record[13U+plaintext_length+i]=tag[i];}
+    return (int)(NET_TLS_RECORD_HEADER+payload_length);
+}
+int net_tls_aes_gcm_record_open(const uint8_t* record,uint32_t length,uint64_t sequence_number,const uint8_t key[16],const uint8_t fixed_iv[4],uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out){
+    net_tls_record_view_t encrypted; uint8_t additional[13]; uint16_t plaintext_length;
+    if(!record||!key||!fixed_iv||!plaintext||!out)return -1;
+    if(net_tls_record_parse(record,length,&encrypted)!=0)return -2;
+    if(encrypted.payload_length<24U)return -3; plaintext_length=(uint16_t)(encrypted.payload_length-24U); if(plaintext_capacity<plaintext_length)return -4;
+    put64(additional,sequence_number); additional[8]=encrypted.content_type; additional[9]=encrypted.major; additional[10]=encrypted.minor; put16(additional+11U,plaintext_length);
+    if(aes128_gcm_decrypt(key,fixed_iv,encrypted.payload,additional,sizeof(additional),encrypted.payload+8U,plaintext_length,encrypted.payload+8U+plaintext_length,plaintext)!=0)return -5;
+    out->content_type=encrypted.content_type; out->major=encrypted.major; out->minor=encrypted.minor; out->payload=plaintext; out->payload_length=plaintext_length; return 0;
+}
+int net_tls_aes_gcm_session_init(net_tls_aes_gcm_session_t* session,const net_tls_aes128_gcm_key_block_t* key_block,uint8_t is_client){
+    if(!session||!key_block||!key_block->client_write_key||!key_block->server_write_key||!key_block->client_fixed_iv||!key_block->server_fixed_iv)return -1;
+    if(is_client){session->write_key=key_block->client_write_key;session->write_fixed_iv=key_block->client_fixed_iv;session->read_key=key_block->server_write_key;session->read_fixed_iv=key_block->server_fixed_iv;}
+    else{session->write_key=key_block->server_write_key;session->write_fixed_iv=key_block->server_fixed_iv;session->read_key=key_block->client_write_key;session->read_fixed_iv=key_block->client_fixed_iv;}
+    session->write_sequence=0U;session->read_sequence=0U;return 0;
+}
+int net_tls_aes_gcm_session_build(net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* plaintext,uint16_t plaintext_length){
+    int status;if(!session)return -1;status=net_tls_aes_gcm_record_build(record,capacity,content_type,session->write_sequence,session->write_key,session->write_fixed_iv,plaintext,plaintext_length);if(status<0)return status;session->write_sequence++;return status;
+}
+int net_tls_aes_gcm_session_open(net_tls_aes_gcm_session_t* session,const uint8_t* record,uint32_t length,uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out){
+    int status;if(!session)return -1;status=net_tls_aes_gcm_record_open(record,length,session->read_sequence,session->read_key,session->read_fixed_iv,plaintext,plaintext_capacity,out);if(status!=0)return status;session->read_sequence++;return 0;
+}
+
 int net_tls_record_parse_stream(const uint8_t* stream,uint32_t length,net_tls_record_view_t* out,uint16_t* consumed){
     uint16_t payload_length, total;
     if(!stream||!out||!consumed) return -1;
