@@ -151,6 +151,10 @@ int ne2k_arp_service(ne2k_device_t* device, const ne2k_io_t* io,
 int ne2k_rx_poll_udp(ne2k_device_t* device, const ne2k_io_t* io,
                      uint8_t* frame, uint16_t frame_capacity,
                      uint16_t* frame_length, net_udp_view_t* udp);
+/* Lit une trame IPv4/TCP et expose une vue TCP dans le buffer caller-owned. */
+int ne2k_rx_poll_tcp(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* frame, uint16_t frame_capacity,
+                     uint16_t* frame_length, net_tcp_view_t* tcp);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);

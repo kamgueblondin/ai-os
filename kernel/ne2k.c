@@ -316,6 +316,25 @@ int ne2k_arp_service(ne2k_device_t* device, const ne2k_io_t* io,
     return ne2k_tx_submit(device, io, tx_frame, (uint16_t)status);
 }
 
+int ne2k_rx_poll_tcp(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* frame, uint16_t frame_capacity,
+                     uint16_t* frame_length, net_tcp_view_t* tcp) {
+    net_ethernet_header_t ethernet; uint16_t ip_header_size; int status;
+    if (!tcp) return -1;
+    status = ne2k_rx_poll(device, io, frame, frame_capacity, frame_length);
+    if (status != 0) return status;
+    if (net_ethernet_parse(frame, *frame_length, &ethernet) != 0) return -2;
+    if (ethernet.ethertype != NET_ETHERTYPE_IPV4) return 2;
+    if (*frame_length < NET_ETHERNET_HEADER_SIZE + 20U) return -3;
+    ip_header_size = (uint16_t)(frame[NET_ETHERNET_HEADER_SIZE] & 0x0fU) * 4U;
+    if (ip_header_size < 20U || frame[NET_ETHERNET_HEADER_SIZE + 9U] != NET_TCP_PROTOCOL ||
+        *frame_length < NET_ETHERNET_HEADER_SIZE + ip_header_size) return -3;
+    if (net_tcp_parse(frame + NET_ETHERNET_HEADER_SIZE + ip_header_size,
+                      (uint32_t)(*frame_length - NET_ETHERNET_HEADER_SIZE - ip_header_size), tcp) != 0)
+        return -4;
+    return 0;
+}
+
 int ne2k_rx_poll_udp(ne2k_device_t* device, const ne2k_io_t* io,
                      uint8_t* frame, uint16_t frame_capacity,
                      uint16_t* frame_length, net_udp_view_t* udp) {
