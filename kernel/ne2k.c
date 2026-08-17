@@ -1,5 +1,26 @@
 #include "ne2k.h"
 
+#ifdef __i386__
+static uint8_t ne2k_i386_inb(void* context, uint16_t port) {
+    uint8_t value; (void)context;
+    __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+static void ne2k_i386_outb(void* context, uint16_t port, uint8_t value) {
+    (void)context;
+    __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+#endif
+
+int ne2k_i386_io(ne2k_io_t* io) {
+    if (!io) return -1;
+#ifdef __i386__
+    io->context = (void*)0; io->inb = ne2k_i386_inb; io->outb = ne2k_i386_outb; return 0;
+#else
+    io->context = (void*)0; io->inb = (ne2k_inb_fn)0; io->outb = (ne2k_outb_fn)0; return -1;
+#endif
+}
+
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
     uint8_t reset_value;
     if (!device || !io || !io->inb || !io->outb || base_port == 0U) return -1;
