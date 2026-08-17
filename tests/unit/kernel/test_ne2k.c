@@ -169,7 +169,9 @@ void test_tcp_poll_is_bounded_when_rx_empty(void) {
     { net_arp_cache_t cache; uint8_t tx[64] = {0}; uint8_t local_ip[4] = {10,0,2,15}; uint8_t remote_ip[4] = {10,0,2,2};
       TEST_ASSERT_EQUAL(0, net_arp_cache_init(&cache));
       fake.tx_count = 0U; TEST_ASSERT_EQUAL(1, ne2k_tcp_poll_ack(&device, &io, &cache, frame, sizeof(frame), tx, sizeof(tx), local_ip, remote_ip, &connection, payload, sizeof(payload), &length));
-      TEST_ASSERT_EQUAL(0U, length); TEST_ASSERT_EQUAL(0U, fake.tx_count); }
+      TEST_ASSERT_EQUAL(0U, length); TEST_ASSERT_EQUAL(0U, fake.tx_count);
+      fake.tx_count = 0U; TEST_ASSERT_EQUAL(1, ne2k_tcp_poll_fin_ack(&device, &io, &cache, frame, sizeof(frame), tx, sizeof(tx), local_ip, remote_ip, &connection));
+      TEST_ASSERT_EQUAL(0U, fake.tx_count); }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {

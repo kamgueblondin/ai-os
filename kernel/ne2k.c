@@ -321,6 +321,30 @@ int ne2k_tcp_poll_ack(ne2k_device_t* device, const ne2k_io_t* io,
     return 0;
 }
 
+int ne2k_tcp_poll_fin_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                          const net_arp_cache_t* cache, uint8_t* rx_frame,
+                          uint16_t rx_capacity, uint8_t* tx_frame, uint16_t tx_capacity,
+                          const uint8_t local_ip[4], const uint8_t remote_ip[4],
+                          net_tcp_connection_t* connection) {
+    uint16_t frame_length = 0U, ip_header_size, tcp_offset, ip_length, tcp_length; net_tcp_view_t view; int status;
+    if (!cache || !rx_frame || !tx_frame || !local_ip || !remote_ip || !connection) return -1;
+    status = ne2k_rx_poll(device, io, rx_frame, rx_capacity, &frame_length);
+    if (status != 0) return status;
+    if (frame_length == 0U) return 1;
+    if (frame_length < NET_ETHERNET_HEADER_SIZE + 40U || rx_frame[12] != 0x08U || rx_frame[13] != 0x00U ||
+        (rx_frame[14] >> 4) != 4U || rx_frame[23] != NET_TCP_PROTOCOL) return -2;
+    if (net_ipv4_checksum(rx_frame + 14U, 20U) != 0U) return -3;
+    ip_length = (uint16_t)(((uint16_t)rx_frame[16] << 8) | rx_frame[17]);
+    ip_header_size = (uint16_t)((rx_frame[14] & 0x0fU) * 4U);
+    if (ip_header_size < 20U || ip_length < ip_header_size + NET_TCP_HEADER_SIZE ||
+        (uint32_t)NET_ETHERNET_HEADER_SIZE + ip_length > frame_length) return -4;
+    tcp_offset = (uint16_t)(14U + ip_header_size); tcp_length = (uint16_t)(ip_length - ip_header_size);
+    if (net_tcp_checksum_ipv4(rx_frame + 26U, rx_frame + 30U, rx_frame + tcp_offset, tcp_length) != 0U ||
+        net_tcp_parse(rx_frame + tcp_offset, tcp_length, &view) != 0) return -5;
+    if ((view.flags & NET_TCP_FLAG_FIN) == 0U || net_tcp_connection_accept_fin(connection, &view) != 0) return -6;
+    return ne2k_tcp_ack(device, io, cache, tx_frame, tx_capacity, local_ip, remote_ip, connection);
+}
+
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result) {
