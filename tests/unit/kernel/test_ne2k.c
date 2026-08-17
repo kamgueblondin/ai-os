@@ -95,6 +95,36 @@ void test_probe_and_prepare_use_injected_io(void) {
     }
 }
 
+void test_tcp_ack_is_emitted_from_connection_state(void) {
+    fake_ne2k_t fake = {0x12, 0, 0, 0}; ne2k_io_t io = {&fake, fake_inb, fake_outb}; ne2k_device_t device;
+    net_arp_cache_t cache; net_tcp_connection_t connection; uint8_t frame[128] = {0};
+    uint8_t local_ip[4] = {10, 0, 2, 15}; uint8_t remote_ip[4] = {10, 0, 2, 2};
+    uint8_t remote_mac[6] = {0x52, 0x54, 0, 0, 0, 2}; uint8_t local_mac[6] = {0x02, 0, 0, 0, 0, 1};
+    fake.isr = (uint8_t)(NE2K_ISR_RESET | NE2K_ISR_RDC);
+    TEST_ASSERT_EQUAL(0, ne2k_probe(&device, 0x300, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_prepare(&device, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_configure_rings(&device, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_set_mac(&device, local_mac));
+    TEST_ASSERT_EQUAL(0, net_arp_cache_init(&cache));
+    TEST_ASSERT_EQUAL(0, net_arp_cache_put(&cache, remote_ip, remote_mac));
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    { net_tcp_view_t syn_ack = {443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &syn_ack)); }
+    TEST_ASSERT_EQUAL(0, ne2k_tcp_ack(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection));
+    TEST_ASSERT_EQUAL(0x52, frame[0]); TEST_ASSERT_EQUAL(0x02, frame[6]);
+    TEST_ASSERT_EQUAL(0x08, frame[12]); TEST_ASSERT_EQUAL(0x00, frame[13]);
+    TEST_ASSERT_EQUAL(0x45, frame[14]); TEST_ASSERT_EQUAL(NET_TCP_PROTOCOL, frame[23]);
+    TEST_ASSERT_EQUAL(49152, ((uint16_t)frame[34] << 8) | frame[35]);
+    TEST_ASSERT_EQUAL(443, ((uint16_t)frame[36] << 8) | frame[37]);
+    TEST_ASSERT_EQUAL(101U, ((uint32_t)frame[38] << 24) | ((uint32_t)frame[39] << 16) | ((uint32_t)frame[40] << 8) | frame[41]);
+    TEST_ASSERT_EQUAL(701U, ((uint32_t)frame[42] << 24) | ((uint32_t)frame[43] << 16) | ((uint32_t)frame[44] << 8) | frame[45]);
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_ACK, frame[47]);
+    { uint8_t payload[4] = {'P','I','N','G'};
+      TEST_ASSERT_EQUAL(0, ne2k_tcp_data(&device, &io, &cache, frame, sizeof(frame), local_ip, remote_ip, &connection, payload, sizeof(payload)));
+      TEST_ASSERT_EQUAL(44, ((uint16_t)frame[16] << 8) | frame[17]);
+      TEST_ASSERT_EQUAL('P', frame[54]); TEST_ASSERT_EQUAL('G', frame[57]); }
+}
+
 void test_rx_extract_publishes_bounded_frame(void) {
     uint8_t storage[NET_NIC_QUEUE_CAPACITY * 64U] = {0};
     uint8_t dma[9] = {NE2K_RX_STATUS_OK, 0, 9, 0, 1, 2, 3, 4, 5};
@@ -117,6 +147,7 @@ void test_probe_rejects_missing_reset_ack(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);
+    RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
     unity_print_results();
