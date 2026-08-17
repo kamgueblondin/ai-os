@@ -103,6 +103,11 @@ int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
 /* Construit et diffuse un DHCP Discover dans un buffer Ethernet caller-owned. */
 int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
                        uint8_t* frame, uint16_t frame_capacity, uint32_t xid);
+/* Polling RX borné d’une offre DHCP via UDP 67->68. */
+int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
+                         uint8_t* frame, uint16_t frame_capacity,
+                         uint32_t expected_xid, uint16_t attempts,
+                         net_dhcp_offer_t* offer);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

@@ -115,6 +115,26 @@ int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
                        NET_UDP_HEADER_SIZE, (uint16_t)payload_length);
 }
 
+int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
+                         uint8_t* frame, uint16_t frame_capacity,
+                         uint32_t expected_xid, uint16_t attempts,
+                         net_dhcp_offer_t* offer) {
+    uint16_t frame_length, i; net_udp_view_t udp; int status;
+    if (!device || !io || !frame || !offer || attempts == 0U) return -1;
+    for (i = 0; i < attempts; ++i) {
+        status = ne2k_rx_poll_udp(device, io, frame, frame_capacity,
+                                  &frame_length, &udp);
+        if (status == 1) continue;
+        if (status != 0) continue;
+        if (udp.source_port != 67U || udp.destination_port != 68U ||
+            udp.payload_length < 244U) continue;
+        status = net_dhcp_parse_offer(udp.payload, udp.payload_length,
+                                      expected_xid, offer);
+        if (status == 0) return 0;
+    }
+    return -2;
+}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;
