@@ -15,6 +15,11 @@ void test_build_and_parse_syn_ack(void) {
     TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, view.flags);
     { uint8_t source[4] = {10,0,2,15}; uint8_t destination[4] = {10,0,2,2}; uint16_t checksum = net_tcp_checksum_ipv4(source, destination, segment, 20); TEST_ASSERT_NOT_EQUAL(0, checksum); TEST_ASSERT_EQUAL(checksum, net_tcp_checksum_ipv4(source, destination, segment, 20)); }
     TEST_ASSERT_EQUAL(0x10203041U, view.acknowledgment);
+    { uint32_t remote_sequence = 0U;
+      view.source_port = 443; view.destination_port = 49152;
+      TEST_ASSERT_EQUAL(0, net_tcp_is_syn_ack_for(&view, 49152, 443, 0x10203040U, &remote_sequence));
+      TEST_ASSERT_EQUAL(0x10203040U, remote_sequence);
+      view.acknowledgment = 7U; TEST_ASSERT_NOT_EQUAL(0, net_tcp_is_syn_ack_for(&view, 49152, 443, 0x10203040U, &remote_sequence)); }
     segment[0] = 0; segment[1] = 0; TEST_ASSERT_NOT_EQUAL(0, net_tcp_parse(segment, 20, &view));
     { uint8_t packet[48] = {0}; uint8_t src[4] = {10,0,2,15}; uint8_t dst[4] = {10,0,2,2};
       TEST_ASSERT_EQUAL(40, net_tcp_build_syn_ipv4(packet, sizeof(packet), src, dst, 49152, 443, 0x10203040U));
