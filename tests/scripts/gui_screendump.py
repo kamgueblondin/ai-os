@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QEMU GTK screendumps: shell, help, scrollback, FAT16, net-status."""
+"""QEMU GTK screendumps: shell, help, scrollback, FAT16, ps, mem, net-status."""
 from __future__ import print_function
 
 import os
@@ -11,13 +11,13 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
-DISK = os.path.join(ROOT, "build", "overlay.img")
+DISK = os.path.join(ROOT, "test_logs", "gui-capture-overlay.img")
 LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.path.join(LOG_DIR, "gui-capture-serial.log")
 ERR = os.path.join(LOG_DIR, "gui-capture-stderr.log")
 MON_SOCK = os.path.join(LOG_DIR, "gui-capture-monitor.sock")
 SHOT_DIR = "/opt/cursor/artifacts/screenshots"
-KEY_DELAY = 0.55
+KEY_DELAY = 0.65
 BOOT_TIMEOUT = 90.0
 
 
@@ -112,6 +112,15 @@ def screendump(client, name):
     print("saved", path, os.path.getsize(path))
 
 
+def prepare_disk():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    subprocess.run([
+        sys.executable,
+        os.path.join(ROOT, "tests", "scripts", "make_fat16_image.py"),
+        "--image", DISK,
+    ], check=True)
+
+
 def terminate(proc):
     if proc is None or proc.poll() is not None:
         return
@@ -125,6 +134,7 @@ def terminate(proc):
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs(SHOT_DIR, exist_ok=True)
+    prepare_disk()
     for path in (LOG, ERR, MON_SOCK):
         try:
             os.remove(path)
@@ -178,14 +188,30 @@ def main():
             time.sleep(0.6)
             screendump(monitor, "06-fat16-list.png")
 
+            send_command(monitor, "fat16-cat fatok.txt")
+            wait_for(proc, "ligne lue: fat16-cat", 25)
+            time.sleep(0.6)
+            screendump(monitor, "07-fat16-cat.png")
+
             send_command(monitor, "net-status")
             wait_for(proc, "ligne lue: net-status", 20)
             time.sleep(0.6)
-            screendump(monitor, "07-net-status.png")
+            screendump(monitor, "08-net-status.png")
+
+            send_command(monitor, "ps")
+            wait_for(proc, "ligne lue: ps", 20)
+            time.sleep(0.6)
+            screendump(monitor, "09-ps.png")
+
+            send_command(monitor, "mem")
+            wait_for(proc, "ligne lue: mem", 20)
+            time.sleep(0.6)
+            screendump(monitor, "10-mem.png")
 
             send_command(monitor, "ai-runtime")
-            wait_for(proc, "ligne lue: ai-runtime", 20)
-            screendump(monitor, "08-ai-runtime.png")
+            wait_for(proc, "Runtime IA bare-metal", 25)
+            time.sleep(0.6)
+            screendump(monitor, "11-ai-runtime.png")
         print("GUI capture done")
         return 0
     finally:
