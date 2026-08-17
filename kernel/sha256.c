@@ -5,3 +5,22 @@ static void transform(sha256_ctx_t*c,const uint8_t*b){uint32_t w[64],a,bb,cc,d,e
 void sha256_init(sha256_ctx_t*c){static const uint32_t s[8]={0x6a09e667U,0xbb67ae85U,0x3c6ef372U,0xa54ff53aU,0x510e527fU,0x9b05688cU,0x1f83d9abU,0x5be0cd19U};uint32_t i;if(!c)return;for(i=0;i<8;i++)c->state[i]=s[i];c->bit_count=0;c->block_len=0;}
 void sha256_update(sha256_ctx_t*c,const uint8_t*d,uint32_t n){uint32_t take;if(!c||(!d&&n))return;c->bit_count+=(uint64_t)n*8U;while(n){take=64U-c->block_len;if(take>n)take=n;{uint32_t i;for(i=0;i<take;i++)c->block[c->block_len+i]=d[i];}c->block_len+=take;d+=take;n-=take;if(c->block_len==64U){transform(c,c->block);c->block_len=0;}}}
 void sha256_final(sha256_ctx_t*c,uint8_t digest[32]){uint32_t i;uint64_t bits;if(!c||!digest)return;bits=c->bit_count;c->block[c->block_len++]=0x80U;while(c->block_len!=56U){if(c->block_len==64U){transform(c,c->block);c->block_len=0;}else c->block[c->block_len++]=0U;}for(i=0;i<8;i++)c->block[56+i]=(uint8_t)(bits>>(56U-8U*i));transform(c,c->block);for(i=0;i<8;i++){digest[4*i]=(uint8_t)(c->state[i]>>24);digest[4*i+1]=(uint8_t)(c->state[i]>>16);digest[4*i+2]=(uint8_t)(c->state[i]>>8);digest[4*i+3]=(uint8_t)c->state[i];}}
+
+void hmac_sha256(const uint8_t* key, uint32_t key_length,
+                 const uint8_t* message, uint32_t message_length,
+                 uint8_t digest[32]) {
+    uint8_t block[64], inner[32];
+    sha256_ctx_t ctx;
+    uint32_t i;
+    if ((!key && key_length) || (!message && message_length) || !digest) return;
+    for (i = 0; i < 64U; ++i) block[i] = 0U;
+    if (key_length > 64U) {
+        sha256_init(&ctx); sha256_update(&ctx, key, key_length); sha256_final(&ctx, block);
+    } else {
+        for (i = 0; i < key_length; ++i) block[i] = key[i];
+    }
+    for (i = 0; i < 64U; ++i) block[i] ^= 0x36U;
+    sha256_init(&ctx); sha256_update(&ctx, block, 64U); sha256_update(&ctx, message, message_length); sha256_final(&ctx, inner);
+    for (i = 0; i < 64U; ++i) block[i] ^= (uint8_t)(0x36U ^ 0x5cU);
+    sha256_init(&ctx); sha256_update(&ctx, block, 64U); sha256_update(&ctx, inner, 32U); sha256_final(&ctx, digest);
+}
