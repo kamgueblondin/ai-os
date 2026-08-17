@@ -75,6 +75,13 @@ int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io);
 /* Copie une trame caller-owned dans la RAM distante puis déclenche TX. */
 int ne2k_tx_submit(ne2k_device_t* device, const ne2k_io_t* io,
                    const uint8_t* frame, uint16_t length);
+/* Construit puis émet une trame Ethernet IPv4/UDP caller-owned. */
+int ne2k_tx_udp(ne2k_device_t* device, const ne2k_io_t* io,
+                uint8_t* frame, uint16_t frame_capacity,
+                const uint8_t destination_mac[6],
+                const uint8_t source_ipv4[4], const uint8_t destination_ipv4[4],
+                uint16_t source_port, uint16_t destination_port,
+                const uint8_t* payload, uint16_t payload_length);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
