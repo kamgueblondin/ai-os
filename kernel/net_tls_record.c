@@ -15,6 +15,21 @@ int net_tls_record_parse_stream(const uint8_t* stream,uint32_t length,net_tls_re
     *consumed=total; return 0;
 }
 
+int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_server_hello_view_t* out){
+    uint32_t body_length; uint8_t session_length; uint16_t pos;
+    if(!handshake||!out||length<4U)return -1;
+    body_length=((uint32_t)handshake[1]<<16)|((uint32_t)handshake[2]<<8)|handshake[3];
+    if(handshake[0]!=2U||body_length!=length-4U||body_length<38U)return -2;
+    if(handshake[4]!=NET_TLS_VERSION_1_2_MAJOR||handshake[5]!=NET_TLS_VERSION_1_2_MINOR)return -3;
+    out->random=handshake+6; session_length=handshake[38];
+    if((uint32_t)39U+session_length+3U>length)return -4;
+    out->session_id_length=session_length; out->session_id=handshake+39; pos=(uint16_t)(39U+session_length);
+    out->cipher_suite=get16(handshake+pos); out->compression_method=handshake[pos+2U];
+    if(out->compression_method!=0U)return -5;
+    if((uint32_t)pos+3U!=length)return -6;
+    return 0;
+}
+
 int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
     if(!accumulator||!buffer||capacity<NET_TLS_RECORD_HEADER)return -1;
     accumulator->buffer=buffer; accumulator->capacity=capacity; accumulator->length=0U; return 0;

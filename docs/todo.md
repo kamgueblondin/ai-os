@@ -151,3 +151,7 @@ Validation AOS-172/AOS-173 : **309/309 tests verts**, build i386 réussi, smoke 
 ### AOS-174 — accumulateur de fragments TLS
 
 L’état d’assemblage TLS est désormais caller-owned : les fragments TCP sont bornés par la capacité fournie, le record incomplet reste non publié et le record complet est parsé sans allocation. Validation : **310/310 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi.
+
+### AOS-175 — parsing ServerHello TLS
+
+Le ServerHello TLS minimal est désormais parsé sans copie dans une vue caller-owned, avec contrôles de longueur, version, random, session ID, cipher suite et compression. Validation : **311/311 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi. Extensions TLS, dérivation de clés, chiffrement, X.509, HTTP et appels LLM en ligne restent hors périmètre.
