@@ -8,6 +8,13 @@
 #define NE2K_REG_RESET   0x1fU
 #define NE2K_REG_DCR     0x0eU
 #define NE2K_REG_ISR     0x07U
+#define NE2K_REG_TPSR    0x04U
+#define NE2K_REG_PSTART  0x01U
+#define NE2K_REG_PSTOP   0x02U
+#define NE2K_REG_BNRY    0x03U
+#define NE2K_REG_RCR     0x0cU
+#define NE2K_REG_TCR     0x0dU
+#define NE2K_REG_CURR    0x07U
 #define NE2K_COMMAND_STOP 0x01U
 #define NE2K_COMMAND_PAGE0 0x00U
 #define NE2K_COMMAND_PAGE1 0x40U
@@ -35,6 +42,8 @@ typedef struct {
 int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io);
 /* Initialise les paramètres invariants du contrôleur sans allocation. */
 int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io);
+/* Configure un anneau RX et une page TX dans la mémoire locale du NE2000. */
+int ne2k_configure_rings(ne2k_device_t* device, const ne2k_io_t* io);
 /* Définit une MAC locale valide: non nulle et non multicast. */
 int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
