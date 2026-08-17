@@ -182,7 +182,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/net_dhcp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_dns.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
-        extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
+        extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c $BASE_DIR/kernel/net_http_tls.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"

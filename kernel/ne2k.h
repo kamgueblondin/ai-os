@@ -8,6 +8,7 @@
 #include "net_dhcp.h"
 #include "net_dns.h"
 #include "net_tcp.h"
+#include "net_http_tls.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -205,6 +206,19 @@ int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
                          uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
                          uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
                          uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
+/* Construit, chiffre et émet un POST JSON LLM uniquement après handshake TLS complet. */
+int ne2k_https_llm_post_json(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                             uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                             net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                             uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                             const uint8_t* json,uint16_t json_length,uint8_t* tls_record,uint32_t tls_capacity,
+                             uint8_t retransmit_limit);
+/* Polling d’une réponse HTTP Content-Length chiffrée après TLS complet ; retourne 1 tant que le body est incomplet. */
+int ne2k_https_llm_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                  uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                  const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                                  ne2k_tls_client_t* client,uint8_t* plaintext,uint16_t plaintext_capacity,
+                                  net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,uint16_t* consumed);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
