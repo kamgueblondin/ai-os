@@ -20,6 +20,24 @@ void test_build_and_parse_arp_request(void) {
     TEST_ASSERT_EQUAL_MEMORY(target, packet.target_ipv4, 4);
 }
 
+void test_builds_reply_from_request(void) {
+    uint8_t request_frame[64] = {0}; uint8_t reply_frame[64] = {0};
+    uint8_t local_mac[6] = {0x02, 0, 0, 0, 0, 0x10};
+    uint8_t local_ip[4] = {10, 0, 2, 15};
+    uint8_t sender_mac[6] = {0x52, 0x54, 0, 0x12, 0x34, 0x56};
+    uint8_t sender_ip[4] = {10, 0, 2, 2}; net_arp_packet_t request, reply;
+    int length;
+    length = net_arp_build_request(request_frame, sizeof(request_frame), sender_mac, sender_ip, local_ip);
+    TEST_ASSERT_EQUAL(42, length); TEST_ASSERT_EQUAL(0, net_arp_parse(request_frame, length, &request));
+    TEST_ASSERT_EQUAL(42, net_arp_build_reply(reply_frame, sizeof(reply_frame), &request, local_mac, local_ip));
+    TEST_ASSERT_EQUAL(0, net_arp_parse(reply_frame, 42, &reply));
+    TEST_ASSERT_EQUAL(NET_ARP_OPCODE_REPLY, reply.opcode);
+    TEST_ASSERT_EQUAL_MEMORY(local_mac, reply.sender_mac, 6);
+    TEST_ASSERT_EQUAL_MEMORY(local_ip, reply.sender_ipv4, 4);
+    TEST_ASSERT_EQUAL_MEMORY(sender_mac, reply.target_mac, 6);
+    TEST_ASSERT_EQUAL_MEMORY(sender_ip, reply.target_ipv4, 4);
+}
+
 void test_rejects_short_or_non_arp_frame(void) {
     uint8_t frame[42] = {0};
     net_arp_packet_t packet;
@@ -46,6 +64,7 @@ void test_reply_matches_local_and_requested_addresses(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_build_and_parse_arp_request);
+    RUN_TEST(test_builds_reply_from_request);
     RUN_TEST(test_rejects_short_or_non_arp_frame);
     RUN_TEST(test_reply_matches_local_and_requested_addresses);
     unity_print_results();
