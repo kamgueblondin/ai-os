@@ -29,12 +29,16 @@
 #define NE2K_DCR_WORD_MODE 0x49U
 #define NE2K_ISR_RESET 0x80U
 #define NE2K_ISR_RDC    0x40U
+#define NE2K_ISR_PRX    0x01U
 #define NE2K_DCR_BYTE_MODE 0x48U
 #define NE2K_COMMAND_REMOTE_WRITE 0x12U
+#define NE2K_COMMAND_REMOTE_READ  0x0aU
 #define NE2K_COMMAND_TRANSMIT 0x26U
 #define NE2K_TX_PAGE 0x40U
 #define NE2K_ETHERNET_MIN_FRAME 60U
 #define NE2K_ETHERNET_MAX_FRAME 1514U
+#define NE2K_RX_PAGE_START 0x46U
+#define NE2K_RX_PAGE_STOP  0x60U
 #define NE2K_RX_HEADER_SIZE 4U
 #define NE2K_RX_STATUS_OK 0x01U
 
@@ -74,6 +78,10 @@ int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
 void ne2k_irq_service(void);
 uint32_t ne2k_irq_count(void);
+/* Polling RX borné: lit une trame depuis la RAM distante vers un buffer appelant. */
+int ne2k_rx_poll(ne2k_device_t* device, const ne2k_io_t* io,
+                 uint8_t* frame, uint16_t frame_capacity,
+                 uint16_t* frame_length);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);
