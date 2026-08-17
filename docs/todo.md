@@ -339,3 +339,10 @@ Le flux ne constitue pas encore un HTTPS de production : un message serveur par 
 Le module HTTP/TLS est désormais lié au test NE2000 ; les tests HTTP/TLS couvrent le framing POST et le round-trip AES-GCM, tandis que le test NE2000 couvre la préparation TLS et le polling vide. Référence : [aos313_320_https_llm_client.md](aos313_320_https_llm_client.md).
 
 Aucune clé API, auth Authorization, intégration spécifique OpenAI/Ollama, DNS/SYN de connexion, test QEMU contre serveur externe, streaming SSE, chunked, HTTP/2, retries, pagination, compression, grandes requêtes ni parsing JSON n’est encore livré. La PKI reste une ancre RSA directe et X25519/bigint reste non constante-temps.
+
+
+### AOS-321 à AOS-328 — Authorization Bearer caller-owned
+
+`net_http_build_post_json_bearer` ajoute `Authorization: Bearer <token>` à un POST JSON borné sans conserver le token dans les contextes TCP, TLS ou NE2000. Le framing impose un token non vide en ASCII imprimable, la capacité caller-owned et les mêmes règles HTTP Content-Length. Le test vérifie le plaintext exact, un token fictif, les bornes et les rejets.
+
+Référence : [aos321_328_http_authorization.md](aos321_328_http_authorization.md). Le secret réel, son stockage/effacement, rotation, révocation, auth mutuelle, formats OpenAI/Ollama, proxy, HTTP/2 et streaming restent hors périmètre.
