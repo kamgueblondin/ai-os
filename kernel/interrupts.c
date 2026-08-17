@@ -22,6 +22,7 @@ extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27
 extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
 extern void irq0(); // ISR pour le timer
 extern void irq1(); // ISR pour le clavier
+extern void irq3(); // ISR pour la NE2000
 extern void isr_syscall(); // ISR pour les appels système
 extern void isr_schedule(); // ISR pour le scheduling volontaire
 
@@ -208,6 +209,8 @@ void install_exception_handlers() {
     idt_set_gate(31, (uint32_t)isr31, 0x08, 0x8E);
 }
 
+extern void ne2k_irq_handler(void);
+
 // Initialise toutes nos interruptions
 void interrupts_init() {
     print_string_serial("=== INITIALISATION SYSTEME INTERRUPTIONS ===\n");
@@ -235,12 +238,14 @@ void interrupts_init() {
     print_string_serial("Step 5: Enregistrement des handlers IRQ...\n");
     register_interrupt_handler(32, timer_handler);    // IRQ 0 - Timer
     register_interrupt_handler(33, keyboard_interrupt_handler); // IRQ 1 - Clavier
+    register_interrupt_handler(35, ne2k_irq_handler); // IRQ 3 - NE2000 ISA
     print_string_serial("Step 5: Handlers IRQ enregistrés\n");
     
     // 6. Associer les entrées de l'IDT aux routines assembleur
     print_string_serial("Step 6: Configuration des entrées IDT...\n");
     idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);        // Timer
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);        // Clavier
+    idt_set_gate(35, (uint32_t)irq3, 0x08, 0x8E);        // NE2000 ISA
     idt_set_gate(0x30, (uint32_t)isr_schedule, 0x08, 0xEE); // Scheduler (Ring 3)
     idt_set_gate(0x80, (uint32_t)isr_syscall, 0x08, 0xEE); // Syscalls (Ring 3 accessible)
     print_string_serial("Step 6: Entrées IDT configurées\n");
@@ -251,7 +256,7 @@ void interrupts_init() {
 
     // 8. Forcer l'unmask des IRQ critiques
     print_string_serial("Step 8: Activation forcée des IRQ critiques...\n");
-    outb(0x21, 0xFC);   // 11111100b : IRQ0, IRQ1 activées
+    outb(0x21, 0xF4);   // IRQ0, IRQ1 et IRQ3 activées
     outb(0xA1, 0xFF);   // Toutes les IRQ du PIC2 désactivées
     
     // Vérification finale

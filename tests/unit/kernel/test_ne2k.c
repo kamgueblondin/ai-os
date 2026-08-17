@@ -63,6 +63,9 @@ void test_probe_and_prepare_use_injected_io(void) {
       TEST_ASSERT_EQUAL(1, fake.tx_data[0]); TEST_ASSERT_EQUAL(10, fake.tx_data[9]);
       TEST_ASSERT_EQUAL(0, fake.tx_data[59]);
       TEST_ASSERT_NOT_EQUAL(0, ne2k_tx_submit(&device, &io, frame, NE2K_ETHERNET_MAX_FRAME + 1U)); }
+    fake.isr = NE2K_ISR_RDC; TEST_ASSERT_EQUAL(0, ne2k_irq_attach(&device, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_irq_count()); ne2k_irq_service();
+    TEST_ASSERT_EQUAL(1, ne2k_irq_count());
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {

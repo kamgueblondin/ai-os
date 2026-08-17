@@ -32,6 +32,7 @@ void print_string(const char* str);
 
 static ne2k_device_t boot_ne2k_device;
 static uint8_t boot_ne2k_present;
+void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
     ne2k_io_t io;
@@ -44,6 +45,10 @@ static void ne2k_boot_probe(void) {
     if (ne2k_prepare(&boot_ne2k_device, &io) != 0 ||
         ne2k_configure_rings(&boot_ne2k_device, &io) != 0) {
         print_string("NE2000 detecte mais initialisation incomplete.\\n");
+        return;
+    }
+    if (ne2k_irq_attach(&boot_ne2k_device, &io) != 0) {
+        print_string("NE2000 detecte mais IRQ non attachee.\\n");
         return;
     }
     boot_ne2k_present = 1U;

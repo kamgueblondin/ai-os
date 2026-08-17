@@ -12,6 +12,34 @@ static void ne2k_i386_outb(void* context, uint16_t port, uint8_t value) {
 }
 #endif
 
+static ne2k_device_t* ne2k_irq_device;
+static const ne2k_io_t* ne2k_irq_io;
+static volatile uint32_t ne2k_irq_events;
+
+int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
+    if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
+        return -1;
+    ne2k_irq_device = device;
+    ne2k_irq_io = io;
+    ne2k_irq_events = 0U;
+    return 0;
+}
+
+void ne2k_irq_service(void) {
+    uint8_t status;
+    if (!ne2k_irq_device || !ne2k_irq_io) return;
+    status = ne2k_irq_io->inb(ne2k_irq_io->context,
+                              (uint16_t)(ne2k_irq_device->base_port + NE2K_REG_ISR));
+    if (status == 0U) return;
+    ne2k_irq_io->outb(ne2k_irq_io->context,
+                      (uint16_t)(ne2k_irq_device->base_port + NE2K_REG_ISR), status);
+    ++ne2k_irq_events;
+}
+
+uint32_t ne2k_irq_count(void) {
+    return ne2k_irq_events;
+}
+
 int ne2k_i386_io(ne2k_io_t* io) {
     if (!io) return -1;
 #ifdef __i386__
