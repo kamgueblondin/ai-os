@@ -152,6 +152,35 @@ int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,const 
     if (net_tcp_connection_accept_data(connection, view, &accepted) != 0) return -4;
     return accepted == *consumed ? 0 : -5;
 }
+int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                            net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
+                                            uint16_t* consumed) {
+    net_tcp_connection_t previous; net_tls_record_view_t record; int status;
+    if(!connection||!view||!handshake||!consumed)return -1;
+    previous=*connection;
+    status=net_tcp_connection_accept_tls_record(connection,view,&record,consumed);
+    if(status!=0)return -2;
+    if(record.content_type!=NET_TLS_CONTENT_HANDSHAKE){*connection=previous;return -3;}
+    status=net_tls_handshake_accept_server_message(handshake,record.payload,record.payload_length,transcript);
+    if(status!=0){*connection=previous;return -4;}
+    return 0;
+}
+int net_tcp_connection_accept_tls_postflight(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                             net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
+                                             const uint8_t expected_verify_data[12],uint16_t* consumed){
+    net_tcp_connection_t previous_connection; net_tls_handshake_t previous_handshake; net_tls_record_view_t record; uint16_t previous_transcript_length=0U; int status;
+    if(!connection||!view||!handshake||!consumed)return -1;
+    previous_connection=*connection; previous_handshake=*handshake; if(transcript)previous_transcript_length=transcript->length;
+    status=net_tcp_connection_accept_tls_record(connection,view,&record,consumed);
+    if(status!=0)return -2;
+    if(record.content_type==NET_TLS_CONTENT_CHANGE_CIPHER_SPEC)status=net_tls_handshake_accept_server_change_cipher_spec(handshake,record.payload,record.payload_length);
+    else if(record.content_type==NET_TLS_CONTENT_HANDSHAKE){
+        status=net_tls_handshake_accept_server_finished(handshake,record.payload,record.payload_length,expected_verify_data);
+        if(status==0&&transcript&&net_tls_transcript_append(transcript,record.payload,record.payload_length)!=0)status=-3;
+    } else status=-4;
+    if(status!=0){*connection=previous_connection;*handshake=previous_handshake;if(transcript)transcript->length=previous_transcript_length;return -5;}
+    return 0;
+}
 
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,uint16_t receive_window) {
     if (!connection) return -1;

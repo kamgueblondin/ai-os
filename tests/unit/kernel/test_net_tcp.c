@@ -90,6 +90,29 @@ void test_accept_tls_record_on_tcp_view(void) {
     view.payload_length = 7U; TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_tls_record(&connection,&view,&parsed,&consumed));
 }
 
+void test_accept_tls_handshake_transactional(void) {
+    net_tcp_connection_t connection; net_tcp_view_t view; net_tls_handshake_t handshake; net_tls_transcript_t transcript; uint8_t transcript_buffer[64]={0},hello[42]={0},record[64]={0},other[16]={0}; uint16_t consumed=0U;
+    hello[0]=NET_TLS_HANDSHAKE_SERVER_HELLO; hello[3]=38; hello[4]=3; hello[5]=3; hello[38]=0; hello[39]=0; hello[40]=0x9c; hello[41]=0;
+    TEST_ASSERT_EQUAL(0,net_tcp_connection_open(&connection,49152,443,100U));
+    view=(net_tcp_view_t){443,49152,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0}; TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_syn_ack(&connection,&view));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake)); TEST_ASSERT_EQUAL(0,net_tls_handshake_note_client_hello(&handshake)); TEST_ASSERT_EQUAL(0,net_tls_transcript_init(&transcript,transcript_buffer,sizeof(transcript_buffer)));
+    TEST_ASSERT_EQUAL(47,net_tls_record_build(record,sizeof(record),NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello)));
+    view=(net_tcp_view_t){443,49152,701U,101U,NET_TCP_FLAG_ACK,record,47};
+    TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_tls_handshake(&connection,&view,&handshake,&transcript,&consumed)); TEST_ASSERT_EQUAL(47,consumed); TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED,handshake.state); TEST_ASSERT_EQUAL(42,transcript.length); TEST_ASSERT_EQUAL(748U,connection.remote_sequence);
+    TEST_ASSERT_EQUAL(9,net_tls_record_build(other,sizeof(other),23U,(uint8_t[]){14,0,0,0},4)); view=(net_tcp_view_t){443,49152,748U,101U,NET_TCP_FLAG_ACK,other,9};
+    TEST_ASSERT_NOT_EQUAL(0,net_tcp_connection_accept_tls_handshake(&connection,&view,&handshake,&transcript,&consumed)); TEST_ASSERT_EQUAL(748U,connection.remote_sequence);
+}
+
+void test_accept_tls_postflight_transactional(void) {
+    net_tcp_connection_t connection; net_tcp_view_t view; net_tls_handshake_t handshake; net_tls_transcript_t transcript; uint8_t transcript_buffer[32]={0},record[32]={0},verify[12]={0},bad[12]={0}; uint16_t consumed=0U; uint8_t i;
+    for(i=0U;i<12U;i++)verify[i]=i;
+    TEST_ASSERT_EQUAL(0,net_tcp_connection_open(&connection,49152,443,100U)); view=(net_tcp_view_t){443,49152,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0}; TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_syn_ack(&connection,&view));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake)); handshake.state=NET_TLS_HANDSHAKE_FINISHED_SENT; TEST_ASSERT_EQUAL(0,net_tls_transcript_init(&transcript,transcript_buffer,sizeof(transcript_buffer)));
+    TEST_ASSERT_EQUAL(6,net_tls_change_cipher_spec_build(record,sizeof(record))); view=(net_tcp_view_t){443,49152,701U,101U,NET_TCP_FLAG_ACK,record,6}; TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_tls_postflight(&connection,&view,&handshake,&transcript,verify,&consumed)); TEST_ASSERT_EQUAL(707U,connection.remote_sequence); TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED,handshake.state);
+    TEST_ASSERT_EQUAL(21,net_tls_finished_build(record,sizeof(record),verify)); view=(net_tcp_view_t){443,49152,707U,101U,NET_TCP_FLAG_ACK,record,21}; TEST_ASSERT_EQUAL(0,net_tcp_connection_accept_tls_postflight(&connection,&view,&handshake,&transcript,verify,&consumed)); TEST_ASSERT_EQUAL(728U,connection.remote_sequence); TEST_ASSERT_EQUAL(16,transcript.length); TEST_ASSERT_EQUAL(1,net_tls_handshake_is_complete(&handshake));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake)); handshake.state=NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED; view.sequence=728U; TEST_ASSERT_NOT_EQUAL(0,net_tcp_connection_accept_tls_postflight(&connection,&view,&handshake,&transcript,bad,&consumed)); TEST_ASSERT_EQUAL(728U,connection.remote_sequence);
+}
+
 void test_receive_window_is_bounded(void) {
     net_tcp_connection_t connection; net_tcp_view_t view; uint16_t accepted = 0U;
     TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
@@ -165,6 +188,6 @@ void test_bounded_retransmission_metadata(void) {
 }
 
 int main(void) {
-    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_tls_record_is_composed_into_tcp); RUN_TEST(test_accept_tls_record_on_tcp_view); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
+    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_tls_record_is_composed_into_tcp); RUN_TEST(test_accept_tls_record_on_tcp_view); RUN_TEST(test_accept_tls_handshake_transactional); RUN_TEST(test_accept_tls_postflight_transactional); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
 }

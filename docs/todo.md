@@ -179,3 +179,38 @@ Validation ciblée : **8/8 tests TLS verts**. La suite complète, le build i386 
 Le message `ServerHelloDone` est désormais validé comme handshake de type 14 à corps vide. L’automate caller-owned l’accepte uniquement après `CERTIFICATE_RECEIVED`, passe à `SERVER_HELLO_DONE_RECEIVED` et rejette les transitions hors ordre ou répétées. Aucun `kmalloc`, buffer interne ou copie n’est introduit.
 
 Validation AOS-179 : **316/316 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi. Le harnais IA réessaie une seule fois une commande en cas de perte ponctuelle d’un caractère par l’injection clavier QEMU. Les échanges de clés, la dérivation de secrets, X.509, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos179_tls_server_hello_done.md](aos179_tls_server_hello_done.md).
+
+
+### AOS-180 à AOS-184 — macro-lot messages serveur TLS, transcript et TCP
+
+Le handshake TLS dispose maintenant d’une vue générique, d’un accumulateur de fragments et d’un transcript borné fournis par l’appelant. Le macro-lot parse `ServerKeyExchange` ECDHE et `CertificateRequest`, étend l’automate jusqu’à `ServerHelloDone`, puis connecte le dispatch serveur au record TLS reçu sur TCP. Le chemin TCP est transactionnel : une erreur de type de record ou de handshake restaure sa séquence et sa fenêtre de réception.
+
+Validation AOS-180/AOS-184 : **320/320 tests verts**. Les 13 tests TLS ciblés et le test TCP d’intégration couvrent le framing, les limites, les transitions, le transcript et la restauration transport. Aucun `kmalloc` n’est introduit. La validation X.509, la signature ServerKeyExchange, ECDHE, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos180_184_tls_server_macro.md](aos180_184_tls_server_macro.md).
+
+
+### AOS-185 à AOS-188 — flight client TLS après ServerHelloDone
+
+Le macro-lot construit maintenant `Certificate` client vide, `ClientKeyExchange`, `ChangeCipherSpec` et `Finished` dans des buffers caller-owned. L’automate distingue le chemin avec `CertificateRequest` du chemin sans certificat client, puis impose l’ordre ClientKeyExchange → ChangeCipherSpec → Finished. Le `verify_data` est fourni par l’appelant : aucune dérivation ECDHE, PRF TLS, signature ou cryptographie de record n’est simulée.
+
+Validation AOS-185/AOS-188 : **321/321 tests verts**. La dérivation du secret partagé, l’authentification X.509, la vérification de signature, le PRF TLS 1.2, le chiffrement AEAD, Finished authentique, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos185_188_tls_client_flight.md](aos185_188_tls_client_flight.md).
+
+
+### AOS-189 à AOS-192 — PRF TLS 1.2, master secret et Finished
+
+Le PRF TLS 1.2 HMAC-SHA256 est maintenant disponible avec workspace caller-owned, ainsi que le hash SHA-256 du transcript, la dérivation d’un master secret de 48 octets à partir d’un premaster secret fourni et le `verify_data` client Finished de 12 octets. Les vecteurs déterministes valident les quatre primitives. Les dépendances SHA-256 sont déclarées pour les tests TLS, TCP et NE2000 dans les deux couches du harness.
+
+Validation AOS-189/AOS-192 : **322/322 tests verts**. ECDHE réel, le premaster secret, X.509, la signature ServerKeyExchange, les clés de trafic, AEAD, Finished serveur, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos189_192_tls_prf_finished.md](aos189_192_tls_prf_finished.md).
+
+
+### AOS-193 à AOS-196 — post-flight serveur ChangeCipherSpec et Finished
+
+Le post-flight serveur est maintenant encadré par le parsing strict de ChangeCipherSpec (`0x01`) puis de Finished (12 octets). La comparaison de `verify_data` est effectuée sans sortie anticipée. L’intégration TCP accepte les deux records de manière transactionnelle, ajoute Finished validé au transcript et restaure la connexion, l’automate et la longueur du transcript en cas d’erreur.
+
+Validation AOS-193/AOS-196 : **324/324 tests verts**. Le code ne déchiffre ni n’authentifie de records TLS chiffrés : ECDHE, X.509, clés de trafic, AEAD, HTTP et appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos193_196_tls_server_postflight.md](aos193_196_tls_server_postflight.md).
+
+
+### AOS-197 à AOS-200 — expansion des clés AES-128-GCM
+
+Une fonction caller-owned dérive maintenant le bloc de 40 octets `key expansion` pour AES-128-GCM à partir du master secret et de `server_random || client_random`. Elle publie les vues client/server write keys de 16 octets et les IV fixes de 4 octets. Le vecteur HMAC-SHA256 couvre le bloc entier et les bornes de capacité.
+
+Validation AOS-197/AOS-200 : **325/325 tests verts**. AES-128-GCM, nonce explicite, tags, chiffrement/déchiffrement de records, ECDHE réel, X.509, HTTP et les appels LLM TLS sécurisés de bout en bout restent non implémentés. Référence : [aos197_200_tls_key_block.md](aos197_200_tls_key_block.md).
