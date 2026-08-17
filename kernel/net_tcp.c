@@ -77,7 +77,8 @@ int net_tcp_connection_open(net_tcp_connection_t* connection,uint16_t local_port
     if (!connection || local_port==0U || remote_port==0U) return -1;
     connection->local_port=local_port; connection->remote_port=remote_port;
     connection->local_sequence=local_sequence+1U; connection->remote_sequence=0U;
-    connection->state=NET_TCP_STATE_SYN_SENT; return 0;
+    connection->pending_payload=0; connection->pending_length=0U; connection->retransmit_count=0U;
+    connection->retransmit_limit=0U; connection->state=NET_TCP_STATE_SYN_SENT; return 0;
 }
 
 int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
@@ -92,6 +93,39 @@ int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,uint8_t*
     if (!connection || connection->state!=NET_TCP_STATE_ESTABLISHED) return -1;
     return net_tcp_build_ack(segment,capacity,connection->local_port,connection->remote_port,
                              connection->local_sequence,connection->remote_sequence);
+}
+
+int net_tcp_connection_commit_send(net_tcp_connection_t* connection,uint16_t payload_length) {
+    if (!connection || connection->state!=NET_TCP_STATE_ESTABLISHED || payload_length == 0U) return -1;
+    connection->local_sequence += payload_length; return 0;
+}
+
+int net_tcp_connection_accept_data(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                   uint16_t* accepted_length) {
+    if (!connection || !view || !accepted_length || connection->state != NET_TCP_STATE_ESTABLISHED) return -1;
+    if (view->source_port != connection->remote_port || view->destination_port != connection->local_port ||
+        (view->flags & NET_TCP_FLAG_ACK) == 0U || view->sequence != connection->remote_sequence ||
+        view->acknowledgment > connection->local_sequence) return -2;
+    *accepted_length = view->payload_length;
+    connection->remote_sequence += view->payload_length;
+    return 0;
+}
+
+int net_tcp_connection_track_send(net_tcp_connection_t* connection,const uint8_t* payload,
+                                  uint16_t payload_length,uint8_t retransmit_limit) {
+    if (!connection || !payload || payload_length == 0U || connection->state != NET_TCP_STATE_ESTABLISHED) return -1;
+    connection->pending_payload=payload; connection->pending_length=payload_length;
+    connection->retransmit_count=0U; connection->retransmit_limit=retransmit_limit; return 0;
+}
+
+int net_tcp_connection_retransmit_allowed(const net_tcp_connection_t* connection) {
+    if (!connection || !connection->pending_payload || connection->pending_length == 0U) return 0;
+    return connection->retransmit_count < connection->retransmit_limit;
+}
+
+int net_tcp_connection_note_retransmit(net_tcp_connection_t* connection) {
+    if (!net_tcp_connection_retransmit_allowed(connection)) return -1;
+    connection->retransmit_count++; return 0;
 }
 
 int net_tcp_parse(const uint8_t* segment,uint32_t length,net_tcp_view_t* out) {
