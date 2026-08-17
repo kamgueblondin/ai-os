@@ -13,7 +13,9 @@
 #define NE2K_REG_PSTOP   0x02U
 #define NE2K_REG_BNRY    0x03U
 #define NE2K_REG_RCR     0x0cU
-#define NE2K_REG_TCR     0x0dU
+#define NE2K_REG_TCR    0x0dU
+#define NE2K_REG_DATA   0x10U
+
 #define NE2K_REG_CURR    0x07U
 #define NE2K_COMMAND_STOP 0x01U
 #define NE2K_COMMAND_PAGE0 0x00U
@@ -36,6 +38,7 @@ typedef struct {
     uint16_t base_port;
     uint8_t initialized;
     uint8_t mac[6];
+    uint8_t mac_valid;
 } ne2k_device_t;
 
 /* Sonde le registre reset et prépare le mode arrêt/word pour une init ultérieure. */
@@ -48,6 +51,8 @@ int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io);
 int ne2k_configure_rings(ne2k_device_t* device, const ne2k_io_t* io);
 /* Définit une MAC locale valide: non nulle et non multicast. */
 int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]);
+/* Lit les six octets pairs de la PROM NE2000 sans conserver de buffer externe. */
+int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);

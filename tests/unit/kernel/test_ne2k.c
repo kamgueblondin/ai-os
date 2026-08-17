@@ -6,6 +6,8 @@ typedef struct {
     uint8_t isr;
     uint8_t writes;
     uint8_t dcr;
+    uint8_t prom[12];
+    uint8_t prom_index;
 } fake_ne2k_t;
 
 void setUp(void) {}
@@ -16,6 +18,8 @@ static uint8_t fake_inb(void* context, uint16_t port) {
     if ((port & 0x1fU) == NE2K_REG_RESET) return fake->reset;
     if ((port & 0x1fU) == NE2K_REG_ISR) return fake->isr;
     if ((port & 0x1fU) == NE2K_REG_DCR) return fake->dcr;
+    if ((port & 0x1fU) == NE2K_REG_DATA && fake->prom_index < 12U)
+        return fake->prom[fake->prom_index++];
     return 0U;
 }
 
@@ -38,6 +42,16 @@ void test_probe_and_prepare_use_injected_io(void) {
     { uint8_t mac[6] = {0x02, 0, 0, 0, 0, 1}; TEST_ASSERT_EQUAL(0, ne2k_set_mac(&device, mac)); TEST_ASSERT_EQUAL(0x02, device.mac[0]); }
     { uint8_t zero[6] = {0, 0, 0, 0, 0, 0}; TEST_ASSERT_NOT_EQUAL(0, ne2k_set_mac(&device, zero)); }
     { uint8_t multicast[6] = {0x01, 0, 0, 0, 0, 1}; TEST_ASSERT_NOT_EQUAL(0, ne2k_set_mac(&device, multicast)); }
+    fake.prom[0] = 0x02; fake.prom[1] = 0xaa; fake.prom[2] = 0x10;
+    fake.prom[3] = 0xbb; fake.prom[4] = 0x20; fake.prom[5] = 0xcc;
+    fake.prom[6] = 0x30; fake.prom[7] = 0xdd; fake.prom[8] = 0x40;
+    fake.prom[9] = 0xee; fake.prom[10] = 0x50; fake.prom[11] = 0xff;
+    fake.prom_index = 0U;
+    TEST_ASSERT_EQUAL(0, ne2k_read_mac(&device, &io));
+    TEST_ASSERT_EQUAL(1, device.mac_valid); TEST_ASSERT_EQUAL(0x02, device.mac[0]);
+    TEST_ASSERT_EQUAL(0x10, device.mac[1]); TEST_ASSERT_EQUAL(0x20, device.mac[2]);
+    TEST_ASSERT_EQUAL(0x30, device.mac[3]); TEST_ASSERT_EQUAL(0x40, device.mac[4]);
+    TEST_ASSERT_EQUAL(0x50, device.mac[5]);
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {

@@ -29,6 +29,7 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
     device->initialized = 0U;
     device->mac[0] = device->mac[1] = device->mac[2] = 0U;
     device->mac[3] = device->mac[4] = device->mac[5] = 0U;
+    device->mac_valid = 0U;
     io->outb(io->context, (uint16_t)(base_port + NE2K_REG_COMMAND),
              NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
     reset_value = io->inb(io->context, (uint16_t)(base_port + NE2K_REG_RESET));
@@ -66,7 +67,32 @@ int ne2k_set_mac(ne2k_device_t* device, const uint8_t mac[6]) {
         device->mac[i] = mac[i];
         if (mac[i] != 0U) nonzero = 1U;
     }
+    device->mac_valid = nonzero;
     return nonzero ? 0 : -2;
+}
+
+int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io) {
+    uint8_t prom[12];
+    uint16_t base;
+    uint32_t i;
+    if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
+        return -1;
+    base = device->base_port;
+    /* La PROM NE2000 expose la MAC sur les octets pairs d’une lecture 16 bits. */
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
+             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+    for (i = 0; i < 12U; ++i)
+        prom[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
+    for (i = 0; i < 6U; ++i)
+        device->mac[i] = prom[i * 2U];
+    device->mac_valid = 0U;
+    for (i = 0; i < 6U; ++i)
+        if (device->mac[i] != 0U) device->mac_valid = 1U;
+    if ((device->mac[0] & 1U) != 0U || device->mac_valid == 0U) {
+        device->mac_valid = 0U;
+        return -2;
+    }
+    return 0;
 }
 
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
