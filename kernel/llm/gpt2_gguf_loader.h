@@ -42,6 +42,9 @@ int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
                               gpt2_gguf_layer_t* layers,
                               uint32_t layer_capacity,
                               gpt2_gguf_runtime_t* out);
+/* Retourne une vue bornée d’une couche déjà préparée. */
+int gpt2_gguf_runtime_get_layer(const gpt2_gguf_runtime_t* runtime,
+                                uint32_t layer_index, gpt2_gguf_layer_t* out);
 
 /* Prépare une couche pour le futur forward sans prendre possession des buffers. */
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
