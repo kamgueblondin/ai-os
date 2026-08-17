@@ -108,6 +108,12 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_n
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_nic: $(UNIT_DIR)/kernel/test_net_nic.c ../kernel/net_nic.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_nic.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_quant: $(UNIT_DIR)/kernel/test_gpt2_quant.c ../kernel/llm/gpt2_quant.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_quant.c $(FRAMEWORK_SOURCES)
