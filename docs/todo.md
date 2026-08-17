@@ -147,3 +147,7 @@ Validation AOS-171 : **307/307 tests verts**, après ajout de `net_tls_record.c`
 Le parsing stream TLS distingue les fragments incomplets et les records complets. La connexion TCP accepte un record complet uniquement lorsqu’il occupe exactement le payload reçu, puis avance le sequence distant ; les buffers d’assemblage restent caller-owned.
 
 Validation AOS-172/AOS-173 : **309/309 tests verts**, build i386 réussi, smoke `qemu-ai-provider` réussi et smoke `qemu-ne2k-status` réussi.
+
+### AOS-174 — accumulateur de fragments TLS
+
+L’état d’assemblage TLS est désormais caller-owned : les fragments TCP sont bornés par la capacité fournie, le record incomplet reste non publié et le record complet est parsé sans allocation. Validation : **310/310 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi.
