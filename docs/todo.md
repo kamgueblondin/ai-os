@@ -305,3 +305,10 @@ Le test couvre une réponse `200` dont le body de cinq octets arrive en deux rec
 La couche HTTP/TLS fournit `net_http_build_post_json` et `net_http_tls_build_post_json`. La première construit un POST HTTP/1.1 caller-owned avec `Host`, `Content-Type: application/json`, `Content-Length` décimal et `Connection: close`; la seconde chiffre ce plaintext dans un record TLS AES-GCM encapsulé dans TCP. Les tests contrôlent le framing exact, les refus de paramètres ou capacités invalides et le déchiffrement octet pour octet côté serveur simulé.
 
 Référence : [aos281_288_http_post_json.md](aos281_288_http_post_json.md). L’implémentation n’assure pas encore la fragmentation de très grandes requêtes, chunked, HTTP/2, authentification HTTP/API, retries, streaming LLM, handshake de production, hostname, chaîne X.509, dates ni X25519 constante-temps.
+
+
+### AOS-289 à AOS-296 — validation hostname X.509/TLS
+
+Le parseur X.509 publie le `commonName` et les `subjectAltName` DNS, puis `x509_certificate_hostname_validate` applique une comparaison DNS ASCII bornée. Les dNSName SAN sont prioritaires sur le CN, la casse ASCII est ignorée, et le wildcard `*.suffix` ne couvre qu’un seul label. Les tests couvrent le CN, la priorité SAN, le fallback sans SAN, la casse et le rejet d’un wildcard multi-label.
+
+Référence : [aos289_296_tls_hostname.md](aos289_296_tls_hostname.md). Les IP, IDNA, Unicode, contraintes de nom, usages de clé, chaîne de confiance, ancres, dates, signatures de certificats et l’invocation automatique depuis le pilote restent à implémenter ; X25519/bigint demeure non constante-temps.
