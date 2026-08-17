@@ -123,14 +123,21 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_service_registry.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/service_registry.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_tls_record.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_tls_record.c" ] || [ "$(basename "$test_file")" = "test_tls_rsa_handshake.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
+        extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
     if [ "$(basename "$test_file")" = "test_aes_gcm.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_bigint.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/bigint.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_rsa_verify.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
     if [ "$(basename "$test_file")" = "test_x509_der.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
@@ -144,6 +151,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
+        extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
     if [ "$(basename "$test_file")" = "test_net_dns.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_dns.c"
@@ -166,6 +174,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
+        extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c"
     fi
     if [ "$(basename "$test_file")" = "test_pci.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/pci.c"
