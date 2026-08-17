@@ -212,7 +212,7 @@ int net_tls_server_hello_done_parse(const uint8_t* handshake,uint16_t length){
 }
 
 int net_tls_handshake_init(net_tls_handshake_t* handshake){
-    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U; handshake->server_named_curve=0U; handshake->server_public_key=0; handshake->server_public_key_length=0U; handshake->certificate_requested=0U; return 0;
+    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U; handshake->server_x509_valid=0U; handshake->server_named_curve=0U; handshake->server_public_key=0; handshake->server_public_key_length=0U; handshake->certificate_requested=0U; return 0;
 }
 int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_IDLE)return -1; handshake->state=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT; return 0;
@@ -227,7 +227,12 @@ int net_tls_handshake_accept_certificate(net_tls_handshake_t* handshake,const ui
     net_tls_certificate_view_t view;
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED)return -1;
     if(net_tls_certificate_parse(message,length,&view)!=0)return -2;
-    handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
+    handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length; handshake->server_x509_valid=0U; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
+}
+int net_tls_handshake_parse_server_certificate_x509(net_tls_handshake_t* handshake){
+    if(!handshake||handshake->state<NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED||!handshake->server_certificate)return -1;
+    if(x509_certificate_parse(handshake->server_certificate,handshake->server_certificate_length,&handshake->server_x509)!=0)return -2;
+    handshake->server_x509_valid=1U;return 0;
 }
 int net_tls_handshake_accept_server_key_exchange(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
     net_tls_server_key_exchange_view_t view;

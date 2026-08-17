@@ -127,9 +127,13 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
+        extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
     fi
     if [ "$(basename "$test_file")" = "test_aes_gcm.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_x509_der.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
     fi
     if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
@@ -139,6 +143,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
+        extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
     fi
     if [ "$(basename "$test_file")" = "test_net_dns.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_dns.c"
@@ -160,6 +165,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
         extra_src="$extra_src $BASE_DIR/kernel/aes_gcm.c"
+        extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
     fi
     if [ "$(basename "$test_file")" = "test_pci.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/pci.c"

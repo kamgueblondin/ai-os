@@ -221,3 +221,10 @@ Validation AOS-197/AOS-200 : **325/325 tests verts**. AES-128-GCM, nonce explici
 AES-128, GHASH et GCM sont maintenant implémentés en freestanding. Les records TLS 1.2 utilisent le nonce explicite de huit octets, l’AAD de séquence TLS et un tag de seize octets. Les sessions caller-owned sélectionnent les clés client/serveur, avancent les séquences après succès seulement et les adaptateurs TCP restaurent les états TCP/TLS en cas d’échec de chiffrement, d’authentification ou de déchiffrement.
 
 Validation AOS-201/AOS-208 : **330/330 tests verts**, build i386 réussi, smokes `qemu-ai-provider` et `qemu-ne2k-status` réussis. ECDHE réel, X.509, vérification `ServerKeyExchange`, validation des suites négociées, orchestration TLS de production, HTTP et appels LLM sécurisés de bout en bout restent à implémenter. Référence : [aos201_208_tls_aes_gcm.md](aos201_208_tls_aes_gcm.md).
+
+
+### AOS-209 à AOS-216 — DER/X.509 minimal caller-owned
+
+Un lecteur DER borné et un parseur X.509 minimal publient maintenant sans copie le TBSCertificate, le serial, issuer, subject, dates de validité et la clé publique RSA du certificat serveur. Le handshake peut déclencher explicitement cette analyse après réception de Certificate. Les longueurs tronquées, indéfinies ou incohérentes sont rejetées.
+
+Validation AOS-209/AOS-216 : **332/332 tests verts**, build i386 réussi. La chaîne de confiance, les dates, l’hôte, les usages, les signatures de certificats, ECDHE réel, la signature ServerKeyExchange et l’orchestration TLS de production restent à implémenter. Référence : [aos209_216_x509_der.md](aos209_216_x509_der.md).
