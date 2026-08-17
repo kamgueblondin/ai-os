@@ -6,6 +6,7 @@
 #include "net_ethernet_arp.h"
 #include "net_ipv4_udp.h"
 #include "net_dhcp.h"
+#include "net_dns.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -108,6 +109,18 @@ int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
                          uint8_t* frame, uint16_t frame_capacity,
                          uint32_t expected_xid, uint16_t attempts,
                          net_dhcp_offer_t* offer);
+int ne2k_dhcp_request(ne2k_device_t* device, const ne2k_io_t* io,
+                      uint8_t* frame, uint16_t frame_capacity,
+                      uint32_t xid, const uint8_t requested_ip[4],
+                      const uint8_t server_ip[4]);
+int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
+                   net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                   uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                   const uint8_t local_ip[4], const uint8_t dns_ip[4], uint16_t id,
+                   const char* hostname);
+int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
+                    uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
+                    uint16_t expected_id, net_dns_a_result_t* result);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

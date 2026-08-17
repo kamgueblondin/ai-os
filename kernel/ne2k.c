@@ -115,6 +115,58 @@ int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
                        NET_UDP_HEADER_SIZE, (uint16_t)payload_length);
 }
 
+int ne2k_dhcp_request(ne2k_device_t* device, const ne2k_io_t* io,
+                      uint8_t* frame, uint16_t frame_capacity,
+                      uint32_t xid, const uint8_t requested_ip[4],
+                      const uint8_t server_ip[4]) {
+    static const uint8_t broadcast_mac[6] = {0xff,0xff,0xff,0xff,0xff,0xff};
+    static const uint8_t zero_ip[4] = {0,0,0,0};
+    static const uint8_t broadcast_ip[4] = {255,255,255,255};
+    int payload_length;
+    if (!device || !io || !frame || !requested_ip || !server_ip ||
+        frame_capacity < NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE + 255U)
+        return -1;
+    payload_length = net_dhcp_build_request(frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+        frame_capacity - NET_ETHERNET_HEADER_SIZE - NET_IPV4_HEADER_SIZE - NET_UDP_HEADER_SIZE,
+        xid, device->mac, requested_ip, server_ip);
+    if (payload_length < 0) return -2;
+    return ne2k_tx_udp(device, io, frame, frame_capacity, broadcast_mac, zero_ip, broadcast_ip,
+                       68U, 67U, frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+                       (uint16_t)payload_length);
+}
+
+int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
+                   net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                   uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                   const uint8_t local_ip[4], const uint8_t dns_ip[4], uint16_t id,
+                   const char* hostname) {
+    int payload_length;
+    if (!device || !io || !cache || !arp_request || !arp_rx || !frame || !local_ip || !dns_ip || !hostname ||
+        frame_capacity < NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE + 12U)
+        return -1;
+    payload_length = net_dns_build_a_query(frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+        frame_capacity - NET_ETHERNET_HEADER_SIZE - NET_IPV4_HEADER_SIZE - NET_UDP_HEADER_SIZE, id, hostname);
+    if (payload_length < 0) return -2;
+    return ne2k_tx_udp_resolve(device, io, cache, arp_request, arp_request_capacity, arp_rx, arp_rx_capacity,
+        frame, frame_capacity, local_ip, dns_ip, 49152U, 53U,
+        frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+        (uint16_t)payload_length, 8U);
+}
+
+int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
+                    uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
+                    uint16_t expected_id, net_dns_a_result_t* result) {
+    uint16_t frame_length, i; net_udp_view_t udp; int status;
+    if (!device || !io || !frame || !result || attempts == 0U) return -1;
+    for (i = 0; i < attempts; ++i) {
+        status = ne2k_rx_poll_udp(device, io, frame, frame_capacity, &frame_length, &udp);
+        if (status != 0) continue;
+        if (udp.source_port != 53U || udp.destination_port != 49152U) continue;
+        if (net_dns_parse_a_response(udp.payload, udp.payload_length, expected_id, result) == 0) return 0;
+    }
+    return -2;
+}
+
 int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
                          uint8_t* frame, uint16_t frame_capacity,
                          uint32_t expected_xid, uint16_t attempts,
