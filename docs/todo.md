@@ -107,3 +107,7 @@ AOS-153 fait progresser explicitement `local_sequence` après envoi confirmé et
 ### AOS-155 à AOS-158 — retransmission, ACK final et fermeture TCP
 
 Les lots ajoutent la retransmission NE2000 caller-owned, la confirmation et purge du payload pending, le codec et l’émission FIN+ACK, puis les transitions FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT et CLOSED. La validation complète atteint 301 tests verts, avec build i386, smoke IA et smoke NE2000 réussis. Les timers RTO, la congestion, TLS, HTTP et l’appel LLM en ligne restent hors périmètre fonctionnel.
+
+### AOS-159 à AOS-162 — envoi suivi d’ACK, réception, fenêtre et checksums
+
+AOS-159 ajoute la construction data suivie d’un pending caller-owned avant commit TX. AOS-160 ajoute la réception TCP NE2000 bornée avec copie vers le buffer appelant. AOS-161 ajoute la fenêtre de réception explicite. AOS-162 valide les checksums IPv4 et TCP en réception. Validation : 304 tests verts, build i386 réussi, smoke IA réussi et smoke NE2000 réussi.

@@ -268,6 +268,29 @@ int ne2k_tcp_retransmit(ne2k_device_t* device, const ne2k_io_t* io,
     return net_tcp_connection_note_retransmit(connection);
 }
 
+int ne2k_tcp_receive(const uint8_t* frame, uint16_t frame_length,
+                     net_tcp_connection_t* connection, uint8_t* payload,
+                     uint16_t payload_capacity, uint16_t* payload_length) {
+    uint16_t ip_offset = NET_ETHERNET_HEADER_SIZE, tcp_offset, ip_length, tcp_length, accepted, i;
+    net_tcp_view_t view;
+    if (!frame || !connection || !payload_length || frame_length < NET_ETHERNET_HEADER_SIZE + 40U) return -1;
+    if (frame[12] != 0x08U || frame[13] != 0x00U || (frame[ip_offset] >> 4) != 4U) return -2;
+    if ((frame[ip_offset + 9U]) != NET_TCP_PROTOCOL) return -3;
+    if (net_ipv4_checksum(frame + ip_offset, NET_IPV4_HEADER_SIZE) != 0U) return -4;
+    ip_length = (uint16_t)(((uint16_t)frame[ip_offset + 2U] << 8) | frame[ip_offset + 3U]);
+    if (ip_length < 40U || (uint32_t)NET_ETHERNET_HEADER_SIZE + ip_length > frame_length) return -5;
+    tcp_offset = (uint16_t)(ip_offset + ((frame[ip_offset] & 0x0fU) * 4U));
+    if (tcp_offset + NET_TCP_HEADER_SIZE > frame_length) return -6;
+    tcp_length = (uint16_t)(ip_length - (tcp_offset - ip_offset));
+    if (net_tcp_checksum_ipv4(frame + ip_offset + 12U, frame + ip_offset + 16U,
+                              frame + tcp_offset, tcp_length) != 0U) return -7;
+    if (net_tcp_parse(frame + tcp_offset, tcp_length, &view) != 0) return -8;
+    if (view.payload_length > payload_capacity || (!payload && view.payload_length != 0U)) return -8;
+    if (net_tcp_connection_accept_data(connection, &view, &accepted) != 0) return -9;
+    for (i = 0; i < accepted; ++i) payload[i] = view.payload[i];
+    *payload_length = accepted; return 0;
+}
+
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result) {

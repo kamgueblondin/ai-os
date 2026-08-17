@@ -84,7 +84,8 @@ int net_tcp_connection_open(net_tcp_connection_t* connection,uint16_t local_port
     connection->local_port=local_port; connection->remote_port=remote_port;
     connection->local_sequence=local_sequence+1U; connection->remote_sequence=0U;
     connection->pending_payload=0; connection->pending_length=0U; connection->retransmit_count=0U;
-    connection->retransmit_limit=0U; connection->state=NET_TCP_STATE_SYN_SENT; return 0;
+    connection->retransmit_limit=0U; connection->receive_window=0xffffU;
+    connection->state=NET_TCP_STATE_SYN_SENT; return 0;
 }
 
 int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
@@ -103,6 +104,18 @@ int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,uint8_t*
                              connection->local_sequence,connection->remote_sequence);
 }
 
+int net_tcp_connection_build_data(net_tcp_connection_t* connection,uint8_t* segment,uint32_t capacity,
+                                  const uint8_t* payload,uint16_t payload_length,uint8_t retransmit_limit) {
+    int length;
+    if (!connection || !segment || !payload || payload_length == 0U || connection->state != NET_TCP_STATE_ESTABLISHED) return -1;
+    length = net_tcp_build_data(segment, capacity, connection->local_port, connection->remote_port,
+                                connection->local_sequence, connection->remote_sequence,
+                                payload, payload_length);
+    if (length < 0) return -2;
+    if (net_tcp_connection_track_send(connection, payload, payload_length, retransmit_limit) != 0) return -3;
+    return length;
+}
+
 int net_tcp_connection_commit_send(net_tcp_connection_t* connection,uint16_t payload_length) {
     if (!connection || connection->state!=NET_TCP_STATE_ESTABLISHED || payload_length == 0U) return -1;
     connection->local_sequence += payload_length; return 0;
@@ -113,10 +126,16 @@ int net_tcp_connection_accept_data(net_tcp_connection_t* connection,const net_tc
     if (!connection || !view || !accepted_length || connection->state != NET_TCP_STATE_ESTABLISHED) return -1;
     if (view->source_port != connection->remote_port || view->destination_port != connection->local_port ||
         (view->flags & NET_TCP_FLAG_ACK) == 0U || view->sequence != connection->remote_sequence ||
-        view->acknowledgment > connection->local_sequence) return -2;
+        view->acknowledgment > connection->local_sequence || view->payload_length > connection->receive_window) return -2;
     *accepted_length = view->payload_length;
     connection->remote_sequence += view->payload_length;
+    connection->receive_window = (uint16_t)(connection->receive_window - view->payload_length);
     return 0;
+}
+
+int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,uint16_t receive_window) {
+    if (!connection) return -1;
+    connection->receive_window = receive_window; return 0;
 }
 
 int net_tcp_connection_track_send(net_tcp_connection_t* connection,const uint8_t* payload,
