@@ -69,6 +69,21 @@ static void test_view_up_clamped_to_history(void) {
     TEST_ASSERT_EQUAL(1, vga_console_view_up(40));
 }
 
+static void test_cursor_inverts_visible_cell(void) {
+    unsigned char attr;
+
+    vga_console_init(0x07);
+    vga_console_set_cursor(1, 2);
+#ifdef KERNEL_TEST
+    attr = (unsigned char)(vga_test_fb[2 * VGA_COLS + 1] >> 8);
+    TEST_ASSERT_NOT_EQUAL(0x07, attr);
+    TEST_ASSERT_EQUAL(' ', (char)(vga_test_fb[2 * VGA_COLS + 1] & 0xFF));
+    TEST_ASSERT_EQUAL(0x07, (int)(vga_test_fb[0] >> 8));
+#else
+    (void)attr;
+#endif
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_init_blanks_screen);
@@ -78,6 +93,7 @@ int main(void) {
     RUN_TEST(test_page_down_returns_to_live);
     RUN_TEST(test_put_while_scrolled_returns_live);
     RUN_TEST(test_view_up_clamped_to_history);
+    RUN_TEST(test_cursor_inverts_visible_cell);
     unity_print_results();
     unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;

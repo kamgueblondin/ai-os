@@ -93,7 +93,18 @@ static void compose_visible(void) {
     if (start < 0) start = 0;
     for (row = 0; row < VGA_ROWS; row++) {
         for (col = 0; col < VGA_COLS; col++) {
-            hw_put(row * VGA_COLS + col, combined_cell(start + row, col));
+            uint16_t cell = combined_cell(start + row, col);
+            if (view_off == 0 && row == cur_y && col == cur_x) {
+                unsigned char attr = (unsigned char)(cell >> 8);
+                unsigned char fg = (unsigned char)(attr & 0x0F);
+                unsigned char bg = (unsigned char)((attr >> 4) & 0x07);
+                unsigned char inv = (unsigned char)((fg << 4) | bg);
+                if (inv == attr) {
+                    inv = 0x70;
+                }
+                cell = (uint16_t)((cell & 0x00FF) | ((uint16_t)inv << 8));
+            }
+            hw_put(row * VGA_COLS + col, cell);
         }
     }
     if (view_off == 0) {
@@ -146,8 +157,7 @@ void vga_console_put_xy(char c, int x, int y, char color) {
     }
     cell = (uint16_t)(unsigned char)c | ((uint16_t)color << 8);
     live[y][x] = cell;
-    hw_put(y * VGA_COLS + x, cell);
-    hw_cursor(cur_x, cur_y, 1);
+    compose_visible();
 }
 
 void vga_console_scroll(void) {
@@ -186,9 +196,7 @@ void vga_console_clear(char color) {
 void vga_console_set_cursor(int x, int y) {
     cur_x = x;
     cur_y = y;
-    if (view_off == 0) {
-        hw_cursor(cur_x, cur_y, 1);
-    }
+    compose_visible();
 }
 
 int vga_console_view_up(int lines) {
