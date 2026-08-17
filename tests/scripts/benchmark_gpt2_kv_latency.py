@@ -86,9 +86,16 @@ def main():
             start_time = time.monotonic()
             send_command(client, "ai hello")
             text = wait_for(proc, "[GPT-2 local]", 240, start=start_offset)
-            elapsed = time.monotonic() - start_time
+            cold_elapsed = time.monotonic() - start_time
             response = text[text.rfind("[GPT-2 local]"):].split("\n", 1)[0]
-            print("LATENCY_SECONDS=%.3f" % elapsed)
+            warm_offset = len(text)
+            warm_start = time.monotonic()
+            send_command(client, "ai hello")
+            warm_text = wait_for(proc, "[GPT-2 local]", 240, start=warm_offset)
+            warm_elapsed = time.monotonic() - warm_start
+            print("COLD_LATENCY_SECONDS=%.3f" % cold_elapsed)
+            print("WARM_LATENCY_SECONDS=%.3f" % warm_elapsed)
+            print("KV_REUSE=1")
             print("%s" % response)
         return 0
     finally:
