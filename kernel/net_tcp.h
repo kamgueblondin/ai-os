@@ -88,6 +88,11 @@ int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,
                                          const net_tcp_view_t* view,
                                          net_tls_record_view_t* record,
                                          uint16_t* consumed);
+int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,
+                                            const net_tcp_view_t* view,
+                                            net_tls_handshake_t* handshake,
+                                            net_tls_transcript_t* transcript,
+                                            uint16_t* consumed);
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,
                                            uint16_t receive_window);
 int net_tcp_connection_track_send(net_tcp_connection_t* connection,

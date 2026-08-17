@@ -179,3 +179,10 @@ Validation ciblée : **8/8 tests TLS verts**. La suite complète, le build i386 
 Le message `ServerHelloDone` est désormais validé comme handshake de type 14 à corps vide. L’automate caller-owned l’accepte uniquement après `CERTIFICATE_RECEIVED`, passe à `SERVER_HELLO_DONE_RECEIVED` et rejette les transitions hors ordre ou répétées. Aucun `kmalloc`, buffer interne ou copie n’est introduit.
 
 Validation AOS-179 : **316/316 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi. Le harnais IA réessaie une seule fois une commande en cas de perte ponctuelle d’un caractère par l’injection clavier QEMU. Les échanges de clés, la dérivation de secrets, X.509, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos179_tls_server_hello_done.md](aos179_tls_server_hello_done.md).
+
+
+### AOS-180 à AOS-184 — macro-lot messages serveur TLS, transcript et TCP
+
+Le handshake TLS dispose maintenant d’une vue générique, d’un accumulateur de fragments et d’un transcript borné fournis par l’appelant. Le macro-lot parse `ServerKeyExchange` ECDHE et `CertificateRequest`, étend l’automate jusqu’à `ServerHelloDone`, puis connecte le dispatch serveur au record TLS reçu sur TCP. Le chemin TCP est transactionnel : une erreur de type de record ou de handshake restaure sa séquence et sa fenêtre de réception.
+
+Validation AOS-180/AOS-184 : **320/320 tests verts**. Les 13 tests TLS ciblés et le test TCP d’intégration couvrent le framing, les limites, les transitions, le transcript et la restauration transport. Aucun `kmalloc` n’est introduit. La validation X.509, la signature ServerKeyExchange, ECDHE, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos180_184_tls_server_macro.md](aos180_184_tls_server_macro.md).

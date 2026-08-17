@@ -152,6 +152,19 @@ int net_tcp_connection_accept_tls_record(net_tcp_connection_t* connection,const 
     if (net_tcp_connection_accept_data(connection, view, &accepted) != 0) return -4;
     return accepted == *consumed ? 0 : -5;
 }
+int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,const net_tcp_view_t* view,
+                                            net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
+                                            uint16_t* consumed) {
+    net_tcp_connection_t previous; net_tls_record_view_t record; int status;
+    if(!connection||!view||!handshake||!consumed)return -1;
+    previous=*connection;
+    status=net_tcp_connection_accept_tls_record(connection,view,&record,consumed);
+    if(status!=0)return -2;
+    if(record.content_type!=NET_TLS_CONTENT_HANDSHAKE){*connection=previous;return -3;}
+    status=net_tls_handshake_accept_server_message(handshake,record.payload,record.payload_length,transcript);
+    if(status!=0){*connection=previous;return -4;}
+    return 0;
+}
 
 int net_tcp_connection_set_receive_window(net_tcp_connection_t* connection,uint16_t receive_window) {
     if (!connection) return -1;

@@ -16,6 +16,43 @@ int net_tls_record_parse_stream(const uint8_t* stream,uint32_t length,net_tls_re
     *consumed=total; return 0;
 }
 
+int net_tls_handshake_parse(const uint8_t* handshake,uint16_t length,net_tls_handshake_view_t* out){
+    uint32_t body_length;
+    if(!handshake||!out||length<NET_TLS_HANDSHAKE_HEADER)return -1;
+    body_length=get24(handshake+1);
+    if(body_length!=(uint32_t)length-NET_TLS_HANDSHAKE_HEADER)return -2;
+    out->type=handshake[0]; out->body=handshake+NET_TLS_HANDSHAKE_HEADER; out->body_length=body_length; return 0;
+}
+int net_tls_handshake_accumulator_init(net_tls_handshake_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
+    if(!accumulator||!buffer||capacity<NET_TLS_HANDSHAKE_HEADER)return -1;
+    accumulator->buffer=buffer; accumulator->capacity=capacity; accumulator->length=0U; return 0;
+}
+int net_tls_handshake_accumulator_feed(net_tls_handshake_accumulator_t* accumulator,const uint8_t* fragment,uint16_t fragment_length,net_tls_handshake_view_t* out){
+    uint16_t i; uint32_t total;
+    if(!accumulator||!accumulator->buffer||(!fragment&&fragment_length)||!out)return -1;
+    if((uint32_t)accumulator->length+fragment_length>accumulator->capacity)return -2;
+    for(i=0U;i<fragment_length;i++)accumulator->buffer[accumulator->length+i]=fragment[i];
+    accumulator->length=(uint16_t)(accumulator->length+fragment_length);
+    if(accumulator->length<NET_TLS_HANDSHAKE_HEADER)return 1;
+    total=(uint32_t)NET_TLS_HANDSHAKE_HEADER+get24(accumulator->buffer+1);
+    if(total>accumulator->capacity)return -3;
+    if(accumulator->length<total)return 1;
+    if(accumulator->length!=total)return -4;
+    return net_tls_handshake_parse(accumulator->buffer,accumulator->length,out);
+}
+int net_tls_transcript_init(net_tls_transcript_t* transcript,uint8_t* buffer,uint16_t capacity){
+    if(!transcript||!buffer)return -1;
+    transcript->buffer=buffer; transcript->capacity=capacity; transcript->length=0U; return 0;
+}
+int net_tls_transcript_append(net_tls_transcript_t* transcript,const uint8_t* handshake,uint16_t length){
+    uint16_t i; net_tls_handshake_view_t view;
+    if(!transcript||!transcript->buffer)return -1;
+    if(net_tls_handshake_parse(handshake,length,&view)!=0)return -2;
+    if((uint32_t)transcript->length+length>transcript->capacity)return -3;
+    for(i=0U;i<length;i++)transcript->buffer[transcript->length+i]=handshake[i];
+    transcript->length=(uint16_t)(transcript->length+length); return 0;
+}
+
 int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_server_hello_view_t* out){
     uint32_t body_length; uint8_t session_length; uint16_t pos;
     if(!handshake||!out||length<4U)return -1;
@@ -55,6 +92,33 @@ int net_tls_certificate_parse(const uint8_t* handshake,uint16_t length,net_tls_c
     out->certificate_list_length=list_length; return 0;
 }
 
+int net_tls_server_key_exchange_parse(const uint8_t* handshake,uint16_t length,net_tls_server_key_exchange_view_t* out){
+    uint16_t pos,signature_length; uint8_t public_key_length;
+    if(!handshake||!out||length<14U)return -1;
+    if(handshake[0]!=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE||get24(handshake+1)!=(uint32_t)length-4U)return -2;
+    if(handshake[4]!=3U)return -3;
+    out->named_curve=get16(handshake+5); public_key_length=handshake[7]; pos=8U;
+    if(public_key_length==0U||(uint32_t)pos+public_key_length+4U>length)return -4;
+    out->public_key=handshake+pos; out->public_key_length=public_key_length; pos=(uint16_t)(pos+public_key_length);
+    out->hash_algorithm=handshake[pos]; out->signature_algorithm=handshake[pos+1U]; signature_length=get16(handshake+pos+2U); pos=(uint16_t)(pos+4U);
+    if(signature_length==0U||(uint32_t)pos+signature_length!=length)return -5;
+    out->signature=handshake+pos; out->signature_length=signature_length; return 0;
+}
+int net_tls_certificate_request_parse(const uint8_t* handshake,uint16_t length,net_tls_certificate_request_view_t* out){
+    uint16_t pos,signature_length,authorities_length; uint8_t types_length;
+    if(!handshake||!out||length<9U)return -1;
+    if(handshake[0]!=NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST||get24(handshake+1)!=(uint32_t)length-4U)return -2;
+    types_length=handshake[4]; pos=5U;
+    if(types_length==0U||(uint32_t)pos+types_length+4U>length)return -3;
+    out->certificate_types=handshake+pos; out->certificate_types_length=types_length; pos=(uint16_t)(pos+types_length);
+    signature_length=get16(handshake+pos); pos=(uint16_t)(pos+2U);
+    if(signature_length==0U||(signature_length&1U)!=0U||(uint32_t)pos+signature_length+2U>length)return -4;
+    out->signature_algorithms=handshake+pos; out->signature_algorithms_length=signature_length; pos=(uint16_t)(pos+signature_length);
+    authorities_length=get16(handshake+pos); pos=(uint16_t)(pos+2U);
+    if((uint32_t)pos+authorities_length!=length)return -5;
+    out->certificate_authorities=handshake+pos; out->certificate_authorities_length=authorities_length; return 0;
+}
+
 int net_tls_server_hello_done_parse(const uint8_t* handshake,uint16_t length){
     if(!handshake||length!=4U)return -1;
     if(handshake[0]!=14U||handshake[1]!=0U||handshake[2]!=0U||handshake[3]!=0U)return -2;
@@ -62,7 +126,7 @@ int net_tls_server_hello_done_parse(const uint8_t* handshake,uint16_t length){
 }
 
 int net_tls_handshake_init(net_tls_handshake_t* handshake){
-    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U; return 0;
+    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U; handshake->server_named_curve=0U; handshake->server_public_key=0; handshake->server_public_key_length=0U; handshake->certificate_requested=0U; return 0;
 }
 int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_IDLE)return -1; handshake->state=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT; return 0;
@@ -79,10 +143,36 @@ int net_tls_handshake_accept_certificate(net_tls_handshake_t* handshake,const ui
     if(net_tls_certificate_parse(message,length,&view)!=0)return -2;
     handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
 }
-int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+int net_tls_handshake_accept_server_key_exchange(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+    net_tls_server_key_exchange_view_t view;
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED)return -1;
+    if(net_tls_server_key_exchange_parse(message,length,&view)!=0)return -2;
+    handshake->server_named_curve=view.named_curve; handshake->server_public_key=view.public_key; handshake->server_public_key_length=view.public_key_length; handshake->state=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_certificate_request(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+    net_tls_certificate_request_view_t view;
+    if(!handshake||(handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED&&handshake->state!=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED))return -1;
+    if(net_tls_certificate_request_parse(message,length,&view)!=0)return -2;
+    handshake->certificate_requested=1U; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
+    if(!handshake||(handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED&&handshake->state!=NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE_RECEIVED&&handshake->state!=NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST_RECEIVED))return -1;
     if(net_tls_server_hello_done_parse(message,length)!=0)return -2;
     handshake->state=NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED; return 0;
+}
+int net_tls_handshake_accept_server_message(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length,net_tls_transcript_t* transcript){
+    net_tls_handshake_t previous; int status;
+    if(!handshake||!message)return -1;
+    previous=*handshake;
+    if(message[0]==NET_TLS_HANDSHAKE_SERVER_HELLO)status=net_tls_handshake_accept_server_hello(handshake,message,length);
+    else if(message[0]==NET_TLS_HANDSHAKE_CERTIFICATE)status=net_tls_handshake_accept_certificate(handshake,message,length);
+    else if(message[0]==NET_TLS_HANDSHAKE_SERVER_KEY_EXCHANGE)status=net_tls_handshake_accept_server_key_exchange(handshake,message,length);
+    else if(message[0]==NET_TLS_HANDSHAKE_CERTIFICATE_REQUEST)status=net_tls_handshake_accept_certificate_request(handshake,message,length);
+    else if(message[0]==NET_TLS_HANDSHAKE_SERVER_HELLO_DONE)status=net_tls_handshake_accept_server_hello_done(handshake,message,length);
+    else return -2;
+    if(status!=0)return -3;
+    if(transcript&&net_tls_transcript_append(transcript,message,length)!=0){*handshake=previous;return -4;}
+    return 0;
 }
 
 int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
