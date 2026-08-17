@@ -102,6 +102,12 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_fat16: $(UNIT_DIR)/kernel/test_fat16.c ../k
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_net_ethernet_arp.c ../kernel/net_ethernet_arp.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_ethernet_arp.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_quant: $(UNIT_DIR)/kernel/test_gpt2_quant.c ../kernel/llm/gpt2_quant.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_quant.c $(FRAMEWORK_SOURCES)
