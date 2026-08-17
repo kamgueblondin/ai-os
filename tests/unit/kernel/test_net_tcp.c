@@ -70,6 +70,16 @@ void test_connection_advances_sequences_and_accepts_data(void) {
     TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_commit_send(&connection, 0U));
 }
 
+void test_tls_record_is_composed_into_tcp(void) {
+    net_tcp_connection_t connection; uint8_t segment[64], record[32]; uint8_t hello[3] = {'H','I','!'}; net_tls_record_view_t view;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
+    { net_tcp_view_t syn_ack = {443, 49152, 700U, 101U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0};
+      TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn_ack(&connection, &syn_ack)); }
+    TEST_ASSERT_EQUAL(28, net_tcp_connection_build_tls_record(&connection, segment, sizeof(segment), record, sizeof(record), NET_TLS_CONTENT_HANDSHAKE, hello, sizeof(hello), 2U));
+    TEST_ASSERT_EQUAL(8, connection.pending_length); TEST_ASSERT_EQUAL(record, connection.pending_payload);
+    TEST_ASSERT_EQUAL(0, net_tls_record_parse(record, 8, &view)); TEST_ASSERT_EQUAL(3U, view.payload_length);
+}
+
 void test_receive_window_is_bounded(void) {
     net_tcp_connection_t connection; net_tcp_view_t view; uint16_t accepted = 0U;
     TEST_ASSERT_EQUAL(0, net_tcp_connection_open(&connection, 49152, 443, 100U));
@@ -145,6 +155,6 @@ void test_bounded_retransmission_metadata(void) {
 }
 
 int main(void) {
-    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
+    unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_tls_record_is_composed_into_tcp); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
 }

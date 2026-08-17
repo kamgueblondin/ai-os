@@ -116,6 +116,16 @@ int net_tcp_connection_build_data(net_tcp_connection_t* connection,uint8_t* segm
     return length;
 }
 
+int net_tcp_connection_build_tls_record(net_tcp_connection_t* connection,uint8_t* segment,uint32_t capacity,
+                                        uint8_t* record,uint32_t record_capacity,uint8_t content_type,
+                                        const uint8_t* payload,uint16_t payload_length,uint8_t retransmit_limit) {
+    int record_length;
+    if (!record) return -1;
+    record_length = net_tls_record_build(record, record_capacity, content_type, payload, payload_length);
+    if (record_length < 0 || record_length > 0xffff) return -2;
+    return net_tcp_connection_build_data(connection, segment, capacity, record, (uint16_t)record_length, retransmit_limit);
+}
+
 int net_tcp_connection_commit_send(net_tcp_connection_t* connection,uint16_t payload_length) {
     if (!connection || connection->state!=NET_TCP_STATE_ESTABLISHED || payload_length == 0U) return -1;
     connection->local_sequence += payload_length; return 0;
