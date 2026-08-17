@@ -6,6 +6,10 @@ Le shell lit le **clavier emulé PS/2**, pas le port série. En nographic, la sa
 
 Le curseur de saisie est un **bloc clignotant** à la position VGA. Après une longue sortie (`help`), **Page Up** ou **flèche haut** remonte dans l'historique d'écran (80 lignes) ; **Page Down** ou **flèche bas** redescend. Toute nouvelle frappe imprimable ramène à la ligne de saisie.
 
+`net-status` et `net-status json` publient la présence réelle d'une carte NE2000. Sans `-device ne2k_isa`, la NIC est absente. Avec une carte, le smoke `make qemu-ne2k-status` exige `"nic":"detected"`. ARP, IPv4, DHCP, DNS, TCP et TLS restent affichés absents : les codecs existent, mais aucune configuration live n'est raccordée au shell. OpenAI reste bloqué.
+
+`fat16-list` et `fat16-cat <8.3>` lisent le volume FAT16 préparé à partir du LBA 64 (lecture seule). L'overlay AIOV occupe les 64 premiers secteurs.
+
 ## 🚀 Options de Lancement
 
 ### 1. Mode Console Optimal (Recommandé)
@@ -25,6 +29,17 @@ make run-gui
 - **Clavier** : Pleinement fonctionnel
 - **Compatible** : Environnements avec interface graphique
 - **Avantages** : Interface familière, debugging visuel
+
+Pour tester la sonde NE2000 (optionnel, hors `make run-gui`) :
+
+```bash
+qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -m 1024M \
+  -display gtk -vga std \
+  -netdev user,id=n0 -device ne2k_isa,netdev=n0 \
+  -no-reboot -no-shutdown
+```
+
+Puis `net-status json` dans le shell. Le contrat automatisé est `make qemu-ne2k-status`.
 
 ### 3. Mode Nographic (Fallback)
 ```bash

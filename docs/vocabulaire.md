@@ -23,7 +23,7 @@ Le nom **VFS** reste celui du code (`vfsserver`, `SYS_VFS_*`). Il désigne un m�
 |---|---|
 | Archive **TAR** (ustar) en lecture seule dans l’initrd | « système de fichiers POSIX », « FS Linux » |
 | Overlay **AIOV** V2 : snapshot ATA PIO, 64 nœuds, 384 octets | ext2, inode, journal |
-| Volume **FAT** sur disque IDE (prochaine étape disque) | ext2, ext4, « FS Unix », « au choix ext2 ou FAT » |
+| Volume **FAT16** lecture seule (LBA 64) | ext2, ext4, « FS Unix », écriture FAT déjà livrée |
 | Secteur, cluster, table d’allocation, entrée de répertoire | inode, superbloc Unix, dentry Linux |
 | Disque IDE émulé, ATA PIO LBA28 | `/dev/sda`, block layer Linux |
 
@@ -36,9 +36,9 @@ Détail de conception : [aos_fat_volume.md](aos_fat_volume.md).
 | Dire | Éviter |
 |---|---|
 | GPT-2 local dans le noyau, initrd, sans réseau au boot | Service hôte, Ollama, « petite distro qui lance Ollama » |
-| Sonde GGUF v3, kernels quantifiés à venir | « n’importe quel modèle », intégration Ollama |
-| Stub OpenAI / `net-status` | Client HTTP déjà présent |
-| Pilote NIC dans l’invité, puis Ethernet → IP → TLS | « QEMU a un réseau donc AI-OS aussi » |
+| Sonde GGUF v3, kernels Q3_K/Q4_K/Q6_K, génération shell encore FP32 | « n’importe quel modèle », inférence GGUF déjà branchée, intégration Ollama |
+| Stub OpenAI / `net-status json` | Client HTTP déjà présent, « la NIC QEMU suffit » |
+| Pilote NE2000 ISA + codecs caller-owned | Pile TCP/IP live, DHCP automatique, TLS/HTTPS |
 
 Ollama et les services d’inférence d’un OS hôte ne font pas partie d’AI-OS. La seule voie retenue est un moteur porté dans ce noyau.
 

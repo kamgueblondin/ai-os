@@ -17,7 +17,7 @@ Cette version d'AI-OS contient un premier chemin d'inférence **réellement loca
 | Inférence | CPU freestanding : embeddings, normalisation, attention causale, MLP GELU, cache KV et échantillonnage top-k |
 | Commande utilisateur | `ai <question>` ; par exemple `ai hello` |
 | Mémoire | 1 Gio validé dans QEMU ; 2 Gio conseillés pour une machine réelle |
-| Réseau / OpenAI | **Non intégré** : il faut encore un pilote Ethernet, TCP/IP, DNS, TLS et une gestion sûre des secrets |
+| Réseau / OpenAI | **Pas de client :** pilote NE2000 et codecs caller-owned existent ; pas de bail DHCP live, TLS handshake ni HTTP |
 
 GPT-2 est un transformeur causal, c'est-à-dire qu'un jeton ne porte attention qu'aux jetons précédents ; il convient donc à la génération auto-régressive de texte [1]. Le tokenizer de référence GPT-2 emploie un BPE au niveau des octets [1]. L'implémentation charge ce vocabulaire et segmente en UTF-8 avec une classe de lettres bornée (Latin étendu, Grec, Arabe, Hébreu, Devanagari, CJK, Hangul) ; ce n'est pas une couverture Unicode exhaustive.
 
@@ -75,7 +75,7 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 | Vérification | Résultat |
 |---|---|
 | Compilation complète d'AI-OS | Réussie |
-| Suite de non-régression | **251/251 tests C** (chiffre courant : [ETAT_REEL.md](ETAT_REEL.md)) |
+| Suite de non-régression | **299/299 tests C** (chiffre courant : [ETAT_REEL.md](ETAT_REEL.md)) |
 | Chargeur de checkpoint et tokenizer avec actifs structurels | Réussi sous QEMU |
 | Chemin shell -> syscall -> tokenizer -> moteur local | Réussi sous QEMU |
 | Requête avec les vrais poids GPT-2 | Sortie locale produite sous le préfixe `[GPT-2 local]` |
@@ -90,9 +90,9 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 
 Le moteur conserve une limite de **64 jetons de contexte** et génère jusqu'à **4 jetons** à la fois. Il utilise un cache KV et un échantillonnage top-k avec pénalité de répétition, ce qui évite de recalculer le préfixe pour chaque jeton. La compilation SSE2 emploie aussi `-mstackrealign`, nécessaire pour garantir l'alignement des opérations vectorielles dans les chemins noyau. Cependant, chaque nouveau jeton exécute encore les projections d'attention, le MLP et la projection de vocabulaire complète en FP32 ; l'émulation QEMU sans KVM reste donc coûteuse. Les poids sont au format de checkpoint GPT-2 `llm.c` v3 : des fichiers GGUF ou des modèles d'une autre famille ne sont pas encore exécutables automatiquement.
 
-L'ajout d'un vrai OpenAI ou d'un fournisseur en ligne exige encore une pile réseau bare-metal complète. La clé API ne doit jamais être placée dans l'ISO ; elle devra être injectée depuis une configuration locale protégée lorsque le réseau sera disponible.
+L'ajout d'un vrai OpenAI ou d'un fournisseur en ligne exige encore un bail IPv4 live, un flux TCP utilisateur, un handshake TLS et HTTP. Un pilote NE2000 ISA et des codecs caller-owned existent déjà ; ils ne suffisent pas. La clé API ne doit jamais être placée dans l'ISO ; elle devra être injectée depuis une configuration locale protégée lorsque le réseau live sera disponible.
 
-Les évolutions prioritaires sont les kernels GGUF Q3_K/Q4_K/Q6_K, la latence sous KVM, puis un **volume FAT** pour des checkpoints trop gros pour l'initrd ([aos_fat_volume.md](aos_fat_volume.md)). Un amorçage UEFI et d'autres familles de modèles restent hors du sprint courant.
+Les évolutions prioritaires sont l'inférence GGUF bout-en-bout (kernels Q3_K/Q4_K/Q6_K déjà unit-testés), la latence sous KVM, puis l'**écriture FAT** pour des checkpoints trop gros pour l'initrd ([aos_fat_volume.md](aos_fat_volume.md) : lecture seule déjà livrée). Un amorçage UEFI et d'autres familles de modèles restent hors du sprint courant.
 
 ## Intégrité de l'ISO
 
