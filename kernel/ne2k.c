@@ -106,6 +106,27 @@ int ne2k_rx_poll_arp(ne2k_device_t* device, const ne2k_io_t* io,
     return 0;
 }
 
+int ne2k_arp_service(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* rx_frame, uint16_t rx_capacity,
+                     uint8_t* tx_frame, uint16_t tx_capacity,
+                     const uint8_t local_mac[6], const uint8_t local_ipv4[4]) {
+    uint16_t rx_length = 0U;
+    net_ethernet_header_t ethernet;
+    net_arp_packet_t arp;
+    int status;
+    if (!tx_frame || !local_mac || !local_ipv4) return -1;
+    status = ne2k_rx_poll_arp(device, io, rx_frame, rx_capacity, &rx_length,
+                              &ethernet, &arp);
+    if (status != 0) return status;
+    if (arp.opcode != NET_ARP_OPCODE_REQUEST ||
+        arp.target_ipv4[0] != local_ipv4[0] || arp.target_ipv4[1] != local_ipv4[1] ||
+        arp.target_ipv4[2] != local_ipv4[2] || arp.target_ipv4[3] != local_ipv4[3])
+        return 2;
+    status = net_arp_build_reply(tx_frame, tx_capacity, &arp, local_mac, local_ipv4);
+    if (status < 0) return -2;
+    return ne2k_tx_submit(device, io, tx_frame, (uint16_t)status);
+}
+
 int ne2k_i386_io(ne2k_io_t* io) {
     if (!io) return -1;
 #ifdef __i386__
