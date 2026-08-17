@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "net_nic.h"
 #include "net_ethernet_arp.h"
+#include "net_ipv4_udp.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -94,6 +95,10 @@ int ne2k_arp_service(ne2k_device_t* device, const ne2k_io_t* io,
                      uint8_t* rx_frame, uint16_t rx_capacity,
                      uint8_t* tx_frame, uint16_t tx_capacity,
                      const uint8_t local_mac[6], const uint8_t local_ipv4[4]);
+/* Lit une trame IPv4/UDP et expose une vue payload dans le buffer caller-owned. */
+int ne2k_rx_poll_udp(ne2k_device_t* device, const ne2k_io_t* io,
+                     uint8_t* frame, uint16_t frame_capacity,
+                     uint16_t* frame_length, net_udp_view_t* udp);
 /* Extrait une trame reçue depuis un buffer DMA caller-owned vers la file RX. */
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);

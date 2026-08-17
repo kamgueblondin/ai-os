@@ -145,6 +145,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/ne2k.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_nic.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_ethernet_arp.c"
+        extra_src="$extra_src $BASE_DIR/kernel/net_ipv4_udp.c"
     fi
     if [ "$(basename "$test_file")" = "test_pci.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/pci.c"
