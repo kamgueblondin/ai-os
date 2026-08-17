@@ -1,4 +1,6 @@
 #include "x509_der.h"
+#include "sha256.h"
+#include "rsa_verify.h"
 
 int der_tlv_parse(const uint8_t* input,uint32_t length,der_tlv_view_t* out){
     uint32_t value_length=0U,offset=2U,i;uint8_t count;
@@ -60,13 +62,14 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
 
 int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certificate_view_t* out){
     der_tlv_view_t outer,tbs,field,validity,spki,algorithm,bit_string,rsa,modulus,exponent;
-    const uint8_t *p,*sp,*q;uint32_t remaining,sp_remaining,left;
+    const uint8_t *p,*sp,*q,*tbs_der;uint32_t remaining,sp_remaining,left;
     if(!certificate||!out)return -1;
     if(der_tlv_parse(certificate,length,&outer)!=0||outer.tag!=0x30U||outer.total_length!=length)return -2;
     out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;
-    out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;
+    out->signature_algorithm=0;out->signature_algorithm_length=0U;out->signature=0;out->signature_length=0U;
+    out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;tbs_der=p;
     if(require_sequence(&p,&remaining,&tbs)!=0)return -3;
-    out->tbs_certificate=tbs.value;out->tbs_certificate_length=tbs.length;
+    out->tbs_certificate=tbs.value;out->tbs_certificate_length=tbs.length;out->tbs_certificate_der=tbs_der;out->tbs_certificate_der_length=tbs.total_length;
     q=tbs.value;left=tbs.length;
     if(left&&q[0]==0xa0U){if(next_tlv(&q,&left,&field)!=0)return -4;}
     if(next_tlv(&q,&left,&field)!=0||field.tag!=0x02U)return -5;
@@ -101,7 +104,10 @@ int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certi
         else if(field.tag!=0xa1U&&field.tag!=0xa2U)return -21;
     }
     if(require_sequence(&p,&remaining,&field)!=0)return -22;
-    if(next_tlv(&p,&remaining,&field)!=0||field.tag!=0x03U||remaining!=0U)return -23;
+    out->signature_algorithm=field.value;out->signature_algorithm_length=field.length;
+    if(next_tlv(&p,&remaining,&field)!=0||field.tag!=0x03U||field.length<1U||field.value[0]!=0U||remaining!=0U)return -23;
+    out->signature=field.value+1U;out->signature_length=field.length-1U;
+    if(out->signature_length==0U)return -24;
     return 0;
 }
 
@@ -159,6 +165,24 @@ int x509_certificate_hostname_validate(const x509_certificate_view_t* certificat
     }
     if(certificate->common_name&&x509_dns_name_match(certificate->common_name,certificate->common_name_length,hostname,hostname_length))return 0;
     return -4;
+}
+
+static int x509_bytes_equal(const uint8_t* left,uint32_t left_length,const uint8_t* right,uint32_t right_length){uint32_t index;if(!left||!right||left_length!=right_length)return 0;for(index=0U;index<left_length;index++)if(left[index]!=right[index])return 0;return 1;}
+
+static int x509_signature_algorithm_is_sha256_rsa(const x509_certificate_view_t* certificate){
+    static const uint8_t sha256_rsa_algorithm[]={0x06U,0x09U,0x2aU,0x86U,0x48U,0x86U,0xf7U,0x0dU,0x01U,0x01U,0x0bU,0x05U,0x00U};
+    return certificate&&x509_bytes_equal(certificate->signature_algorithm,certificate->signature_algorithm_length,sha256_rsa_algorithm,sizeof(sha256_rsa_algorithm));
+}
+
+int x509_certificate_chain_validate_one(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){
+    sha256_ctx_t hash;uint8_t digest[32];int status;
+    if(!leaf||!trust_anchor||!workspace||!leaf->tbs_certificate_der||!leaf->signature||!leaf->issuer||!trust_anchor->subject)return -1;
+    if(!x509_bytes_equal(leaf->issuer,leaf->issuer_length,trust_anchor->subject,trust_anchor->subject_length))return -2;
+    if(x509_rsa_public_key_validate(trust_anchor)!=0)return -3;
+    if(!x509_signature_algorithm_is_sha256_rsa(leaf)||leaf->signature_length>65535U||trust_anchor->rsa_modulus_length>65535U||trust_anchor->rsa_exponent_length>65535U)return -4;
+    sha256_init(&hash);sha256_update(&hash,leaf->tbs_certificate_der,leaf->tbs_certificate_der_length);sha256_final(&hash,digest);
+    status=rsa_pkcs1_v15_sha256_verify(trust_anchor->rsa_modulus,(uint16_t)trust_anchor->rsa_modulus_length,trust_anchor->rsa_exponent,(uint16_t)trust_anchor->rsa_exponent_length,digest,leaf->signature,(uint16_t)leaf->signature_length,workspace,workspace_length);
+    return status==0?0:-5;
 }
 
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate){
