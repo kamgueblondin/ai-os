@@ -29,6 +29,15 @@ int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_sess
                            uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
                            uint8_t retransmit_limit);
 
+/* Construit un POST HTTP/1.1 JSON, avec Content-Type, Content-Length et Connection: close. */
+int net_http_build_post_json(uint8_t* request,uint16_t capacity,const char* host,const char* path,
+                             const uint8_t* json,uint16_t json_length);
+/* Chiffre un POST JSON dans un record TLS applicatif et l’encapsule dans un segment TCP. */
+int net_http_tls_build_post_json(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
+                                 uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,
+                                 uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                                 const uint8_t* json,uint16_t json_length,uint8_t retransmit_limit);
+
 /* Parse une réponse HTTP/1.1 complète déjà déchiffrée. Le body reste une vue sur plaintext. */
 int net_http_response_parse(const uint8_t* plaintext,uint16_t plaintext_length,net_http_response_view_t* out);
 /* Accumule une réponse HTTP/1.1 Content-Length à travers plusieurs plaintexts TLS.

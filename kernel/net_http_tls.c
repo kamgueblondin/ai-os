@@ -16,6 +16,24 @@ static int net_http_append_text(uint8_t* output,uint16_t capacity,uint16_t* leng
     return 0;
 }
 
+static int net_http_append_bytes(uint8_t* output,uint16_t capacity,uint16_t* length,const uint8_t* input,uint16_t input_length){
+    uint16_t index;
+    if(!output||!length||(!input&&input_length)||(uint32_t)*length+input_length>capacity)return -1;
+    for(index=0U;index<input_length;index++)output[*length+index]=input[index];
+    *length=(uint16_t)(*length+input_length);
+    return 0;
+}
+
+static int net_http_append_uint16(uint8_t* output,uint16_t capacity,uint16_t* length,uint16_t value){
+    uint16_t divisor=10000U;uint8_t emitted=0U;
+    while(divisor>0U){
+        uint8_t digit=(uint8_t)(value/divisor);
+        if(digit||emitted||divisor==1U){if(net_http_append_char(output,capacity,length,(uint8_t)('0'+digit))!=0)return -1;emitted=1U;}
+        value=(uint16_t)(value%divisor);divisor=(uint16_t)(divisor/10U);
+    }
+    return 0;
+}
+
 static int net_http_prefix(const uint8_t* input,uint16_t length,uint16_t offset,const char* text){
     uint16_t index=0U;
     while(text[index]){if((uint16_t)(offset+index)>=length||input[offset+index]!=(uint8_t)text[index])return 0;index++;}
@@ -52,6 +70,19 @@ int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const
 
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,uint8_t* request,uint16_t request_capacity,const char* host,const char* path,uint8_t retransmit_limit){
     int request_length=net_http_build_get(request,request_capacity,host,path);
+    if(request_length<0)return -1;
+    return net_tcp_connection_build_tls_aes_gcm(connection,session,tcp_segment,tcp_capacity,tls_record,tls_capacity,NET_TLS_CONTENT_APPLICATION_DATA,request,(uint16_t)request_length,retransmit_limit);
+}
+
+int net_http_build_post_json(uint8_t* request,uint16_t capacity,const char* host,const char* path,const uint8_t* json,uint16_t json_length){
+    uint16_t length=0U;
+    if(!request||!host||!path||path[0]!='/'||(!json&&json_length))return -1;
+    if(net_http_append_text(request,capacity,&length,"POST")!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_text(request,capacity,&length,path)!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_text(request,capacity,&length,"HTTP/1.1")!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_text(request,capacity,&length,"Host:")!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_text(request,capacity,&length,host)!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_text(request,capacity,&length,"Content-Type:")!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_text(request,capacity,&length,"application/json")!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_text(request,capacity,&length,"Content-Length:")!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_uint16(request,capacity,&length,json_length)!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_text(request,capacity,&length,"Connection:")!=0||net_http_append_char(request,capacity,&length,' ')!=0||net_http_append_text(request,capacity,&length,"close")!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_char(request,capacity,&length,'\r')!=0||net_http_append_char(request,capacity,&length,'\n')!=0||net_http_append_bytes(request,capacity,&length,json,json_length)!=0)return -2;
+    return (int)length;
+}
+
+int net_http_tls_build_post_json(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,uint8_t* request,uint16_t request_capacity,const char* host,const char* path,const uint8_t* json,uint16_t json_length,uint8_t retransmit_limit){
+    int request_length=net_http_build_post_json(request,request_capacity,host,path,json,json_length);
     if(request_length<0)return -1;
     return net_tcp_connection_build_tls_aes_gcm(connection,session,tcp_segment,tcp_capacity,tls_record,tls_capacity,NET_TLS_CONTENT_APPLICATION_DATA,request,(uint16_t)request_length,retransmit_limit);
 }

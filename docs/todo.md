@@ -298,3 +298,10 @@ Le module HTTP/TLS expose désormais `net_http_response_accumulator_t` et `net_h
 Le test couvre une réponse `200` dont le body de cinq octets arrive en deux records TLS successifs. Référence : [aos273_280_http_content_length_stream.md](aos273_280_http_content_length_stream.md).
 
 `Transfer-Encoding: chunked`, les réponses terminées par fermeture, trailers, compression, HTTP/2, POST, authentification applicative, pagination, streaming LLM, handshake de production, chaîne X.509, dates, nom d’hôte et backend X25519 constante-temps restent non implémentés.
+
+
+### AOS-281 à AOS-288 — HTTP POST JSON borné sur TLS
+
+La couche HTTP/TLS fournit `net_http_build_post_json` et `net_http_tls_build_post_json`. La première construit un POST HTTP/1.1 caller-owned avec `Host`, `Content-Type: application/json`, `Content-Length` décimal et `Connection: close`; la seconde chiffre ce plaintext dans un record TLS AES-GCM encapsulé dans TCP. Les tests contrôlent le framing exact, les refus de paramètres ou capacités invalides et le déchiffrement octet pour octet côté serveur simulé.
+
+Référence : [aos281_288_http_post_json.md](aos281_288_http_post_json.md). L’implémentation n’assure pas encore la fragmentation de très grandes requêtes, chunked, HTTP/2, authentification HTTP/API, retries, streaming LLM, handshake de production, hostname, chaîne X.509, dates ni X25519 constante-temps.
