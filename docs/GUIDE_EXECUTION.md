@@ -4,6 +4,8 @@ Prérequis (Debian/Ubuntu, même ensemble que la CI) : `build-essential`, `gcc-m
 
 Le shell lit le **clavier emulé PS/2**, pas le port série. En nographic, la saisie du terminal hôte n'atteint souvent pas le guest ; préférer `make run` (curses) ou `make run-gui`.
 
+Le curseur de saisie est un **bloc clignotant** à la position VGA. Après une longue sortie (`help`), **Page Up** ou **flèche haut** remonte dans l'historique d'écran (80 lignes) ; **Page Down** ou **flèche bas** redescend. Toute nouvelle frappe imprimable ramène à la ligne de saisie.
+
 ## 🚀 Options de Lancement
 
 ### 1. Mode Console Optimal (Recommandé)

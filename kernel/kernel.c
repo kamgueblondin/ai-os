@@ -18,6 +18,7 @@
 #include "llm/gpt2_tokenizer.h"
 #include "keyboard.h"
 #include "service_registry.h"
+#include "vga_console.h"
 #include <stddef.h>
 
 // Function to read a byte from a port
@@ -90,26 +91,12 @@ volatile unsigned short* vga_buffer = (unsigned short*)0xB8000;
 int vga_x = 0;
 int vga_y = 0;
 
-// Fonction pour faire défiler l'écran vers le haut
 void scroll_screen() {
-    // Déplacer toutes les lignes vers le haut
-    for (int y = 0; y < 24; y++) {
-        for (int x = 0; x < 80; x++) {
-            vga_buffer[y * 80 + x] = vga_buffer[(y + 1) * 80 + x];
-        }
-    }
-
-    // Effacer la dernière ligne
-    for (int x = 0; x < 80; x++) {
-        vga_buffer[24 * 80 + x] = (unsigned short)' ' | (unsigned short)0x07 << 8;
-    }
+    vga_console_scroll();
 }
 
-// Fonction pour afficher un caractère à une position donnée avec une couleur donnée
 void print_char_vga(char c, int x, int y, char color) {
-    if (x >= 0 && y >= 0 && x < 80 && y < 25) {
-        vga_buffer[y * 80 + x] = (unsigned short)c | (unsigned short)color << 8;
-    }
+    vga_console_put_xy(c, x, y, color);
 }
 
 // Définir les états pour le parseur de codes ANSI
@@ -178,13 +165,10 @@ static int unicode_to_cp437(unsigned int cp, char* out) {
 #endif
 
 void clear_screen_vga() {
-    for (int y = 0; y < 25; y++) {
-        for (int x = 0; x < 80; x++) {
-            vga_buffer[y * 80 + x] = (unsigned short)' ' | ((unsigned short)current_color << 8);
-        }
-    }
+    vga_console_clear(current_color);
     vga_x = 0;
     vga_y = 0;
+    vga_console_set_cursor(vga_x, vga_y);
 }
 
 // Fonction pour parser les paramètres numériques des codes ANSI
@@ -241,6 +225,7 @@ void print_char(char c, int x, int y, char color) {
             }
             if (vga_x >= 80) { vga_x = 0; vga_y++; }
             if (vga_y >= 25) { scroll_screen(); vga_y = 24; }
+            vga_console_set_cursor(vga_x, vga_y);
         } else {
             print_char_vga(c, x, y, color);
         }
@@ -273,6 +258,7 @@ void print_char(char c, int x, int y, char color) {
             } else if (c == 'H') { // Cursor to Home (0,0)
                 vga_x = 0;
                 vga_y = 0;
+                vga_console_set_cursor(vga_x, vga_y);
                 ansi_state = NORMAL;
             } else if (c == 'J') { // Erase screen
                 clear_screen_vga();
@@ -422,11 +408,10 @@ int strstr_simple(const char* haystack, const char* needle) {
 
 // Fonction pour effacer l'écran
 void clear_screen() {
-    for (int i = 0; i < 80 * 25; i++) {
-        vga_buffer[i] = (unsigned short)' ' | (unsigned short)0x07 << 8;
-    }
+    vga_console_clear(0x07);
     vga_x = 0;
     vga_y = 0;
+    vga_console_set_cursor(vga_x, vga_y);
 }
 
 /* Active le coprocesseur et SSE2 avant toute operation flottante du moteur GPT-2. */
@@ -448,6 +433,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     char color = 0x1F;
 
     cpu_enable_sse();
+    vga_console_init(color);
 
     // Initialisation du port série
     serial_init();
@@ -465,6 +451,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     // Afficher notre message de bienvenue
     vga_x = 2;
     vga_y = 2;
+    vga_console_set_cursor(vga_x, vga_y);
     print_string("=== Bienvenue dans AI-OS v4.0 ===\n");
     print_string("Systeme complet avec espace utilisateur\n\n");
 

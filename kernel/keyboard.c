@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "kernel.h"
+#include "vga_console.h"
 #include <stdint.h>
 
 // Fonctions externes pour les ports I/O et autres
@@ -28,6 +29,7 @@ static volatile int initialization_phase = 0;
 // Modifieurs
 static volatile int g_shift_pressed = 0;
 static volatile int g_caps_lock = 0;
+static volatile int g_e0_prefix = 0;
 
 // Délai optimisé pour QEMU
 void qemu_delay() {
@@ -134,6 +136,43 @@ static inline char map_scancode(uint8_t sc) {
     return ch;
 }
 
+static int kbd_handle_extended(uint8_t scancode) {
+    uint8_t key = (uint8_t)(scancode & 0x7F);
+
+    if (scancode & 0x80) {
+        return 1;
+    }
+    if (key == 0x49) {
+        vga_console_view_up(VGA_ROWS - 1);
+        return 1;
+    }
+    if (key == 0x51) {
+        vga_console_view_down(VGA_ROWS - 1);
+        return 1;
+    }
+    if (key == 0x48) {
+        vga_console_view_up(1);
+        return 1;
+    }
+    if (key == 0x50) {
+        vga_console_view_down(1);
+        return 1;
+    }
+    return 1;
+}
+
+static int kbd_take_extended_prefix(uint8_t scancode) {
+    if (scancode == 0xE0) {
+        g_e0_prefix = 1;
+        return 1;
+    }
+    if (g_e0_prefix) {
+        g_e0_prefix = 0;
+        return kbd_handle_extended(scancode);
+    }
+    return 0;
+}
+
 // Polling de secours optimisé (controlled fallback) - plus agressif pour mode console
 void keyboard_poll_check() {
     static uint32_t poll_counter = 0;
@@ -151,6 +190,9 @@ void keyboard_poll_check() {
             
             // Filtrer les ACK et codes de contrôle
             if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
+                return;
+            }
+            if (kbd_take_extended_prefix(scancode)) {
                 return;
             }
             
@@ -212,6 +254,9 @@ void keyboard_interrupt_handler() {
     if (scancode == 0xFA || scancode == 0xFE || scancode == 0xAA) {
         return;
     }
+    if (kbd_take_extended_prefix(scancode)) {
+        return;
+    }
     
     // Modifieurs (press/release)
     if (scancode == 0x2A || scancode == 0x36) { g_shift_pressed = 1; return; }     // LSHIFT/RSHIFT press
@@ -240,6 +285,7 @@ void keyboard_init() {
     kbd_tail = 0;
     g_shift_pressed = 0;
     g_caps_lock = 0;
+    g_e0_prefix = 0;
     
     initialization_phase = 1;
     

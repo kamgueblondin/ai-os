@@ -940,11 +940,18 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  write <file> <txt> - Ecrire un fichier overlay (sans >)\n");
     print_string("  append <file> <txt> - Ajouter du texte (SYS_APPEND)\n");
     print_string("  touch <file>       - Creer un fichier overlay vide\n");
+    print_string("  fat16-list         - Lister la racine du volume FAT16\n");
+    print_string("  fat16-cat <8.3>    - Lire un fichier du volume FAT16\n");
     print_string("  grep <pattern>     - Rechercher dans un texte\n");
     print_string("  wc <file>          - Compter lignes/mots/caractères\n");
     print_string("  sort <file>        - Trier les lignes (sort ok N fichier)\n");
     print_string("  head <file>        - Debut du fichier (head ok N fichier)\n");
     print_string("  tail <file>        - Fin du fichier (tail ok N fichier)\n");
+    
+    print_colored("\nAFFICHAGE :\n", COLOR_YELLOW);
+    print_string("  Page Up / Haut     - Remonter dans l'historique d'ecran\n");
+    print_string("  Page Down / Bas    - Redescendre vers la saisie\n");
+    print_string("  Curseur bloc       - Marque la position de saisie\n");
     
     print_colored("\nCONTRÔLE :\n", COLOR_YELLOW);
     print_string("  exit [code]        - Quitter le shell\n");
