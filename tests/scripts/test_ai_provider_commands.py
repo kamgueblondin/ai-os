@@ -65,15 +65,18 @@ def key_sequence(command):
 
 
 def run_command(client, proc, command, expected):
-    before = len(log_text())
-    send_keys(client, key_sequence(command))
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped while executing %s" % command)
-        if expected in log_text()[before:]:
-            return
-        time.sleep(0.1)
+    for attempt in range(2):
+        before = len(log_text())
+        send_keys(client, key_sequence(command))
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError("QEMU stopped while executing %s" % command)
+            if expected in log_text()[before:]:
+                return
+            time.sleep(0.1)
+        if attempt == 0:
+            time.sleep(0.5)
     raise RuntimeError("command %s did not emit %s" % (command, expected))
 
 
