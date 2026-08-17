@@ -108,6 +108,12 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_n
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_dns: $(UNIT_DIR)/kernel/test_net_dns.c ../kernel/net_dns.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_dns.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ipv4_udp: $(UNIT_DIR)/kernel/test_net_ipv4_udp.c ../kernel/net_ipv4_udp.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_ipv4_udp.c $(FRAMEWORK_SOURCES)
