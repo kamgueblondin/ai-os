@@ -10,6 +10,10 @@
 #define NET_TCP_FLAG_RST 0x04U
 #define NET_TCP_FLAG_ACK 0x10U
 
+#define NET_TCP_STATE_CLOSED 0U
+#define NET_TCP_STATE_SYN_SENT 1U
+#define NET_TCP_STATE_ESTABLISHED 2U
+
 typedef struct {
     uint16_t source_port;
     uint16_t destination_port;
@@ -20,9 +24,20 @@ typedef struct {
     uint16_t payload_length;
 } net_tcp_view_t;
 
+typedef struct {
+    uint16_t local_port;
+    uint16_t remote_port;
+    uint32_t local_sequence;
+    uint32_t remote_sequence;
+    uint8_t state;
+} net_tcp_connection_t;
+
 int net_tcp_build_syn(uint8_t* segment, uint32_t capacity,
                       uint16_t source_port, uint16_t destination_port,
                       uint32_t sequence);
+int net_tcp_build_ack(uint8_t* segment, uint32_t capacity,
+                      uint16_t source_port, uint16_t destination_port,
+                      uint32_t sequence, uint32_t acknowledgment);
 int net_tcp_parse(const uint8_t* segment, uint32_t length,
                   net_tcp_view_t* out);
 /* Calcule le checksum TCP IPv4 sur le segment caller-owned. */
@@ -35,5 +50,12 @@ int net_tcp_build_syn_ipv4(uint8_t* packet, uint32_t capacity,
 int net_tcp_is_syn_ack_for(const net_tcp_view_t* view, uint16_t local_port,
                            uint16_t remote_port, uint32_t local_sequence,
                            uint32_t* remote_sequence);
+int net_tcp_connection_open(net_tcp_connection_t* connection,
+                            uint16_t local_port, uint16_t remote_port,
+                            uint32_t local_sequence);
+int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,
+                                      const net_tcp_view_t* view);
+int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,
+                                 uint8_t* segment, uint32_t capacity);
 
 #endif
