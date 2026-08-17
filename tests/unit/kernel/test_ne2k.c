@@ -69,6 +69,11 @@ void test_probe_and_prepare_use_injected_io(void) {
     { uint8_t rx[64] = {0}; uint16_t rx_len = 99U; fake.isr = 0U;
       TEST_ASSERT_EQUAL(1, ne2k_rx_poll(&device, &io, rx, sizeof(rx), &rx_len));
       TEST_ASSERT_EQUAL(0, rx_len); }
+    { uint8_t rx_frame[128] = {0}; uint8_t tx_frame[128] = {0};
+      uint8_t local_mac[6] = {0x02, 0, 0, 0, 0, 1};
+      uint8_t local_ip[4] = {10, 0, 2, 15};
+      TEST_ASSERT_EQUAL(1, ne2k_arp_service(&device, &io, rx_frame, sizeof(rx_frame),
+                                             tx_frame, sizeof(tx_frame), local_mac, local_ip)); }
 }
 
 void test_rx_extract_publishes_bounded_frame(void) {
