@@ -159,3 +159,10 @@ Le ServerHello TLS minimal est désormais parsé sans copie dans une vue caller-
 ### AOS-176 — état minimal du handshake TLS
 
 Le handshake TLS caller-owned suit désormais l’ordre `IDLE → CLIENT_HELLO_SENT → SERVER_HELLO_RECEIVED`, conserve la suite et une vue du random serveur, et rejette les transitions invalides. Validation : **312/312 tests verts**, build i386 réussi, smoke IA réussi et smoke NE2000 réussi. La cryptographie, Finished, X.509, HTTP et les appels LLM en ligne restent hors périmètre.
+
+
+### AOS-177 — Extensions ServerHello TLS
+
+Le parseur `ServerHello` expose désormais le bloc d’extensions TLS via une vue caller-owned (`extensions` et `extensions_length`). Il accepte l’absence d’extensions ou un vecteur correctement borné, et rejette toute longueur incohérente sans `kmalloc`. Le faux échec de `test_net_tls_record` provenait d’un dépassement de pile dans le test, corrigé par un buffer dimensionné pour le cas d’extension.
+
+Validation AOS-177 : **312/312 tests verts**, build i386 réussi, `qemu-ai-provider` réussi et `qemu-ne2k-status` réussi. Le décodage sémantique des extensions, X.509, la dérivation de clés, le chiffrement TLS, Finished, HTTP et les appels LLM sécurisés de bout en bout restent non implémentés. Référence : [aos177_tls_server_hello_extensions.md](aos177_tls_server_hello_extensions.md).
