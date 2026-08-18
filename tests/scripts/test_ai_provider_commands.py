@@ -118,6 +118,7 @@ def main():
             run_command(monitor, proc, "ai-text-poll", "ai-text-poll: requete LLM non emise")
             run_command(monitor, proc, "ai-sse-poll", "ai-sse-poll: flux SSE non emis")
             run_command(monitor, proc, "ai-next", "ai-next: reponse LLM complete requise")
+            run_command(monitor, proc, "ai-close", "ai-close: aucune session LLM active")
             run_command(monitor, proc, "ai-runtime", "Session LLM noyau  : IDLE (NE2000 absent)")
             run_command(monitor, proc, "ai-runtime", "Bail DHCP noyau    : absent")
             run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
