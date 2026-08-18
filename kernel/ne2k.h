@@ -139,6 +139,17 @@ int ne2k_dhcp_request(ne2k_device_t* device, const ne2k_io_t* io,
                       uint8_t* frame, uint16_t frame_capacity,
                       uint32_t xid, const uint8_t requested_ip[4],
                       const uint8_t server_ip[4]);
+/* Polling RX borné d’un ACK DHCP via UDP 67->68 ; le bail caller-owned est publié seulement après validation. */
+int ne2k_dhcp_poll_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                       uint8_t* frame, uint16_t frame_capacity,
+                       uint32_t expected_xid, uint16_t attempts,
+                       net_dhcp_lease_t* lease);
+/* Compose DISCOVER, OFFER, REQUEST et ACK ; conserve le bail de l’appelant sur toute erreur. */
+int ne2k_dhcp_acquire(ne2k_device_t* device, const ne2k_io_t* io,
+                      uint8_t* tx_frame, uint16_t tx_capacity,
+                      uint8_t* rx_frame, uint16_t rx_capacity,
+                      uint32_t xid, uint16_t poll_attempts,
+                      net_dhcp_lease_t* lease);
 int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
                    net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
                    uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
