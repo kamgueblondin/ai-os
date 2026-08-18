@@ -502,3 +502,10 @@ Une reprise épuisée retourne `0` sans mutation. Les retransmissions de payload
 Le chemin LLM HTTPS prend désormais en charge les requêtes JSON `stream:true`, les réponses HTTP chunked et un sous-ensemble SSE borné : une ligne `data:` par événement, délimitée par `LF LF` ou `CRLF CRLF`, avec extraction des deltas JSON Ollama (`response`) et OpenAI compatible (`content`). Les contextes HTTP/SSE, buffers plaintext, texte, requête et record restent entièrement caller-owned ; `[DONE]` termine le flux sans allocation dynamique.
 
 Les façades NE2000 émettent une requête streaming puis pollent, authentifient, décodent et acquittent les fragments SSE avec rollback de transport en cas d’échec. Validation locale : **371/371 tests**, build i386 et smokes QEMU réussis. Référence : [aos513_520_llm_sse_streaming.md](aos513_520_llm_sse_streaming.md). Commentaires/champs SSE génériques, `id`, `retry`, événements multi-lignes, UTF-8 complet, `Last-Event-ID`, reconnexion SSE, annulation et formats fournisseurs non compatibles restent hors périmètre.
+
+
+### AOS-521 à AOS-528 — bootstrap DNS/ARP/SYN des hôtes LLM
+
+La façade `ne2k_llm_dns_syn_bootstrap` enchaîne une requête DNS A, le polling DNS borné, la résolution ARP de l’IPv4 obtenue et l’émission du premier SYN TCP. L’IPv4 distante et `net_tcp_connection_t` restent caller-owned et ne sont publiés qu’après succès complet ; les échecs DNS, ARP, framing ou SYN préservent les sorties. Le chemin réussi se termine explicitement en `SYN_SENT`, avant l’acceptation séparée du SYN-ACK et le handshake TLS.
+
+Les tests couvrent budgets DNS non nuls et absence de publication sur attente DNS. Validation locale : **372/372 tests**, build i386 et smokes QEMU réussis, avec une relance locale requise une fois pour une détection NIC QEMU transitoire. Référence : [aos521_528_llm_dns_syn_bootstrap.md](aos521_528_llm_dns_syn_bootstrap.md). AAAA/CNAME/DNSSEC/TTL/cache DNS, DHCP, multi-adresses, backoff/retry SYN, SYN-ACK automatisé et démarrage TLS restent hors périmètre.
