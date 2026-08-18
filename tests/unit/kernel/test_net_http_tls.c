@@ -45,6 +45,8 @@ void test_http_post_json_build_and_bounds(void){
     TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json(request,sizeof(request),"api.example.test","/v1/completions",0,1U));
 }
 
+void test_http_post_json_bearer_build_and_bounds(void){static const uint8_t json[]={'{','"','m','o','d','e','l','"',':','"','g','p','t','2','"','}'};static const uint8_t expected[]="POST /v1/completions HTTP/1.1\r\nHost: api.example.test\r\nAuthorization: Bearer sk-test-123\r\nContent-Type: application/json\r\nContent-Length: 16\r\nConnection: close\r\n\r\n{\"model\":\"gpt2\"}";uint8_t request[224]={0};TEST_ASSERT_EQUAL((int)(sizeof(expected)-1U),net_http_build_post_json_bearer(request,sizeof(request),"api.example.test","/v1/completions","sk-test-123",json,sizeof(json)));TEST_ASSERT_EQUAL_MEMORY(expected,request,sizeof(expected)-1U);TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json_bearer(request,sizeof(request),"api.example.test","/v1/completions","",json,sizeof(json)));TEST_ASSERT_NOT_EQUAL(0,net_http_build_post_json_bearer(request,16U,"api.example.test","/v1/completions","sk-test-123",json,sizeof(json)));}
+
 void test_http_tls_post_json_encrypted(void){
     net_tcp_connection_t client,server;net_tls_aes_gcm_session_t client_session,server_session;net_tcp_view_t view;net_tls_record_view_t record;
     static const uint8_t json[]={ '{','"','m','o','d','e','l','"',':','"','g','p','t','2','"',',','"','p','r','o','m','p','t','"',':','"','h','i','"','}' };
@@ -65,4 +67,4 @@ void test_http_response_parse_rejects_invalid_framing(void){
     TEST_ASSERT_NOT_EQUAL(0,net_http_response_parse(incomplete,sizeof(incomplete),&response));
 }
 
-int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_post_json_build_and_bounds);RUN_TEST(test_http_tls_post_json_encrypted);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_response_parse_rejects_invalid_framing);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_post_json_build_and_bounds);RUN_TEST(test_http_post_json_bearer_build_and_bounds);RUN_TEST(test_http_tls_post_json_encrypted);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_response_parse_rejects_invalid_framing);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
