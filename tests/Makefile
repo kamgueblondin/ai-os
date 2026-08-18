@@ -113,15 +113,15 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_ethernet_arp: $(UNIT_DIR)/kernel/test_n
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_tls_record: $(UNIT_DIR)/kernel/test_net_tls_record.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_tls_record: $(UNIT_DIR)/kernel/test_net_tls_record.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_tls_rsa_handshake: $(UNIT_DIR)/kernel/test_tls_rsa_handshake.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_tls_rsa_handshake: $(UNIT_DIR)/kernel/test_tls_rsa_handshake.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_aes_gcm: $(UNIT_DIR)/kernel/test_aes_gcm.c ../kernel/aes_gcm.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
@@ -149,9 +149,9 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_rsa_verify: $(UNIT_DIR)/kernel/test_rsa_ver
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/rsa_verify.c ../kernel/bigint.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_x509_der: $(UNIT_DIR)/kernel/test_x509_der.c ../kernel/x509_der.c ../kernel/sha256.c ../kernel/rsa_verify.c ../kernel/bigint.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_x509_der: $(UNIT_DIR)/kernel/test_x509_der.c ../kernel/x509_der.c ../kernel/sha256.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/x509_der.c ../kernel/sha256.c ../kernel/rsa_verify.c ../kernel/bigint.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/x509_der.c ../kernel/sha256.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_sha256: $(UNIT_DIR)/kernel/test_sha256.c ../kernel/sha256.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
@@ -160,14 +160,14 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_sha256: $(UNIT_DIR)/kernel/test_sha256.c ..
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_tcp: $(UNIT_DIR)/kernel/test_net_tcp.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_tcp: $(UNIT_DIR)/kernel/test_net_tcp.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_http_tls: $(UNIT_DIR)/kernel/test_net_http_tls.c ../kernel/net_http_tls.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_http_tls: $(UNIT_DIR)/kernel/test_net_http_tls.c ../kernel/net_http_tls.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_http_tls.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_http_tls.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
@@ -189,9 +189,9 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_dhcp: $(UNIT_DIR)/kernel/test_net_dhcp.
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_ne2k: $(UNIT_DIR)/kernel/test_ne2k.c ../kernel/ne2k.c ../kernel/rtc.c ../kernel/net_nic.c ../kernel/net_ethernet_arp.c ../kernel/net_ipv4_udp.c ../kernel/net_dhcp.c ../kernel/net_dns.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/net_http_tls.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_ne2k: $(UNIT_DIR)/kernel/test_ne2k.c ../kernel/ne2k.c ../kernel/rtc.c ../kernel/net_nic.c ../kernel/net_ethernet_arp.c ../kernel/net_ipv4_udp.c ../kernel/net_dhcp.c ../kernel/net_dns.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/net_http_tls.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/ne2k.c ../kernel/rtc.c ../kernel/net_nic.c ../kernel/net_ethernet_arp.c ../kernel/net_ipv4_udp.c ../kernel/net_dhcp.c ../kernel/net_dns.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/net_http_tls.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/ne2k.c ../kernel/rtc.c ../kernel/net_nic.c ../kernel/net_ethernet_arp.c ../kernel/net_ipv4_udp.c ../kernel/net_dhcp.c ../kernel/net_dns.c ../kernel/net_tcp.c ../kernel/net_tls_record.c ../kernel/net_http_tls.c ../kernel/sha256.c ../kernel/aes_gcm.c ../kernel/x509_der.c ../kernel/rsa_verify.c ../kernel/bigint.c ../kernel/ecdsa_p256.c ../kernel/x25519.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 

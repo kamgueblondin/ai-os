@@ -1,6 +1,7 @@
 #include "x509_der.h"
 #include "sha256.h"
 #include "rsa_verify.h"
+#include "ecdsa_p256.h"
 
 static int x509_bytes_equal(const uint8_t* left,uint32_t left_length,const uint8_t* right,uint32_t right_length);
 static int x509_dns_name_valid(const uint8_t* name,uint32_t length);
@@ -17,6 +18,16 @@ int der_tlv_parse(const uint8_t* input,uint32_t length,der_tlv_view_t* out){
 static int next_tlv(const uint8_t** cursor,uint32_t* remaining,der_tlv_view_t* out){if(!cursor||!*cursor||!remaining||der_tlv_parse(*cursor,*remaining,out)!=0)return -1;*cursor+=out->total_length;*remaining-=out->total_length;return 0;}
 static int require_sequence(const uint8_t** cursor,uint32_t* remaining,der_tlv_view_t* out){if(next_tlv(cursor,remaining,out)!=0||out->tag!=0x30U)return -1;return 0;}
 static int oid_equal(const der_tlv_view_t* oid,const uint8_t* value,uint32_t length){uint32_t index;if(!oid||oid->tag!=0x06U||oid->length!=length)return 0;for(index=0U;index<length;index++)if(oid->value[index]!=value[index])return 0;return 1;}
+
+/* AlgorithmIdentifier ::= id-ecPublicKey, namedCurve secp256r1.
+ * Les deux OID sont encodés en DER dans le contenu de la SEQUENCE SPKI. */
+static int x509_spki_is_ec_p256_algorithm(const uint8_t* algorithm,uint32_t algorithm_length){
+    static const uint8_t ec_p256_algorithm[]={
+        0x06U,0x07U,0x2aU,0x86U,0x48U,0xceU,0x3dU,0x02U,0x01U,
+        0x06U,0x08U,0x2aU,0x86U,0x48U,0xceU,0x3dU,0x03U,0x01U,0x07U
+    };
+    return x509_bytes_equal(algorithm,algorithm_length,ec_p256_algorithm,sizeof(ec_p256_algorithm));
+}
 
 static int x509_extract_common_name(const uint8_t* subject,uint32_t subject_length,x509_certificate_view_t* out){
     static const uint8_t common_name_oid[]={0x55U,0x04U,0x03U};
@@ -130,6 +141,8 @@ int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certi
     if(!certificate||!out)return -1;
     if(der_tlv_parse(certificate,length,&outer)!=0||outer.tag!=0x30U||outer.total_length!=length)return -2;
     out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->path_len_present=0U;out->path_len_constraint=0U;out->subject_key_identifier=0;out->subject_key_identifier_length=0U;out->authority_key_identifier=0;out->authority_key_identifier_length=0U;out->key_usage_present=0U;out->extended_key_usage_present=0U;out->extended_key_usage_server_auth=0U;out->name_constraints_present=0U;out->name_constraints_dns_permitted_count=0U;out->name_constraints_dns_excluded_count=0U;for(i=0U;i<X509_NAME_CONSTRAINTS_MAX_DNS;i++){out->name_constraints_dns_permitted[i]=0;out->name_constraints_dns_permitted_length[i]=0U;out->name_constraints_dns_excluded[i]=0;out->name_constraints_dns_excluded_length[i]=0U;}out->key_usage_key_cert_sign=0U;
+    out->rsa_modulus=0;out->rsa_modulus_length=0U;out->rsa_exponent=0;out->rsa_exponent_length=0U;
+    out->ec_p256_public_key=0;out->ec_p256_public_key_length=0U;
     out->signature_algorithm=0;out->signature_algorithm_length=0U;out->signature=0;out->signature_length=0U;
     out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;tbs_der=p;
     if(require_sequence(&p,&remaining,&tbs)!=0)return -3;
@@ -157,11 +170,17 @@ int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certi
     if(require_sequence(&sp,&sp_remaining,&algorithm)!=0)return -14;
     out->subject_public_key_algorithm=algorithm.value;out->subject_public_key_algorithm_length=algorithm.length;
     if(next_tlv(&sp,&sp_remaining,&bit_string)!=0||bit_string.tag!=0x03U||bit_string.length<1U||bit_string.value[0]!=0U||sp_remaining!=0U)return -15;
-    if(der_tlv_parse(bit_string.value+1U,bit_string.length-1U,&rsa)!=0||rsa.tag!=0x30U||rsa.total_length!=bit_string.length-1U)return -16;
-    sp=rsa.value;sp_remaining=rsa.length;
-    if(next_tlv(&sp,&sp_remaining,&modulus)!=0||modulus.tag!=0x02U||modulus.length==0U)return -17;
-    if(next_tlv(&sp,&sp_remaining,&exponent)!=0||exponent.tag!=0x02U||exponent.length==0U||sp_remaining!=0U)return -18;
-    out->rsa_modulus=modulus.value;out->rsa_modulus_length=modulus.length;out->rsa_exponent=exponent.value;out->rsa_exponent_length=exponent.length;
+    if(x509_spki_is_ec_p256_algorithm(out->subject_public_key_algorithm,out->subject_public_key_algorithm_length)){
+        if(bit_string.length-1U!=ECDSA_P256_PUBLIC_KEY_LENGTH||bit_string.value[1U]!=0x04U)return -16;
+        out->ec_p256_public_key=bit_string.value+1U;
+        out->ec_p256_public_key_length=ECDSA_P256_PUBLIC_KEY_LENGTH;
+    }else{
+        if(der_tlv_parse(bit_string.value+1U,bit_string.length-1U,&rsa)!=0||rsa.tag!=0x30U||rsa.total_length!=bit_string.length-1U)return -16;
+        sp=rsa.value;sp_remaining=rsa.length;
+        if(next_tlv(&sp,&sp_remaining,&modulus)!=0||modulus.tag!=0x02U||modulus.length==0U)return -17;
+        if(next_tlv(&sp,&sp_remaining,&exponent)!=0||exponent.tag!=0x02U||exponent.length==0U||sp_remaining!=0U)return -18;
+        out->rsa_modulus=modulus.value;out->rsa_modulus_length=modulus.length;out->rsa_exponent=exponent.value;out->rsa_exponent_length=exponent.length;
+    }
     while(left){
         if(next_tlv(&q,&left,&field)!=0)return -19;
         if(field.tag==0xa3U){if(x509_parse_extensions(field.value,field.length,out)!=0)return -20;}
@@ -260,15 +279,25 @@ static int x509_signature_algorithm_is_sha256_rsa(const x509_certificate_view_t*
     return certificate&&x509_bytes_equal(certificate->signature_algorithm,certificate->signature_algorithm_length,sha256_rsa_algorithm,sizeof(sha256_rsa_algorithm));
 }
 
+static int x509_signature_algorithm_is_ecdsa_sha256(const x509_certificate_view_t* certificate){
+    static const uint8_t ecdsa_sha256_algorithm[]={0x06U,0x08U,0x2aU,0x86U,0x48U,0xceU,0x3dU,0x04U,0x03U,0x02U};
+    return certificate&&x509_bytes_equal(certificate->signature_algorithm,certificate->signature_algorithm_length,ecdsa_sha256_algorithm,sizeof(ecdsa_sha256_algorithm));
+}
+
 int x509_certificate_chain_validate_one(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){
     sha256_ctx_t hash;uint8_t digest[32];int status;
     if(!leaf||!trust_anchor||!workspace||!leaf->tbs_certificate_der||!leaf->signature||!leaf->issuer||!trust_anchor->subject)return -1;
     if(!x509_bytes_equal(leaf->issuer,leaf->issuer_length,trust_anchor->subject,trust_anchor->subject_length))return -2;
     if(leaf->authority_key_identifier&&(!trust_anchor->subject_key_identifier||!x509_bytes_equal(leaf->authority_key_identifier,leaf->authority_key_identifier_length,trust_anchor->subject_key_identifier,trust_anchor->subject_key_identifier_length)))return -3;
-    if(x509_rsa_public_key_validate(trust_anchor)!=0)return -4;
-    if(!x509_signature_algorithm_is_sha256_rsa(leaf)||leaf->signature_length>65535U||trust_anchor->rsa_modulus_length>65535U||trust_anchor->rsa_exponent_length>65535U)return -5;
     sha256_init(&hash);sha256_update(&hash,leaf->tbs_certificate_der,leaf->tbs_certificate_der_length);sha256_final(&hash,digest);
-    status=rsa_pkcs1_v15_sha256_verify(trust_anchor->rsa_modulus,(uint16_t)trust_anchor->rsa_modulus_length,trust_anchor->rsa_exponent,(uint16_t)trust_anchor->rsa_exponent_length,digest,leaf->signature,(uint16_t)leaf->signature_length,workspace,workspace_length);
+    if(x509_signature_algorithm_is_sha256_rsa(leaf)){
+        if(x509_rsa_public_key_validate(trust_anchor)!=0)return -4;
+        if(leaf->signature_length>65535U||trust_anchor->rsa_modulus_length>65535U||trust_anchor->rsa_exponent_length>65535U)return -5;
+        status=rsa_pkcs1_v15_sha256_verify(trust_anchor->rsa_modulus,(uint16_t)trust_anchor->rsa_modulus_length,trust_anchor->rsa_exponent,(uint16_t)trust_anchor->rsa_exponent_length,digest,leaf->signature,(uint16_t)leaf->signature_length,workspace,workspace_length);
+    }else if(x509_signature_algorithm_is_ecdsa_sha256(leaf)){
+        if(x509_ec_p256_public_key_validate(trust_anchor)!=0||leaf->signature_length>ECDSA_P256_DER_SIGNATURE_MAX)return -5;
+        status=ecdsa_p256_sha256_verify(trust_anchor->ec_p256_public_key,digest,leaf->signature,(uint16_t)leaf->signature_length,workspace,workspace_length);
+    }else return -5;
     return status==0?0:-6;
 }
 
@@ -301,6 +330,13 @@ int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate){
     if(exponent_length==0U||exponent_length>4U||(*exponent&0x80U)!=0U)return -4;
     for(i=0U;i<exponent_length;i++)value=(value<<8U)|exponent[i];
     if(value<3U||(value&1U)==0U)return -5;
+    return 0;
+}
+
+int x509_ec_p256_public_key_validate(const x509_certificate_view_t* certificate){
+    if(!certificate||!certificate->subject_public_key_algorithm||!certificate->ec_p256_public_key)return -1;
+    if(!x509_spki_is_ec_p256_algorithm(certificate->subject_public_key_algorithm,certificate->subject_public_key_algorithm_length))return -2;
+    if(certificate->ec_p256_public_key_length!=ECDSA_P256_PUBLIC_KEY_LENGTH||certificate->ec_p256_public_key[0]!=0x04U)return -3;
     return 0;
 }
 
