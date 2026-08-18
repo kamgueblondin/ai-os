@@ -346,3 +346,10 @@ Aucune clé API, auth Authorization, intégration spécifique OpenAI/Ollama, DNS
 `net_http_build_post_json_bearer` ajoute `Authorization: Bearer <token>` à un POST JSON borné sans conserver le token dans les contextes TCP, TLS ou NE2000. Le framing impose un token non vide en ASCII imprimable, la capacité caller-owned et les mêmes règles HTTP Content-Length. Le test vérifie le plaintext exact, un token fictif, les bornes et les rejets.
 
 Référence : [aos321_328_http_authorization.md](aos321_328_http_authorization.md). Le secret réel, son stockage/effacement, rotation, révocation, auth mutuelle, formats OpenAI/Ollama, proxy, HTTP/2 et streaming restent hors périmètre.
+
+
+### AOS-329 à AOS-336 — HTTP Transfer-Encoding chunked
+
+`net_http_chunked_accumulator_t` décode désormais des réponses HTTP `Transfer-Encoding: chunked` à travers plusieurs plaintexts TLS, avec tailles hexadécimales bornées, CRLF contrôlés et compactage du body dans le buffer caller-owned. La publication intervient uniquement après `0\r\n\r\n`. Le vecteur couvre `Wikipedia` réparti sur deux fragments et le rejet d’une taille `Z` invalide.
+
+Référence : [aos329_336_http_chunked.md](aos329_336_http_chunked.md). Les extensions de chunk, trailers non vides, compression, HTTP/2, SSE, grands corps et le wrapper TLS/NE2000 chunked restent hors périmètre.

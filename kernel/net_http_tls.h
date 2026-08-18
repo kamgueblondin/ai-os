@@ -19,6 +19,18 @@ typedef struct {
     uint16_t status_code;
     uint8_t headers_complete;
 } net_http_response_accumulator_t;
+typedef struct {
+    uint8_t* buffer;
+    uint16_t capacity;
+    uint16_t length;
+    uint16_t raw_length;
+    uint16_t header_length;
+    uint16_t status_code;
+    uint32_t chunk_remaining;
+    uint8_t line[10];
+    uint8_t line_length;
+    uint8_t state;
+} net_http_chunked_accumulator_t;
 
 /* Construit une requête HTTP/1.1 GET avec Host et Connection: close dans un buffer caller-owned. */
 int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const char* path);
@@ -47,6 +59,9 @@ int net_http_response_parse(const uint8_t* plaintext,uint16_t plaintext_length,n
  * Retourne 1 si le body est incomplet, 0 seulement lorsque la réponse complète est disponible. */
 int net_http_response_accumulator_init(net_http_response_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity);
 int net_http_response_accumulator_feed(net_http_response_accumulator_t* accumulator,const uint8_t* fragment,uint16_t fragment_length,net_http_response_view_t* out);
+/* Décode Transfer-Encoding: chunked à travers plusieurs plaintexts TLS dans un buffer caller-owned. */
+int net_http_chunked_accumulator_init(net_http_chunked_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity);
+int net_http_chunked_accumulator_feed(net_http_chunked_accumulator_t* accumulator,const uint8_t* fragment,uint16_t fragment_length,net_http_response_view_t* out);
 
 /* Ouvre transactionnellement un record TLS applicatif TCP et parse sa réponse HTTP/1.1. */
 int net_http_tls_open_response(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,

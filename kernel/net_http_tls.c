@@ -145,3 +145,67 @@ int net_http_tls_open_response_stream(net_tcp_connection_t* connection,net_tls_a
 rollback:
     *connection=previous_connection;*session=previous_session;*accumulator=previous_accumulator;*consumed=0U;return -2;
 }
+
+int net_http_chunked_accumulator_init(net_http_chunked_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
+    uint8_t index;
+    if(!accumulator||!buffer||capacity==0U)return -1;
+    accumulator->buffer=buffer;accumulator->capacity=capacity;accumulator->length=0U;accumulator->raw_length=0U;accumulator->header_length=0U;accumulator->status_code=0U;accumulator->chunk_remaining=0U;accumulator->line_length=0U;accumulator->state=0U;
+    for(index=0U;index<sizeof(accumulator->line);index++)accumulator->line[index]=0U;
+    return 0;
+}
+
+static int net_http_chunked_hex(uint8_t value,uint8_t* digit){
+    if(value>='0'&&value<='9'){*digit=(uint8_t)(value-'0');return 0;}
+    if(value>='a'&&value<='f'){*digit=(uint8_t)(value-'a'+10U);return 0;}
+    if(value>='A'&&value<='F'){*digit=(uint8_t)(value-'A'+10U);return 0;}
+    return -1;
+}
+
+static int net_http_chunked_has_transfer_encoding(const uint8_t* input,uint16_t header_length){
+    uint16_t start=13U,index,cursor;
+    while(start<(uint16_t)(header_length-2U)){
+        index=start;while((uint16_t)(index+1U)<header_length&&!(input[index]=='\r'&&input[index+1U]=='\n'))index++;
+        if(net_http_prefix(input,index,start,"Transfer-Encoding:")){
+            cursor=(uint16_t)(start+18U);while(cursor<index&&input[cursor]==' ')cursor++;
+            if((uint16_t)(index-cursor)==7U&&input[cursor]=='c'&&input[cursor+1U]=='h'&&input[cursor+2U]=='u'&&input[cursor+3U]=='n'&&input[cursor+4U]=='k'&&input[cursor+5U]=='e'&&input[cursor+6U]=='d')return 1;
+        }
+        start=(uint16_t)(index+2U);
+    }
+    return 0;
+}
+
+static int net_http_chunked_byte(net_http_chunked_accumulator_t* accumulator,uint8_t value){
+    uint8_t digit;uint32_t next;
+    if(accumulator->state==1U){
+        if(value=='\r'){if(accumulator->line_length==0U)return -1;accumulator->chunk_remaining=0U;for(digit=0U;digit<accumulator->line_length;digit++){uint8_t hex;if(net_http_chunked_hex(accumulator->line[digit],&hex)!=0)return -2;next=(accumulator->chunk_remaining<<4U)|hex;if(next>65535U)return -3;accumulator->chunk_remaining=next;}accumulator->line_length=0U;accumulator->state=2U;return 1;}
+        if(accumulator->line_length>=sizeof(accumulator->line)||net_http_chunked_hex(value,&digit)!=0)return -4;accumulator->line[accumulator->line_length++]=value;return 1;
+    }
+    if(accumulator->state==2U){if(value!='\n')return -5;accumulator->state=accumulator->chunk_remaining==0U?6U:3U;return 1;}
+    if(accumulator->state==3U){if(accumulator->length>=accumulator->capacity)return -6;accumulator->buffer[accumulator->length++]=value;if(--accumulator->chunk_remaining==0U)accumulator->state=4U;return 1;}
+    if(accumulator->state==4U){if(value!='\r')return -7;accumulator->state=5U;return 1;}
+    if(accumulator->state==5U){if(value!='\n')return -8;accumulator->state=1U;return 1;}
+    if(accumulator->state==6U){if(value!='\r')return -9;accumulator->state=7U;return 1;}
+    if(accumulator->state==7U){if(value!='\n')return -10;accumulator->state=8U;return 0;}
+    return -11;
+}
+
+int net_http_chunked_accumulator_feed(net_http_chunked_accumulator_t* accumulator,const uint8_t* fragment,uint16_t fragment_length,net_http_response_view_t* out){
+    uint16_t index,header_length,content_length;uint8_t has_content_length;int status;
+    if(!accumulator||!accumulator->buffer||(!fragment&&fragment_length)||!out)return -1;
+    if(accumulator->state==8U)return -2;
+    if(accumulator->state==0U){
+        if((uint32_t)accumulator->raw_length+fragment_length>accumulator->capacity)return -3;
+        for(index=0U;index<fragment_length;index++)accumulator->buffer[accumulator->raw_length+index]=fragment[index];
+        accumulator->raw_length=(uint16_t)(accumulator->raw_length+fragment_length);
+        status=net_http_parse_headers(accumulator->buffer,accumulator->raw_length,&accumulator->status_code,&header_length,&content_length,&has_content_length);
+        if(status==1)return 1;
+        if(status!=0||has_content_length||!net_http_chunked_has_transfer_encoding(accumulator->buffer,header_length))return -4;
+        accumulator->header_length=header_length;accumulator->length=0U;accumulator->state=1U;
+        for(index=header_length;index<accumulator->raw_length;index++){status=net_http_chunked_byte(accumulator,accumulator->buffer[index]);if(status<0)return -5;if(status==0)break;}
+        accumulator->raw_length=0U;
+    }else{
+        for(index=0U;index<fragment_length;index++){status=net_http_chunked_byte(accumulator,fragment[index]);if(status<0)return -6;if(status==0)break;}
+    }
+    if(accumulator->state!=8U)return 1;
+    out->status_code=accumulator->status_code;out->header_length=accumulator->header_length;out->body=accumulator->buffer;out->body_length=accumulator->length;return 0;
+}
