@@ -275,6 +275,17 @@ int x509_certificate_chain_validate_one(const x509_certificate_view_t* leaf,cons
 static int x509_certificate_ca_authorized(const x509_certificate_view_t* certificate){return certificate&&certificate->basic_constraints_present&&certificate->basic_constraints_ca&&certificate->key_usage_present&&certificate->key_usage_key_cert_sign?0:-1;}
 int x509_certificate_chain_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){if(!leaf||!intermediate||!trust_anchor)return -1;if(x509_certificate_ca_authorized(intermediate)!=0)return -2;if(trust_anchor->path_len_present&&trust_anchor->path_len_constraint<1U)return -3;if(x509_certificate_chain_validate_one(leaf,intermediate,workspace,workspace_length)!=0)return -4;if(x509_certificate_chain_validate_one(intermediate,trust_anchor,workspace,workspace_length)!=0)return -5;return 0;}
 
+int x509_certificate_chain_validate_three(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate_one,const x509_certificate_view_t* intermediate_two,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){
+    if(!leaf||!intermediate_one||!intermediate_two||!trust_anchor)return -1;
+    if(x509_certificate_ca_authorized(intermediate_one)!=0||x509_certificate_ca_authorized(intermediate_two)!=0)return -2;
+    if(intermediate_two->path_len_present&&intermediate_two->path_len_constraint<1U)return -3;
+    if(trust_anchor->path_len_present&&trust_anchor->path_len_constraint<2U)return -4;
+    if(x509_certificate_chain_validate_one(leaf,intermediate_one,workspace,workspace_length)!=0)return -5;
+    if(x509_certificate_chain_validate_one(intermediate_one,intermediate_two,workspace,workspace_length)!=0)return -6;
+    if(x509_certificate_chain_validate_one(intermediate_two,trust_anchor,workspace,workspace_length)!=0)return -7;
+    return 0;
+}
+
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate){
     static const uint8_t rsa_encryption_oid[]={0x06U,0x09U,0x2aU,0x86U,0x48U,0x86U,0xf7U,0x0dU,0x01U,0x01U,0x01U};
     const uint8_t *modulus,*exponent;uint32_t modulus_length,exponent_length,value=0U;uint32_t i;
@@ -314,3 +325,12 @@ int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,c
     return 0;
 }
 int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;if(x509_certificate_chain_validate_two(leaf,intermediate,trust_anchor,workspace,workspace_length)!=0)return -2;if(x509_certificate_name_constraints_dns_validate(intermediate,hostname)!=0)return -3;if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -4;if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -5;return 0;}
+
+int x509_certificate_tls_identity_validate_three(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate_one,const x509_certificate_view_t* intermediate_two,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){
+    if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;
+    if(x509_certificate_chain_validate_three(leaf,intermediate_one,intermediate_two,trust_anchor,workspace,workspace_length)!=0)return -2;
+    if(x509_certificate_name_constraints_dns_validate(intermediate_one,hostname)!=0||x509_certificate_name_constraints_dns_validate(intermediate_two,hostname)!=0||x509_certificate_name_constraints_dns_validate(trust_anchor,hostname)!=0)return -3;
+    if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -4;
+    if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate_one,utc_time)!=0||x509_certificate_valid_at(intermediate_two,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -5;
+    return 0;
+}
