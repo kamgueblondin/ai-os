@@ -425,3 +425,9 @@ Les vecteurs X25519 restent verts et le test bigint compare les résultats class
 `x509_certificate_chain_validate_two` vérifie successivement la feuille signée par l’intermédiaire et l’intermédiaire signé par l’ancre. `x509_certificate_tls_identity_validate_two` complète la chaîne avec hostname et dates UTC des trois certificats ; le workspace RSA reste caller-owned et réutilisé.
 
 Les vecteurs DER contiennent une racine RSA, un intermédiaire RSA et une feuille SAN signée. Les tests couvrent la chaîne valide, le sujet émetteur incohérent et la signature intermédiaire tronquée. Référence : [aos417_424_x509_intermediate_chain.md](aos417_424_x509_intermediate_chain.md). BasicConstraints, KeyUsage, pathLen, AKI, révocation, ECDSA et sélection de chaînes longues restent hors périmètre.
+
+### AOS-425 à AOS-432 — contraintes CA des intermédiaires
+
+Le parseur expose `BasicConstraints CA` et `KeyUsage keyCertSign`. La validation `leaf → intermédiaire → ancre` exige maintenant les deux droits sur l’intermédiaire avant toute signature RSA. Les champs DER restent des vues caller-owned.
+
+Les tests vérifient le décodage des extensions, le chemin autorisé et les refus lorsque `CA=true` ou `keyCertSign` manque. Référence : [aos425_432_x509_ca_constraints.md](aos425_432_x509_ca_constraints.md). `pathLenConstraint`, extensions critiques, AKI/SKI, contraintes de nom, révocation, ECDSA et chaînes longues restent hors périmètre.

@@ -40,6 +40,8 @@ static int x509_extract_common_name(const uint8_t* subject,uint32_t subject_leng
 
 static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certificate_view_t* out){
     static const uint8_t subject_alt_name_oid[]={0x55U,0x1dU,0x11U};
+    static const uint8_t basic_constraints_oid[]={0x55U,0x1dU,0x13U};
+    static const uint8_t key_usage_oid[]={0x55U,0x1dU,0x0fU};
     der_tlv_view_t extensions,extension,oid,field,names;
     const uint8_t* cursor;uint32_t remaining;
     if(der_tlv_parse(input,length,&extensions)!=0||extensions.tag!=0x30U||extensions.total_length!=length)return -1;
@@ -55,6 +57,15 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
             if(out->subject_alt_names)return -6;
             if(der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length)return -7;
             out->subject_alt_names=names.value;out->subject_alt_names_length=names.length;
+        }else if(oid_equal(&oid,basic_constraints_oid,sizeof(basic_constraints_oid))){
+            const uint8_t* basic_cursor;uint32_t basic_remaining;
+            if(out->basic_constraints_present||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length)return -8;
+            basic_cursor=names.value;basic_remaining=names.length;out->basic_constraints_present=1U;out->basic_constraints_ca=0U;
+            if(basic_remaining&&basic_cursor[0]==0x01U){if(next_tlv(&basic_cursor,&basic_remaining,&field)!=0||field.length!=1U||(field.value[0]!=0U&&field.value[0]!=0xffU))return -9;out->basic_constraints_ca=field.value[0]==0xffU?1U:0U;}
+            if(basic_remaining){if(next_tlv(&basic_cursor,&basic_remaining,&field)!=0||field.tag!=0x02U||field.length==0U||basic_remaining!=0U)return -10;}
+        }else if(oid_equal(&oid,key_usage_oid,sizeof(key_usage_oid))){
+            if(out->key_usage_present||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x03U||names.total_length!=field.length||names.length<2U||names.value[0]>7U)return -11;
+            out->key_usage_present=1U;out->key_usage_key_cert_sign=(names.value[1]&0x04U)!=0U?1U:0U;
         }
     }
     return 0;
@@ -65,7 +76,7 @@ int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certi
     const uint8_t *p,*sp,*q,*tbs_der;uint32_t remaining,sp_remaining,left;
     if(!certificate||!out)return -1;
     if(der_tlv_parse(certificate,length,&outer)!=0||outer.tag!=0x30U||outer.total_length!=length)return -2;
-    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;
+    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->key_usage_present=0U;out->key_usage_key_cert_sign=0U;
     out->signature_algorithm=0;out->signature_algorithm_length=0U;out->signature=0;out->signature_length=0U;
     out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;tbs_der=p;
     if(require_sequence(&p,&remaining,&tbs)!=0)return -3;
@@ -185,7 +196,8 @@ int x509_certificate_chain_validate_one(const x509_certificate_view_t* leaf,cons
     return status==0?0:-5;
 }
 
-int x509_certificate_chain_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){if(!leaf||!intermediate||!trust_anchor)return -1;if(x509_certificate_chain_validate_one(leaf,intermediate,workspace,workspace_length)!=0)return -2;if(x509_certificate_chain_validate_one(intermediate,trust_anchor,workspace,workspace_length)!=0)return -3;return 0;}
+static int x509_certificate_ca_authorized(const x509_certificate_view_t* certificate){return certificate&&certificate->basic_constraints_present&&certificate->basic_constraints_ca&&certificate->key_usage_present&&certificate->key_usage_key_cert_sign?0:-1;}
+int x509_certificate_chain_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length){if(!leaf||!intermediate||!trust_anchor)return -1;if(x509_certificate_ca_authorized(intermediate)!=0)return -2;if(x509_certificate_chain_validate_one(leaf,intermediate,workspace,workspace_length)!=0)return -3;if(x509_certificate_chain_validate_one(intermediate,trust_anchor,workspace,workspace_length)!=0)return -4;return 0;}
 
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate){
     static const uint8_t rsa_encryption_oid[]={0x06U,0x09U,0x2aU,0x86U,0x48U,0x86U,0xf7U,0x0dU,0x01U,0x01U,0x01U};
