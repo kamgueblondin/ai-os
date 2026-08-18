@@ -443,3 +443,9 @@ Le test NE2000 couvre la nouvelle façade et le rejet d’un intermédiaire nul 
 Le parser TLS conserve désormais la feuille et le premier intermédiaire de la liste `Certificate`, avec références et longueurs caller-owned. Les deux vues X.509 sont disponibles après parsing ; un DER intermédiaire invalide invalide la feuille pour éviter une utilisation partielle.
 
 Les tests couvrent la liste TLS à deux certificats et les bornes existantes. Référence : [aos441_448_tls_certificate_intermediate.md](aos441_448_tls_certificate_intermediate.md). Sélection de plusieurs intermédiaires, profondeur arbitraire et raccordement automatique à la politique NE2000 restent à implémenter.
+
+### AOS-449 à AOS-456 — chaîne reçue dans NE2000/TLS
+
+`ne2k_tls_client_poll_received_chain` utilise automatiquement la vue du premier intermédiaire reçu par `Certificate` et impose son parsing X.509 avant la politique `leaf → intermédiaire → ancre`. Les rollbacks, buffers et workspaces restent caller-owned.
+
+Le test NE2000 couvre la nouvelle façade et son rejet de client nul. Référence : [aos449_456_ne2k_received_intermediate.md](aos449_456_ne2k_received_intermediate.md). Chaînes multiples, cross-signatures, révocation et sélection automatique de profondeur arbitraire restent hors périmètre.
