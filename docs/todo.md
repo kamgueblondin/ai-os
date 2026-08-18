@@ -388,3 +388,10 @@ Référence : [aos361_368_llm_json_extractor.md](aos361_368_llm_json_extractor.m
 `net_llm_ollama_response_extract` extrait le champ `response` d’Ollama non-streaming ; `net_llm_openai_response_extract` extrait le premier champ string `content` d’une réponse OpenAI compatible. Les adaptateurs restent caller-owned et propagent les rejets de l’extracteur JSON. Les tests couvrent les deux formats simples et les champs fournisseur absents.
 
 Référence : [aos369_376_llm_response_adapters.md](aos369_376_llm_response_adapters.md). L’adaptateur OpenAI ne valide pas la structure `choices[0].message.content`; SSE, tool calls, multi-choix, Unicode, médias et variations de schéma restent hors périmètre.
+
+
+### AOS-377 à AOS-384 — builders JSON de requêtes LLM
+
+`net_llm_build_ollama_generate_json` produit le body Ollama non-streaming `model`/`prompt`; `net_llm_build_openai_chat_json` produit le body OpenAI compatible avec un message utilisateur. Les chaînes caller-owned échappent guillemets, antislashs et espaces de contrôle courants ; contrôles non gérés, octets non ASCII et capacités insuffisantes sont rejetés.
+
+Les tests vérifient les bodies exacts avec guillemets/saut de ligne et les rejets. Référence : [aos377_384_llm_request_builders.md](aos377_384_llm_request_builders.md). Header Bearer par fournisseur, Unicode, paramètres de génération, multi-tours, tool calls, média et SSE restent hors périmètre.
