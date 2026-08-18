@@ -6,8 +6,11 @@
 #define NET_DHCP_FIXED_HEADER 236U
 #define NET_DHCP_COOKIE_SIZE 4U
 #define NET_DHCP_MAGIC_COOKIE 0x63825363U
+#define NET_DHCP_OPTION_ROUTER 3U
+#define NET_DHCP_OPTION_DNS 6U
 #define NET_DHCP_OPTION_MESSAGE_TYPE 53U
 #define NET_DHCP_OPTION_SERVER_ID 54U
+#define NET_DHCP_OPTION_PARAMETER_REQUEST_LIST 55U
 #define NET_DHCP_OPTION_END 255U
 #define NET_DHCP_DISCOVER 1U
 #define NET_DHCP_OFFER 2U
@@ -22,8 +25,12 @@ typedef struct {
 } net_dhcp_offer_t;
 typedef struct {
     uint8_t valid;
+    uint8_t router_valid;
+    uint8_t dns_valid;
     uint8_t ipv4[4];
     uint8_t server_ipv4[4];
+    uint8_t router_ipv4[4];
+    uint8_t dns_ipv4[4];
     uint32_t xid;
 } net_dhcp_lease_t;
 
