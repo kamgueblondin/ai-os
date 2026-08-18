@@ -467,3 +467,10 @@ Le test transforme un KeyUsage critique connu en OID inconnu et vérifie le refu
 Le parser expose SKI et le `keyIdentifier` AKI depuis le DER caller-owned. Une chaîne vérifie la correspondance AKI enfant/SKI autorité lorsqu’un AKI est présent, avant la signature RSA.
 
 Les vecteurs root/intermédiaire/leaf vérifient la présence des identifiants et le rejet d’un SKI intermédiaire incompatible. Référence : [aos473_480_x509_aki_ski.md](aos473_480_x509_aki_ski.md). Les autres champs AKI, chaînes multiples, contraintes de nom, ECDSA et révocation restent hors périmètre.
+
+
+### AOS-481 à AOS-488 — ExtendedKeyUsage `serverAuth` X.509
+
+Le parseur reconnaît maintenant l’extension EKU `2.5.29.37`, en contrôle la séquence DER encapsulée et publie les indicateurs `extended_key_usage_present` et `extended_key_usage_server_auth`. Les politiques TLS directe et avec intermédiaire refusent une feuille dont EKU est présente sans l’OID `serverAuth` (`1.3.6.1.5.5.7.3.1`). Le chemin reste sans allocation dynamique et toutes les vues DER restent caller-owned.
+
+Le vecteur DER de non-régression couvre une EKU valide `serverAuth`, tandis que le test vérifie le refus d’une feuille dont EKU ne permet pas l’authentification de serveur. Validation locale : **367/367 tests**, build i386 et smokes QEMU réussis. Référence : [aos481_488_x509_eku.md](aos481_488_x509_eku.md). `anyExtendedKeyUsage`, les contraintes EKU de CA, ECDSA/EdDSA, révocation et contraintes de nom restent hors périmètre.

@@ -24,6 +24,7 @@ typedef struct {
     const uint8_t* subject_key_identifier; uint32_t subject_key_identifier_length;
     const uint8_t* authority_key_identifier; uint32_t authority_key_identifier_length;
     uint8_t key_usage_present; uint8_t key_usage_key_cert_sign;
+    uint8_t extended_key_usage_present; uint8_t extended_key_usage_server_auth;
     const uint8_t* signature_algorithm; uint32_t signature_algorithm_length;
     const uint8_t* signature; uint32_t signature_length;
 } x509_certificate_view_t;
