@@ -47,6 +47,8 @@
 #define NE2K_RX_PAGE_STOP  0x60U
 #define NE2K_RX_HEADER_SIZE 4U
 #define NE2K_RX_STATUS_OK 0x01U
+#define NE2K_LLM_PROVIDER_OLLAMA 0U
+#define NE2K_LLM_PROVIDER_OPENAI 1U
 
 typedef uint8_t (*ne2k_inb_fn)(void* context, uint16_t port);
 typedef void (*ne2k_outb_fn)(void* context, uint16_t port, uint8_t value);
@@ -219,6 +221,21 @@ int ne2k_https_llm_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const
                                   const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
                                   ne2k_tls_client_t* client,uint8_t* plaintext,uint16_t plaintext_capacity,
                                   net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,uint16_t* consumed);
+/* Compose JSON, Bearer optionnel Ollama / obligatoire OpenAI, chiffre et émet une requête LLM après TLS complet. */
+int ne2k_https_llm_request(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                           uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                           net_tcp_connection_t* connection,ne2k_tls_client_t* client,uint8_t provider,
+                           uint8_t* json,uint16_t json_capacity,uint8_t* request,uint16_t request_capacity,
+                           const char* host,const char* path,const char* bearer_token,const char* model,
+                           const uint8_t* prompt,uint16_t prompt_length,uint8_t* tls_record,uint32_t tls_capacity,
+                           uint8_t retransmit_limit);
+/* Polling LLM : retourne 1 si le body HTTP est incomplet, 0 lorsque le texte provider est extrait. */
+int ne2k_https_llm_poll_text(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                             uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                             const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                             ne2k_tls_client_t* client,uint8_t provider,uint8_t* plaintext,uint16_t plaintext_capacity,
+                             net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,
+                             uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */
