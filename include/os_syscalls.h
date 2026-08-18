@@ -164,8 +164,10 @@
 #define SYS_FAT16_LIST 88
 /* Aucun argument; bit 0 = NIC détectée, bit 1 = anneaux initialisés. */
 #define SYS_NET_STATUS 89
+/* Aucun argument; bit 0 = NE2000 prêt, bits 8..15 = phase LLM, sans secret ni adresse distante. */
+#define SYS_LLM_SESSION_STATUS 90
 
-#define MAX_SYSCALLS 90
+#define MAX_SYSCALLS 91
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
