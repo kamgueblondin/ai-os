@@ -158,6 +158,31 @@ int bigint_mod_multiply(bigint_t* output,const bigint_t* left,const bigint_t* ri
     return 0;
 }
 
+int bigint_modexp(bigint_t* output,const bigint_t* base,const bigint_t* exponent,const bigint_t* modulus,uint32_t* workspace,uint16_t workspace_length){
+    uint16_t capacity,index,bit; bigint_t result,current,product,temporary;
+    if(!output||!base||!exponent||!modulus||!workspace||modulus->length==0U)return -1;
+    capacity=modulus->length;
+    if(output->capacity<capacity||workspace_length<(uint16_t)(4U*capacity))return -2;
+    if(bigint_init(&result,workspace,capacity)!=0||bigint_init(&current,workspace+capacity,capacity)!=0||bigint_init(&product,workspace+(uint16_t)(2U*capacity),capacity)!=0||bigint_init(&temporary,workspace+(uint16_t)(3U*capacity),capacity)!=0)return -3;
+    if(modulus->length==1U&&modulus->limbs[0]==1U)result.length=0U;else{result.limbs[0]=1U;result.length=1U;}
+    if(bigint_mod_reduce(&current,base,modulus)!=0)return -4;
+    for(index=exponent->length;index>0U;index--){
+        uint32_t limb=exponent->limbs[index-1U];
+        for(bit=32U;bit>0U;bit--){
+            if(bigint_mod_multiply(&product,&result,&result,modulus,&temporary)!=0)return -5;
+            bigint_copy(&result,&product);
+            if((limb>>(bit-1U))&1U){
+                if(bigint_mod_multiply(&product,&result,&current,modulus,&temporary)!=0)return -6;
+                bigint_copy(&result,&product);
+            }
+        }
+    }
+    bigint_zero(output);
+    for(index=0U;index<result.length;index++)output->limbs[index]=result.limbs[index];
+    output->length=result.length;
+    return 0;
+}
+
 int bigint_modexp_u32(bigint_t* output,const bigint_t* base,uint32_t exponent,const bigint_t* modulus,uint32_t* workspace,uint16_t workspace_length){
     uint16_t capacity,i;bigint_t result,current,product,temporary;
     if(!output||!base||!modulus||!workspace||modulus->length==0U)return -1;
