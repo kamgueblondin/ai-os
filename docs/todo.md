@@ -523,3 +523,10 @@ Les tests couvrent le rollback d’un ACK invalide, la transition TCP `SYN_SENT 
 Le contexte caller-owned `ne2k_llm_connection_state_t` publie l’IPv4 résolue et les phases `IDLE`, `SYN_SENT` puis `TLS_STARTED`. `ne2k_llm_connection_start` délègue DNS/ARP/SYN et ne publie l’état qu’après succès complet ; `ne2k_llm_connection_poll_tls_start` délègue SYN-ACK/ClientHello et préserve phase, TCP et TLS sur toute erreur ou RX vide. Le contexte ne conserve ni hostname, ni secret, ni buffer.
 
 Les tests couvrent initialisation, réentrance, erreurs de phase, absence de publication sur échec et pointeur nul. Validation locale : **374/374 tests**, build i386 et smokes QEMU réussis. Référence : [aos537_544_llm_connection_orchestrator.md](aos537_544_llm_connection_orchestrator.md). DNS asynchrone, timeouts, retransmission SYN, backoff, AAAA/CNAME/DNSSEC, DHCP, multi-adresses et machine d’état TLS complète restent hors périmètre.
+
+
+### AOS-545 à AOS-552 — progression TLS authentifiée de session LLM
+
+Le contexte LLM introduit maintenant `TLS_COMPLETE`. `ne2k_llm_connection_poll_tls` délègue le polling au chemin TLS avec chaîne reçue et UTC RTC, sur copies transactionnelles de l’état LLM, TCP et TLS. Les erreurs négatives ne publient aucun état ; les pollings non négatifs publient leurs progrès, mais la phase ne devient complète qu’après Finished serveur valide et session TLS effectivement complète.
+
+Le test NE2000 couvre le rejet hors phase avant tout accès RTC, réseau ou crypto et vérifie l’absence de mutation de la séquence TCP. Validation locale : **375/375 tests**, build i386 et smokes QEMU réussis. Référence : [aos545_552_llm_tls_session_progress.md](aos545_552_llm_tls_session_progress.md). Timeouts, retransmission, backoff, annulation, chaînes de profondeur arbitraire et orchestration automatique POST/streaming LLM restent hors périmètre.
