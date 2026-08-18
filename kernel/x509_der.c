@@ -47,11 +47,11 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
     if(der_tlv_parse(input,length,&extensions)!=0||extensions.tag!=0x30U||extensions.total_length!=length)return -1;
     cursor=extensions.value;remaining=extensions.length;
     while(remaining){
-        const uint8_t* extension_cursor;uint32_t extension_remaining;
+        const uint8_t* extension_cursor;uint32_t extension_remaining;uint8_t critical=0U;
         if(next_tlv(&cursor,&remaining,&extension)!=0||extension.tag!=0x30U)return -2;
         extension_cursor=extension.value;extension_remaining=extension.length;
         if(next_tlv(&extension_cursor,&extension_remaining,&oid)!=0)return -3;
-        if(extension_remaining&&extension_cursor[0]==0x01U){if(next_tlv(&extension_cursor,&extension_remaining,&field)!=0||field.length!=1U)return -4;}
+        if(extension_remaining&&extension_cursor[0]==0x01U){if(next_tlv(&extension_cursor,&extension_remaining,&field)!=0||field.length!=1U||(field.value[0]!=0U&&field.value[0]!=0xffU))return -4;critical=field.value[0]==0xffU?1U:0U;}
         if(next_tlv(&extension_cursor,&extension_remaining,&field)!=0||field.tag!=0x04U||extension_remaining!=0U)return -5;
         if(oid_equal(&oid,subject_alt_name_oid,sizeof(subject_alt_name_oid))){
             if(out->subject_alt_names)return -6;
@@ -66,7 +66,7 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
         }else if(oid_equal(&oid,key_usage_oid,sizeof(key_usage_oid))){
             if(out->key_usage_present||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x03U||names.total_length!=field.length||names.length<2U||names.value[0]>7U)return -11;
             out->key_usage_present=1U;out->key_usage_key_cert_sign=(names.value[1]&0x04U)!=0U?1U:0U;
-        }
+        }else if(critical)return -12;
     }
     return 0;
 }

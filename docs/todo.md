@@ -455,3 +455,9 @@ Le test NE2000 couvre la nouvelle façade et son rejet de client nul. Référenc
 Le parseur conserve `pathLenConstraint` comme entier DER positif borné et exige `CA=true` lorsqu’il est présent. La chaîne `leaf → intermédiaire → ancre` refuse maintenant une ancre limitée à zéro, car elle autorise un CA sous-jacent.
 
 Les vecteurs de chaîne testent le refus d’une ancre forcée à `pathLenConstraint=0`. Référence : [aos457_464_x509_pathlen.md](aos457_464_x509_pathlen.md). Profondeur arbitraire, contraintes de nom, AKI/SKI, extensions critiques, ECDSA et révocation restent hors périmètre.
+
+### AOS-465 à AOS-472 — extensions X.509 critiques
+
+Le parser refuse toute extension inconnue marquée critique et vérifie le booléen DER `critical`. SAN, BasicConstraints et KeyUsage restent reconnues et interprétées via des vues caller-owned.
+
+Le test transforme un KeyUsage critique connu en OID inconnu et vérifie le refus. Référence : [aos465_472_x509_critical_extensions.md](aos465_472_x509_critical_extensions.md). AKI/SKI, contraintes de nom, CertificatePolicies, CDP, AIA/OCSP, ECDSA et révocation restent hors périmètre.
