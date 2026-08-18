@@ -437,3 +437,9 @@ Les tests vérifient le décodage des extensions, le chemin autorisé et les ref
 `ne2k_tls_client_poll_chain_two` compose le polling TCP/TLS existant avec la politique `leaf → intermédiaire → ancre`, en réutilisant les buffers et rollbacks caller-owned. L’API directe demeure inchangée pour les chaînes feuille-ancre.
 
 Le test NE2000 couvre la nouvelle façade et le rejet d’un intermédiaire nul ; les signatures et contraintes CA sont déjà couvertes par les vecteurs X.509. Référence : [aos433_440_ne2k_x509_intermediate.md](aos433_440_ne2k_x509_intermediate.md). Le parsing et la sélection automatique de la liste `Certificate` TLS restent hors périmètre.
+
+### AOS-441 à AOS-448 — intermédiaire de la liste Certificate TLS
+
+Le parser TLS conserve désormais la feuille et le premier intermédiaire de la liste `Certificate`, avec références et longueurs caller-owned. Les deux vues X.509 sont disponibles après parsing ; un DER intermédiaire invalide invalide la feuille pour éviter une utilisation partielle.
+
+Les tests couvrent la liste TLS à deux certificats et les bornes existantes. Référence : [aos441_448_tls_certificate_intermediate.md](aos441_448_tls_certificate_intermediate.md). Sélection de plusieurs intermédiaires, profondeur arbitraire et raccordement automatique à la politique NE2000 restent à implémenter.
