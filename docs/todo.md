@@ -395,3 +395,9 @@ Référence : [aos369_376_llm_response_adapters.md](aos369_376_llm_response_adap
 `net_llm_build_ollama_generate_json` produit le body Ollama non-streaming `model`/`prompt`; `net_llm_build_openai_chat_json` produit le body OpenAI compatible avec un message utilisateur. Les chaînes caller-owned échappent guillemets, antislashs et espaces de contrôle courants ; contrôles non gérés, octets non ASCII et capacités insuffisantes sont rejetés.
 
 Les tests vérifient les bodies exacts avec guillemets/saut de ligne et les rejets. Référence : [aos377_384_llm_request_builders.md](aos377_384_llm_request_builders.md). Header Bearer par fournisseur, Unicode, paramètres de génération, multi-tours, tool calls, média et SSE restent hors périmètre.
+
+### AOS-385 à AOS-392 — requête LLM NE2000 unifiée
+
+`ne2k_https_llm_request` compose le JSON Ollama/OpenAI, le POST HTTP, le Bearer obligatoire pour OpenAI et l’émission AES-GCM sur une session TLS complète. Tous les états et buffers restent caller-owned ; un échec après construction restaure la connexion et la séquence TLS. `ne2k_https_llm_poll_text` propage l’attente de body, refuse les statuts non-2xx et extrait le texte de réponse spécifique au fournisseur.
+
+Le test NE2000 vérifie la requête OpenAI chiffrée, JSON exact, Bearer, séquences et rejets de sécurité. Référence : [aos385_392_ne2k_llm_request.md](aos385_392_ne2k_llm_request.md). Les erreurs HTTP détaillées, retry borné, SSE, Unicode, tool calls, multi-tours, DNS/SYN automatisés et test externe restent à traiter.
