@@ -224,3 +224,10 @@ int net_json_extract_string(const uint8_t* json,uint16_t json_length,const char*
     }
     return -9;
 }
+
+int net_llm_ollama_response_extract(const uint8_t* json,uint16_t json_length,uint8_t* output,uint16_t output_capacity,uint16_t* output_length){
+    return net_json_extract_string(json,json_length,"response",output,output_capacity,output_length);
+}
+int net_llm_openai_response_extract(const uint8_t* json,uint16_t json_length,uint8_t* output,uint16_t output_capacity,uint16_t* output_length){
+    return net_json_extract_string(json,json_length,"content",output,output_capacity,output_length);
+}

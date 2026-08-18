@@ -381,3 +381,10 @@ Référence : [aos353_360_ne2k_tls_time_policy.md](aos353_360_ne2k_tls_time_poli
 `net_json_extract_string` extrait et décode une valeur JSON string pour une clé ASCII dans un buffer caller-owned. Les échappements JSON simples sont décodés ; clé absente, contrôle brut, Unicode `\uXXXX`, string incomplète et capacité insuffisante sont rejetés. Le test couvre le champ `response`, le saut de ligne, les limites et le rejet Unicode.
 
 Référence : [aos361_368_llm_json_extractor.md](aos361_368_llm_json_extractor.md). Ce n’est pas un parseur JSON complet : Unicode, tableaux, objets structurés, types non-string et SSE restent hors périmètre, de même que les adaptateurs OpenAI/Ollama spécifiques.
+
+
+### AOS-369 à AOS-376 — adaptateurs de réponse Ollama/OpenAI
+
+`net_llm_ollama_response_extract` extrait le champ `response` d’Ollama non-streaming ; `net_llm_openai_response_extract` extrait le premier champ string `content` d’une réponse OpenAI compatible. Les adaptateurs restent caller-owned et propagent les rejets de l’extracteur JSON. Les tests couvrent les deux formats simples et les champs fournisseur absents.
+
+Référence : [aos369_376_llm_response_adapters.md](aos369_376_llm_response_adapters.md). L’adaptateur OpenAI ne valide pas la structure `choices[0].message.content`; SSE, tool calls, multi-choix, Unicode, médias et variations de schéma restent hors périmètre.
