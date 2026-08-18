@@ -18,6 +18,10 @@
 #define NET_TLS_CONTENT_CHANGE_CIPHER_SPEC 20U
 #define NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH 40U
 #define NET_TLS_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256 0xc02fU
+#define NET_TLS_CIPHER_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 0xc02bU
+#define NET_TLS_HASH_SHA256 4U
+#define NET_TLS_SIGNATURE_RSA 1U
+#define NET_TLS_SIGNATURE_ECDSA 3U
 #define NET_TLS_NAMED_CURVE_X25519 29U
 #define NET_TLS_X25519_KEY_LENGTH 32U
 #define NET_TLS_X25519_CLIENT_FLIGHT_MINIMUM 93U
@@ -95,6 +99,9 @@ int net_tls_derive_aes128_gcm_key_block(uint8_t* key_block, uint32_t key_block_c
 int net_tls_server_hello_parse(const uint8_t* handshake, uint16_t length,
                                net_tls_server_hello_view_t* out);
 int net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(uint16_t cipher_suite);
+int net_tls_cipher_suite_is_ecdhe_ecdsa_aes128_gcm(uint16_t cipher_suite);
+/* Vrai pour les deux suites AES-128-GCM authentifiées par ECDHE prises en charge. */
+int net_tls_cipher_suite_is_ecdhe_aes128_gcm(uint16_t cipher_suite);
 int net_tls_certificate_parse(const uint8_t* handshake, uint16_t length,
                               net_tls_certificate_view_t* out);
 int net_tls_server_key_exchange_parse(const uint8_t* handshake, uint16_t length,
@@ -122,6 +129,11 @@ int net_tls_handshake_accept_server_key_exchange_rsa(net_tls_handshake_t* handsh
                                                      const uint8_t client_random[32],
                                                      const uint8_t* message,uint16_t length,
                                                      uint32_t* rsa_workspace,uint16_t rsa_workspace_length);
+/* Vérifie ECDSA/SHA-256 de ServerKeyExchange avec la clé P-256 du certificat serveur. */
+int net_tls_handshake_accept_server_key_exchange_ecdsa(net_tls_handshake_t* handshake,
+                                                       const uint8_t client_random[32],
+                                                       const uint8_t* message,uint16_t length,
+                                                       uint32_t* ecdsa_workspace,uint16_t ecdsa_workspace_length);
 int net_tls_handshake_accept_certificate_request(net_tls_handshake_t* handshake,
                                                  const uint8_t* message, uint16_t length);
 int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,
@@ -129,7 +141,7 @@ int net_tls_handshake_accept_server_hello_done(net_tls_handshake_t* handshake,
 int net_tls_handshake_accept_server_message(net_tls_handshake_t* handshake,
                                             const uint8_t* message, uint16_t length,
                                             net_tls_transcript_t* transcript);
-/* Dispatch authentifié : analyse X.509 à Certificate et exige RSA signé à ServerKeyExchange. */
+/* Dispatch authentifié : analyse X.509 et exige une signature RSA ou ECDSA cohérente avec la suite négociée. */
 int net_tls_handshake_accept_server_message_authenticated(net_tls_handshake_t* handshake,
                                                           const uint8_t client_random[32],
                                                           const uint8_t* message,uint16_t length,
