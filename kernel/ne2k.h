@@ -127,6 +127,16 @@ int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
                         uint16_t source_port, uint16_t destination_port,
                         const uint8_t* payload, uint16_t payload_length,
                         uint16_t attempts);
+/* Résout l’IPv4 de prochain saut par ARP tout en conservant destination_ipv4 dans le paquet UDP. */
+int ne2k_tx_udp_via(ne2k_device_t* device, const ne2k_io_t* io,
+                    net_arp_cache_t* cache,
+                    uint8_t* request_frame, uint16_t request_capacity,
+                    uint8_t* rx_frame, uint16_t rx_capacity,
+                    uint8_t* tx_frame, uint16_t tx_capacity,
+                    const uint8_t local_ipv4[4], const uint8_t destination_ipv4[4],
+                    const uint8_t next_hop_ipv4[4], uint16_t source_port,
+                    uint16_t destination_port, const uint8_t* payload,
+                    uint16_t payload_length, uint16_t attempts);
 /* Construit et diffuse un DHCP Discover dans un buffer Ethernet caller-owned. */
 int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
                        uint8_t* frame, uint16_t frame_capacity, uint32_t xid);
@@ -155,6 +165,12 @@ int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
                    uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
                    const uint8_t local_ip[4], const uint8_t dns_ip[4], uint16_t id,
                    const char* hostname);
+/* Émet une requête DNS vers dns_ip en résolvant la MAC du prochain saut fourni. */
+int ne2k_dns_query_via(ne2k_device_t* device, const ne2k_io_t* io,
+                       net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                       uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                       const uint8_t local_ip[4], const uint8_t dns_ip[4], const uint8_t next_hop_ip[4],
+                       uint16_t id, const char* hostname);
 int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity, uint16_t attempts,
                     uint16_t expected_id, net_dns_a_result_t* result);
