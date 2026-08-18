@@ -36,6 +36,8 @@ typedef struct {
     uint8_t line_length;
     uint8_t state;
 } net_http_chunked_accumulator_t;
+typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; } net_llm_sse_accumulator_t;
+typedef struct { net_http_chunked_accumulator_t http; net_llm_sse_accumulator_t sse; uint16_t decoded_consumed; } net_llm_sse_response_t;
 
 /* Construit une requête HTTP/1.1 GET avec Host et Connection: close dans un buffer caller-owned. */
 int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const char* path);
@@ -47,6 +49,15 @@ int net_llm_openai_response_extract(const uint8_t* json,uint16_t json_length,uin
 /* Construit les bodies JSON non-streaming pour Ollama generate et OpenAI chat dans un buffer caller-owned. */
 int net_llm_build_ollama_generate_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
 int net_llm_build_openai_chat_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
+/* Variantes streaming : corps JSON avec `stream:true`, toujours construit dans le buffer caller-owned. */
+int net_llm_build_ollama_generate_stream_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
+int net_llm_build_openai_chat_stream_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
+/* Accumule des événements SSE `data:` fragmentés et extrait les deltas Ollama/OpenAI. Retourne 1 si aucun événement complet n’est disponible, 0 après progression, négatif si framing ou capacité invalide. */
+int net_llm_sse_accumulator_init(net_llm_sse_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity);
+int net_llm_sse_accumulator_feed(net_llm_sse_accumulator_t* accumulator,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
+/* Combine le décodage HTTP chunked et SSE. Les deux buffers restent caller-owned. */
+int net_llm_sse_response_init(net_llm_sse_response_t* response,uint8_t* http_buffer,uint16_t http_capacity,uint8_t* sse_buffer,uint16_t sse_capacity);
+int net_llm_sse_response_feed(net_llm_sse_response_t* response,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
 /* Classe un statut HTTP LLM : succès, retryable, authentification, permanent ou protocole. */
 int net_llm_http_status_classify(uint16_t status_code);
 /* Consomme au plus retry_limit tentatives caller-owned ; retourne 1 si une nouvelle émission est autorisée. */
@@ -89,5 +100,10 @@ int net_http_tls_open_response_stream(net_tcp_connection_t* connection,net_tls_a
                                       const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,
                                       net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,
                                       uint16_t* consumed);
+/* Ouvre un record applicatif TLS puis alimente une réponse HTTP chunked/SSE LLM. */
+int net_http_tls_open_sse_stream(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
+                                 const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,
+                                 net_llm_sse_response_t* response,uint8_t provider,
+                                 uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 
 #endif
