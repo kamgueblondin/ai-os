@@ -461,3 +461,9 @@ Les vecteurs de chaîne testent le refus d’une ancre forcée à `pathLenConstr
 Le parser refuse toute extension inconnue marquée critique et vérifie le booléen DER `critical`. SAN, BasicConstraints et KeyUsage restent reconnues et interprétées via des vues caller-owned.
 
 Le test transforme un KeyUsage critique connu en OID inconnu et vérifie le refus. Référence : [aos465_472_x509_critical_extensions.md](aos465_472_x509_critical_extensions.md). AKI/SKI, contraintes de nom, CertificatePolicies, CDP, AIA/OCSP, ECDSA et révocation restent hors périmètre.
+
+### AOS-473 à AOS-480 — liaison AKI/SKI X.509
+
+Le parser expose SKI et le `keyIdentifier` AKI depuis le DER caller-owned. Une chaîne vérifie la correspondance AKI enfant/SKI autorité lorsqu’un AKI est présent, avant la signature RSA.
+
+Les vecteurs root/intermédiaire/leaf vérifient la présence des identifiants et le rejet d’un SKI intermédiaire incompatible. Référence : [aos473_480_x509_aki_ski.md](aos473_480_x509_aki_ski.md). Les autres champs AKI, chaînes multiples, contraintes de nom, ECDSA et révocation restent hors périmètre.
