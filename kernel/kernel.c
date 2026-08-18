@@ -21,6 +21,7 @@
 #include "vga_console.h"
 #include "ne2k.h"
 #include "tls_trust_anchor.h"
+#include "ecdsa_p256.h"
 #include <stddef.h>
 
 // Function to read a byte from a port
@@ -34,7 +35,8 @@ void print_string(const char* str);
 #define KERNEL_LLM_FRAME_CAPACITY NE2K_ETHERNET_MAX_FRAME
 #define KERNEL_LLM_TLS_RECORD_CAPACITY 8192U
 #define KERNEL_LLM_TLS_HELLO_CAPACITY 512U
-#define KERNEL_LLM_TLS_WORKSPACE_WORDS 224U
+/* Une même zone caller-owned sert à RSA ou ECDSA ; P-256 impose 2 048 mots. */
+#define KERNEL_LLM_TLS_WORKSPACE_WORDS ECDSA_P256_WORKSPACE_WORDS
 
 static ne2k_device_t boot_ne2k_device;
 static ne2k_io_t boot_ne2k_io;
