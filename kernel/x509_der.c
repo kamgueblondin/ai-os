@@ -2,6 +2,8 @@
 #include "sha256.h"
 #include "rsa_verify.h"
 
+static int x509_bytes_equal(const uint8_t* left,uint32_t left_length,const uint8_t* right,uint32_t right_length);
+
 int der_tlv_parse(const uint8_t* input,uint32_t length,der_tlv_view_t* out){
     uint32_t value_length=0U,offset=2U,i;uint8_t count;
     if(!input||!out||length<2U)return -1;
@@ -44,6 +46,8 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
     static const uint8_t key_usage_oid[]={0x55U,0x1dU,0x0fU};
     static const uint8_t subject_key_identifier_oid[]={0x55U,0x1dU,0x0eU};
     static const uint8_t authority_key_identifier_oid[]={0x55U,0x1dU,0x23U};
+    static const uint8_t extended_key_usage_oid[]={0x55U,0x1dU,0x25U};
+    static const uint8_t server_auth_oid[]={0x2bU,0x06U,0x01U,0x05U,0x05U,0x07U,0x03U,0x01U};
     der_tlv_view_t extensions,extension,oid,field,names;
     const uint8_t* cursor;uint32_t remaining;
     if(der_tlv_parse(input,length,&extensions)!=0||extensions.tag!=0x30U||extensions.total_length!=length)return -1;
@@ -72,7 +76,9 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
             if(out->subject_key_identifier||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x04U||names.total_length!=field.length||names.length==0U)return -12;out->subject_key_identifier=names.value;out->subject_key_identifier_length=names.length;
         }else if(oid_equal(&oid,authority_key_identifier_oid,sizeof(authority_key_identifier_oid))){
             const uint8_t* aki_cursor;uint32_t aki_remaining;if(out->authority_key_identifier||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length)return -13;aki_cursor=names.value;aki_remaining=names.length;while(aki_remaining){if(next_tlv(&aki_cursor,&aki_remaining,&field)!=0)return -13;if(field.tag==0x80U){if(out->authority_key_identifier||field.length==0U)return -13;out->authority_key_identifier=field.value;out->authority_key_identifier_length=field.length;}}
-        }else if(critical)return -14;
+        }else if(oid_equal(&oid,extended_key_usage_oid,sizeof(extended_key_usage_oid))){
+            const uint8_t* eku_cursor;uint32_t eku_remaining;if(out->extended_key_usage_present||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length||names.length==0U)return -14;out->extended_key_usage_present=1U;eku_cursor=names.value;eku_remaining=names.length;while(eku_remaining){if(next_tlv(&eku_cursor,&eku_remaining,&field)!=0||field.tag!=0x06U)return -14;if(field.length==sizeof(server_auth_oid)&&x509_bytes_equal(field.value,field.length,server_auth_oid,sizeof(server_auth_oid)))out->extended_key_usage_server_auth=1U;}
+        }else if(critical)return -15;
     }
     return 0;
 }
@@ -82,7 +88,7 @@ int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certi
     const uint8_t *p,*sp,*q,*tbs_der;uint32_t remaining,sp_remaining,left;
     if(!certificate||!out)return -1;
     if(der_tlv_parse(certificate,length,&outer)!=0||outer.tag!=0x30U||outer.total_length!=length)return -2;
-    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->path_len_present=0U;out->path_len_constraint=0U;out->subject_key_identifier=0;out->subject_key_identifier_length=0U;out->authority_key_identifier=0;out->authority_key_identifier_length=0U;out->key_usage_present=0U;out->key_usage_key_cert_sign=0U;
+    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->path_len_present=0U;out->path_len_constraint=0U;out->subject_key_identifier=0;out->subject_key_identifier_length=0U;out->authority_key_identifier=0;out->authority_key_identifier_length=0U;out->key_usage_present=0U;out->extended_key_usage_present=0U;out->extended_key_usage_server_auth=0U;out->key_usage_key_cert_sign=0U;
     out->signature_algorithm=0;out->signature_algorithm_length=0U;out->signature=0;out->signature_length=0U;
     out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;tbs_der=p;
     if(require_sequence(&p,&remaining,&tbs)!=0)return -3;
@@ -238,9 +244,10 @@ static int x509_time_compare(const x509_time_t* left,const x509_time_t* right){i
 int x509_certificate_valid_at(const x509_certificate_view_t* certificate,const char* utc_time){x509_time_t before,after,current;if(!certificate||!utc_time||x509_time_parse(certificate->not_before,certificate->not_before_length,&before)!=0||x509_time_parse(certificate->not_after,certificate->not_after_length,&after)!=0||x509_time_parse((const uint8_t*)utc_time,15U,&current)!=0)return -1;if(x509_time_compare(&before,&after)>0)return -2;return x509_time_compare(&current,&before)<0||x509_time_compare(&current,&after)>0?-3:0;}
 
 int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){
-    if(x509_certificate_chain_validate_one(leaf,trust_anchor,workspace,workspace_length)!=0)return -1;
-    if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -2;
-    if(x509_certificate_valid_at(leaf,utc_time)!=0)return -3;
+    if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;
+    if(x509_certificate_chain_validate_one(leaf,trust_anchor,workspace,workspace_length)!=0)return -2;
+    if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -3;
+    if(x509_certificate_valid_at(leaf,utc_time)!=0)return -4;
     return 0;
 }
-int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(x509_certificate_chain_validate_two(leaf,intermediate,trust_anchor,workspace,workspace_length)!=0)return -1;if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -2;if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -3;return 0;}
+int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;if(x509_certificate_chain_validate_two(leaf,intermediate,trust_anchor,workspace,workspace_length)!=0)return -2;if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -3;if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -4;return 0;}
