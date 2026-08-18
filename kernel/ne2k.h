@@ -179,6 +179,12 @@ int ne2k_tcp_syn(ne2k_device_t* device, const ne2k_io_t* io,
                  uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
                  uint16_t local_port, uint16_t remote_port, uint32_t sequence);
+/* Émet un SYN IPv4 vers remote_ip, en résolvant le prochain saut Ethernet séparément. */
+int ne2k_tcp_syn_via(ne2k_device_t* device, const ne2k_io_t* io,
+                     net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                     uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                     const uint8_t local_ip[4], const uint8_t remote_ip[4], const uint8_t next_hop_ip[4],
+                     uint16_t local_port, uint16_t remote_port, uint32_t sequence, uint16_t attempts);
 /* Résout un hostname LLM par DNS A, résout son ARP puis émet SYN et publie la connexion/IPv4 caller-owned seulement au succès. */
 int ne2k_llm_dns_syn_bootstrap(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
                                 uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
@@ -186,6 +192,13 @@ int ne2k_llm_dns_syn_bootstrap(ne2k_device_t* device,const ne2k_io_t* io,net_arp
                                 uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
                                 uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
                                 uint8_t remote_ip[4],net_tcp_connection_t* connection);
+/* Compose DNS puis SYN en sélectionnant DNS et hôte LLM via le masque/routeur du bail DHCP. */
+int ne2k_llm_dns_syn_bootstrap_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                    uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                    uint8_t* frame,uint16_t frame_capacity,const net_dhcp_lease_t* lease,
+                                    uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                    uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                    uint8_t remote_ip[4],net_tcp_connection_t* connection);
 /* Contexte LLM caller-owned : IP résolue et phase de préconnexion, sans stockage de hostname ni de secret. */
 int ne2k_llm_connection_state_init(ne2k_llm_connection_state_t* state);
 /* Démarre DNS→ARP→SYN et publie la phase SYN_SENT uniquement après succès complet. */
@@ -195,6 +208,13 @@ int ne2k_llm_connection_start(ne2k_device_t* device,const ne2k_io_t* io,net_arp_
                               uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
                               uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
                               ne2k_llm_connection_state_t* state,net_tcp_connection_t* connection);
+/* Publie SYN_SENT seulement lorsque le bootstrap DNS/TCP routé depuis le bail DHCP est complet. */
+int ne2k_llm_connection_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                   uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                   uint8_t* frame,uint16_t frame_capacity,const net_dhcp_lease_t* lease,
+                                   uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                   uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                   ne2k_llm_connection_state_t* state,net_tcp_connection_t* connection);
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
