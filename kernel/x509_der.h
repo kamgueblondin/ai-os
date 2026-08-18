@@ -32,9 +32,16 @@ int x509_certificate_valid_at(const x509_certificate_view_t* certificate,const c
 /* Vérifie une feuille RSA/SHA-256 signée directement par l’ancre X.509 fournie par l’appelant. */
 int x509_certificate_chain_validate_one(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,
                                         uint32_t* workspace,uint16_t workspace_length);
+/* Vérifie leaf -> intermédiaire -> ancre avec deux vérifications RSA/SHA-256 et workspace caller-owned. */
+int x509_certificate_chain_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,
+                                        const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length);
 /* Exige chaîne RSA directe, hostname DNS et période UTC pour une identité TLS utilisable. */
 int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,
                                            const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
+/* Exige chaîne RSA leaf-intermédiaire-ancre, hostname et dates UTC pour les trois certificats. */
+int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,
+                                               const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
+                                               uint32_t* workspace,uint16_t workspace_length);
 /* Vérifie l’OID rsaEncryption, le module positif et l’exposant public impair pris en charge par RSA. */
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate);
 
