@@ -215,3 +215,10 @@ static int x509_time_parse(const uint8_t* input,uint32_t length,x509_time_t* out
 }
 static int x509_time_compare(const x509_time_t* left,const x509_time_t* right){if(left->year!=right->year)return left->year<right->year?-1:1;if(left->month!=right->month)return left->month<right->month?-1:1;if(left->day!=right->day)return left->day<right->day?-1:1;if(left->hour!=right->hour)return left->hour<right->hour?-1:1;if(left->minute!=right->minute)return left->minute<right->minute?-1:1;if(left->second!=right->second)return left->second<right->second?-1:1;return 0;}
 int x509_certificate_valid_at(const x509_certificate_view_t* certificate,const char* utc_time){x509_time_t before,after,current;if(!certificate||!utc_time||x509_time_parse(certificate->not_before,certificate->not_before_length,&before)!=0||x509_time_parse(certificate->not_after,certificate->not_after_length,&after)!=0||x509_time_parse((const uint8_t*)utc_time,15U,&current)!=0)return -1;if(x509_time_compare(&before,&after)>0)return -2;return x509_time_compare(&current,&before)<0||x509_time_compare(&current,&after)>0?-3:0;}
+
+int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){
+    if(x509_certificate_chain_validate_one(leaf,trust_anchor,workspace,workspace_length)!=0)return -1;
+    if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -2;
+    if(x509_certificate_valid_at(leaf,utc_time)!=0)return -3;
+    return 0;
+}
