@@ -178,8 +178,10 @@
 #define SYS_LLM_POLL_SSE 95
 /* Aucun argument ; réarme RESPONSE_READY vers TLS_COMPLETE pour le tour suivant. */
 #define SYS_LLM_RESET_FOR_REQUEST 96
+/* Aucun argument ; tente un FIN TCP si la session est établie puis purge localement la session. */
+#define SYS_LLM_CLOSE 97
 
-#define MAX_SYSCALLS 97
+#define MAX_SYSCALLS 98
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
@@ -237,6 +239,9 @@ typedef struct {
 #define OS_LLM_RESET_BAD_PHASE (-107)
 #define OS_LLM_RESET_FAILED (-108)
 #define OS_LLM_TLS_ENTROPY_UNAVAILABLE (-109)
+#define OS_LLM_CLOSE_BAD_PHASE (-110)
+/* Le FIN n’a pas été émis, mais la purge locale de session et de secrets a réussi. */
+#define OS_LLM_CLOSE_FIN_FAILED (-111)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

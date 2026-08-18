@@ -201,6 +201,12 @@ int sys_llm_reset_for_request(void) {
     return status;
 }
 
+int sys_llm_close(void) {
+    int status;
+    asm volatile("int $0x80" : "=a"(status) : "a"(SYS_LLM_CLOSE));
+    return status;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -990,6 +996,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-text-poll       - Lire le texte LLM extrait par le noyau\n");
     print_string("  ai-sse-poll        - Lire un delta SSE LLM extrait par le noyau\n");
     print_string("  ai-next            - Rearmer une session LLM apres sa reponse\n");
+    print_string("  ai-close           - Annuler la session LLM et purger ses secrets\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4629,6 +4636,26 @@ static void cmd_ai_next(shell_context_t* ctx, char args[][128], int arg_count) {
     else print_error("ai-next: rearmement refuse; contexte conserve");
 }
 
+static void cmd_ai_close(shell_context_t* ctx, char args[][128], int arg_count) {
+    int status;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: ai-close");
+        return;
+    }
+    status = sys_llm_close();
+    if (status == 0) {
+        print_success("ai-close: session et secrets effaces; bail DHCP conserve");
+        return;
+    }
+    if (status == OS_LLM_CLOSE_FIN_FAILED) {
+        print_warning("ai-close: FIN non emis; purge locale terminee et bail DHCP conserve");
+        return;
+    }
+    if (status == OS_LLM_CLOSE_BAD_PHASE) print_error("ai-close: aucune session LLM active");
+    else print_error("ai-close: annulation refusee");
+}
+
 static void cmd_ai_sse_poll(shell_context_t* ctx, char args[][128], int arg_count) {
     os_llm_text_result_t result = {0};
     char output[OS_LLM_TEXT_MAX + 1U];
@@ -5280,6 +5307,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-next") == 0) {
         cmd_ai_next(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-close") == 0) {
+        cmd_ai_close(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);

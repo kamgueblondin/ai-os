@@ -337,6 +337,63 @@ static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length) {
     for (index = 0U; index < length; ++index) buffer[index] = 0U;
 }
 
+static void kernel_llm_clear_session_preserve_lease(void) {
+    net_dhcp_lease_t retained_lease = boot_llm_network.lease;
+    kernel_llm_clear_bytes(boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx));
+    kernel_llm_clear_bytes(boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx));
+    kernel_llm_clear_bytes(boot_llm_arp_request, sizeof(boot_llm_arp_request));
+    kernel_llm_clear_bytes(boot_llm_arp_rx, sizeof(boot_llm_arp_rx));
+    kernel_llm_clear_bytes(boot_llm_frame, sizeof(boot_llm_frame));
+    kernel_llm_clear_bytes(boot_llm_tls_record, sizeof(boot_llm_tls_record));
+    kernel_llm_clear_bytes(boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake));
+    kernel_llm_clear_bytes(boot_llm_tls_transcript, sizeof(boot_llm_tls_transcript));
+    kernel_llm_clear_bytes(boot_llm_tls_hello, sizeof(boot_llm_tls_hello));
+    kernel_llm_clear_bytes((uint8_t*)boot_llm_rsa_workspace, sizeof(boot_llm_rsa_workspace));
+    kernel_llm_clear_bytes((uint8_t*)boot_llm_x25519_workspace, sizeof(boot_llm_x25519_workspace));
+    kernel_llm_clear_bytes(boot_llm_prf_workspace, sizeof(boot_llm_prf_workspace));
+    kernel_llm_clear_bytes(boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment));
+    kernel_llm_clear_bytes(boot_llm_flight_records, sizeof(boot_llm_flight_records));
+    kernel_llm_clear_bytes(boot_llm_plaintext, sizeof(boot_llm_plaintext));
+    kernel_llm_clear_bytes(boot_llm_http_json, sizeof(boot_llm_http_json));
+    kernel_llm_clear_bytes(boot_llm_http_request, sizeof(boot_llm_http_request));
+    kernel_llm_clear_bytes(boot_llm_http_tls_record, sizeof(boot_llm_http_tls_record));
+    kernel_llm_clear_bytes(boot_llm_http_response_buffer, sizeof(boot_llm_http_response_buffer));
+    kernel_llm_clear_bytes(boot_llm_http_text, sizeof(boot_llm_http_text));
+    kernel_llm_clear_bytes(boot_llm_sse_http_buffer, sizeof(boot_llm_sse_http_buffer));
+    kernel_llm_clear_bytes(boot_llm_sse_event_buffer, sizeof(boot_llm_sse_event_buffer));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_tls_client, sizeof(boot_llm_tls_client));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_network, sizeof(boot_llm_network));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_accumulator, sizeof(boot_llm_http_accumulator));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_response, sizeof(boot_llm_http_response));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_sse_response, sizeof(boot_llm_sse_response));
+    kernel_llm_clear_bytes((uint8_t*)boot_llm_hostname, sizeof(boot_llm_hostname));
+    kernel_llm_clear_tls_material();
+    boot_llm_network.lease = retained_lease;
+    boot_llm_network.session.phase = NE2K_LLM_CONNECTION_IDLE;
+    (void)net_arp_cache_init(&boot_llm_arp_cache);
+    (void)ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
+                               boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake),
+                               boot_llm_tls_transcript, sizeof(boot_llm_tls_transcript));
+    boot_llm_flight_records_length = 0U;
+    boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
+    boot_llm_http_streaming = 0U;
+}
+
+int kernel_llm_close(void) {
+    uint8_t fin_failed = 0U;
+    if (boot_llm_network.session.phase == NE2K_LLM_CONNECTION_IDLE)
+        return OS_LLM_CLOSE_BAD_PHASE;
+    if (boot_llm_network.connection.state == NET_TCP_STATE_ESTABLISHED) {
+        if (!boot_ne2k_present || !boot_llm_network.lease.valid ||
+            ne2k_tcp_fin(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+                         boot_llm_frame, sizeof(boot_llm_frame), boot_llm_network.lease.ipv4,
+                         boot_llm_network.session.remote_ip, &boot_llm_network.connection) != 0)
+            fin_failed = 1U;
+    }
+    kernel_llm_clear_session_preserve_lease();
+    return fin_failed ? OS_LLM_CLOSE_FIN_FAILED : 0;
+}
+
 int kernel_llm_reset_for_request(void) {
     if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_RESPONSE_READY)
         return OS_LLM_RESET_BAD_PHASE;
