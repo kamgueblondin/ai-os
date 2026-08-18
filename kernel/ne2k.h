@@ -199,7 +199,7 @@ int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
                          const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
                          ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
-                         const x509_certificate_view_t* trust_anchor,const char* hostname,
+                         const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
                          uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
                          uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
                          uint8_t* prf_workspace,uint32_t prf_workspace_capacity,

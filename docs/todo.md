@@ -367,3 +367,10 @@ Les tests couvrent les instants interne, prématuré, expiré et une date calend
 `x509_certificate_tls_identity_validate` exige désormais simultanément la chaîne RSA directe caller-owned, le hostname DNS et l’instant UTC caller-owned. Le test couvre le succès sur l’ancre/feuille de référence, le rejet d’un nom incorrect et d’une date prématurée.
 
 Référence : [aos345_352_tls_trust_policy.md](aos345_352_tls_trust_policy.md). L’orchestrateur NE2000 ne fournit pas encore l’instant UTC à la politique. Intermédiaires, contraintes/usages, révocation, ECDSA et RTC/NTP sécurisé restent absents.
+
+
+### AOS-353 à AOS-360 — politique temporelle dans NE2000/TLS
+
+`ne2k_tls_client_poll` reçoit un instant UTC caller-owned et applique maintenant `x509_certificate_tls_identity_validate` avant de marquer le pair valide ou d’émettre le flight X25519. Toute erreur de chaîne, hostname ou date déclenche le rollback existant. Le test NE2000 fournit explicitement l’instant UTC du nouveau contrat ; les tests X.509 couvrent la politique de confiance.
+
+Référence : [aos353_360_ne2k_tls_time_policy.md](aos353_360_ne2k_tls_time_policy.md). RTC/NTP sécurisé, handshake complet QEMU contre serveur externe, intermédiaires, révocation et ECDSA restent à implémenter.
