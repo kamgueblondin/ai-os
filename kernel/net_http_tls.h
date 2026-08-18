@@ -39,6 +39,9 @@ int net_json_extract_string(const uint8_t* json,uint16_t json_length,const char*
 /* Adapteurs non-streaming : champ response d’Ollama et champ content d’une réponse OpenAI compatible. */
 int net_llm_ollama_response_extract(const uint8_t* json,uint16_t json_length,uint8_t* output,uint16_t output_capacity,uint16_t* output_length);
 int net_llm_openai_response_extract(const uint8_t* json,uint16_t json_length,uint8_t* output,uint16_t output_capacity,uint16_t* output_length);
+/* Construit les bodies JSON non-streaming pour Ollama generate et OpenAI chat dans un buffer caller-owned. */
+int net_llm_build_ollama_generate_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
+int net_llm_build_openai_chat_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
 
 /* Chiffre une requête GET dans un record TLS applicatif et l’encapsule dans un segment TCP. */
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
