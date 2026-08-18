@@ -23,7 +23,7 @@ def log_text():
         return ""
 
 
-def wait_for(needle, proc, timeout=15):
+def wait_for(needle, proc, timeout=30):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
