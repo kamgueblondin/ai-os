@@ -22,6 +22,9 @@
 /* Fournisseurs IA : la selection est persistante pendant la session du shell. */
 #define AI_PROVIDER_LOCAL  0
 #define AI_PROVIDER_OPENAI 1
+/* Valeurs ABI réseau, maintenues sans dépendance directe au pilote noyau. */
+#define AI_NETWORK_PROVIDER_OLLAMA 0U
+#define AI_NETWORK_PROVIDER_OPENAI 1U
 
 /* Premier profil local cible : modele GGUF quantifie embarque sur le support de boot. */
 #define AI_DEFAULT_MODEL "gpt2_124M.bin"
@@ -172,6 +175,18 @@ int sys_llm_poll_tls(void) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_POLL_TLS));
     return result;
+}
+
+int sys_llm_request(const os_llm_request_t* request) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_REQUEST), "b"(request));
+    return result;
+}
+
+int sys_llm_poll_text(os_llm_text_result_t* result) {
+    int status;
+    asm volatile("int $0x80" : "=a"(status) : "a"(SYS_LLM_POLL_TEXT), "b"(result));
+    return status;
 }
 
 int sys_meminfo(os_meminfo_t* info) {
@@ -958,6 +973,8 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
     print_string("  ai-acquire <hote> [port] - Demarrer DHCP, DNS et TCP LLM sans secret\n");
     print_string("  ai-tls-poll         - Piloter SYN-ACK/TLS avec les materiaux noyau\n");
+    print_string("  ai-request <f> <m> <p> <q> - Emettre POST LLM apres TLS authentifie\n");
+    print_string("  ai-text-poll       - Lire le texte LLM extrait par le noyau\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4489,6 +4506,97 @@ static void cmd_ai_acquire(shell_context_t* ctx, char args[][128], int arg_count
     else print_error("ai-acquire: bootstrap reseau echoue; contexte conserve");
 }
 
+static int ai_copy_field(char* destination, uint16_t capacity, const char* source) {
+    uint16_t index;
+    if (!destination || !source || capacity == 0U) return -1;
+    for (index = 0U; index < capacity; ++index) {
+        destination[index] = source[index];
+        if (source[index] == '\0') return 0;
+    }
+    destination[capacity - 1U] = '\0';
+    return -1;
+}
+
+static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_llm_request_t request = {0};
+    uint16_t index = 0U;
+    int argument;
+    int status;
+    (void)ctx;
+    if (arg_count < 4) {
+        print_error("Usage: ai-request <ollama|openai> <modele> <chemin> <prompt>");
+        return;
+    }
+    if (strcmp(args[0], "ollama") == 0) request.provider = AI_NETWORK_PROVIDER_OLLAMA;
+    else if (strcmp(args[0], "openai") == 0) request.provider = AI_NETWORK_PROVIDER_OPENAI;
+    else {
+        print_error("ai-request: fournisseur attendu ollama ou openai");
+        return;
+    }
+    if (ai_copy_field(request.model, OS_LLM_MODEL_MAX, args[1]) != 0 ||
+        ai_copy_field(request.path, OS_LLM_PATH_MAX, args[2]) != 0) {
+        print_error("ai-request: modele ou chemin trop long");
+        return;
+    }
+    for (argument = 3; argument < arg_count; ++argument) {
+        uint16_t character = 0U;
+        if (argument != 3) {
+            if (index >= OS_LLM_PROMPT_MAX) {
+                print_error("ai-request: prompt trop long");
+                return;
+            }
+            request.prompt[index++] = ' ';
+        }
+        while (args[argument][character] != '\0') {
+            if (index >= OS_LLM_PROMPT_MAX) {
+                print_error("ai-request: prompt trop long");
+                return;
+            }
+            request.prompt[index++] = (uint8_t)args[argument][character++];
+        }
+    }
+    request.prompt_length = index;
+    status = sys_llm_request(&request);
+    if (status == 0) {
+        print_success("ai-request: POST LLM chiffre emis");
+        return;
+    }
+    if (status == OS_LLM_REQUEST_BAD_PHASE) print_error("ai-request: TLS authentifie requis");
+    else if (status == OS_LLM_REQUEST_UNCONFIGURED) print_error("ai-request: identifiant OpenAI noyau requis");
+    else if (status == OS_LLM_REQUEST_BAD_REQUEST) print_error("ai-request: requete invalide");
+    else print_error("ai-request: emission refusee; contexte conserve");
+}
+
+static void cmd_ai_text_poll(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_llm_text_result_t result = {0};
+    char output[OS_LLM_TEXT_MAX + 1U];
+    uint16_t index;
+    int status;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: ai-text-poll");
+        return;
+    }
+    status = sys_llm_poll_text(&result);
+    if (status < 0) {
+        if (status == OS_LLM_TEXT_BAD_PHASE) print_error("ai-text-poll: requete LLM non emise");
+        else print_error("ai-text-poll: lecture refusee; contexte conserve");
+        return;
+    }
+    if (status > 0) {
+        print_warning("ai-text-poll: reponse LLM incomplete");
+        return;
+    }
+    for (index = 0U; index < result.text_length && index < OS_LLM_TEXT_MAX; ++index)
+        output[index] = (char)result.text[index];
+    output[index] = '\0';
+    print_string("LLM : ");
+    print_string(output);
+    print_string("\nHTTP : ");
+    print_int(result.status_code);
+    print_string("\n");
+}
+
 static void cmd_ai_tls_poll(shell_context_t* ctx, char args[][128], int arg_count) {
     int status;
     (void)ctx;
@@ -5091,6 +5199,12 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-tls-poll") == 0) {
         cmd_ai_tls_poll(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-request") == 0) {
+        cmd_ai_request(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-text-poll") == 0) {
+        cmd_ai_text_poll(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);

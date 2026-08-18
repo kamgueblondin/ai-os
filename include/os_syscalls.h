@@ -170,12 +170,20 @@
 #define SYS_LLM_ACQUIRE_START 91
 /* Aucun argument ; pilote SYN-ACK/TLS avec seuls les buffers persistants du noyau. */
 #define SYS_LLM_POLL_TLS 92
+/* EBX = os_llm_request_t* ; émet un POST LLM seulement après TLS authentifié. */
+#define SYS_LLM_REQUEST 93
+/* EBX = os_llm_text_result_t* ; copie seulement le texte fournisseur extrait. */
+#define SYS_LLM_POLL_TEXT 94
 
-#define MAX_SYSCALLS 93
+#define MAX_SYSCALLS 95
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
 #define OS_LLM_ACQUIRE_MAX_ATTEMPTS 8U
+#define OS_LLM_MODEL_MAX 64U
+#define OS_LLM_PATH_MAX 64U
+#define OS_LLM_PROMPT_MAX 256U
+#define OS_LLM_TEXT_MAX 512U
 typedef struct {
     char hostname[OS_LLM_HOSTNAME_MAX];
     uint32_t xid;
@@ -188,6 +196,22 @@ typedef struct {
     uint16_t remote_port;
 } os_llm_acquire_start_request_t;
 
+/* Requête utilisateur bornée sans identifiant fournisseur, clé ni pointeur. */
+typedef struct {
+    uint8_t provider;
+    char model[OS_LLM_MODEL_MAX];
+    char path[OS_LLM_PATH_MAX];
+    uint16_t prompt_length;
+    uint8_t prompt[OS_LLM_PROMPT_MAX];
+} os_llm_request_t;
+
+/* Sortie copiée par valeur : texte extrait et code HTTP, jamais un buffer TLS interne. */
+typedef struct {
+    uint16_t text_length;
+    uint16_t status_code;
+    uint8_t text[OS_LLM_TEXT_MAX];
+} os_llm_text_result_t;
+
 #define OS_LLM_ACQUIRE_BAD_REQUEST (-90)
 #define OS_LLM_ACQUIRE_UNAVAILABLE (-91)
 #define OS_LLM_ACQUIRE_IN_PROGRESS (-92)
@@ -195,6 +219,13 @@ typedef struct {
 #define OS_LLM_TLS_BAD_PHASE (-94)
 #define OS_LLM_TLS_UNCONFIGURED (-95)
 #define OS_LLM_TLS_FAILED (-96)
+#define OS_LLM_REQUEST_BAD_REQUEST (-97)
+#define OS_LLM_REQUEST_BAD_PHASE (-98)
+#define OS_LLM_REQUEST_UNCONFIGURED (-99)
+#define OS_LLM_REQUEST_FAILED (-100)
+#define OS_LLM_TEXT_BAD_ARGUMENT (-101)
+#define OS_LLM_TEXT_BAD_PHASE (-102)
+#define OS_LLM_TEXT_FAILED (-103)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

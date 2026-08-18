@@ -28,6 +28,8 @@ extern uint32_t kernel_net_status(void);
 extern uint32_t kernel_llm_session_status(void);
 extern int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request);
 extern int kernel_llm_poll_tls(void);
+extern int kernel_llm_request(const os_llm_request_t* request);
+extern int kernel_llm_poll_text(os_llm_text_result_t* result);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
 
@@ -317,6 +319,12 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_LLM_POLL_TLS:
             cpu->eax = (uint32_t)kernel_llm_poll_tls();
+            break;
+        case SYS_LLM_REQUEST:
+            cpu->eax = (uint32_t)kernel_llm_request((const os_llm_request_t*)cpu->ebx);
+            break;
+        case SYS_LLM_POLL_TEXT:
+            cpu->eax = (uint32_t)kernel_llm_poll_text((os_llm_text_result_t*)cpu->ebx);
             break;
         case SYS_MKDIR:
             cpu->eax = (uint32_t)sys_mkdir((const char*)cpu->ebx);

@@ -60,7 +60,7 @@ def send_keys(client, keys):
 
 
 def key_sequence(command):
-    special = {" ": "spc", ".": "dot", "-": "minus", "_": "shift-minus"}
+    special = {" ": "spc", ".": "dot", "-": "minus", "_": "shift-minus", "/": "slash"}
     return [special.get(char, char.lower()) for char in command] + ["ret"]
 
 
@@ -111,6 +111,8 @@ def main():
             run_command(monitor, proc, "ai-acquire api.openai.com 0", "ai-acquire: port invalide")
             run_command(monitor, proc, "ai-acquire api.openai.com", "ai-acquire: NE2000 absent; aucun etat reseau publie")
             run_command(monitor, proc, "ai-tls-poll", "ai-tls-poll: NE2000 absent; aucun etat TLS publie")
+            run_command(monitor, proc, "ai-request ollama llama3 /api/generate hello", "ai-request: TLS authentifie requis")
+            run_command(monitor, proc, "ai-text-poll", "ai-text-poll: requete LLM non emise")
             run_command(monitor, proc, "ai-runtime", "Session LLM noyau  : IDLE (NE2000 absent)")
             run_command(monitor, proc, "ai-runtime", "Bail DHCP noyau    : absent")
             run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
