@@ -419,3 +419,9 @@ Les tests RTC couvrent BCD 12 h, binaire 24 h, date bissextile, capacité, BCD i
 Le ladder X25519 utilise les opérations modulaires bigint à largeur fixe : échanges XOR masqués, addition/soustraction avec sélection masquée et multiplication parcourant tous les limbs et les bits. Les éléments du ladder conservent huit limbs initialisés ; aucun `kmalloc` n’est introduit.
 
 Les vecteurs X25519 restent verts et le test bigint compare les résultats classiques et constants. Référence : [aos409_416_constant_time_crypto.md](aos409_416_constant_time_crypto.md). L’analyse du compilateur et du microprocesseur, les accès cache, RSA et une preuve de temps constant restent hors périmètre.
+
+### AOS-417 à AOS-424 — chaîne X.509 avec intermédiaire RSA
+
+`x509_certificate_chain_validate_two` vérifie successivement la feuille signée par l’intermédiaire et l’intermédiaire signé par l’ancre. `x509_certificate_tls_identity_validate_two` complète la chaîne avec hostname et dates UTC des trois certificats ; le workspace RSA reste caller-owned et réutilisé.
+
+Les vecteurs DER contiennent une racine RSA, un intermédiaire RSA et une feuille SAN signée. Les tests couvrent la chaîne valide, le sujet émetteur incohérent et la signature intermédiaire tronquée. Référence : [aos417_424_x509_intermediate_chain.md](aos417_424_x509_intermediate_chain.md). BasicConstraints, KeyUsage, pathLen, AKI, révocation, ECDSA et sélection de chaînes longues restent hors périmètre.
