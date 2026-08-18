@@ -67,6 +67,11 @@ typedef struct {
     uint8_t mac_valid;
 } ne2k_device_t;
 
+#define NE2K_LLM_CONNECTION_IDLE 0U
+#define NE2K_LLM_CONNECTION_SYN_SENT 1U
+#define NE2K_LLM_CONNECTION_TLS_STARTED 2U
+typedef struct { uint8_t remote_ip[4]; uint8_t phase; } ne2k_llm_connection_state_t;
+
 typedef struct {
     net_tcp_tls_stream_t stream;
     net_tls_handshake_t handshake;
@@ -150,6 +155,15 @@ int ne2k_llm_dns_syn_bootstrap(ne2k_device_t* device,const ne2k_io_t* io,net_arp
                                 uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
                                 uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
                                 uint8_t remote_ip[4],net_tcp_connection_t* connection);
+/* Contexte LLM caller-owned : IP résolue et phase de préconnexion, sans stockage de hostname ni de secret. */
+int ne2k_llm_connection_state_init(ne2k_llm_connection_state_t* state);
+/* Démarre DNS→ARP→SYN et publie la phase SYN_SENT uniquement après succès complet. */
+int ne2k_llm_connection_start(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                              uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                              uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],
+                              uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                              uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                              ne2k_llm_connection_state_t* state,net_tcp_connection_t* connection);
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
@@ -219,6 +233,13 @@ int ne2k_llm_syn_ack_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const n
                                const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
                                ne2k_tls_client_t* client,const uint8_t client_random[32],uint8_t* client_hello_record,
                                uint32_t client_hello_capacity,uint8_t retransmit_limit);
+/* Polling de la phase SYN_SENT : démarre TLS après SYN-ACK et passe à TLS_STARTED seulement au succès. */
+int ne2k_llm_connection_poll_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                       uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                       const uint8_t local_ip[4],ne2k_llm_connection_state_t* state,
+                                       net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                                       const uint8_t client_random[32],uint8_t* client_hello_record,
+                                       uint32_t client_hello_capacity,uint8_t retransmit_limit);
 /* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
