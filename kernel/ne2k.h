@@ -337,6 +337,14 @@ int ne2k_llm_connection_request(ne2k_device_t* device,const ne2k_io_t* io,const 
                                 uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
                                 const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
                                 uint8_t* tls_record,uint32_t tls_capacity,uint8_t retransmit_limit);
+/* Émet une requête LLM JSON avec `stream:true` et passe à REQUEST_SENT au succès. */
+int ne2k_llm_connection_stream_request(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                       uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
+                                       ne2k_llm_connection_state_t* state,net_tcp_connection_t* connection,
+                                       ne2k_tls_client_t* client,uint8_t provider,uint8_t* json,uint16_t json_capacity,
+                                       uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                                       const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
+                                       uint8_t* tls_record,uint32_t tls_capacity,uint8_t retransmit_limit);
 /* Polling HTTP LLM : conserve REQUEST_SENT si le body est incomplet et passe à RESPONSE_READY après extraction. */
 int ne2k_llm_connection_poll_text(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                   uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,

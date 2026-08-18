@@ -174,8 +174,10 @@
 #define SYS_LLM_REQUEST 93
 /* EBX = os_llm_text_result_t* ; copie seulement le texte fournisseur extrait. */
 #define SYS_LLM_POLL_TEXT 94
+/* EBX = os_llm_text_result_t* ; copie un delta SSE, sans buffer interne. */
+#define SYS_LLM_POLL_SSE 95
 
-#define MAX_SYSCALLS 95
+#define MAX_SYSCALLS 96
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
@@ -199,6 +201,7 @@ typedef struct {
 /* Requête utilisateur bornée sans identifiant fournisseur, clé ni pointeur. */
 typedef struct {
     uint8_t provider;
+    uint8_t streaming;
     char model[OS_LLM_MODEL_MAX];
     char path[OS_LLM_PATH_MAX];
     uint16_t prompt_length;
@@ -226,6 +229,9 @@ typedef struct {
 #define OS_LLM_TEXT_BAD_ARGUMENT (-101)
 #define OS_LLM_TEXT_BAD_PHASE (-102)
 #define OS_LLM_TEXT_FAILED (-103)
+#define OS_LLM_SSE_BAD_ARGUMENT (-104)
+#define OS_LLM_SSE_BAD_PHASE (-105)
+#define OS_LLM_SSE_FAILED (-106)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U
