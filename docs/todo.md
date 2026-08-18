@@ -401,3 +401,9 @@ Les tests vérifient les bodies exacts avec guillemets/saut de ligne et les reje
 `ne2k_https_llm_request` compose le JSON Ollama/OpenAI, le POST HTTP, le Bearer obligatoire pour OpenAI et l’émission AES-GCM sur une session TLS complète. Tous les états et buffers restent caller-owned ; un échec après construction restaure la connexion et la séquence TLS. `ne2k_https_llm_poll_text` propage l’attente de body, refuse les statuts non-2xx et extrait le texte de réponse spécifique au fournisseur.
 
 Le test NE2000 vérifie la requête OpenAI chiffrée, JSON exact, Bearer, séquences et rejets de sécurité. Référence : [aos385_392_ne2k_llm_request.md](aos385_392_ne2k_llm_request.md). Les erreurs HTTP détaillées, retry borné, SSE, Unicode, tool calls, multi-tours, DNS/SYN automatisés et test externe restent à traiter.
+
+### AOS-393 à AOS-400 — erreurs HTTP LLM et retry borné
+
+`net_llm_http_status_classify` distingue succès, authentification, erreurs retryables, erreurs permanentes et réponses hors protocole. `net_llm_http_retry_consume` augmente uniquement le compteur caller-owned lorsqu’un nouveau POST est autorisé dans la limite explicite. Il n’attend pas et ne réémet pas automatiquement un POST LLM.
+
+Les vecteurs couvrent `401`, `403`, `408`, `429`, `503`, classes 2xx/3xx/4xx et l’épuisement du budget. Référence : [aos393_400_llm_http_errors.md](aos393_400_llm_http_errors.md). `Retry-After`, temporisation, circuit-breaker, SSE, Unicode, tools, multi-tours, DNS/SYN automatisés et test externe restent hors périmètre.
