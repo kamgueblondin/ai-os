@@ -189,6 +189,12 @@ int sys_llm_poll_text(os_llm_text_result_t* result) {
     return status;
 }
 
+int sys_llm_poll_sse(os_llm_text_result_t* result) {
+    int status;
+    asm volatile("int $0x80" : "=a"(status) : "a"(SYS_LLM_POLL_SSE), "b"(result));
+    return status;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -974,7 +980,9 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-acquire <hote> [port] - Demarrer DHCP, DNS et TCP LLM sans secret\n");
     print_string("  ai-tls-poll         - Piloter SYN-ACK/TLS avec les materiaux noyau\n");
     print_string("  ai-request <f> <m> <p> <q> - Emettre POST LLM apres TLS authentifie\n");
+    print_string("  ai-stream-request <f> <m> <p> <q> - Emettre POST LLM SSE chiffre\n");
     print_string("  ai-text-poll       - Lire le texte LLM extrait par le noyau\n");
+    print_string("  ai-sse-poll        - Lire un delta SSE LLM extrait par le noyau\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4517,7 +4525,7 @@ static int ai_copy_field(char* destination, uint16_t capacity, const char* sourc
     return -1;
 }
 
-static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count) {
+static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count, uint8_t streaming) {
     os_llm_request_t request = {0};
     uint16_t index = 0U;
     int argument;
@@ -4533,6 +4541,7 @@ static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count
         print_error("ai-request: fournisseur attendu ollama ou openai");
         return;
     }
+    request.streaming = streaming;
     if (ai_copy_field(request.model, OS_LLM_MODEL_MAX, args[1]) != 0 ||
         ai_copy_field(request.path, OS_LLM_PATH_MAX, args[2]) != 0) {
         print_error("ai-request: modele ou chemin trop long");
@@ -4558,7 +4567,7 @@ static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count
     request.prompt_length = index;
     status = sys_llm_request(&request);
     if (status == 0) {
-        print_success("ai-request: POST LLM chiffre emis");
+        print_success(streaming ? "ai-stream-request: POST SSE LLM chiffre emis" : "ai-request: POST LLM chiffre emis");
         return;
     }
     if (status == OS_LLM_REQUEST_BAD_PHASE) print_error("ai-request: TLS authentifie requis");
@@ -4591,6 +4600,36 @@ static void cmd_ai_text_poll(shell_context_t* ctx, char args[][128], int arg_cou
         output[index] = (char)result.text[index];
     output[index] = '\0';
     print_string("LLM : ");
+    print_string(output);
+    print_string("\nHTTP : ");
+    print_int(result.status_code);
+    print_string("\n");
+}
+
+static void cmd_ai_sse_poll(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_llm_text_result_t result = {0};
+    char output[OS_LLM_TEXT_MAX + 1U];
+    uint16_t index;
+    int status;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: ai-sse-poll");
+        return;
+    }
+    status = sys_llm_poll_sse(&result);
+    if (status < 0) {
+        if (status == OS_LLM_SSE_BAD_PHASE) print_error("ai-sse-poll: flux SSE non emis");
+        else print_error("ai-sse-poll: lecture refusee; contexte conserve");
+        return;
+    }
+    if (status > 0 && result.text_length == 0U) {
+        print_warning("ai-sse-poll: attente de delta SSE");
+        return;
+    }
+    for (index = 0U; index < result.text_length && index < OS_LLM_TEXT_MAX; ++index)
+        output[index] = (char)result.text[index];
+    output[index] = '\0';
+    print_string("SSE : ");
     print_string(output);
     print_string("\nHTTP : ");
     print_int(result.status_code);
@@ -5201,10 +5240,16 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         cmd_ai_tls_poll(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "ai-request") == 0) {
-        cmd_ai_request(ctx, args, arg_count);
+        cmd_ai_request(ctx, args, arg_count, 0U);
+        return 1;
+    } else if (strcmp(command, "ai-stream-request") == 0) {
+        cmd_ai_request(ctx, args, arg_count, 1U);
         return 1;
     } else if (strcmp(command, "ai-text-poll") == 0) {
         cmd_ai_text_poll(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-sse-poll") == 0) {
+        cmd_ai_sse_poll(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);
