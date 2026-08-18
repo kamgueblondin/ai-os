@@ -151,16 +151,14 @@ def main():
                 ("whoami", "ligne lue: whoami"),
                 ("net-status", "ligne lue: net-status"),
                 ("net-status json", "ligne lue: net-status json"),
-                ("ai-provider openai", "ligne lue: ai-provider"),
-                ("ps", "ligne lue: ps"),
-                ("mem", "ligne lue: mem"),
+                ("ai-provider openai", "OpenAI selectionne"),
             ):
                 send_command(monitor, command)
                 wait_for(qemu, needle, 25)
-                time.sleep(1.2)
+                time.sleep(1.5)
             time.sleep(2.0)
-        print("recorded", VIDEO)
-        return 0
+            print("recorded", VIDEO)
+            return 0
     finally:
         if monitor is not None:
             monitor.close()
