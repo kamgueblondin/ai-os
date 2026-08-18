@@ -164,10 +164,32 @@
 #define SYS_FAT16_LIST 88
 /* Aucun argument; bit 0 = NIC détectée, bit 1 = anneaux initialisés. */
 #define SYS_NET_STATUS 89
-/* Aucun argument; bit 0 = NE2000 prêt, bits 8..15 = phase LLM, sans secret ni adresse distante. */
+/* Aucun argument; bit 0 = NE2000 prêt, bit 1 = bail DHCP, bits 8..15 = phase LLM. */
 #define SYS_LLM_SESSION_STATUS 90
+/* EBX = os_llm_acquire_start_request_t* ; démarre DHCP→DNS→SYN sans secret. */
+#define SYS_LLM_ACQUIRE_START 91
 
-#define MAX_SYSCALLS 91
+#define MAX_SYSCALLS 92
+
+/* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
+#define OS_LLM_HOSTNAME_MAX 96U
+#define OS_LLM_ACQUIRE_MAX_ATTEMPTS 8U
+typedef struct {
+    char hostname[OS_LLM_HOSTNAME_MAX];
+    uint32_t xid;
+    uint32_t local_sequence;
+    uint16_t dns_id;
+    uint16_t dhcp_attempts;
+    uint16_t dns_attempts;
+    uint16_t arp_attempts;
+    uint16_t local_port;
+    uint16_t remote_port;
+} os_llm_acquire_start_request_t;
+
+#define OS_LLM_ACQUIRE_BAD_REQUEST (-90)
+#define OS_LLM_ACQUIRE_UNAVAILABLE (-91)
+#define OS_LLM_ACQUIRE_IN_PROGRESS (-92)
+#define OS_LLM_ACQUIRE_FAILED (-93)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

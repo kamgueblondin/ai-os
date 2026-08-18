@@ -30,28 +30,38 @@ void outb(unsigned short port, unsigned char data);
 void print_string_serial(const char* str);
 void print_string(const char* str);
 
+#define KERNEL_LLM_FRAME_CAPACITY NE2K_ETHERNET_MAX_FRAME
+
 static ne2k_device_t boot_ne2k_device;
+static ne2k_io_t boot_ne2k_io;
 /* Contexte persistant appartenant au noyau ; aucun buffer, endpoint ou secret n’y est stocké. */
 static ne2k_llm_network_context_t boot_llm_network;
+/* Espaces de travail noyau fixes : aucun buffer du chemin DHCP→LLM n’est alloué. */
+static net_arp_cache_t boot_llm_arp_cache;
+static uint8_t boot_llm_dhcp_tx[KERNEL_LLM_FRAME_CAPACITY];
+static uint8_t boot_llm_dhcp_rx[KERNEL_LLM_FRAME_CAPACITY];
+static uint8_t boot_llm_arp_request[KERNEL_LLM_FRAME_CAPACITY];
+static uint8_t boot_llm_arp_rx[KERNEL_LLM_FRAME_CAPACITY];
+static uint8_t boot_llm_frame[KERNEL_LLM_FRAME_CAPACITY];
 static uint8_t boot_ne2k_present;
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
-    ne2k_io_t io;
     (void)ne2k_llm_network_context_init(&boot_llm_network);
+    (void)net_arp_cache_init(&boot_llm_arp_cache);
     boot_ne2k_present = 0U;
-    if (ne2k_i386_io(&io) != 0) return;
-    if (ne2k_probe(&boot_ne2k_device, 0x300U, &io) != 0) {
+    if (ne2k_i386_io(&boot_ne2k_io) != 0) return;
+    if (ne2k_probe(&boot_ne2k_device, 0x300U, &boot_ne2k_io) != 0) {
         print_string("NE2000 ISA absent; reseau reste desactive.\\n");
         return;
     }
-    if (ne2k_prepare(&boot_ne2k_device, &io) != 0 ||
-        ne2k_configure_rings(&boot_ne2k_device, &io) != 0 ||
-        ne2k_read_mac(&boot_ne2k_device, &io) != 0) {
+    if (ne2k_prepare(&boot_ne2k_device, &boot_ne2k_io) != 0 ||
+        ne2k_configure_rings(&boot_ne2k_device, &boot_ne2k_io) != 0 ||
+        ne2k_read_mac(&boot_ne2k_device, &boot_ne2k_io) != 0) {
         print_string("NE2000 detecte mais initialisation ou MAC incomplete.\\n");
         return;
     }
-    if (ne2k_irq_attach(&boot_ne2k_device, &io) != 0) {
+    if (ne2k_irq_attach(&boot_ne2k_device, &boot_ne2k_io) != 0) {
         print_string("NE2000 detecte mais IRQ non attachee.\\n");
         return;
     }
@@ -68,6 +78,40 @@ uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
            (boot_llm_network.lease.valid ? 2U : 0U) |
            ((uint32_t)boot_llm_network.session.phase << 8);
+}
+
+static int kernel_llm_hostname_is_valid(const char hostname[OS_LLM_HOSTNAME_MAX]) {
+    uint16_t index;
+    if (!hostname || hostname[0] == '\0' || hostname[0] == '.' || hostname[0] == '-') return 0;
+    for (index = 0U; index < OS_LLM_HOSTNAME_MAX; ++index) {
+        char value = hostname[index];
+        if (value == '\0') return hostname[index - 1U] != '.' && hostname[index - 1U] != '-';
+        if (!((value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
+              (value >= '0' && value <= '9') || value == '.' || value == '-')) return 0;
+    }
+    return 0;
+}
+
+int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
+    int status;
+    if (!request || !kernel_llm_hostname_is_valid(request->hostname) ||
+        request->dhcp_attempts == 0U || request->dns_attempts == 0U || request->arp_attempts == 0U ||
+        request->dhcp_attempts > OS_LLM_ACQUIRE_MAX_ATTEMPTS ||
+        request->dns_attempts > OS_LLM_ACQUIRE_MAX_ATTEMPTS ||
+        request->arp_attempts > OS_LLM_ACQUIRE_MAX_ATTEMPTS ||
+        request->local_port == 0U || request->remote_port == 0U) return OS_LLM_ACQUIRE_BAD_REQUEST;
+    if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
+    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
+    if (net_arp_cache_init(&boot_llm_arp_cache) != 0) return OS_LLM_ACQUIRE_FAILED;
+    status = ne2k_llm_network_context_acquire_start_dhcp(
+        &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+        boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx), boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
+        request->xid, request->dhcp_attempts,
+        boot_llm_arp_request, sizeof(boot_llm_arp_request), boot_llm_arp_rx, sizeof(boot_llm_arp_rx),
+        boot_llm_frame, sizeof(boot_llm_frame), request->dns_id, request->hostname,
+        request->dns_attempts, request->arp_attempts, request->local_port, request->remote_port,
+        request->local_sequence, &boot_llm_network);
+    return status == 0 ? 0 : OS_LLM_ACQUIRE_FAILED;
 }
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {

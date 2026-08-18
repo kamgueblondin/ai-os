@@ -162,6 +162,12 @@ unsigned int sys_llm_session_status(void) {
     return result;
 }
 
+int sys_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_ACQUIRE_START), "b"(request));
+    return result;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -944,6 +950,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-provider [nom]  - Choisir local ou openai\n");
     print_string("  ai-model [action]  - Lister ou choisir le modele local\n");
     print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
+    print_string("  ai-acquire <hote> [port] - Demarrer DHCP, DNS et TCP LLM sans secret\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4418,6 +4425,63 @@ static void cmd_ai_model(shell_context_t* ctx, char args[][128], int arg_count) 
     print_error("Usage: ai-model [list|use <modele.bin|modele.gguf>]");
 }
 
+static int ai_parse_port(const char* value, uint16_t* port) {
+    uint32_t parsed = 0U;
+    uint16_t index = 0U;
+    if (!value || !port || value[0] == '\0') return -1;
+    while (value[index] != '\0') {
+        if (value[index] < '0' || value[index] > '9') return -1;
+        parsed = parsed * 10U + (uint32_t)(value[index] - '0');
+        if (parsed > 65535U) return -1;
+        ++index;
+    }
+    if (parsed == 0U) return -1;
+    *port = (uint16_t)parsed;
+    return 0;
+}
+
+static void cmd_ai_acquire(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_llm_acquire_start_request_t request = {0};
+    uint16_t index;
+    int status;
+    (void)ctx;
+    if (arg_count != 1 && arg_count != 2) {
+        print_error("Usage: ai-acquire <hostname> [port]");
+        return;
+    }
+    for (index = 0U; index < OS_LLM_HOSTNAME_MAX; ++index) {
+        char value = args[0][index];
+        if (value == '\0') break;
+        request.hostname[index] = value;
+    }
+    if (index == 0U || index == OS_LLM_HOSTNAME_MAX) {
+        print_error("ai-acquire: hostname absent ou trop long");
+        return;
+    }
+    request.hostname[index] = '\0';
+    request.xid = 0xa0650001U;
+    request.local_sequence = 1U;
+    request.dns_id = 0xa665U;
+    request.dhcp_attempts = 2U;
+    request.dns_attempts = 2U;
+    request.arp_attempts = 2U;
+    request.local_port = 49152U;
+    request.remote_port = 443U;
+    if (arg_count == 2 && ai_parse_port(args[1], &request.remote_port) != 0) {
+        print_error("ai-acquire: port invalide");
+        return;
+    }
+    status = sys_llm_acquire_start(&request);
+    if (status == 0) {
+        print_success("ai-acquire: DHCP, DNS et SYN LLM demarres");
+        return;
+    }
+    if (status == OS_LLM_ACQUIRE_BAD_REQUEST) print_error("ai-acquire: requete invalide");
+    else if (status == OS_LLM_ACQUIRE_UNAVAILABLE) print_error("ai-acquire: NE2000 absent; aucun etat reseau publie");
+    else if (status == OS_LLM_ACQUIRE_IN_PROGRESS) print_error("ai-acquire: session LLM deja active");
+    else print_error("ai-acquire: bootstrap reseau echoue; contexte conserve");
+}
+
 static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count) {
     unsigned int session_status = sys_llm_session_status();
     (void)args; (void)arg_count;
@@ -4992,6 +5056,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-runtime") == 0) {
         cmd_ai_runtime(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-acquire") == 0) {
+        cmd_ai_acquire(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);
