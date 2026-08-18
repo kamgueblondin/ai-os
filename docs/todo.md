@@ -431,3 +431,9 @@ Les vecteurs DER contiennent une racine RSA, un intermédiaire RSA et une feuill
 Le parseur expose `BasicConstraints CA` et `KeyUsage keyCertSign`. La validation `leaf → intermédiaire → ancre` exige maintenant les deux droits sur l’intermédiaire avant toute signature RSA. Les champs DER restent des vues caller-owned.
 
 Les tests vérifient le décodage des extensions, le chemin autorisé et les refus lorsque `CA=true` ou `keyCertSign` manque. Référence : [aos425_432_x509_ca_constraints.md](aos425_432_x509_ca_constraints.md). `pathLenConstraint`, extensions critiques, AKI/SKI, contraintes de nom, révocation, ECDSA et chaînes longues restent hors périmètre.
+
+### AOS-433 à AOS-440 — intermédiaire X.509 dans NE2000/TLS
+
+`ne2k_tls_client_poll_chain_two` compose le polling TCP/TLS existant avec la politique `leaf → intermédiaire → ancre`, en réutilisant les buffers et rollbacks caller-owned. L’API directe demeure inchangée pour les chaînes feuille-ancre.
+
+Le test NE2000 couvre la nouvelle façade et le rejet d’un intermédiaire nul ; les signatures et contraintes CA sont déjà couvertes par les vecteurs X.509. Référence : [aos433_440_ne2k_x509_intermediate.md](aos433_440_ne2k_x509_intermediate.md). Le parsing et la sélection automatique de la liste `Certificate` TLS restent hors périmètre.
