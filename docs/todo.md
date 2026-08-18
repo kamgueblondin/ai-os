@@ -481,3 +481,10 @@ Le vecteur DER de non-régression couvre une EKU valide `serverAuth`, tandis que
 Le parseur reconnaît désormais `NameConstraints` (`2.5.29.30`) pour les intermédiaires et publie jusqu’à quatre sous-arbres DNS `permittedSubtrees` et `excludedSubtrees`, toujours sous forme de vues DER caller-owned. La politique TLS à intermédiaire refuse l’hôte demandé lorsqu’il est exclu ou absent de la liste des sous-arbres permis. Les comparaisons ASCII sont insensibles à la casse et respectent les frontières de labels ; une contrainte commençant par `.` exige un descendant.
 
 Le sous-ensemble refuse les formes de nom autres que `dNSName`, les distances non nulles, `maximum`, les extensions vides ou dupliquées, afin de ne pas ignorer une contrainte critique. Validation locale : **368/368 tests**, build i386 et smokes QEMU réussis. Référence : [aos489_496_x509_name_constraints.md](aos489_496_x509_name_constraints.md). L’intersection de contraintes sur chaînes profondes, IP/URI/rfc822Name/directoryName, IDNA, révocation et ECDSA restent hors périmètre.
+
+
+### AOS-497 à AOS-504 — RTC UTC dans la politique NE2000/TLS
+
+La façade `ne2k_tls_client_poll_received_chain_rtc` lit désormais un instant UTC CMOS stable via `rtc_io_t` puis délègue au polling TLS NE2000 utilisant l’intermédiaire reçu. Elle remplace le paramètre UTC caller-owned de ce chemin de production sans modifier les buffers, workspaces ou états TCP/TLS caller-owned. Un échec RTC est retourné avant toute délégation et préserve les sorties du polling.
+
+Le test NE2000 injecte un RTC BCD 12 h valide et une seconde invalide ; les deux chemins de build Unity lient maintenant explicitement `rtc.c`. Validation locale : **368/368 tests**, build i386 et smokes QEMU réussis. Référence : [aos497_504_ne2k_rtc_time_policy.md](aos497_504_ne2k_rtc_time_policy.md). RTC authentifiée, batterie, siècle, dérive, NTP sécurisé et remplacement des APIs UTC historiques restent hors périmètre.

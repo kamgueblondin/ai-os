@@ -9,6 +9,7 @@
 #include "net_dns.h"
 #include "net_tcp.h"
 #include "net_http_tls.h"
+#include "rtc.h"
 
 #define NE2K_REG_COMMAND 0x00U
 #define NE2K_REG_RESET   0x1fU
@@ -232,6 +233,18 @@ int ne2k_tls_client_poll_received_chain(ne2k_device_t* device,const ne2k_io_t* i
                                         uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
                                         uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
                                         uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
+/* Variante de production : lit l’instant UTC stable depuis RTC avant la politique TLS à chaîne reçue. */
+int ne2k_tls_client_poll_received_chain_rtc(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                            uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                            const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                                            ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                            const x509_certificate_view_t* trust_anchor,const char* hostname,const rtc_io_t* rtc_io,
+                                            uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                                            uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                                            uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                                            uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                                            uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                                            uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
 /* Construit, chiffre et émet un POST JSON LLM uniquement après handshake TLS complet. */
 int ne2k_https_llm_post_json(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                              uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
