@@ -134,6 +134,11 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_bigint: $(UNIT_DIR)/kernel/test_bigint.c ..
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/bigint.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_ecdsa_p256: $(UNIT_DIR)/kernel/test_ecdsa_p256.c ../kernel/ecdsa_p256.c ../kernel/bigint.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/ecdsa_p256.c ../kernel/bigint.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_x25519: $(UNIT_DIR)/kernel/test_x25519.c ../kernel/x25519.c ../kernel/bigint.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/x25519.c ../kernel/bigint.c $(FRAMEWORK_SOURCES)
