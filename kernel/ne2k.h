@@ -143,6 +143,13 @@ int ne2k_tcp_syn(ne2k_device_t* device, const ne2k_io_t* io,
                  uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
                  uint16_t local_port, uint16_t remote_port, uint32_t sequence);
+/* Résout un hostname LLM par DNS A, résout son ARP puis émet SYN et publie la connexion/IPv4 caller-owned seulement au succès. */
+int ne2k_llm_dns_syn_bootstrap(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],
+                                uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                uint8_t remote_ip[4],net_tcp_connection_t* connection);
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
