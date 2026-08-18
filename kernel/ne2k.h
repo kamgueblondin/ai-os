@@ -207,6 +207,18 @@ int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_ar
                           net_tcp_connection_t* connection,ne2k_tls_client_t* client,
                           const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,
                           uint8_t retransmit_limit);
+/* Accepte un SYN-ACK validé et émet ClientHello ; la connexion et le client ne sont publiés qu’après succès complet. */
+int ne2k_tls_client_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                         uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                                         const net_tcp_view_t* syn_ack,net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                                         const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                                         uint8_t retransmit_limit);
+/* Polling NE2000 de SYN-ACK suivi automatiquement du ClientHello TLS. Retourne 1 si RX est vide. */
+int ne2k_llm_syn_ack_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                               uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                               const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                               ne2k_tls_client_t* client,const uint8_t client_random[32],uint8_t* client_hello_record,
+                               uint32_t client_hello_capacity,uint8_t retransmit_limit);
 /* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,

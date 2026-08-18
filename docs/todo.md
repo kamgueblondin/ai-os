@@ -509,3 +509,10 @@ Les façades NE2000 émettent une requête streaming puis pollent, authentifient
 La façade `ne2k_llm_dns_syn_bootstrap` enchaîne une requête DNS A, le polling DNS borné, la résolution ARP de l’IPv4 obtenue et l’émission du premier SYN TCP. L’IPv4 distante et `net_tcp_connection_t` restent caller-owned et ne sont publiés qu’après succès complet ; les échecs DNS, ARP, framing ou SYN préservent les sorties. Le chemin réussi se termine explicitement en `SYN_SENT`, avant l’acceptation séparée du SYN-ACK et le handshake TLS.
 
 Les tests couvrent budgets DNS non nuls et absence de publication sur attente DNS. Validation locale : **372/372 tests**, build i386 et smokes QEMU réussis, avec une relance locale requise une fois pour une détection NIC QEMU transitoire. Référence : [aos521_528_llm_dns_syn_bootstrap.md](aos521_528_llm_dns_syn_bootstrap.md). AAAA/CNAME/DNSSEC/TTL/cache DNS, DHCP, multi-adresses, backoff/retry SYN, SYN-ACK automatisé et démarrage TLS restent hors périmètre.
+
+
+### AOS-529 à AOS-536 — SYN-ACK automatique et démarrage TLS LLM
+
+Les façades `ne2k_tls_client_accept_syn_ack_start` et `ne2k_llm_syn_ack_tls_start` relient désormais l’acceptation du SYN-ACK TCP au premier ClientHello TLS. Elles valident SYN-ACK sur des copies locales, démarrent le ClientHello TLS existant, puis publient connexion et client TLS seulement après émission réussie. Le polling NE2000 vide retourne `1` sans mutation ni émission ; le segment TCP transportant ClientHello porte l’acquittement final du handshake TCP.
+
+Les tests couvrent le rollback d’un ACK invalide, la transition TCP `SYN_SENT → ESTABLISHED`, TLS `IDLE → CLIENT_HELLO_SENT`, la progression de séquence et le polling vide. Validation locale : **373/373 tests**, build i386 et smokes QEMU réussis après une relance NE2000 due à une détection NIC QEMU transitoire. Référence : [aos529_536_llm_synack_tls_bootstrap.md](aos529_536_llm_synack_tls_bootstrap.md). Une machine d’état unifiée DNS/SYN/SYN-ACK/TLS, temporisations, retransmission SYN, timeouts et backoff restent hors périmètre.
