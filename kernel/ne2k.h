@@ -272,6 +272,8 @@ int ne2k_llm_connection_poll_text(ne2k_device_t* device,const ne2k_io_t* io,cons
                                   uint8_t* plaintext,uint16_t plaintext_capacity,net_http_response_accumulator_t* accumulator,
                                   net_http_response_view_t* response,uint8_t* text,uint16_t text_capacity,
                                   uint16_t* text_length,uint16_t* consumed);
+/* Réarme une session après une réponse complète ; l’appelant réinitialise ses accumulateurs HTTP/SSE avant le prochain polling. */
+int ne2k_llm_connection_reset_for_request(ne2k_llm_connection_state_t* state);
 /* Polling SSE LLM : passe à STREAMING après activation et à RESPONSE_READY lorsque [DONE] clôt le flux. */
 int ne2k_llm_connection_poll_sse(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                  uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
