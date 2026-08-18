@@ -168,6 +168,12 @@ int sys_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
     return result;
 }
 
+int sys_llm_poll_tls(void) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_POLL_TLS));
+    return result;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -951,6 +957,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-model [action]  - Lister ou choisir le modele local\n");
     print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
     print_string("  ai-acquire <hote> [port] - Demarrer DHCP, DNS et TCP LLM sans secret\n");
+    print_string("  ai-tls-poll         - Piloter SYN-ACK/TLS avec les materiaux noyau\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4482,6 +4489,28 @@ static void cmd_ai_acquire(shell_context_t* ctx, char args[][128], int arg_count
     else print_error("ai-acquire: bootstrap reseau echoue; contexte conserve");
 }
 
+static void cmd_ai_tls_poll(shell_context_t* ctx, char args[][128], int arg_count) {
+    int status;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: ai-tls-poll");
+        return;
+    }
+    status = sys_llm_poll_tls();
+    if (status == 0) {
+        print_success("ai-tls-poll: progression TLS publiee");
+        return;
+    }
+    if (status > 0) {
+        print_warning("ai-tls-poll: attente de trame TLS");
+        return;
+    }
+    if (status == OS_LLM_ACQUIRE_UNAVAILABLE) print_error("ai-tls-poll: NE2000 absent; aucun etat TLS publie");
+    else if (status == OS_LLM_TLS_BAD_PHASE) print_error("ai-tls-poll: phase LLM non prete pour TLS");
+    else if (status == OS_LLM_TLS_UNCONFIGURED) print_error("ai-tls-poll: entropie et ancre X.509 noyau requises");
+    else print_error("ai-tls-poll: echec TLS; contexte conserve");
+}
+
 static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count) {
     unsigned int session_status = sys_llm_session_status();
     (void)args; (void)arg_count;
@@ -5059,6 +5088,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-acquire") == 0) {
         cmd_ai_acquire(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-tls-poll") == 0) {
+        cmd_ai_tls_poll(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);

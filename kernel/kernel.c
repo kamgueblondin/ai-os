@@ -31,6 +31,9 @@ void print_string_serial(const char* str);
 void print_string(const char* str);
 
 #define KERNEL_LLM_FRAME_CAPACITY NE2K_ETHERNET_MAX_FRAME
+#define KERNEL_LLM_TLS_RECORD_CAPACITY 8192U
+#define KERNEL_LLM_TLS_HELLO_CAPACITY 512U
+#define KERNEL_LLM_TLS_WORKSPACE_WORDS 224U
 
 static ne2k_device_t boot_ne2k_device;
 static ne2k_io_t boot_ne2k_io;
@@ -43,12 +46,33 @@ static uint8_t boot_llm_dhcp_rx[KERNEL_LLM_FRAME_CAPACITY];
 static uint8_t boot_llm_arp_request[KERNEL_LLM_FRAME_CAPACITY];
 static uint8_t boot_llm_arp_rx[KERNEL_LLM_FRAME_CAPACITY];
 static uint8_t boot_llm_frame[KERNEL_LLM_FRAME_CAPACITY];
+/* Matériaux, client TLS et buffers réservés au noyau ; aucun n’est accessible via syscall. */
+static ne2k_tls_client_t boot_llm_tls_client;
+static x509_certificate_view_t boot_llm_trust_anchor;
+static rtc_io_t boot_llm_rtc_io;
+static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
+static uint8_t boot_llm_client_random[NET_TLS_X25519_KEY_LENGTH];
+static uint8_t boot_llm_client_private[NET_TLS_X25519_KEY_LENGTH];
+static uint8_t boot_llm_tls_material_ready;
+static uint8_t boot_llm_tls_record[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint8_t boot_llm_tls_handshake[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint8_t boot_llm_tls_transcript[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint8_t boot_llm_tls_hello[KERNEL_LLM_TLS_HELLO_CAPACITY];
+static uint32_t boot_llm_rsa_workspace[KERNEL_LLM_TLS_WORKSPACE_WORDS];
+static uint32_t boot_llm_x25519_workspace[KERNEL_LLM_TLS_WORKSPACE_WORDS];
+static uint8_t boot_llm_prf_workspace[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint8_t boot_llm_tcp_segment[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint8_t boot_llm_flight_records[KERNEL_LLM_TLS_RECORD_CAPACITY];
+static uint32_t boot_llm_flight_records_length;
+static uint8_t boot_llm_plaintext[KERNEL_LLM_TLS_RECORD_CAPACITY];
 static uint8_t boot_ne2k_present;
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
     (void)ne2k_llm_network_context_init(&boot_llm_network);
     (void)net_arp_cache_init(&boot_llm_arp_cache);
+    boot_llm_tls_material_ready = 0U;
+    boot_llm_flight_records_length = 0U;
     boot_ne2k_present = 0U;
     if (ne2k_i386_io(&boot_ne2k_io) != 0) return;
     if (ne2k_probe(&boot_ne2k_device, 0x300U, &boot_ne2k_io) != 0) {
@@ -92,6 +116,15 @@ static int kernel_llm_hostname_is_valid(const char hostname[OS_LLM_HOSTNAME_MAX]
     return 0;
 }
 
+static void kernel_llm_copy_hostname(const char source[OS_LLM_HOSTNAME_MAX]) {
+    uint16_t index;
+    for (index = 0U; index < OS_LLM_HOSTNAME_MAX; ++index) {
+        boot_llm_hostname[index] = source[index];
+        if (source[index] == '\0') return;
+    }
+    boot_llm_hostname[OS_LLM_HOSTNAME_MAX - 1U] = '\0';
+}
+
 int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
     int status;
     if (!request || !kernel_llm_hostname_is_valid(request->hostname) ||
@@ -102,7 +135,12 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         request->local_port == 0U || request->remote_port == 0U) return OS_LLM_ACQUIRE_BAD_REQUEST;
     if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
     if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
-    if (net_arp_cache_init(&boot_llm_arp_cache) != 0) return OS_LLM_ACQUIRE_FAILED;
+    if (net_arp_cache_init(&boot_llm_arp_cache) != 0 ||
+        ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
+                             boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake),
+                             boot_llm_tls_transcript, sizeof(boot_llm_tls_transcript)) != 0) return OS_LLM_ACQUIRE_FAILED;
+    boot_llm_tls_material_ready = 0U;
+    boot_llm_flight_records_length = 0U;
     status = ne2k_llm_network_context_acquire_start_dhcp(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx), boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
@@ -111,7 +149,39 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         boot_llm_frame, sizeof(boot_llm_frame), request->dns_id, request->hostname,
         request->dns_attempts, request->arp_attempts, request->local_port, request->remote_port,
         request->local_sequence, &boot_llm_network);
-    return status == 0 ? 0 : OS_LLM_ACQUIRE_FAILED;
+    if (status != 0) return OS_LLM_ACQUIRE_FAILED;
+    kernel_llm_copy_hostname(request->hostname);
+    return 0;
+}
+
+int kernel_llm_poll_tls(void) {
+    uint16_t consumed = 0U;
+    int status;
+    if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
+    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_SYN_SENT &&
+        boot_llm_network.session.phase != NE2K_LLM_CONNECTION_TLS_STARTED) return OS_LLM_TLS_BAD_PHASE;
+    /* Aucune clé éphémère faible ni ancre vide ne doit initier un ClientHello. */
+    if (!boot_llm_tls_material_ready) return OS_LLM_TLS_UNCONFIGURED;
+    if (boot_llm_network.session.phase == NE2K_LLM_CONNECTION_SYN_SENT) {
+        status = ne2k_llm_connection_poll_tls_start(
+            &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+            boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
+            boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
+            &boot_llm_tls_client, boot_llm_client_random, boot_llm_tls_hello, sizeof(boot_llm_tls_hello), 2U);
+        return status < 0 ? OS_LLM_TLS_FAILED : status;
+    }
+    if (rtc_i386_io(&boot_llm_rtc_io) != 0) return OS_LLM_TLS_FAILED;
+    status = ne2k_llm_connection_poll_tls(
+        &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+        boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
+        boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
+        &boot_llm_tls_client, boot_llm_client_random, boot_llm_client_private, &boot_llm_trust_anchor,
+        boot_llm_hostname, &boot_llm_rtc_io, boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
+        boot_llm_x25519_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS, boot_llm_prf_workspace,
+        sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),
+        boot_llm_flight_records, sizeof(boot_llm_flight_records), &boot_llm_flight_records_length,
+        boot_llm_plaintext, sizeof(boot_llm_plaintext), 2U, &consumed);
+    return status < 0 ? OS_LLM_TLS_FAILED : status;
 }
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
