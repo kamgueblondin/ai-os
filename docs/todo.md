@@ -360,3 +360,10 @@ Référence : [aos329_336_http_chunked.md](aos329_336_http_chunked.md). Les exte
 `x509_certificate_valid_at` vérifie désormais `notBefore <= instant <= notAfter` à partir d’un instant UTC caller-owned `YYYYMMDDhhmmssZ`. Les dates ASN.1 UTCTime et GeneralizedTime sont contrôlées, y compris calendrier et années bissextiles. Aucune horloge implicite n’est utilisée.
 
 Les tests couvrent les instants interne, prématuré, expiré et une date calendairement invalide. Référence : [aos337_344_x509_validity_dates.md](aos337_344_x509_validity_dates.md). RTC/NTP, synchronisation sécurisée, tolérance d’horloge et appel automatique depuis l’orchestrateur TLS restent à implémenter.
+
+
+### AOS-345 à AOS-352 — politique TLS chaîne, hostname et date
+
+`x509_certificate_tls_identity_validate` exige désormais simultanément la chaîne RSA directe caller-owned, le hostname DNS et l’instant UTC caller-owned. Le test couvre le succès sur l’ancre/feuille de référence, le rejet d’un nom incorrect et d’une date prématurée.
+
+Référence : [aos345_352_tls_trust_policy.md](aos345_352_tls_trust_policy.md). L’orchestrateur NE2000 ne fournit pas encore l’instant UTC à la politique. Intermédiaires, contraintes/usages, révocation, ECDSA et RTC/NTP sécurisé restent absents.
