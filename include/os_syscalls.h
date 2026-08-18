@@ -164,7 +164,7 @@
 #define SYS_FAT16_LIST 88
 /* Aucun argument; bit 0 = NIC détectée, bit 1 = anneaux initialisés. */
 #define SYS_NET_STATUS 89
-/* Aucun argument; bit 0 = NE2000 prêt, bit 1 = bail DHCP, bits 8..15 = phase LLM. */
+/* Aucun argument; bit 0 = NE2000 prêt, bit 1 = bail DHCP, bit 2 = entropie RDRAND, bits 8..15 = phase LLM. */
 #define SYS_LLM_SESSION_STATUS 90
 /* EBX = os_llm_acquire_start_request_t* ; démarre DHCP→DNS→SYN sans secret. */
 #define SYS_LLM_ACQUIRE_START 91
@@ -236,6 +236,7 @@ typedef struct {
 #define OS_LLM_SSE_FAILED (-106)
 #define OS_LLM_RESET_BAD_PHASE (-107)
 #define OS_LLM_RESET_FAILED (-108)
+#define OS_LLM_TLS_ENTROPY_UNAVAILABLE (-109)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

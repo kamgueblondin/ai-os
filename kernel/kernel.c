@@ -53,6 +53,8 @@ static rtc_io_t boot_llm_rtc_io;
 static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
 static uint8_t boot_llm_client_random[NET_TLS_X25519_KEY_LENGTH];
 static uint8_t boot_llm_client_private[NET_TLS_X25519_KEY_LENGTH];
+static uint8_t boot_llm_rdrand_supported;
+static uint8_t boot_llm_tls_entropy_ready;
 static uint8_t boot_llm_tls_material_ready;
 static uint8_t boot_llm_tls_record[KERNEL_LLM_TLS_RECORD_CAPACITY];
 static uint8_t boot_llm_tls_handshake[KERNEL_LLM_TLS_RECORD_CAPACITY];
@@ -79,11 +81,14 @@ static net_llm_sse_response_t boot_llm_sse_response;
 static uint8_t boot_llm_http_provider;
 static uint8_t boot_llm_http_streaming;
 static uint8_t boot_ne2k_present;
+static int kernel_llm_rdrand_supported(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
     (void)ne2k_llm_network_context_init(&boot_llm_network);
     (void)net_arp_cache_init(&boot_llm_arp_cache);
+    boot_llm_rdrand_supported = kernel_llm_rdrand_supported() ? 1U : 0U;
+    boot_llm_tls_entropy_ready = 0U;
     boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
@@ -112,10 +117,77 @@ uint32_t kernel_net_status(void) {
     return boot_ne2k_present ? 3U : 0U;
 }
 
-/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP présent ; bits 8..15 : phase LLM. */
+static int kernel_llm_rdrand_supported(void) {
+    uint32_t eax, ebx, ecx, edx;
+    __asm__ volatile("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(1U), "c"(0U));
+    (void)eax;
+    (void)ebx;
+    (void)edx;
+    return (ecx & (1U << 30)) != 0U;
+}
+
+static int kernel_llm_rdrand_word(uint32_t* output) {
+    uint8_t success;
+    uint32_t value;
+    if (!output) return -1;
+    __asm__ volatile("rdrand %0; setc %1" : "=&r"(value), "=qm"(success) : : "cc");
+    if (!success) return -1;
+    *output = value;
+    return 0;
+}
+
+static void kernel_llm_clear_tls_material(void) {
+    uint16_t index;
+    for (index = 0U; index < NET_TLS_X25519_KEY_LENGTH; ++index) {
+        boot_llm_client_random[index] = 0U;
+        boot_llm_client_private[index] = 0U;
+    }
+    boot_llm_tls_entropy_ready = 0U;
+}
+
+static int kernel_llm_fill_tls_material(void) {
+    uint8_t random[NET_TLS_X25519_KEY_LENGTH];
+    uint8_t private_key[NET_TLS_X25519_KEY_LENGTH];
+    uint16_t byte_index;
+    uint8_t attempt;
+    uint32_t word;
+    if (!boot_llm_rdrand_supported) return -1;
+    for (byte_index = 0U; byte_index < NET_TLS_X25519_KEY_LENGTH; byte_index += 4U) {
+        for (attempt = 0U; attempt < 10U; ++attempt)
+            if (kernel_llm_rdrand_word(&word) == 0) break;
+        if (attempt == 10U) goto failure;
+        random[byte_index] = (uint8_t)word;
+        random[byte_index + 1U] = (uint8_t)(word >> 8);
+        random[byte_index + 2U] = (uint8_t)(word >> 16);
+        random[byte_index + 3U] = (uint8_t)(word >> 24);
+        for (attempt = 0U; attempt < 10U; ++attempt)
+            if (kernel_llm_rdrand_word(&word) == 0) break;
+        if (attempt == 10U) goto failure;
+        private_key[byte_index] = (uint8_t)word;
+        private_key[byte_index + 1U] = (uint8_t)(word >> 8);
+        private_key[byte_index + 2U] = (uint8_t)(word >> 16);
+        private_key[byte_index + 3U] = (uint8_t)(word >> 24);
+    }
+    for (byte_index = 0U; byte_index < NET_TLS_X25519_KEY_LENGTH; ++byte_index) {
+        boot_llm_client_random[byte_index] = random[byte_index];
+        boot_llm_client_private[byte_index] = private_key[byte_index];
+    }
+    boot_llm_tls_entropy_ready = 1U;
+    return 0;
+failure:
+    for (byte_index = 0U; byte_index < NET_TLS_X25519_KEY_LENGTH; ++byte_index) {
+        random[byte_index] = 0U;
+        private_key[byte_index] = 0U;
+    }
+    kernel_llm_clear_tls_material();
+    return -1;
+}
+
+/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND prêt ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
            (boot_llm_network.lease.valid ? 2U : 0U) |
+           (boot_llm_rdrand_supported ? 4U : 0U) |
            ((uint32_t)boot_llm_network.session.phase << 8);
 }
 
@@ -150,10 +222,14 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         request->local_port == 0U || request->remote_port == 0U) return OS_LLM_ACQUIRE_BAD_REQUEST;
     if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
     if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
+    if (kernel_llm_fill_tls_material() != 0) return OS_LLM_TLS_ENTROPY_UNAVAILABLE;
     if (net_arp_cache_init(&boot_llm_arp_cache) != 0 ||
         ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
                              boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake),
-                             boot_llm_tls_transcript, sizeof(boot_llm_tls_transcript)) != 0) return OS_LLM_ACQUIRE_FAILED;
+                             boot_llm_tls_transcript, sizeof(boot_llm_tls_transcript)) != 0) {
+        kernel_llm_clear_tls_material();
+        return OS_LLM_ACQUIRE_FAILED;
+    }
     boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
     status = ne2k_llm_network_context_acquire_start_dhcp(
@@ -164,7 +240,10 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         boot_llm_frame, sizeof(boot_llm_frame), request->dns_id, request->hostname,
         request->dns_attempts, request->arp_attempts, request->local_port, request->remote_port,
         request->local_sequence, &boot_llm_network);
-    if (status != 0) return OS_LLM_ACQUIRE_FAILED;
+    if (status != 0) {
+        kernel_llm_clear_tls_material();
+        return OS_LLM_ACQUIRE_FAILED;
+    }
     kernel_llm_copy_hostname(request->hostname);
     return 0;
 }
