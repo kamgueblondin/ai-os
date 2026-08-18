@@ -75,6 +75,12 @@ typedef struct {
 #define NE2K_LLM_CONNECTION_RESPONSE_READY 5U
 #define NE2K_LLM_CONNECTION_STREAMING 6U
 typedef struct { uint8_t remote_ip[4]; uint8_t phase; } ne2k_llm_connection_state_t;
+/* Contexte réseau LLM caller-owned : aucun buffer, secret ou endpoint n’est retenu. */
+typedef struct {
+    net_dhcp_lease_t lease;
+    ne2k_llm_connection_state_t session;
+    net_tcp_connection_t connection;
+} ne2k_llm_network_context_t;
 
 typedef struct {
     net_tcp_tls_stream_t stream;
@@ -224,6 +230,17 @@ int ne2k_llm_connection_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t
                                            uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
                                            net_dhcp_lease_t* lease,ne2k_llm_connection_state_t* state,
                                            net_tcp_connection_t* connection);
+/* Initialisation/réarmement d’un contexte agrégé sans allouer ni conserver de buffers. */
+int ne2k_llm_network_context_init(ne2k_llm_network_context_t* context);
+int ne2k_llm_network_context_reset_for_request(ne2k_llm_network_context_t* context);
+/* Façade équivalente à acquire_start_dhcp opérant directement sur le contexte agrégé caller-owned. */
+int ne2k_llm_network_context_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                                uint8_t* dhcp_tx,uint16_t dhcp_tx_capacity,uint8_t* dhcp_rx,uint16_t dhcp_rx_capacity,
+                                                uint32_t xid,uint16_t dhcp_attempts,uint8_t* arp_request,uint16_t arp_request_capacity,
+                                                uint8_t* arp_rx,uint16_t arp_rx_capacity,uint8_t* frame,uint16_t frame_capacity,
+                                                uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                                uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                                ne2k_llm_network_context_t* context);
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
