@@ -158,20 +158,20 @@ int net_tls_server_hello_parse(const uint8_t* handshake,uint16_t length,net_tls_
 int net_tls_cipher_suite_is_ecdhe_rsa_aes128_gcm(uint16_t cipher_suite){return cipher_suite==NET_TLS_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256?1:0;}
 
 int net_tls_certificate_parse(const uint8_t* handshake,uint16_t length,net_tls_certificate_view_t* out){
-    uint32_t body_length,list_length,pos,certificate_length;
+    uint32_t body_length,list_length,pos,certificate_length; uint8_t certificate_count;
     if(!handshake||!out||length<7U)return -1;
     body_length=get24(handshake+1);
     if(handshake[0]!=11U||body_length!=(uint32_t)length-4U||body_length<6U)return -2;
     list_length=get24(handshake+4);
     if(list_length<3U||list_length!=(uint32_t)length-7U)return -3;
-    pos=7U; certificate_length=0U; out->certificate=0; out->certificate_length=0U;out->intermediate=0;out->intermediate_length=0U;
+    pos=7U; certificate_length=0U; certificate_count=0U; out->certificate=0; out->certificate_length=0U;out->intermediate=0;out->intermediate_length=0U;out->intermediate_two=0;out->intermediate_two_length=0U;
     while(pos<(uint32_t)length){
         if((uint32_t)length-pos<3U)return -4;
         certificate_length=get24(handshake+pos);
         pos+=3U;
         if(certificate_length==0U||(uint32_t)length-pos<certificate_length)return -5;
-        if(!out->certificate){out->certificate=handshake+pos;out->certificate_length=certificate_length;}else if(!out->intermediate){out->intermediate=handshake+pos;out->intermediate_length=certificate_length;}
-        pos+=certificate_length;
+        if(certificate_count==0U){out->certificate=handshake+pos;out->certificate_length=certificate_length;}else if(certificate_count==1U){out->intermediate=handshake+pos;out->intermediate_length=certificate_length;}else if(certificate_count==2U){out->intermediate_two=handshake+pos;out->intermediate_two_length=certificate_length;}else return -7;
+        certificate_count++; pos+=certificate_length;
     }
     if(pos!=(uint32_t)length)return -6;
     out->certificate_list_length=list_length; return 0;
@@ -228,7 +228,7 @@ int net_tls_server_hello_done_parse(const uint8_t* handshake,uint16_t length){
 }
 
 int net_tls_handshake_init(net_tls_handshake_t* handshake){
-    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U;handshake->server_intermediate=0;handshake->server_intermediate_length=0U; handshake->server_x509_valid=0U;handshake->server_intermediate_x509_valid=0U; handshake->server_named_curve=0U; handshake->server_public_key=0; handshake->server_public_key_length=0U; handshake->certificate_requested=0U; return 0;
+    if(!handshake)return -1; handshake->state=NET_TLS_HANDSHAKE_IDLE; handshake->cipher_suite=0U; handshake->server_random=0; handshake->server_certificate=0; handshake->server_certificate_length=0U;handshake->server_intermediate=0;handshake->server_intermediate_length=0U;handshake->server_intermediate_two=0;handshake->server_intermediate_two_length=0U; handshake->server_x509_valid=0U;handshake->server_intermediate_x509_valid=0U;handshake->server_intermediate_two_x509_valid=0U; handshake->server_named_curve=0U; handshake->server_public_key=0; handshake->server_public_key_length=0U; handshake->certificate_requested=0U; return 0;
 }
 int net_tls_handshake_note_client_hello(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_IDLE)return -1; handshake->state=NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT; return 0;
@@ -243,12 +243,12 @@ int net_tls_handshake_accept_certificate(net_tls_handshake_t* handshake,const ui
     net_tls_certificate_view_t view;
     if(!handshake||handshake->state!=NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED)return -1;
     if(net_tls_certificate_parse(message,length,&view)!=0)return -2;
-    handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length;handshake->server_intermediate=view.intermediate;handshake->server_intermediate_length=view.intermediate_length; handshake->server_x509_valid=0U;handshake->server_intermediate_x509_valid=0U; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
+    handshake->server_certificate=view.certificate; handshake->server_certificate_length=view.certificate_length;handshake->server_intermediate=view.intermediate;handshake->server_intermediate_length=view.intermediate_length;handshake->server_intermediate_two=view.intermediate_two;handshake->server_intermediate_two_length=view.intermediate_two_length; handshake->server_x509_valid=0U;handshake->server_intermediate_x509_valid=0U;handshake->server_intermediate_two_x509_valid=0U; handshake->state=NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED; return 0;
 }
 int net_tls_handshake_parse_server_certificate_x509(net_tls_handshake_t* handshake){
     if(!handshake||handshake->state<NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED||!handshake->server_certificate)return -1;
     if(x509_certificate_parse(handshake->server_certificate,handshake->server_certificate_length,&handshake->server_x509)!=0)return -2;
-    handshake->server_x509_valid=1U;if(handshake->server_intermediate){if(x509_certificate_parse(handshake->server_intermediate,handshake->server_intermediate_length,&handshake->server_intermediate_x509)!=0){handshake->server_x509_valid=0U;return -3;}handshake->server_intermediate_x509_valid=1U;}return 0;
+    handshake->server_x509_valid=1U;if(handshake->server_intermediate){if(x509_certificate_parse(handshake->server_intermediate,handshake->server_intermediate_length,&handshake->server_intermediate_x509)!=0){handshake->server_x509_valid=0U;return -3;}handshake->server_intermediate_x509_valid=1U;}if(handshake->server_intermediate_two){if(x509_certificate_parse(handshake->server_intermediate_two,handshake->server_intermediate_two_length,&handshake->server_intermediate_two_x509)!=0){handshake->server_x509_valid=0U;handshake->server_intermediate_x509_valid=0U;return -4;}handshake->server_intermediate_two_x509_valid=1U;}return 0;
 }
 int net_tls_handshake_accept_server_key_exchange(net_tls_handshake_t* handshake,const uint8_t* message,uint16_t length){
     net_tls_server_key_exchange_view_t view;

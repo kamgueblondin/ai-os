@@ -52,10 +52,18 @@ int x509_certificate_chain_validate_two(const x509_certificate_view_t* leaf,cons
 /* Exige chaîne RSA directe, hostname DNS et période UTC pour une identité TLS utilisable. */
 int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,const x509_certificate_view_t* trust_anchor,
                                            const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
+/* Vérifie leaf -> intermédiaire 1 -> intermédiaire 2 -> ancre avec trois signatures RSA/SHA-256. */
+int x509_certificate_chain_validate_three(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate_one,
+                                          const x509_certificate_view_t* intermediate_two,const x509_certificate_view_t* trust_anchor,
+                                          uint32_t* workspace,uint16_t workspace_length);
 /* Exige chaîne RSA leaf-intermédiaire-ancre, hostname et dates UTC pour les trois certificats. */
 int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,
                                                const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
                                                uint32_t* workspace,uint16_t workspace_length);
+/* Exige une chaîne RSA à deux intermédiaires, hostname, NameConstraints et dates UTC. */
+int x509_certificate_tls_identity_validate_three(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate_one,
+                                                 const x509_certificate_view_t* intermediate_two,const x509_certificate_view_t* trust_anchor,
+                                                 const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
 /* Vérifie l’OID rsaEncryption, le module positif et l’exposant public impair pris en charge par RSA. */
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate);
 

@@ -785,8 +785,13 @@ static int ne2k_tls_client_poll_internal(ne2k_device_t* device,const ne2k_io_t* 
     if(ne2k_tcp_ack(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,connection)!=0)goto rollback;
     if(status==1)return 1;
     if(client->handshake.state==NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED){
-        if(intermediate&&!client->handshake.server_intermediate_x509_valid)goto rollback;
-        if((intermediate?x509_certificate_tls_identity_validate_two(&client->handshake.server_x509,intermediate,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length):x509_certificate_tls_identity_validate(&client->handshake.server_x509,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length))!=0)goto rollback;
+        if(client->handshake.server_intermediate_two){
+            if(!client->handshake.server_intermediate_x509_valid||!client->handshake.server_intermediate_two_x509_valid)goto rollback;
+            if(x509_certificate_tls_identity_validate_three(&client->handshake.server_x509,&client->handshake.server_intermediate_x509,&client->handshake.server_intermediate_two_x509,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length)!=0)goto rollback;
+        }else{
+            if(intermediate&&!client->handshake.server_intermediate_x509_valid)goto rollback;
+            if((intermediate?x509_certificate_tls_identity_validate_two(&client->handshake.server_x509,intermediate,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length):x509_certificate_tls_identity_validate(&client->handshake.server_x509,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length))!=0)goto rollback;
+        }
         client->peer_identity_validated=1U;
     }
     if(client->handshake.state!=NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED)return 0;
