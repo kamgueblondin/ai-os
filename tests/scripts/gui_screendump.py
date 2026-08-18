@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QEMU GTK screendumps: shell, help, scrollback, FAT16, ps, mem, net-status."""
+"""QEMU GTK screendumps of AI-OS: shell, FAT16, overlay, net-status, NE2000, IA stub."""
 from __future__ import print_function
 
 import os
@@ -13,41 +13,40 @@ KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(ROOT, "test_logs", "gui-capture-overlay.img")
 LOG_DIR = os.path.join(ROOT, "test_logs")
-LOG = os.path.join(LOG_DIR, "gui-capture-serial.log")
-ERR = os.path.join(LOG_DIR, "gui-capture-stderr.log")
-MON_SOCK = os.path.join(LOG_DIR, "gui-capture-monitor.sock")
 SHOT_DIR = "/opt/cursor/artifacts/screenshots"
 KEY_DELAY = 0.65
 BOOT_TIMEOUT = 90.0
 
+os.environ.setdefault("DISPLAY", ":1")
 
-def log_text():
+
+def log_text(path):
     try:
-        with open(LOG, "r", errors="replace") as handle:
+        with open(path, "r", errors="replace") as handle:
             return handle.read()
     except OSError:
         return ""
 
 
-def wait_for(proc, needle, timeout):
+def wait_for(proc, log_path, needle, timeout):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if proc.poll() is not None:
-            raise RuntimeError("QEMU stopped; tail:\n%s" % log_text()[-2000:])
-        if needle in log_text():
+            raise RuntimeError("QEMU stopped; tail:\n%s" % log_text(log_path)[-2000:])
+        if needle in log_text(log_path):
             time.sleep(0.4)
             return
         time.sleep(0.15)
-    raise RuntimeError("timeout %r; tail:\n%s" % (needle, log_text()[-2000:]))
+    raise RuntimeError("timeout %r; tail:\n%s" % (needle, log_text(log_path)[-2000:]))
 
 
-def monitor_connect():
+def monitor_connect(sock_path):
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
-        if os.path.exists(MON_SOCK):
+        if os.path.exists(sock_path):
             client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             try:
-                client.connect(MON_SOCK)
+                client.connect(sock_path)
                 client.settimeout(0.2)
                 try:
                     client.recv(4096)
@@ -70,7 +69,15 @@ def mon(client, line):
 
 
 def send_command(client, command):
-    aliases = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
+    aliases = {
+        " ": "spc",
+        "-": "minus",
+        ".": "dot",
+        "/": "slash",
+        ":": "shift-semicolon",
+        "_": "shift-minus",
+        "=": "equal",
+    }
     for char in command:
         mon(client, "sendkey %s" % aliases.get(char, char.lower()))
         time.sleep(KEY_DELAY)
@@ -131,93 +138,113 @@ def terminate(proc):
         proc.kill()
 
 
-def main():
-    os.makedirs(LOG_DIR, exist_ok=True)
-    os.makedirs(SHOT_DIR, exist_ok=True)
-    prepare_disk()
-    for path in (LOG, ERR, MON_SOCK):
+def run_session(name, extra_qemu, steps):
+    log_path = os.path.join(LOG_DIR, "gui-capture-%s-serial.log" % name)
+    err_path = os.path.join(LOG_DIR, "gui-capture-%s-stderr.log" % name)
+    sock_path = os.path.join(LOG_DIR, "gui-capture-%s-monitor.sock" % name)
+    for path in (log_path, err_path, sock_path):
         try:
             os.remove(path)
         except OSError:
             pass
 
+    cmd = [
+        "qemu-system-i386", "-cpu", "pentium3",
+        "-kernel", KERNEL, "-initrd", INITRD,
+        "-m", "1024M", "-vga", "std", "-display", "gtk",
+        "-serial", "file:" + log_path,
+        "-monitor", "unix:%s,server,nowait" % sock_path,
+        "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,
+        "-machine", "type=pc,accel=tcg",
+        "-no-reboot", "-no-shutdown",
+    ] + extra_qemu
+
     proc = None
     monitor = None
     try:
-        with open(ERR, "wb") as err:
-            proc = subprocess.Popen([
-                "qemu-system-i386", "-cpu", "pentium3",
-                "-kernel", KERNEL, "-initrd", INITRD,
-                "-m", "1024M", "-vga", "std", "-display", "gtk",
-                "-serial", "file:" + LOG,
-                "-monitor", "unix:%s,server,nowait" % MON_SOCK,
-                "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,
-                "-machine", "type=pc,accel=tcg",
-                "-no-reboot", "-no-shutdown",
-            ], cwd=ROOT, stdout=err, stderr=err)
-            wait_for(proc, "(-.-)", BOOT_TIMEOUT)
-            wait_for(proc, "SYS_GETS: Debut", BOOT_TIMEOUT)
-            monitor = monitor_connect()
+        with open(err_path, "wb") as err:
+            proc = subprocess.Popen(cmd, cwd=ROOT, stdout=err, stderr=err)
+            wait_for(proc, log_path, "(-.-)", BOOT_TIMEOUT)
+            wait_for(proc, log_path, "SYS_GETS: Debut", BOOT_TIMEOUT)
+            monitor = monitor_connect(sock_path)
             time.sleep(0.8)
-            screendump(monitor, "01-shell.png")
-
-            send_command(monitor, "help")
-            wait_for(proc, "ligne lue: help", 25)
-            time.sleep(0.8)
-            screendump(monitor, "02-help-bottom.png")
-
-            mon(monitor, "sendkey pgup")
-            time.sleep(0.5)
-            mon(monitor, "sendkey pgup")
-            time.sleep(0.8)
-            screendump(monitor, "03-help-pageup.png")
-
-            mon(monitor, "sendkey pgdn")
-            time.sleep(0.5)
-            mon(monitor, "sendkey pgdn")
-            time.sleep(0.8)
-            screendump(monitor, "04-help-pagedown.png")
-
-            send_command(monitor, "ls")
-            wait_for(proc, "Initrd / VFS", 20)
-            time.sleep(0.6)
-            screendump(monitor, "05-ls.png")
-
-            send_command(monitor, "fat16-list")
-            wait_for(proc, "ligne lue: fat16-list", 20)
-            time.sleep(0.6)
-            screendump(monitor, "06-fat16-list.png")
-
-            send_command(monitor, "fat16-cat fatok.txt")
-            wait_for(proc, "ligne lue: fat16-cat", 25)
-            time.sleep(0.6)
-            screendump(monitor, "07-fat16-cat.png")
-
-            send_command(monitor, "net-status")
-            wait_for(proc, "ligne lue: net-status", 20)
-            time.sleep(0.6)
-            screendump(monitor, "08-net-status.png")
-
-            send_command(monitor, "ps")
-            wait_for(proc, "ligne lue: ps", 20)
-            time.sleep(0.6)
-            screendump(monitor, "09-ps.png")
-
-            send_command(monitor, "mem")
-            wait_for(proc, "ligne lue: mem", 20)
-            time.sleep(0.6)
-            screendump(monitor, "10-mem.png")
-
-            send_command(monitor, "ai-runtime")
-            wait_for(proc, "Runtime IA bare-metal", 25)
-            time.sleep(0.6)
-            screendump(monitor, "11-ai-runtime.png")
-        print("GUI capture done")
-        return 0
+            for step in steps:
+                kind = step[0]
+                if kind == "dump":
+                    screendump(monitor, step[1])
+                elif kind == "cmd":
+                    send_command(monitor, step[1])
+                    wait_for(proc, log_path, step[2], step[3] if len(step) > 3 else 25)
+                    time.sleep(0.7)
+                elif kind == "key":
+                    mon(monitor, "sendkey %s" % step[1])
+                    time.sleep(step[2] if len(step) > 2 else 0.6)
+            print("session %s done" % name)
+            return 0
     finally:
         if monitor is not None:
             monitor.close()
         terminate(proc)
+
+
+def main():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(SHOT_DIR, exist_ok=True)
+    prepare_disk()
+
+    core_steps = [
+        ("dump", "01-shell.png"),
+        ("cmd", "help", "ligne lue: help", 25),
+        ("dump", "02-help-bottom.png"),
+        ("key", "pgup", 0.5),
+        ("key", "pgup", 0.8),
+        ("dump", "03-help-pageup.png"),
+        ("key", "pgdn", 0.5),
+        ("key", "pgdn", 0.8),
+        ("dump", "04-help-pagedown.png"),
+        ("cmd", "ls", "Initrd / VFS", 20),
+        ("dump", "05-ls.png"),
+        ("cmd", "fat16-list", "ligne lue: fat16-list", 20),
+        ("dump", "06-fat16-list.png"),
+        ("cmd", "fat16-cat fatok.txt", "ligne lue: fat16-cat", 25),
+        ("dump", "07-fat16-cat.png"),
+        ("cmd", "write demo.txt hello", "ligne lue: write", 25),
+        ("dump", "08-write.png"),
+        ("cmd", "cat demo.txt", "ligne lue: cat", 20),
+        ("dump", "09-cat-overlay.png"),
+        ("cmd", "date", "ligne lue: date", 20),
+        ("dump", "10-date.png"),
+        ("cmd", "whoami", "ligne lue: whoami", 20),
+        ("dump", "11-whoami.png"),
+        ("cmd", "getpid", "ligne lue: getpid", 20),
+        ("dump", "12-getpid.png"),
+        ("cmd", "net-status", "ligne lue: net-status", 20),
+        ("dump", "13-net-status.png"),
+        ("cmd", "net-status json", "ligne lue: net-status json", 25),
+        ("dump", "14-net-status-json.png"),
+        ("cmd", "ps", "ligne lue: ps", 20),
+        ("dump", "15-ps.png"),
+        ("cmd", "mem", "ligne lue: mem", 20),
+        ("dump", "16-mem.png"),
+        ("cmd", "ai-runtime", "Runtime IA bare-metal", 25),
+        ("dump", "17-ai-runtime.png"),
+        ("cmd", "ai-provider openai", "OpenAI selectionne", 25),
+        ("dump", "18-ai-provider-openai.png"),
+        ("cmd", "ai hello", "OpenAI configure mais indisponible", 30),
+        ("dump", "19-ai-hello-openai.png"),
+    ]
+    run_session("core", [], core_steps)
+
+    nic_steps = [
+        ("dump", "20-ne2k-shell.png"),
+        ("cmd", "net-status", "ligne lue: net-status", 20),
+        ("dump", "21-ne2k-net-status.png"),
+        ("cmd", "net-status json", '"nic":"detected"', 25),
+        ("dump", "22-ne2k-net-status-json.png"),
+    ]
+    run_session("ne2k", ["-netdev", "user,id=n0", "-device", "ne2k_isa,netdev=n0"], nic_steps)
+    print("GUI capture done")
+    return 0
 
 
 if __name__ == "__main__":
