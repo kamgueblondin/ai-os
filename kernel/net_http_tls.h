@@ -10,6 +10,11 @@ typedef struct {
     uint16_t body_length;
     uint16_t header_length;
 } net_http_response_view_t;
+#define NET_LLM_HTTP_STATUS_SUCCESS 0
+#define NET_LLM_HTTP_STATUS_RETRYABLE 1
+#define NET_LLM_HTTP_STATUS_AUTH 2
+#define NET_LLM_HTTP_STATUS_PERMANENT 3
+#define NET_LLM_HTTP_STATUS_PROTOCOL 4
 typedef struct {
     uint8_t* buffer;
     uint16_t capacity;
@@ -42,6 +47,10 @@ int net_llm_openai_response_extract(const uint8_t* json,uint16_t json_length,uin
 /* Construit les bodies JSON non-streaming pour Ollama generate et OpenAI chat dans un buffer caller-owned. */
 int net_llm_build_ollama_generate_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
 int net_llm_build_openai_chat_json(uint8_t* output,uint16_t output_capacity,const char* model,const uint8_t* prompt,uint16_t prompt_length);
+/* Classe un statut HTTP LLM : succès, retryable, authentification, permanent ou protocole. */
+int net_llm_http_status_classify(uint16_t status_code);
+/* Consomme au plus retry_limit tentatives caller-owned ; retourne 1 si une nouvelle émission est autorisée. */
+int net_llm_http_retry_consume(uint16_t status_code,uint8_t retry_limit,uint8_t* retries_used);
 
 /* Chiffre une requête GET dans un record TLS applicatif et l’encapsule dans un segment TCP. */
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
