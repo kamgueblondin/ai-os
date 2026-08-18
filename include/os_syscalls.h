@@ -176,8 +176,10 @@
 #define SYS_LLM_POLL_TEXT 94
 /* EBX = os_llm_text_result_t* ; copie un delta SSE, sans buffer interne. */
 #define SYS_LLM_POLL_SSE 95
+/* Aucun argument ; réarme RESPONSE_READY vers TLS_COMPLETE pour le tour suivant. */
+#define SYS_LLM_RESET_FOR_REQUEST 96
 
-#define MAX_SYSCALLS 96
+#define MAX_SYSCALLS 97
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
@@ -232,6 +234,8 @@ typedef struct {
 #define OS_LLM_SSE_BAD_ARGUMENT (-104)
 #define OS_LLM_SSE_BAD_PHASE (-105)
 #define OS_LLM_SSE_FAILED (-106)
+#define OS_LLM_RESET_BAD_PHASE (-107)
+#define OS_LLM_RESET_FAILED (-108)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

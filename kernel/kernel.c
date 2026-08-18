@@ -245,6 +245,40 @@ int kernel_llm_poll_text(os_llm_text_result_t* result) {
     return status;
 }
 
+static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length) {
+    uint32_t index;
+    if (!buffer) return;
+    for (index = 0U; index < length; ++index) buffer[index] = 0U;
+}
+
+int kernel_llm_reset_for_request(void) {
+    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_RESPONSE_READY)
+        return OS_LLM_RESET_BAD_PHASE;
+    if (ne2k_llm_network_context_reset_for_request(&boot_llm_network) != 0)
+        return OS_LLM_RESET_FAILED;
+    boot_llm_http_streaming = 0U;
+    boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
+    boot_llm_http_accumulator.length = 0U;
+    boot_llm_http_accumulator.header_length = 0U;
+    boot_llm_http_accumulator.expected_body_length = 0U;
+    boot_llm_http_accumulator.status_code = 0U;
+    boot_llm_http_accumulator.headers_complete = 0U;
+    boot_llm_http_response.status_code = 0U;
+    boot_llm_http_response.body = 0;
+    boot_llm_http_response.body_length = 0U;
+    boot_llm_http_response.header_length = 0U;
+    boot_llm_sse_response.http.length = 0U;
+    boot_llm_sse_response.http.raw_length = 0U;
+    boot_llm_sse_response.sse.length = 0U;
+    boot_llm_sse_response.sse.done = 0U;
+    boot_llm_sse_response.decoded_consumed = 0U;
+    kernel_llm_clear_bytes(boot_llm_http_text, sizeof(boot_llm_http_text));
+    kernel_llm_clear_bytes(boot_llm_http_response_buffer, sizeof(boot_llm_http_response_buffer));
+    kernel_llm_clear_bytes(boot_llm_sse_http_buffer, sizeof(boot_llm_sse_http_buffer));
+    kernel_llm_clear_bytes(boot_llm_sse_event_buffer, sizeof(boot_llm_sse_event_buffer));
+    return 0;
+}
+
 int kernel_llm_poll_sse(os_llm_text_result_t* result) {
     uint16_t text_length = 0U;
     uint16_t consumed = 0U;

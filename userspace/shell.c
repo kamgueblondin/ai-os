@@ -195,6 +195,12 @@ int sys_llm_poll_sse(os_llm_text_result_t* result) {
     return status;
 }
 
+int sys_llm_reset_for_request(void) {
+    int status;
+    asm volatile("int $0x80" : "=a"(status) : "a"(SYS_LLM_RESET_FOR_REQUEST));
+    return status;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -983,6 +989,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-stream-request <f> <m> <p> <q> - Emettre POST LLM SSE chiffre\n");
     print_string("  ai-text-poll       - Lire le texte LLM extrait par le noyau\n");
     print_string("  ai-sse-poll        - Lire un delta SSE LLM extrait par le noyau\n");
+    print_string("  ai-next            - Rearmer une session LLM apres sa reponse\n");
     print_string("  net-status         - Etat reel de la pile reseau bare-metal\n");
     
     print_colored("\nCOMMANDES UTILITAIRES :\n", COLOR_YELLOW);
@@ -4606,6 +4613,22 @@ static void cmd_ai_text_poll(shell_context_t* ctx, char args[][128], int arg_cou
     print_string("\n");
 }
 
+static void cmd_ai_next(shell_context_t* ctx, char args[][128], int arg_count) {
+    int status;
+    (void)ctx;
+    if (arg_count != 0) {
+        print_error("Usage: ai-next");
+        return;
+    }
+    status = sys_llm_reset_for_request();
+    if (status == 0) {
+        print_success("ai-next: session LLM rearmement terminee");
+        return;
+    }
+    if (status == OS_LLM_RESET_BAD_PHASE) print_error("ai-next: reponse LLM complete requise");
+    else print_error("ai-next: rearmement refuse; contexte conserve");
+}
+
 static void cmd_ai_sse_poll(shell_context_t* ctx, char args[][128], int arg_count) {
     os_llm_text_result_t result = {0};
     char output[OS_LLM_TEXT_MAX + 1U];
@@ -5250,6 +5273,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-sse-poll") == 0) {
         cmd_ai_sse_poll(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-next") == 0) {
+        cmd_ai_next(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "net-status") == 0) {
         cmd_net_status(ctx, args, arg_count);
