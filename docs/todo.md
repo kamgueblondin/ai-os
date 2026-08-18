@@ -530,3 +530,10 @@ Les tests couvrent initialisation, réentrance, erreurs de phase, absence de pub
 Le contexte LLM introduit maintenant `TLS_COMPLETE`. `ne2k_llm_connection_poll_tls` délègue le polling au chemin TLS avec chaîne reçue et UTC RTC, sur copies transactionnelles de l’état LLM, TCP et TLS. Les erreurs négatives ne publient aucun état ; les pollings non négatifs publient leurs progrès, mais la phase ne devient complète qu’après Finished serveur valide et session TLS effectivement complète.
 
 Le test NE2000 couvre le rejet hors phase avant tout accès RTC, réseau ou crypto et vérifie l’absence de mutation de la séquence TCP. Validation locale : **375/375 tests**, build i386 et smokes QEMU réussis. Référence : [aos545_552_llm_tls_session_progress.md](aos545_552_llm_tls_session_progress.md). Timeouts, retransmission, backoff, annulation, chaînes de profondeur arbitraire et orchestration automatique POST/streaming LLM restent hors périmètre.
+
+
+### AOS-553 à AOS-560 — émission LLM depuis une session TLS complète
+
+La façade `ne2k_llm_connection_request` délègue maintenant la requête Ollama/OpenAI chiffrée au wrapper HTTPS existant uniquement lorsque la session est en phase `TLS_COMPLETE`. Elle utilise l’IPv4 détenue par le contexte, travaille sur copies transactionnelles de l’état LLM/TCP/TLS et publie `REQUEST_SENT` seulement après transmission réussie. Les erreurs JSON, Bearer, HTTP, AES-GCM, TCP ou TX ne publient aucune mutation ; le Bearer reste une entrée caller-owned non stockée.
+
+Le test NE2000 vérifie le rejet avant toute dépendance réseau lorsque la session n’est pas prête et la conservation de la phase ainsi que de la séquence TCP. Validation locale : **375/375 tests**, build i386 et smokes QEMU réussis. Référence : [aos553_560_llm_session_request.md](aos553_560_llm_session_request.md). Polling de réponse dans le contexte, extraction provider, SSE, retry automatique, Unicode, tool calls, multi-tours et persistance de secret restent hors périmètre.
