@@ -222,6 +222,11 @@ $(BUILD_DIR)/$(ROBUSTNESS_DIR)/test_gpt2_gguf_bounds: $(ROBUSTNESS_DIR)/test_gpt
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_gguf.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled robustness test: $(notdir $@)"
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_rtc: $(UNIT_DIR)/kernel/test_rtc.c ../kernel/rtc.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/rtc.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_%: $(UNIT_DIR)/kernel/test_%.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< $(FRAMEWORK_SOURCES)

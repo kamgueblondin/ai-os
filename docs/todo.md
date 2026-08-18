@@ -407,3 +407,9 @@ Le test NE2000 vérifie la requête OpenAI chiffrée, JSON exact, Bearer, séque
 `net_llm_http_status_classify` distingue succès, authentification, erreurs retryables, erreurs permanentes et réponses hors protocole. `net_llm_http_retry_consume` augmente uniquement le compteur caller-owned lorsqu’un nouveau POST est autorisé dans la limite explicite. Il n’attend pas et ne réémet pas automatiquement un POST LLM.
 
 Les vecteurs couvrent `401`, `403`, `408`, `429`, `503`, classes 2xx/3xx/4xx et l’épuisement du budget. Référence : [aos393_400_llm_http_errors.md](aos393_400_llm_http_errors.md). `Retry-After`, temporisation, circuit-breaker, SSE, Unicode, tools, multi-tours, DNS/SYN automatisés et test externe restent hors périmètre.
+
+### AOS-401 à AOS-408 — RTC UTC i386
+
+Le module `rtc` produit `YYYYMMDDHHMMSSZ` depuis les registres CMOS i386 via une photographie stable bornée, BCD/binaire et 12/24 h. Le buffer UTC reste caller-owned et peut être transmis à la politique de dates X.509/TLS. Les données instables, invalides ou insuffisantes sont refusées.
+
+Les tests RTC couvrent BCD 12 h, binaire 24 h, date bissextile, capacité, BCD invalide et bit UIP persistant. Référence : [aos401_408_rtc_utc.md](aos401_408_rtc_utc.md). Batterie RTC, fuseau firmware, siècle matériel, dérive et synchronisation NTP restent hors périmètre.
