@@ -88,6 +88,10 @@ int net_tcp_connection_open(net_tcp_connection_t* connection,uint16_t local_port
     connection->state=NET_TCP_STATE_SYN_SENT; return 0;
 }
 
+int net_tcp_connection_retry_init(net_tcp_connection_retry_t* retry,uint8_t retry_limit){if(!retry)return -1;retry->retry_limit=retry_limit;retry->retries_used=0U;return 0;}
+int net_tcp_connection_retry_consume(net_tcp_connection_retry_t* retry){if(!retry)return -1;if(retry->retries_used>=retry->retry_limit)return 0;retry->retries_used++;return 1;}
+int net_tcp_connection_retry_reopen(net_tcp_connection_t* connection,net_tcp_connection_retry_t* retry,uint32_t local_sequence){uint16_t local_port,remote_port;int status;if(!connection||!retry)return -1;local_port=connection->local_port;remote_port=connection->remote_port;status=net_tcp_connection_retry_consume(retry);if(status<=0)return status;return net_tcp_connection_open(connection,local_port,remote_port,local_sequence)==0?1:-2;}
+
 int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
     uint32_t remote_sequence;
     if (!connection || !view || connection->state!=NET_TCP_STATE_SYN_SENT) return -1;

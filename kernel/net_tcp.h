@@ -21,6 +21,7 @@
 
 typedef struct { uint16_t source_port; uint16_t destination_port; uint32_t sequence; uint32_t acknowledgment; uint8_t flags; const uint8_t* payload; uint16_t payload_length; } net_tcp_view_t;
 typedef struct { net_tls_record_accumulator_t record_accumulator; net_tls_handshake_accumulator_t handshake_accumulator; } net_tcp_tls_stream_t;
+typedef struct { uint8_t retry_limit; uint8_t retries_used; } net_tcp_connection_retry_t;
 
 
 typedef struct {
@@ -61,6 +62,12 @@ int net_tcp_is_syn_ack_for(const net_tcp_view_t* view, uint16_t local_port,
 int net_tcp_connection_open(net_tcp_connection_t* connection,
                             uint16_t local_port, uint16_t remote_port,
                             uint32_t local_sequence);
+/* Initialise un budget de reprises appartenant à l’appelant. */
+int net_tcp_connection_retry_init(net_tcp_connection_retry_t* retry,uint8_t retry_limit);
+/* Consomme une reprise ; retourne 1 si une nouvelle tentative est autorisée, 0 si le budget est épuisé. */
+int net_tcp_connection_retry_consume(net_tcp_connection_retry_t* retry);
+/* Réinitialise la connexion en SYN_SENT après consommation atomique d’un budget de reprise. */
+int net_tcp_connection_retry_reopen(net_tcp_connection_t* connection,net_tcp_connection_retry_t* retry,uint32_t local_sequence);
 int net_tcp_connection_accept_syn_ack(net_tcp_connection_t* connection,
                                       const net_tcp_view_t* view);
 int net_tcp_connection_build_ack(const net_tcp_connection_t* connection,

@@ -191,6 +191,9 @@ int ne2k_tcp_poll_fin_ack(ne2k_device_t* device, const ne2k_io_t* io,
 int ne2k_tls_client_init(ne2k_tls_client_t* client,uint8_t* record_buffer,uint16_t record_capacity,
                          uint8_t* handshake_buffer,uint16_t handshake_capacity,
                          uint8_t* transcript_buffer,uint16_t transcript_capacity);
+/* Consomme un retry de connexion puis réinitialise TCP/TLS en conservant les buffers caller-owned. */
+int ne2k_tls_client_retry_reset(net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                                net_tcp_connection_retry_t* retry,uint32_t local_sequence);
 /* Construit, émet et confirme transactionnellement le ClientHello TLS sur TCP établi. */
 int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                           uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
