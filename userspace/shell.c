@@ -156,6 +156,12 @@ unsigned int sys_net_status(void) {
     return result;
 }
 
+unsigned int sys_llm_session_status(void) {
+    unsigned int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_SESSION_STATUS));
+    return result;
+}
+
 int sys_meminfo(os_meminfo_t* info) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_MEMINFO), "b"(info));
@@ -4327,6 +4333,19 @@ static const char* ai_model_name(const shell_context_t* ctx) {
     return ctx->ai_model;
 }
 
+static const char* ai_session_phase_name(unsigned int status) {
+    switch ((status >> 8) & 0xffU) {
+        case 0U: return "IDLE";
+        case 1U: return "SYN_SENT";
+        case 2U: return "TLS_STARTED";
+        case 3U: return "TLS_COMPLETE";
+        case 4U: return "REQUEST_SENT";
+        case 5U: return "RESPONSE_READY";
+        case 6U: return "STREAMING";
+        default: return "INCONNUE";
+    }
+}
+
 static void cmd_ai_stats(shell_context_t* ctx, char args[][128], int arg_count) {
     (void)args; (void)arg_count;
     print_colored("\n=== Statistiques IA ===\n", COLOR_CYAN);
@@ -4400,6 +4419,7 @@ static void cmd_ai_model(shell_context_t* ctx, char args[][128], int arg_count) 
 }
 
 static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count) {
+    unsigned int session_status = sys_llm_session_status();
     (void)args; (void)arg_count;
     print_colored("\n=== Runtime IA bare-metal ===\n", COLOR_CYAN);
     print_string("Architecture active : PC i386 Multiboot, CPU, 1 Gio RAM requis pour GPT-2\n");
@@ -4409,7 +4429,10 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
     print_string(ai_model_name(ctx));
     print_string("\nLocal              : GPT-2 124M .bin + tokenizer .bin, generation top-k\n");
     print_string("Limite locale      : 64 jetons de contexte, 4 jetons generes, cache KV actif\n");
-    print_string("En ligne           : pilote Ethernet, TCP/IP, DNS et TLS a integrer\n");
+    print_string("Session LLM noyau  : ");
+    print_string(ai_session_phase_name(session_status));
+    print_string((session_status & 1U) ? " (NE2000 pret)\n" : " (NE2000 absent)\n");
+    print_string("En ligne           : controle de phase integre; DHCP/DNS/identifiants requis avant appel\n");
     print_string("Secrets OpenAI     : jamais integres a l'image de boot\n\n");
 }
 
