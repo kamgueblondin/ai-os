@@ -395,6 +395,10 @@ int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
     return -2;
 }
 
+int ne2k_dhcp_poll_ack(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* frame,uint16_t frame_capacity,uint32_t expected_xid,uint16_t attempts,net_dhcp_lease_t* lease){uint16_t frame_length,i;net_udp_view_t udp;net_dhcp_lease_t next_lease;int status;if(!device||!io||!frame||!lease||attempts==0U)return -1;for(i=0U;i<attempts;i++){status=ne2k_rx_poll_udp(device,io,frame,frame_capacity,&frame_length,&udp);if(status==1)continue;if(status!=0)continue;if(udp.source_port!=67U||udp.destination_port!=68U||udp.payload_length<NET_DHCP_FIXED_HEADER+NET_DHCP_COOKIE_SIZE)continue;status=net_dhcp_parse_ack(udp.payload,udp.payload_length,expected_xid,&next_lease);if(status==0){*lease=next_lease;return 0;}}return -2;}
+
+int ne2k_dhcp_acquire(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* tx_frame,uint16_t tx_capacity,uint8_t* rx_frame,uint16_t rx_capacity,uint32_t xid,uint16_t poll_attempts,net_dhcp_lease_t* lease){net_dhcp_offer_t offer;net_dhcp_lease_t next_lease;int status;if(!device||!io||!tx_frame||!rx_frame||!lease||poll_attempts==0U)return -1;status=ne2k_dhcp_discover(device,io,tx_frame,tx_capacity,xid);if(status!=0)return -2;status=ne2k_dhcp_poll_offer(device,io,rx_frame,rx_capacity,xid,poll_attempts,&offer);if(status!=0)return -3;status=ne2k_dhcp_request(device,io,tx_frame,tx_capacity,xid,offer.offered_ip,offer.server_ip);if(status!=0)return -4;status=ne2k_dhcp_poll_ack(device,io,rx_frame,rx_capacity,xid,poll_attempts,&next_lease);if(status!=0)return -5;*lease=next_lease;return 0;}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;
