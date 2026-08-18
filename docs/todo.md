@@ -537,3 +537,10 @@ Le test NE2000 couvre le rejet hors phase avant tout accès RTC, réseau ou cryp
 La façade `ne2k_llm_connection_request` délègue maintenant la requête Ollama/OpenAI chiffrée au wrapper HTTPS existant uniquement lorsque la session est en phase `TLS_COMPLETE`. Elle utilise l’IPv4 détenue par le contexte, travaille sur copies transactionnelles de l’état LLM/TCP/TLS et publie `REQUEST_SENT` seulement après transmission réussie. Les erreurs JSON, Bearer, HTTP, AES-GCM, TCP ou TX ne publient aucune mutation ; le Bearer reste une entrée caller-owned non stockée.
 
 Le test NE2000 vérifie le rejet avant toute dépendance réseau lorsque la session n’est pas prête et la conservation de la phase ainsi que de la séquence TCP. Validation locale : **375/375 tests**, build i386 et smokes QEMU réussis. Référence : [aos553_560_llm_session_request.md](aos553_560_llm_session_request.md). Polling de réponse dans le contexte, extraction provider, SSE, retry automatique, Unicode, tool calls, multi-tours et persistance de secret restent hors périmètre.
+
+
+### AOS-561 à AOS-568 — polling et extraction de réponse LLM de session
+
+`ne2k_llm_connection_poll_text` délègue désormais le polling HTTP non-streaming et l’extraction Ollama/OpenAI depuis la phase `REQUEST_SENT`. Il copie transactionnellement contexte LLM, TCP, TLS, accumulateur et vue HTTP : un retour `1` publie les fragments HTTP mais conserve `REQUEST_SENT`, tandis qu’un retour `0` publie le texte et passe à `RESPONSE_READY`. Les erreurs ne publient aucun état et ramènent les longueurs texte/consommation à zéro.
+
+Le test NE2000 couvre le rejet hors phase avant toute dépendance réseau/HTTP/crypto et la préservation des longueurs de sortie. Validation locale : **376/376 tests**, build i386 et smokes QEMU réussis. Référence : [aos561_568_llm_session_response.md](aos561_568_llm_session_response.md). Façade SSE de session, boucle de conversation, réutilisation de connexion, timeout, retry automatique, pagination, tools, multimodal et Unicode complet restent hors périmètre.

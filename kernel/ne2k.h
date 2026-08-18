@@ -72,6 +72,7 @@ typedef struct {
 #define NE2K_LLM_CONNECTION_TLS_STARTED 2U
 #define NE2K_LLM_CONNECTION_TLS_COMPLETE 3U
 #define NE2K_LLM_CONNECTION_REQUEST_SENT 4U
+#define NE2K_LLM_CONNECTION_RESPONSE_READY 5U
 typedef struct { uint8_t remote_ip[4]; uint8_t phase; } ne2k_llm_connection_state_t;
 
 typedef struct {
@@ -262,6 +263,14 @@ int ne2k_llm_connection_request(ne2k_device_t* device,const ne2k_io_t* io,const 
                                 uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
                                 const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
                                 uint8_t* tls_record,uint32_t tls_capacity,uint8_t retransmit_limit);
+/* Polling HTTP LLM : conserve REQUEST_SENT si le body est incomplet et passe à RESPONSE_READY après extraction. */
+int ne2k_llm_connection_poll_text(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                  uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                  const uint8_t local_ip[4],ne2k_llm_connection_state_t* state,
+                                  net_tcp_connection_t* connection,ne2k_tls_client_t* client,uint8_t provider,
+                                  uint8_t* plaintext,uint16_t plaintext_capacity,net_http_response_accumulator_t* accumulator,
+                                  net_http_response_view_t* response,uint8_t* text,uint16_t text_capacity,
+                                  uint16_t* text_length,uint16_t* consumed);
 /* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
