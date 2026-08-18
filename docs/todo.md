@@ -353,3 +353,10 @@ Référence : [aos321_328_http_authorization.md](aos321_328_http_authorization.m
 `net_http_chunked_accumulator_t` décode désormais des réponses HTTP `Transfer-Encoding: chunked` à travers plusieurs plaintexts TLS, avec tailles hexadécimales bornées, CRLF contrôlés et compactage du body dans le buffer caller-owned. La publication intervient uniquement après `0\r\n\r\n`. Le vecteur couvre `Wikipedia` réparti sur deux fragments et le rejet d’une taille `Z` invalide.
 
 Référence : [aos329_336_http_chunked.md](aos329_336_http_chunked.md). Les extensions de chunk, trailers non vides, compression, HTTP/2, SSE, grands corps et le wrapper TLS/NE2000 chunked restent hors périmètre.
+
+
+### AOS-337 à AOS-344 — validité temporelle X.509
+
+`x509_certificate_valid_at` vérifie désormais `notBefore <= instant <= notAfter` à partir d’un instant UTC caller-owned `YYYYMMDDhhmmssZ`. Les dates ASN.1 UTCTime et GeneralizedTime sont contrôlées, y compris calendrier et années bissextiles. Aucune horloge implicite n’est utilisée.
+
+Les tests couvrent les instants interne, prématuré, expiré et une date calendairement invalide. Référence : [aos337_344_x509_validity_dates.md](aos337_344_x509_validity_dates.md). RTC/NTP, synchronisation sécurisée, tolérance d’horloge et appel automatique depuis l’orchestrateur TLS restent à implémenter.
