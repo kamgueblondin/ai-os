@@ -20,6 +20,7 @@ typedef struct {
     const uint8_t* common_name; uint32_t common_name_length;
     const uint8_t* subject_alt_names; uint32_t subject_alt_names_length;
     uint8_t basic_constraints_present; uint8_t basic_constraints_ca;
+    uint8_t path_len_present; uint32_t path_len_constraint;
     uint8_t key_usage_present; uint8_t key_usage_key_cert_sign;
     const uint8_t* signature_algorithm; uint32_t signature_algorithm_length;
     const uint8_t* signature; uint32_t signature_length;

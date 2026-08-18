@@ -449,3 +449,9 @@ Les tests couvrent la liste TLS à deux certificats et les bornes existantes. R�
 `ne2k_tls_client_poll_received_chain` utilise automatiquement la vue du premier intermédiaire reçu par `Certificate` et impose son parsing X.509 avant la politique `leaf → intermédiaire → ancre`. Les rollbacks, buffers et workspaces restent caller-owned.
 
 Le test NE2000 couvre la nouvelle façade et son rejet de client nul. Référence : [aos449_456_ne2k_received_intermediate.md](aos449_456_ne2k_received_intermediate.md). Chaînes multiples, cross-signatures, révocation et sélection automatique de profondeur arbitraire restent hors périmètre.
+
+### AOS-457 à AOS-464 — profondeur de chaîne X.509
+
+Le parseur conserve `pathLenConstraint` comme entier DER positif borné et exige `CA=true` lorsqu’il est présent. La chaîne `leaf → intermédiaire → ancre` refuse maintenant une ancre limitée à zéro, car elle autorise un CA sous-jacent.
+
+Les vecteurs de chaîne testent le refus d’une ancre forcée à `pathLenConstraint=0`. Référence : [aos457_464_x509_pathlen.md](aos457_464_x509_pathlen.md). Profondeur arbitraire, contraintes de nom, AKI/SKI, extensions critiques, ECDSA et révocation restent hors périmètre.
