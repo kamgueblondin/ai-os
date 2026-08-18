@@ -20,6 +20,7 @@
 #include "service_registry.h"
 #include "vga_console.h"
 #include "ne2k.h"
+#include "tls_trust_anchor.h"
 #include <stddef.h>
 
 // Function to read a byte from a port
@@ -49,6 +50,7 @@ static uint8_t boot_llm_frame[KERNEL_LLM_FRAME_CAPACITY];
 /* Matériaux, client TLS et buffers réservés au noyau ; aucun n’est accessible via syscall. */
 static ne2k_tls_client_t boot_llm_tls_client;
 static x509_certificate_view_t boot_llm_trust_anchor;
+static uint8_t boot_llm_trust_anchor_ready;
 static rtc_io_t boot_llm_rtc_io;
 static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
 static uint8_t boot_llm_client_random[NET_TLS_X25519_KEY_LENGTH];
@@ -88,6 +90,9 @@ static void ne2k_boot_probe(void) {
     (void)ne2k_llm_network_context_init(&boot_llm_network);
     (void)net_arp_cache_init(&boot_llm_arp_cache);
     boot_llm_rdrand_supported = kernel_llm_rdrand_supported() ? 1U : 0U;
+    boot_llm_trust_anchor_ready = (x509_certificate_parse(aos_tls_isrg_root_x1_der,
+        aos_tls_isrg_root_x1_der_len, &boot_llm_trust_anchor) == 0 &&
+        x509_rsa_public_key_validate(&boot_llm_trust_anchor) == 0) ? 1U : 0U;
     boot_llm_tls_entropy_ready = 0U;
     boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
@@ -143,6 +148,7 @@ static void kernel_llm_clear_tls_material(void) {
         boot_llm_client_private[index] = 0U;
     }
     boot_llm_tls_entropy_ready = 0U;
+    boot_llm_tls_material_ready = 0U;
 }
 
 static int kernel_llm_fill_tls_material(void) {
@@ -173,6 +179,7 @@ static int kernel_llm_fill_tls_material(void) {
         boot_llm_client_private[byte_index] = private_key[byte_index];
     }
     boot_llm_tls_entropy_ready = 1U;
+    boot_llm_tls_material_ready = boot_llm_trust_anchor_ready;
     return 0;
 failure:
     for (byte_index = 0U; byte_index < NET_TLS_X25519_KEY_LENGTH; ++byte_index) {
@@ -183,11 +190,12 @@ failure:
     return -1;
 }
 
-/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND prêt ; bits 8..15 : phase LLM. */
+/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
            (boot_llm_network.lease.valid ? 2U : 0U) |
            (boot_llm_rdrand_supported ? 4U : 0U) |
+           (boot_llm_trust_anchor_ready ? 8U : 0U) |
            ((uint32_t)boot_llm_network.session.phase << 8);
 }
 
@@ -230,7 +238,6 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         kernel_llm_clear_tls_material();
         return OS_LLM_ACQUIRE_FAILED;
     }
-    boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
     status = ne2k_llm_network_context_acquire_start_dhcp(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
