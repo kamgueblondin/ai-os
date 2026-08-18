@@ -516,3 +516,10 @@ Les tests couvrent budgets DNS non nuls et absence de publication sur attente DN
 Les façades `ne2k_tls_client_accept_syn_ack_start` et `ne2k_llm_syn_ack_tls_start` relient désormais l’acceptation du SYN-ACK TCP au premier ClientHello TLS. Elles valident SYN-ACK sur des copies locales, démarrent le ClientHello TLS existant, puis publient connexion et client TLS seulement après émission réussie. Le polling NE2000 vide retourne `1` sans mutation ni émission ; le segment TCP transportant ClientHello porte l’acquittement final du handshake TCP.
 
 Les tests couvrent le rollback d’un ACK invalide, la transition TCP `SYN_SENT → ESTABLISHED`, TLS `IDLE → CLIENT_HELLO_SENT`, la progression de séquence et le polling vide. Validation locale : **373/373 tests**, build i386 et smokes QEMU réussis après une relance NE2000 due à une détection NIC QEMU transitoire. Référence : [aos529_536_llm_synack_tls_bootstrap.md](aos529_536_llm_synack_tls_bootstrap.md). Une machine d’état unifiée DNS/SYN/SYN-ACK/TLS, temporisations, retransmission SYN, timeouts et backoff restent hors périmètre.
+
+
+### AOS-537 à AOS-544 — orchestrateur LLM DNS vers ClientHello
+
+Le contexte caller-owned `ne2k_llm_connection_state_t` publie l’IPv4 résolue et les phases `IDLE`, `SYN_SENT` puis `TLS_STARTED`. `ne2k_llm_connection_start` délègue DNS/ARP/SYN et ne publie l’état qu’après succès complet ; `ne2k_llm_connection_poll_tls_start` délègue SYN-ACK/ClientHello et préserve phase, TCP et TLS sur toute erreur ou RX vide. Le contexte ne conserve ni hostname, ni secret, ni buffer.
+
+Les tests couvrent initialisation, réentrance, erreurs de phase, absence de publication sur échec et pointeur nul. Validation locale : **374/374 tests**, build i386 et smokes QEMU réussis. Référence : [aos537_544_llm_connection_orchestrator.md](aos537_544_llm_connection_orchestrator.md). DNS asynchrone, timeouts, retransmission SYN, backoff, AAAA/CNAME/DNSSEC, DHCP, multi-adresses et machine d’état TLS complète restent hors périmètre.
