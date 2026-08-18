@@ -154,6 +154,9 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
     fi
+    if [ "$(basename "$test_file")" = "test_rtc.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/rtc.c"
+    fi
     if [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
