@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 typedef struct { uint8_t tag; const uint8_t* value; uint32_t length; uint32_t total_length; } der_tlv_view_t;
+#define X509_NAME_CONSTRAINTS_MAX_DNS 4U
 typedef struct {
     const uint8_t* certificate; uint32_t certificate_length;
     const uint8_t* tbs_certificate; uint32_t tbs_certificate_length;
@@ -25,6 +26,11 @@ typedef struct {
     const uint8_t* authority_key_identifier; uint32_t authority_key_identifier_length;
     uint8_t key_usage_present; uint8_t key_usage_key_cert_sign;
     uint8_t extended_key_usage_present; uint8_t extended_key_usage_server_auth;
+    uint8_t name_constraints_present; uint8_t name_constraints_dns_permitted_count; uint8_t name_constraints_dns_excluded_count;
+    const uint8_t* name_constraints_dns_permitted[X509_NAME_CONSTRAINTS_MAX_DNS];
+    uint32_t name_constraints_dns_permitted_length[X509_NAME_CONSTRAINTS_MAX_DNS];
+    const uint8_t* name_constraints_dns_excluded[X509_NAME_CONSTRAINTS_MAX_DNS];
+    uint32_t name_constraints_dns_excluded_length[X509_NAME_CONSTRAINTS_MAX_DNS];
     const uint8_t* signature_algorithm; uint32_t signature_algorithm_length;
     const uint8_t* signature; uint32_t signature_length;
 } x509_certificate_view_t;
@@ -33,6 +39,8 @@ int der_tlv_parse(const uint8_t* input,uint32_t length,der_tlv_view_t* out);
 int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certificate_view_t* out);
 /* Compare une identité DNS ASCII au SAN dNSName, ou au CN seulement sans dNSName présent. */
 int x509_certificate_hostname_validate(const x509_certificate_view_t* certificate,const char* hostname);
+/* Applique les sous-arbres DNS NameConstraints d'une CA à une identité DNS ASCII. */
+int x509_certificate_name_constraints_dns_validate(const x509_certificate_view_t* certificate,const char* hostname);
 /* Vérifie notBefore <= instant UTC <= notAfter ; l’instant est fourni comme YYYYMMDDhhmmssZ. */
 int x509_certificate_valid_at(const x509_certificate_view_t* certificate,const char* utc_time);
 /* Vérifie une feuille RSA/SHA-256 signée directement par l’ancre X.509 fournie par l’appelant. */

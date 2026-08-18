@@ -474,3 +474,10 @@ Les vecteurs root/intermédiaire/leaf vérifient la présence des identifiants e
 Le parseur reconnaît maintenant l’extension EKU `2.5.29.37`, en contrôle la séquence DER encapsulée et publie les indicateurs `extended_key_usage_present` et `extended_key_usage_server_auth`. Les politiques TLS directe et avec intermédiaire refusent une feuille dont EKU est présente sans l’OID `serverAuth` (`1.3.6.1.5.5.7.3.1`). Le chemin reste sans allocation dynamique et toutes les vues DER restent caller-owned.
 
 Le vecteur DER de non-régression couvre une EKU valide `serverAuth`, tandis que le test vérifie le refus d’une feuille dont EKU ne permet pas l’authentification de serveur. Validation locale : **367/367 tests**, build i386 et smokes QEMU réussis. Référence : [aos481_488_x509_eku.md](aos481_488_x509_eku.md). `anyExtendedKeyUsage`, les contraintes EKU de CA, ECDSA/EdDSA, révocation et contraintes de nom restent hors périmètre.
+
+
+### AOS-489 à AOS-496 — contraintes de nom DNS X.509
+
+Le parseur reconnaît désormais `NameConstraints` (`2.5.29.30`) pour les intermédiaires et publie jusqu’à quatre sous-arbres DNS `permittedSubtrees` et `excludedSubtrees`, toujours sous forme de vues DER caller-owned. La politique TLS à intermédiaire refuse l’hôte demandé lorsqu’il est exclu ou absent de la liste des sous-arbres permis. Les comparaisons ASCII sont insensibles à la casse et respectent les frontières de labels ; une contrainte commençant par `.` exige un descendant.
+
+Le sous-ensemble refuse les formes de nom autres que `dNSName`, les distances non nulles, `maximum`, les extensions vides ou dupliquées, afin de ne pas ignorer une contrainte critique. Validation locale : **368/368 tests**, build i386 et smokes QEMU réussis. Référence : [aos489_496_x509_name_constraints.md](aos489_496_x509_name_constraints.md). L’intersection de contraintes sur chaînes profondes, IP/URI/rfc822Name/directoryName, IDNA, révocation et ECDSA restent hors périmètre.

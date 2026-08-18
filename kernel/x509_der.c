@@ -3,6 +3,7 @@
 #include "rsa_verify.h"
 
 static int x509_bytes_equal(const uint8_t* left,uint32_t left_length,const uint8_t* right,uint32_t right_length);
+static int x509_dns_name_valid(const uint8_t* name,uint32_t length);
 
 int der_tlv_parse(const uint8_t* input,uint32_t length,der_tlv_view_t* out){
     uint32_t value_length=0U,offset=2U,i;uint8_t count;
@@ -40,12 +41,50 @@ static int x509_extract_common_name(const uint8_t* subject,uint32_t subject_leng
     return 0;
 }
 
+static int x509_name_constraints_store_dns(const der_tlv_view_t* base,const uint8_t** names,uint32_t* lengths,uint8_t* count){
+    const uint8_t* name;uint32_t name_length;
+    if(!base||!names||!lengths||!count||base->tag!=0x82U||base->length==0U||*count>=X509_NAME_CONSTRAINTS_MAX_DNS)return -1;
+    name=base->value;name_length=base->length;
+    if(name_length>1U&&name[0]=='.'){name++;name_length--;}
+    if(!x509_dns_name_valid(name,name_length))return -2;
+    names[*count]=base->value;lengths[*count]=base->length;(*count)++;
+    return 0;
+}
+
+static int x509_parse_name_constraint_subtrees(const uint8_t* input,uint32_t length,const uint8_t** names,uint32_t* lengths,uint8_t* count){
+    der_tlv_view_t subtrees,subtree,base,distance;const uint8_t* cursor;uint32_t remaining;
+    if(der_tlv_parse(input,length,&subtrees)!=0||subtrees.tag!=0x30U||subtrees.total_length!=length||subtrees.length==0U)return -1;
+    cursor=subtrees.value;remaining=subtrees.length;
+    while(remaining){
+        const uint8_t* subtree_cursor;uint32_t subtree_remaining;
+        if(next_tlv(&cursor,&remaining,&subtree)!=0||subtree.tag!=0x30U)return -2;
+        subtree_cursor=subtree.value;subtree_remaining=subtree.length;
+        if(next_tlv(&subtree_cursor,&subtree_remaining,&base)!=0||x509_name_constraints_store_dns(&base,names,lengths,count)!=0)return -3;
+        if(subtree_remaining){if(next_tlv(&subtree_cursor,&subtree_remaining,&distance)!=0||distance.tag!=0x80U||distance.length!=1U||distance.value[0]!=0U||subtree_remaining!=0U)return -4;}
+    }
+    return 0;
+}
+
+static int x509_parse_name_constraints(const uint8_t* input,uint32_t length,x509_certificate_view_t* out){
+    der_tlv_view_t constraints,field;const uint8_t* cursor;uint32_t remaining;uint8_t permitted_seen=0U,excluded_seen=0U;
+    if(!out||out->name_constraints_present||der_tlv_parse(input,length,&constraints)!=0||constraints.tag!=0x30U||constraints.total_length!=length||constraints.length==0U)return -1;
+    cursor=constraints.value;remaining=constraints.length;out->name_constraints_present=1U;
+    while(remaining){
+        if(next_tlv(&cursor,&remaining,&field)!=0)return -2;
+        if(field.tag==0xa0U){if(permitted_seen||x509_parse_name_constraint_subtrees(field.value,field.length,out->name_constraints_dns_permitted,out->name_constraints_dns_permitted_length,&out->name_constraints_dns_permitted_count)!=0)return -3;permitted_seen=1U;}
+        else if(field.tag==0xa1U){if(excluded_seen||x509_parse_name_constraint_subtrees(field.value,field.length,out->name_constraints_dns_excluded,out->name_constraints_dns_excluded_length,&out->name_constraints_dns_excluded_count)!=0)return -4;excluded_seen=1U;}
+        else return -5;
+    }
+    return (permitted_seen||excluded_seen)?0:-6;
+}
+
 static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certificate_view_t* out){
     static const uint8_t subject_alt_name_oid[]={0x55U,0x1dU,0x11U};
     static const uint8_t basic_constraints_oid[]={0x55U,0x1dU,0x13U};
     static const uint8_t key_usage_oid[]={0x55U,0x1dU,0x0fU};
     static const uint8_t subject_key_identifier_oid[]={0x55U,0x1dU,0x0eU};
     static const uint8_t authority_key_identifier_oid[]={0x55U,0x1dU,0x23U};
+    static const uint8_t name_constraints_oid[]={0x55U,0x1dU,0x1eU};
     static const uint8_t extended_key_usage_oid[]={0x55U,0x1dU,0x25U};
     static const uint8_t server_auth_oid[]={0x2bU,0x06U,0x01U,0x05U,0x05U,0x07U,0x03U,0x01U};
     der_tlv_view_t extensions,extension,oid,field,names;
@@ -76,6 +115,8 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
             if(out->subject_key_identifier||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x04U||names.total_length!=field.length||names.length==0U)return -12;out->subject_key_identifier=names.value;out->subject_key_identifier_length=names.length;
         }else if(oid_equal(&oid,authority_key_identifier_oid,sizeof(authority_key_identifier_oid))){
             const uint8_t* aki_cursor;uint32_t aki_remaining;if(out->authority_key_identifier||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length)return -13;aki_cursor=names.value;aki_remaining=names.length;while(aki_remaining){if(next_tlv(&aki_cursor,&aki_remaining,&field)!=0)return -13;if(field.tag==0x80U){if(out->authority_key_identifier||field.length==0U)return -13;out->authority_key_identifier=field.value;out->authority_key_identifier_length=field.length;}}
+        }else if(oid_equal(&oid,name_constraints_oid,sizeof(name_constraints_oid))){
+            if(x509_parse_name_constraints(field.value,field.length,out)!=0)return -14;
         }else if(oid_equal(&oid,extended_key_usage_oid,sizeof(extended_key_usage_oid))){
             const uint8_t* eku_cursor;uint32_t eku_remaining;if(out->extended_key_usage_present||der_tlv_parse(field.value,field.length,&names)!=0||names.tag!=0x30U||names.total_length!=field.length||names.length==0U)return -14;out->extended_key_usage_present=1U;eku_cursor=names.value;eku_remaining=names.length;while(eku_remaining){if(next_tlv(&eku_cursor,&eku_remaining,&field)!=0||field.tag!=0x06U)return -14;if(field.length==sizeof(server_auth_oid)&&x509_bytes_equal(field.value,field.length,server_auth_oid,sizeof(server_auth_oid)))out->extended_key_usage_server_auth=1U;}
         }else if(critical)return -15;
@@ -85,10 +126,10 @@ static int x509_parse_extensions(const uint8_t* input,uint32_t length,x509_certi
 
 int x509_certificate_parse(const uint8_t* certificate,uint32_t length,x509_certificate_view_t* out){
     der_tlv_view_t outer,tbs,field,validity,spki,algorithm,bit_string,rsa,modulus,exponent;
-    const uint8_t *p,*sp,*q,*tbs_der;uint32_t remaining,sp_remaining,left;
+    const uint8_t *p,*sp,*q,*tbs_der;uint32_t remaining,sp_remaining,left,i;
     if(!certificate||!out)return -1;
     if(der_tlv_parse(certificate,length,&outer)!=0||outer.tag!=0x30U||outer.total_length!=length)return -2;
-    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->path_len_present=0U;out->path_len_constraint=0U;out->subject_key_identifier=0;out->subject_key_identifier_length=0U;out->authority_key_identifier=0;out->authority_key_identifier_length=0U;out->key_usage_present=0U;out->extended_key_usage_present=0U;out->extended_key_usage_server_auth=0U;out->key_usage_key_cert_sign=0U;
+    out->common_name=0;out->common_name_length=0U;out->subject_alt_names=0;out->subject_alt_names_length=0U;out->basic_constraints_present=0U;out->basic_constraints_ca=0U;out->path_len_present=0U;out->path_len_constraint=0U;out->subject_key_identifier=0;out->subject_key_identifier_length=0U;out->authority_key_identifier=0;out->authority_key_identifier_length=0U;out->key_usage_present=0U;out->extended_key_usage_present=0U;out->extended_key_usage_server_auth=0U;out->name_constraints_present=0U;out->name_constraints_dns_permitted_count=0U;out->name_constraints_dns_excluded_count=0U;for(i=0U;i<X509_NAME_CONSTRAINTS_MAX_DNS;i++){out->name_constraints_dns_permitted[i]=0;out->name_constraints_dns_permitted_length[i]=0U;out->name_constraints_dns_excluded[i]=0;out->name_constraints_dns_excluded_length[i]=0U;}out->key_usage_key_cert_sign=0U;
     out->signature_algorithm=0;out->signature_algorithm_length=0U;out->signature=0;out->signature_length=0U;
     out->certificate=certificate;out->certificate_length=length;p=outer.value;remaining=outer.length;tbs_der=p;
     if(require_sequence(&p,&remaining,&tbs)!=0)return -3;
@@ -190,6 +231,28 @@ int x509_certificate_hostname_validate(const x509_certificate_view_t* certificat
     return -4;
 }
 
+static int x509_dns_subtree_match(const uint8_t* constraint,uint32_t constraint_length,const char* hostname,uint32_t hostname_length){
+    uint32_t offset=0U,suffix_length,index;uint8_t require_descendant=0U;
+    if(!constraint||constraint_length==0U||!x509_dns_name_valid((const uint8_t*)hostname,hostname_length))return 0;
+    if(constraint[0]=='.'){if(constraint_length==1U)return 0;offset=1U;require_descendant=1U;}
+    suffix_length=constraint_length-offset;
+    if(!x509_dns_name_valid(constraint+offset,suffix_length)||hostname_length<suffix_length)return 0;
+    if(hostname_length==suffix_length){if(require_descendant)return 0;for(index=0U;index<suffix_length;index++)if(x509_ascii_lower(constraint[offset+index])!=x509_ascii_lower((uint8_t)hostname[index]))return 0;return 1;}
+    if(hostname[hostname_length-suffix_length-1U]!='.')return 0;
+    for(index=0U;index<suffix_length;index++)if(x509_ascii_lower(constraint[offset+index])!=x509_ascii_lower((uint8_t)hostname[hostname_length-suffix_length+index]))return 0;
+    return 1;
+}
+
+int x509_certificate_name_constraints_dns_validate(const x509_certificate_view_t* certificate,const char* hostname){
+    uint32_t hostname_length,index;uint8_t permitted=0U;
+    if(!certificate||x509_hostname_length(hostname,&hostname_length)!=0)return -1;
+    if(!certificate->name_constraints_present)return 0;
+    for(index=0U;index<certificate->name_constraints_dns_excluded_count;index++)if(x509_dns_subtree_match(certificate->name_constraints_dns_excluded[index],certificate->name_constraints_dns_excluded_length[index],hostname,hostname_length))return -2;
+    if(certificate->name_constraints_dns_permitted_count==0U)return 0;
+    for(index=0U;index<certificate->name_constraints_dns_permitted_count;index++)if(x509_dns_subtree_match(certificate->name_constraints_dns_permitted[index],certificate->name_constraints_dns_permitted_length[index],hostname,hostname_length)){permitted=1U;break;}
+    return permitted?0:-3;
+}
+
 static int x509_bytes_equal(const uint8_t* left,uint32_t left_length,const uint8_t* right,uint32_t right_length){uint32_t index;if(!left||!right||left_length!=right_length)return 0;for(index=0U;index<left_length;index++)if(left[index]!=right[index])return 0;return 1;}
 
 static int x509_signature_algorithm_is_sha256_rsa(const x509_certificate_view_t* certificate){
@@ -250,4 +313,4 @@ int x509_certificate_tls_identity_validate(const x509_certificate_view_t* leaf,c
     if(x509_certificate_valid_at(leaf,utc_time)!=0)return -4;
     return 0;
 }
-int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;if(x509_certificate_chain_validate_two(leaf,intermediate,trust_anchor,workspace,workspace_length)!=0)return -2;if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -3;if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -4;return 0;}
+int x509_certificate_tls_identity_validate_two(const x509_certificate_view_t* leaf,const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!leaf||(leaf->extended_key_usage_present&&!leaf->extended_key_usage_server_auth))return -1;if(x509_certificate_chain_validate_two(leaf,intermediate,trust_anchor,workspace,workspace_length)!=0)return -2;if(x509_certificate_name_constraints_dns_validate(intermediate,hostname)!=0)return -3;if(x509_certificate_hostname_validate(leaf,hostname)!=0)return -4;if(x509_certificate_valid_at(leaf,utc_time)!=0||x509_certificate_valid_at(intermediate,utc_time)!=0||x509_certificate_valid_at(trust_anchor,utc_time)!=0)return -5;return 0;}
