@@ -70,6 +70,7 @@ typedef struct {
 #define NE2K_LLM_CONNECTION_IDLE 0U
 #define NE2K_LLM_CONNECTION_SYN_SENT 1U
 #define NE2K_LLM_CONNECTION_TLS_STARTED 2U
+#define NE2K_LLM_CONNECTION_TLS_COMPLETE 3U
 typedef struct { uint8_t remote_ip[4]; uint8_t phase; } ne2k_llm_connection_state_t;
 
 typedef struct {
@@ -240,6 +241,18 @@ int ne2k_llm_connection_poll_tls_start(ne2k_device_t* device,const ne2k_io_t* io
                                        net_tcp_connection_t* connection,ne2k_tls_client_t* client,
                                        const uint8_t client_random[32],uint8_t* client_hello_record,
                                        uint32_t client_hello_capacity,uint8_t retransmit_limit);
+/* Polling TLS authentifié via RTC ; la phase devient TLS_COMPLETE uniquement après Finished serveur valide. */
+int ne2k_llm_connection_poll_tls(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                 uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                 const uint8_t local_ip[4],ne2k_llm_connection_state_t* state,
+                                 net_tcp_connection_t* connection,ne2k_tls_client_t* client,
+                                 const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                 const x509_certificate_view_t* trust_anchor,const char* hostname,const rtc_io_t* rtc_io,
+                                 uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint32_t* x25519_workspace,
+                                 uint16_t x25519_workspace_length,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                                 uint8_t* tcp_segment,uint32_t tcp_segment_capacity,uint8_t* flight_records,
+                                 uint32_t flight_records_capacity,uint32_t* flight_records_length,uint8_t* plaintext,
+                                 uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
 /* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
