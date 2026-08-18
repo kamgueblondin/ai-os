@@ -6,6 +6,7 @@
 #define NET_DHCP_FIXED_HEADER 236U
 #define NET_DHCP_COOKIE_SIZE 4U
 #define NET_DHCP_MAGIC_COOKIE 0x63825363U
+#define NET_DHCP_OPTION_SUBNET_MASK 1U
 #define NET_DHCP_OPTION_ROUTER 3U
 #define NET_DHCP_OPTION_DNS 6U
 #define NET_DHCP_OPTION_MESSAGE_TYPE 53U
@@ -25,10 +26,12 @@ typedef struct {
 } net_dhcp_offer_t;
 typedef struct {
     uint8_t valid;
+    uint8_t subnet_valid;
     uint8_t router_valid;
     uint8_t dns_valid;
     uint8_t ipv4[4];
     uint8_t server_ipv4[4];
+    uint8_t subnet_mask[4];
     uint8_t router_ipv4[4];
     uint8_t dns_ipv4[4];
     uint32_t xid;
@@ -45,5 +48,8 @@ int net_dhcp_lease_apply(net_dhcp_lease_t* lease, const net_dhcp_offer_t* offer)
 void net_dhcp_lease_clear(net_dhcp_lease_t* lease);
 int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
                        uint32_t expected_xid, net_dhcp_lease_t* lease);
+/* Copie la destination si elle est locale, sinon le routeur DHCP ; ne modifie pas next_hop sur erreur. */
+int net_dhcp_lease_next_hop(const net_dhcp_lease_t* lease,
+                            const uint8_t destination[4], uint8_t next_hop[4]);
 
 #endif

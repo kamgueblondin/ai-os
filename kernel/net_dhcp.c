@@ -102,6 +102,7 @@ int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
         size = packet[pos++]; if (pos + size > length) return -2;
         if (code == NET_DHCP_OPTION_MESSAGE_TYPE && size == 1U) type = packet[pos];
         if (code == NET_DHCP_OPTION_SERVER_ID && size == 4U) { copy_bytes(next.server_ipv4, packet + pos, 4U); server_seen = 1U; }
+        if (code == NET_DHCP_OPTION_SUBNET_MASK) { if (size != 4U) return -4; copy_bytes(next.subnet_mask, packet + pos, 4U); next.subnet_valid = 1U; }
         if (code == NET_DHCP_OPTION_ROUTER) { if (size < 4U || (size & 3U) != 0U) return -4; copy_bytes(next.router_ipv4, packet + pos, 4U); next.router_valid = 1U; }
         if (code == NET_DHCP_OPTION_DNS) { if (size < 4U || (size & 3U) != 0U) return -4; copy_bytes(next.dns_ipv4, packet + pos, 4U); next.dns_valid = 1U; }
         pos += size;
@@ -110,4 +111,7 @@ int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
     copy_bytes(next.ipv4, packet + 16, 4U); next.xid = expected_xid; next.valid = 1U;
     *lease = next;
     return 0;
+}
+
+int net_dhcp_lease_next_hop(const net_dhcp_lease_t* lease,const uint8_t destination[4],uint8_t next_hop[4]){uint8_t next[4],index,local=1U;if(!lease||!destination||!next_hop||!lease->valid||!lease->subnet_valid)return -1;for(index=0U;index<4U;index++)if((uint8_t)(lease->ipv4[index]&lease->subnet_mask[index])!=(uint8_t)(destination[index]&lease->subnet_mask[index]))local=0U;if(local)copy_bytes(next,destination,4U);else{if(!lease->router_valid)return -2;copy_bytes(next,lease->router_ipv4,4U);}copy_bytes(next_hop,next,4U);return 0;
 }
