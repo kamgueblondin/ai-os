@@ -374,3 +374,10 @@ Référence : [aos345_352_tls_trust_policy.md](aos345_352_tls_trust_policy.md). 
 `ne2k_tls_client_poll` reçoit un instant UTC caller-owned et applique maintenant `x509_certificate_tls_identity_validate` avant de marquer le pair valide ou d’émettre le flight X25519. Toute erreur de chaîne, hostname ou date déclenche le rollback existant. Le test NE2000 fournit explicitement l’instant UTC du nouveau contrat ; les tests X.509 couvrent la politique de confiance.
 
 Référence : [aos353_360_ne2k_tls_time_policy.md](aos353_360_ne2k_tls_time_policy.md). RTC/NTP sécurisé, handshake complet QEMU contre serveur externe, intermédiaires, révocation et ECDSA restent à implémenter.
+
+
+### AOS-361 à AOS-368 — extraction JSON de réponses LLM
+
+`net_json_extract_string` extrait et décode une valeur JSON string pour une clé ASCII dans un buffer caller-owned. Les échappements JSON simples sont décodés ; clé absente, contrôle brut, Unicode `\uXXXX`, string incomplète et capacité insuffisante sont rejetés. Le test couvre le champ `response`, le saut de ligne, les limites et le rejet Unicode.
+
+Référence : [aos361_368_llm_json_extractor.md](aos361_368_llm_json_extractor.md). Ce n’est pas un parseur JSON complet : Unicode, tableaux, objets structurés, types non-string et SSE restent hors périmètre, de même que les adaptateurs OpenAI/Ollama spécifiques.

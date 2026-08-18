@@ -34,6 +34,8 @@ typedef struct {
 
 /* Construit une requête HTTP/1.1 GET avec Host et Connection: close dans un buffer caller-owned. */
 int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const char* path);
+/* Extrait et décode une valeur JSON string associée à une clé ASCII, dans un buffer caller-owned. */
+int net_json_extract_string(const uint8_t* json,uint16_t json_length,const char* key,uint8_t* output,uint16_t output_capacity,uint16_t* output_length);
 
 /* Chiffre une requête GET dans un record TLS applicatif et l’encapsule dans un segment TCP. */
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,

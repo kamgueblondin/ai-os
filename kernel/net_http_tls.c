@@ -211,3 +211,16 @@ int net_http_chunked_accumulator_feed(net_http_chunked_accumulator_t* accumulato
     if(accumulator->state!=8U)return 1;
     out->status_code=accumulator->status_code;out->header_length=accumulator->header_length;out->body=accumulator->buffer;out->body_length=accumulator->length;return 0;
 }
+
+static int net_json_key_match(const uint8_t* input,uint16_t start,uint16_t end,const char* key){uint16_t index=0U;if(!key)return 0;while(key[index]){if((uint16_t)(start+index)>=end||input[start+index]!=(uint8_t)key[index])return 0;index++;}return (uint16_t)(start+index)==end;}
+static uint16_t net_json_skip_space(const uint8_t* input,uint16_t length,uint16_t index){while(index<length&&(input[index]==' '||input[index]=='\t'||input[index]=='\r'||input[index]=='\n'))index++;return index;}
+int net_json_extract_string(const uint8_t* json,uint16_t json_length,const char* key,uint8_t* output,uint16_t output_capacity,uint16_t* output_length){uint16_t index,start,end,cursor,out=0U;uint8_t escaped,value;
+    if(!json||!key||!key[0]||!output||!output_length)return -1;
+    for(index=0U;index<json_length;index++){
+        if(json[index]!='"')continue;start=(uint16_t)(index+1U);escaped=0U;for(index=start;index<json_length;index++){if(escaped){escaped=0U;continue;}if(json[index]=='\\'){escaped=1U;continue;}if(json[index]=='"')break;}if(index>=json_length)return -2;end=index;
+        if(!net_json_key_match(json,start,end,key))continue;cursor=net_json_skip_space(json,json_length,(uint16_t)(end+1U));if(cursor>=json_length||json[cursor]!=':')continue;cursor=net_json_skip_space(json,json_length,(uint16_t)(cursor+1U));if(cursor>=json_length||json[cursor]!='"')return -3;cursor++;
+        for(;cursor<json_length;cursor++){value=json[cursor];if(value=='"'){*output_length=out;return 0;}if(value=='\\'){if(++cursor>=json_length)return -4;value=json[cursor];if(value=='"'||value=='\\'||value=='/'){}else if(value=='b')value='\b';else if(value=='f')value='\f';else if(value=='n')value='\n';else if(value=='r')value='\r';else if(value=='t')value='\t';else return -5;}else if(value<0x20U)return -6;if(out>=output_capacity)return -7;output[out++]=value;}
+        return -8;
+    }
+    return -9;
+}
