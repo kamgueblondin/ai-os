@@ -561,6 +561,13 @@ qemu-smoke: $(OS_IMAGE) pack-initrd disk
 
 # Contrats d’intégration QEMU versionnés : boot, shell/overlay, préemption IRQ0
 # et absence réseau OpenAI explicitement vérifiable.
+.PHONY: gui-captures gui-record
+gui-captures: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/scripts/gui_screendump.py
+
+gui-record: $(OS_IMAGE) pack-initrd disk
+	@python3 tests/scripts/gui_record_demo.py
+
 .PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ipc-foundation qemu-vfs-service qemu-service-grant
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
@@ -632,6 +639,8 @@ help:
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
+	@echo "  gui-captures    - Screendumps QEMU GTK (DISPLAY=:1, artefacts PNG)"
+	@echo "  gui-record      - Video courte QEMU GTK (ffmpeg x11grab)"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"
@@ -660,5 +669,5 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # 251 tests Unity avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk gui-captures gui-record
 
