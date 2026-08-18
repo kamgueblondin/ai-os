@@ -18,6 +18,8 @@ typedef struct {
     const uint8_t* subject_public_key_algorithm; uint32_t subject_public_key_algorithm_length;
     const uint8_t* rsa_modulus; uint32_t rsa_modulus_length;
     const uint8_t* rsa_exponent; uint32_t rsa_exponent_length;
+    /* Vue SEC1 non compressée de la clé id-ecPublicKey secp256r1. */
+    const uint8_t* ec_p256_public_key; uint32_t ec_p256_public_key_length;
     const uint8_t* common_name; uint32_t common_name_length;
     const uint8_t* subject_alt_names; uint32_t subject_alt_names_length;
     uint8_t basic_constraints_present; uint8_t basic_constraints_ca;
@@ -66,5 +68,7 @@ int x509_certificate_tls_identity_validate_three(const x509_certificate_view_t* 
                                                  const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
 /* Vérifie l’OID rsaEncryption, le module positif et l’exposant public impair pris en charge par RSA. */
 int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate);
+/* Vérifie id-ecPublicKey + namedCurve secp256r1 et une clé SEC1 non compressée. */
+int x509_ec_p256_public_key_validate(const x509_certificate_view_t* certificate);
 
 #endif
