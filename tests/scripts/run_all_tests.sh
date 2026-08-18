@@ -140,6 +140,9 @@ run_test() {
         test_net_tls_record.c|test_tls_rsa_handshake.c|test_net_tcp.c|test_net_http_tls.c|test_ne2k.c)
             extra_src="$extra_src $BASE_DIR/kernel/x25519.c" ;;
     esac
+    if [ "$(basename "$test_file")" = "test_ecdsa_p256.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/ecdsa_p256.c $BASE_DIR/kernel/bigint.c"
+    fi
     if [ "$(basename "$test_file")" = "test_x25519.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/x25519.c $BASE_DIR/kernel/bigint.c"
     fi
