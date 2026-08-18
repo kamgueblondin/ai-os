@@ -276,6 +276,21 @@ int ne2k_https_llm_poll_text(ne2k_device_t* device,const ne2k_io_t* io,const net
                              ne2k_tls_client_t* client,uint8_t provider,uint8_t* plaintext,uint16_t plaintext_capacity,
                              net_http_response_accumulator_t* accumulator,net_http_response_view_t* response,
                              uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
+/* Émet une requête LLM JSON avec `stream:true` après handshake TLS complet. */
+int ne2k_https_llm_stream_request(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                   uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                                   net_tcp_connection_t* connection,ne2k_tls_client_t* client,uint8_t provider,
+                                   uint8_t* json,uint16_t json_capacity,uint8_t* request,uint16_t request_capacity,
+                                   const char* host,const char* path,const char* bearer_token,const char* model,
+                                   const uint8_t* prompt,uint16_t prompt_length,uint8_t* tls_record,uint32_t tls_capacity,
+                                   uint8_t retransmit_limit);
+/* Polling HTTPS d’un flux chunked/SSE ; retourne 1 sans delta, 0 après delta ou terminaison SSE. */
+int ne2k_https_llm_poll_sse(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                            uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                            const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,
+                            ne2k_tls_client_t* client,uint8_t provider,uint8_t* plaintext,uint16_t plaintext_capacity,
+                            net_llm_sse_response_t* response,uint8_t* text,uint16_t text_capacity,
+                            uint16_t* text_length,uint16_t* consumed);
 /* Attache le périphérique à l’IRQ ISA fournie par le matériel, sans allocation. */
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io);
 /* Acquitte l’ISR et compte les événements NE2000 observés par l’IRQ. */

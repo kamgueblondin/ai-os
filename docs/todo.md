@@ -495,3 +495,10 @@ Le test NE2000 injecte un RTC BCD 12 h valide et une seconde invalide ; les deux
 Le noyau expose un budget de reprise caller-owned (`net_tcp_connection_retry_t`) avec consommation bornée et réouverture TCP en `SYN_SENT`. `ne2k_tls_client_retry_reset` emploie ce budget pour reconstruire la connexion et purger transactionnellement le handshake TLS, les accumulateurs, le transcript, les secrets, le contexte X25519, la session AEAD et les indicateurs d’identité, sans toucher aux pointeurs ni capacités des buffers caller-owned.
 
 Une reprise épuisée retourne `0` sans mutation. Les retransmissions de payload TCP et le retry HTTP LLM restent volontairement séparés. Validation locale : **369/369 tests**, build i386 et smokes QEMU réussis. Référence : [aos505_512_tcp_tls_connection_retry.md](aos505_512_tcp_tls_connection_retry.md). Temporisation, backoff, jitter, SYN automatisé, classification de pannes, session resumption et basculement de fournisseur restent hors périmètre.
+
+
+### AOS-513 à AOS-520 — streaming LLM SSE sur HTTPS
+
+Le chemin LLM HTTPS prend désormais en charge les requêtes JSON `stream:true`, les réponses HTTP chunked et un sous-ensemble SSE borné : une ligne `data:` par événement, délimitée par `LF LF` ou `CRLF CRLF`, avec extraction des deltas JSON Ollama (`response`) et OpenAI compatible (`content`). Les contextes HTTP/SSE, buffers plaintext, texte, requête et record restent entièrement caller-owned ; `[DONE]` termine le flux sans allocation dynamique.
+
+Les façades NE2000 émettent une requête streaming puis pollent, authentifient, décodent et acquittent les fragments SSE avec rollback de transport en cas d’échec. Validation locale : **371/371 tests**, build i386 et smokes QEMU réussis. Référence : [aos513_520_llm_sse_streaming.md](aos513_520_llm_sse_streaming.md). Commentaires/champs SSE génériques, `id`, `retry`, événements multi-lignes, UTF-8 complet, `Last-Event-ID`, reconnexion SSE, annulation et formats fournisseurs non compatibles restent hors périmètre.
