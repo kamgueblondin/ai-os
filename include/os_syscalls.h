@@ -168,8 +168,10 @@
 #define SYS_LLM_SESSION_STATUS 90
 /* EBX = os_llm_acquire_start_request_t* ; démarre DHCP→DNS→SYN sans secret. */
 #define SYS_LLM_ACQUIRE_START 91
+/* Aucun argument ; pilote SYN-ACK/TLS avec seuls les buffers persistants du noyau. */
+#define SYS_LLM_POLL_TLS 92
 
-#define MAX_SYSCALLS 92
+#define MAX_SYSCALLS 93
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
@@ -190,6 +192,9 @@ typedef struct {
 #define OS_LLM_ACQUIRE_UNAVAILABLE (-91)
 #define OS_LLM_ACQUIRE_IN_PROGRESS (-92)
 #define OS_LLM_ACQUIRE_FAILED (-93)
+#define OS_LLM_TLS_BAD_PHASE (-94)
+#define OS_LLM_TLS_UNCONFIGURED (-95)
+#define OS_LLM_TLS_FAILED (-96)
 
 /* IPC Foundation : messages courts, copies par valeur et retours non bloquants. */
 #define OS_IPC_MAX_DATA 96U

@@ -110,6 +110,7 @@ def main():
             run_command(monitor, proc, "ai-runtime", "Bail DHCP noyau    : absent")
             run_command(monitor, proc, "ai-acquire api.openai.com 0", "ai-acquire: port invalide")
             run_command(monitor, proc, "ai-acquire api.openai.com", "ai-acquire: NE2000 absent; aucun etat reseau publie")
+            run_command(monitor, proc, "ai-tls-poll", "ai-tls-poll: NE2000 absent; aucun etat TLS publie")
             run_command(monitor, proc, "ai-runtime", "Session LLM noyau  : IDLE (NE2000 absent)")
             run_command(monitor, proc, "ai-runtime", "Bail DHCP noyau    : absent")
             run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
