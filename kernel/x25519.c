@@ -11,21 +11,16 @@ static const uint8_t x25519_prime_be[X25519_KEY_LENGTH]={
 
 static void x25519_copy(bigint_t* output,const bigint_t* input){
     uint16_t i;
-    for(i=0U;i<output->capacity;i++)output->limbs[i]=i<input->length?input->limbs[i]:0U;
-    output->length=input->length;
+    for(i=0U;i<output->capacity;i++)output->limbs[i]=input->limbs[i];
+    output->length=output->capacity;
 }
 
 static void x25519_swap(bigint_t* left,bigint_t* right,uint32_t swap){
     uint16_t i;uint32_t mask=0U-swap;
     for(i=0U;i<left->capacity;i++){uint32_t difference=mask&(left->limbs[i]^right->limbs[i]);left->limbs[i]^=difference;right->limbs[i]^=difference;}
-    {uint16_t length_mask=(uint16_t)(0U-(uint16_t)swap),difference=(uint16_t)(length_mask&(left->length^right->length));left->length^=difference;right->length^=difference;}
 }
 
-static int x25519_subtract(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus){
-    if(bigint_compare(left,right)>=0)return bigint_subtract(output,left,right);
-    if(bigint_subtract(output,modulus,right)!=0)return -1;
-    return bigint_mod_add(output,output,left,modulus);
-}
+static int x25519_subtract(bigint_t* output,const bigint_t* left,const bigint_t* right,const bigint_t* modulus){return bigint_mod_subtract_ct(output,left,right,modulus);}
 
 static int x25519_small_multiply(bigint_t* output,const bigint_t* input,uint32_t multiplier,const bigint_t* modulus,bigint_t* product,bigint_t* temporary){
     uint16_t bit;
@@ -34,8 +29,8 @@ static int x25519_small_multiply(bigint_t* output,const bigint_t* input,uint32_t
     product->length=0U;
     if(bigint_mod_reduce(temporary,input,modulus)!=0)return -2;
     for(bit=0U;bit<17U;bit++){
-        if((multiplier>>bit)&1U)if(bigint_mod_add(product,product,temporary,modulus)!=0)return -3;
-        if(bit<16U&&bigint_mod_add(temporary,temporary,temporary,modulus)!=0)return -4;
+        if((multiplier>>bit)&1U)if(bigint_mod_add_ct(product,product,temporary,modulus)!=0)return -3;
+        if(bit<16U&&bigint_mod_add_ct(temporary,temporary,temporary,modulus)!=0)return -4;
     }
     x25519_copy(output,product);return 0;
 }
@@ -47,9 +42,9 @@ static int x25519_invert(bigint_t* output,const bigint_t* input,const bigint_t* 
     /* p - 2 = 2^255 - 21 : parcours fixe de 255 bits. */
     for(bit=256U;bit>0U;bit--){
         uint16_t bit_index=(uint16_t)(bit-1U);
-        if(bigint_mod_multiply(product,result,result,modulus,temporary)!=0)return -1;
+        if(bigint_mod_multiply_ct(product,result,result,modulus,temporary)!=0)return -1;
         x25519_copy(result,product);
-        if((bit_index>=5U&&bit_index<=254U)||bit_index==3U||bit_index==1U||bit_index==0U){if(bigint_mod_multiply(product,result,input,modulus,temporary)!=0)return -2;x25519_copy(result,product);}
+        if((bit_index>=5U&&bit_index<=254U)||bit_index==3U||bit_index==1U||bit_index==0U){if(bigint_mod_multiply_ct(product,result,input,modulus,temporary)!=0)return -2;x25519_copy(result,product);}
     }
     x25519_copy(output,result);return 0;
 }
@@ -66,15 +61,15 @@ int x25519_scalar_mult(uint8_t output[X25519_KEY_LENGTH],const uint8_t scalar[X2
     k[0]&=248U;k[31]&=127U;k[31]|=64U;encoded_u[0]&=127U;
     if(bigint_from_be(&x1,encoded_u,sizeof(encoded_u))!=0||bigint_mod_reduce(&t0,&x1,&p)!=0)return -4;
     x25519_copy(&x1,&t0);
-    x2.limbs[0]=1U;x2.length=1U;z3.limbs[0]=1U;z3.length=1U;x25519_copy(&x3,&x1);
+    x1.length=X25519_LIMBS;x2.limbs[0]=1U;x2.length=X25519_LIMBS;z2.length=X25519_LIMBS;x3.length=X25519_LIMBS;z3.limbs[0]=1U;z3.length=X25519_LIMBS;x25519_copy(&x3,&x1);
     for(bit=255U;bit>0U;bit--){
         uint32_t current=(uint32_t)((k[(bit-1U)/8U]>>((bit-1U)&7U))&1U);
         swap^=current;x25519_swap(&x2,&x3,swap);x25519_swap(&z2,&z3,swap);swap=current;
-        if(bigint_mod_add(&a,&x2,&z2,&p)!=0||bigint_mod_multiply(&aa,&a,&a,&p,&temporary)!=0||x25519_subtract(&b,&x2,&z2,&p)!=0||bigint_mod_multiply(&bb,&b,&b,&p,&temporary)!=0||x25519_subtract(&e,&aa,&bb,&p)!=0||bigint_mod_add(&c,&x3,&z3,&p)!=0||x25519_subtract(&d,&x3,&z3,&p)!=0||bigint_mod_multiply(&da,&d,&a,&p,&temporary)!=0||bigint_mod_multiply(&cb,&c,&b,&p,&temporary)!=0)return -5;
-        if(bigint_mod_add(&t0,&da,&cb,&p)!=0||bigint_mod_multiply(&x3,&t0,&t0,&p,&temporary)!=0||x25519_subtract(&t0,&da,&cb,&p)!=0||bigint_mod_multiply(&da,&t0,&t0,&p,&temporary)!=0||bigint_mod_multiply(&z3,&x1,&da,&p,&temporary)!=0||bigint_mod_multiply(&x2,&aa,&bb,&p,&temporary)!=0||x25519_small_multiply(&t0,&e,121665U,&p,&product,&temporary)!=0||bigint_mod_add(&t0,&aa,&t0,&p)!=0||bigint_mod_multiply(&z2,&e,&t0,&p,&temporary)!=0)return -6;
+        if(bigint_mod_add_ct(&a,&x2,&z2,&p)!=0||bigint_mod_multiply_ct(&aa,&a,&a,&p,&temporary)!=0||x25519_subtract(&b,&x2,&z2,&p)!=0||bigint_mod_multiply_ct(&bb,&b,&b,&p,&temporary)!=0||x25519_subtract(&e,&aa,&bb,&p)!=0||bigint_mod_add_ct(&c,&x3,&z3,&p)!=0||x25519_subtract(&d,&x3,&z3,&p)!=0||bigint_mod_multiply_ct(&da,&d,&a,&p,&temporary)!=0||bigint_mod_multiply_ct(&cb,&c,&b,&p,&temporary)!=0)return -5;
+        if(bigint_mod_add_ct(&t0,&da,&cb,&p)!=0||bigint_mod_multiply_ct(&x3,&t0,&t0,&p,&temporary)!=0||x25519_subtract(&t0,&da,&cb,&p)!=0||bigint_mod_multiply_ct(&da,&t0,&t0,&p,&temporary)!=0||bigint_mod_multiply_ct(&z3,&x1,&da,&p,&temporary)!=0||bigint_mod_multiply_ct(&x2,&aa,&bb,&p,&temporary)!=0||x25519_small_multiply(&t0,&e,121665U,&p,&product,&temporary)!=0||bigint_mod_add_ct(&t0,&aa,&t0,&p)!=0||bigint_mod_multiply_ct(&z2,&e,&t0,&p,&temporary)!=0)return -6;
     }
     x25519_swap(&x2,&x3,swap);x25519_swap(&z2,&z3,swap);
-    if(x25519_invert(&z2,&z2,&p,&a,&t0,&t1)!=0||bigint_mod_multiply(&t0,&x2,&z2,&p,&temporary)!=0)return -7;
+    if(x25519_invert(&z2,&z2,&p,&a,&t0,&t1)!=0||bigint_mod_multiply_ct(&t0,&x2,&z2,&p,&temporary)!=0)return -7;
     x25519_copy(&x2,&t0);
     if(bigint_to_be(&x2,encoded_output,sizeof(encoded_output))!=0)return -8;
     for(i=0U;i<X25519_KEY_LENGTH;i++)output[i]=encoded_output[X25519_KEY_LENGTH-1U-i];

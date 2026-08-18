@@ -28,4 +28,6 @@ void test_bigint_arithmetic_and_modexp(void){
     TEST_ASSERT_EQUAL(2,o.length);TEST_ASSERT_EQUAL(0U,o.limbs[0]);TEST_ASSERT_EQUAL(1U,o.limbs[1]);
 }
 
-int main(void){unity_init();RUN_TEST(test_bigint_arithmetic_and_modexp);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+void test_bigint_constant_width_modular_primitives(void){uint32_t a_limbs[1],b_limbs[1],m_limbs[1],legacy_limbs[1],ct_limbs[1],temporary_limbs[1];bigint_t a,b,m,legacy,ct,temporary;TEST_ASSERT_EQUAL(0,bigint_init(&a,a_limbs,1));TEST_ASSERT_EQUAL(0,bigint_init(&b,b_limbs,1));TEST_ASSERT_EQUAL(0,bigint_init(&m,m_limbs,1));TEST_ASSERT_EQUAL(0,bigint_init(&legacy,legacy_limbs,1));TEST_ASSERT_EQUAL(0,bigint_init(&ct,ct_limbs,1));TEST_ASSERT_EQUAL(0,bigint_init(&temporary,temporary_limbs,1));a.limbs[0]=5U;a.length=1U;b.limbs[0]=11U;b.length=1U;m.limbs[0]=13U;m.length=1U;TEST_ASSERT_EQUAL(0,bigint_mod_add(&legacy,&a,&b,&m));TEST_ASSERT_EQUAL(0,bigint_mod_add_ct(&ct,&a,&b,&m));TEST_ASSERT_EQUAL(legacy.limbs[0],ct.limbs[0]);TEST_ASSERT_EQUAL(0,bigint_mod_subtract_ct(&ct,&a,&b,&m));TEST_ASSERT_EQUAL(7U,ct.limbs[0]);TEST_ASSERT_EQUAL(0,bigint_mod_multiply(&legacy,&a,&b,&m,&temporary));TEST_ASSERT_EQUAL(0,bigint_mod_multiply_ct(&ct,&a,&b,&m,&temporary));TEST_ASSERT_EQUAL(legacy.limbs[0],ct.limbs[0]);TEST_ASSERT_EQUAL(3U,ct.limbs[0]);}
+
+int main(void){unity_init();RUN_TEST(test_bigint_arithmetic_and_modexp);RUN_TEST(test_bigint_constant_width_modular_primitives);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}

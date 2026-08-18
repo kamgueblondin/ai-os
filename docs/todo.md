@@ -413,3 +413,9 @@ Les vecteurs couvrent `401`, `403`, `408`, `429`, `503`, classes 2xx/3xx/4xx et 
 Le module `rtc` produit `YYYYMMDDHHMMSSZ` depuis les registres CMOS i386 via une photographie stable bornée, BCD/binaire et 12/24 h. Le buffer UTC reste caller-owned et peut être transmis à la politique de dates X.509/TLS. Les données instables, invalides ou insuffisantes sont refusées.
 
 Les tests RTC couvrent BCD 12 h, binaire 24 h, date bissextile, capacité, BCD invalide et bit UIP persistant. Référence : [aos401_408_rtc_utc.md](aos401_408_rtc_utc.md). Batterie RTC, fuseau firmware, siècle matériel, dérive et synchronisation NTP restent hors périmètre.
+
+### AOS-409 à AOS-416 — durcissement X25519/bigint
+
+Le ladder X25519 utilise les opérations modulaires bigint à largeur fixe : échanges XOR masqués, addition/soustraction avec sélection masquée et multiplication parcourant tous les limbs et les bits. Les éléments du ladder conservent huit limbs initialisés ; aucun `kmalloc` n’est introduit.
+
+Les vecteurs X25519 restent verts et le test bigint compare les résultats classiques et constants. Référence : [aos409_416_constant_time_crypto.md](aos409_416_constant_time_crypto.md). L’analyse du compilateur et du microprocesseur, les accès cache, RSA et une preuve de temps constant restent hors périmètre.
