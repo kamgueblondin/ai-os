@@ -45,8 +45,9 @@ static void ne2k_boot_probe(void) {
         return;
     }
     if (ne2k_prepare(&boot_ne2k_device, &io) != 0 ||
-        ne2k_configure_rings(&boot_ne2k_device, &io) != 0) {
-        print_string("NE2000 detecte mais initialisation incomplete.\\n");
+        ne2k_configure_rings(&boot_ne2k_device, &io) != 0 ||
+        ne2k_read_mac(&boot_ne2k_device, &io) != 0) {
+        print_string("NE2000 detecte mais initialisation ou MAC incomplete.\\n");
         return;
     }
     if (ne2k_irq_attach(&boot_ne2k_device, &io) != 0) {
@@ -54,7 +55,7 @@ static void ne2k_boot_probe(void) {
         return;
     }
     boot_ne2k_present = 1U;
-    print_string("NE2000 ISA detecte et anneaux RX/TX configures.\\n");
+    print_string("NE2000 ISA detecte, MAC valide et anneaux RX/TX configures.\\n");
 }
 
 uint32_t kernel_net_status(void) {

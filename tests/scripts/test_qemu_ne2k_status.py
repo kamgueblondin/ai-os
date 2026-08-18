@@ -39,7 +39,11 @@ def main():
         try:
             wait("(-.-)",p);s=monitor();time.sleep(.5);before=len(text());keys(s,"net-status json");end=time.time()+15
             while time.time()<end:
-                if '"nic":"detected"' in text()[before:]:print("QEMU NE2000 status smoke passed.");return 0
+                if '"nic":"detected"' in text()[before:]:
+                    keys(s,"ai-runtime")
+                    wait("Session LLM noyau  : IDLE (NE2000 pret)",p)
+                    print("QEMU NE2000 status smoke passed.")
+                    return 0
                 if p.poll() is not None:raise RuntimeError("QEMU stopped while querying net-status")
                 time.sleep(.1)
             raise RuntimeError("net-status did not report nic=detected; log tail: "+text()[-500:])
