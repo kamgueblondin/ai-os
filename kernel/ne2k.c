@@ -93,6 +93,8 @@ int ne2k_tx_udp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
                        payload, payload_length);
 }
 
+int ne2k_tx_udp_via(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,uint8_t* request_frame,uint16_t request_capacity,uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ipv4[4],const uint8_t destination_ipv4[4],const uint8_t next_hop_ipv4[4],uint16_t source_port,uint16_t destination_port,const uint8_t* payload,uint16_t payload_length,uint16_t attempts){uint8_t destination_mac[6];int status;status=ne2k_arp_resolve(device,io,cache,request_frame,request_capacity,rx_frame,rx_capacity,device?device->mac:0,local_ipv4,next_hop_ipv4,attempts);if(status!=0)return status;if(net_arp_cache_lookup(cache,next_hop_ipv4,destination_mac)!=0)return -6;return ne2k_tx_udp(device,io,tx_frame,tx_capacity,destination_mac,local_ipv4,destination_ipv4,source_port,destination_port,payload,payload_length);}
+
 int ne2k_dhcp_discover(ne2k_device_t* device, const ne2k_io_t* io,
                        uint8_t* frame, uint16_t frame_capacity, uint32_t xid) {
     static const uint8_t broadcast_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -135,23 +137,9 @@ int ne2k_dhcp_request(ne2k_device_t* device, const ne2k_io_t* io,
                        (uint16_t)payload_length);
 }
 
-int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
-                   net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
-                   uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
-                   const uint8_t local_ip[4], const uint8_t dns_ip[4], uint16_t id,
-                   const char* hostname) {
-    int payload_length;
-    if (!device || !io || !cache || !arp_request || !arp_rx || !frame || !local_ip || !dns_ip || !hostname ||
-        frame_capacity < NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE + 12U)
-        return -1;
-    payload_length = net_dns_build_a_query(frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
-        frame_capacity - NET_ETHERNET_HEADER_SIZE - NET_IPV4_HEADER_SIZE - NET_UDP_HEADER_SIZE, id, hostname);
-    if (payload_length < 0) return -2;
-    return ne2k_tx_udp_resolve(device, io, cache, arp_request, arp_request_capacity, arp_rx, arp_rx_capacity,
-        frame, frame_capacity, local_ip, dns_ip, 49152U, 53U,
-        frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
-        (uint16_t)payload_length, 8U);
-}
+int ne2k_dns_query_via(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],const uint8_t next_hop_ip[4],uint16_t id,const char* hostname){int payload_length;if(!device||!io||!cache||!arp_request||!arp_rx||!frame||!local_ip||!dns_ip||!next_hop_ip||!hostname||frame_capacity<NET_ETHERNET_HEADER_SIZE+NET_IPV4_HEADER_SIZE+NET_UDP_HEADER_SIZE+12U)return -1;payload_length=net_dns_build_a_query(frame+NET_ETHERNET_HEADER_SIZE+NET_IPV4_HEADER_SIZE+NET_UDP_HEADER_SIZE,frame_capacity-NET_ETHERNET_HEADER_SIZE-NET_IPV4_HEADER_SIZE-NET_UDP_HEADER_SIZE,id,hostname);if(payload_length<0)return -2;return ne2k_tx_udp_via(device,io,cache,arp_request,arp_request_capacity,arp_rx,arp_rx_capacity,frame,frame_capacity,local_ip,dns_ip,next_hop_ip,49152U,53U,frame+NET_ETHERNET_HEADER_SIZE+NET_IPV4_HEADER_SIZE+NET_UDP_HEADER_SIZE,(uint16_t)payload_length,8U);}
+
+int ne2k_dns_query(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],uint16_t id,const char* hostname){return ne2k_dns_query_via(device,io,cache,arp_request,arp_request_capacity,arp_rx,arp_rx_capacity,frame,frame_capacity,local_ip,dns_ip,dns_ip,id,hostname);}
 
 int ne2k_tcp_syn(ne2k_device_t* device, const ne2k_io_t* io,
                  net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,

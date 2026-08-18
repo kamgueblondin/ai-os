@@ -99,6 +99,8 @@ void test_probe_and_prepare_use_injected_io(void) {
     }
 }
 
+void test_ne2k_udp_via_gateway_preserves_ipv4_destination(void){fake_ne2k_t fake={0x12,NE2K_ISR_RESET|NE2K_ISR_RDC,0,0};ne2k_io_t io={&fake,fake_inb,fake_outb};ne2k_device_t device;net_arp_cache_t cache;uint8_t local_mac[6]={2,0,0,0,0,1},gateway_ip[4]={10,0,2,2},gateway_mac[6]={0x52,0x54,0,0,0,2},local_ip[4]={10,0,2,15},dns_ip[4]={1,1,1,1},request[128]={0},rx[128]={0},frame[128]={0},payload[2]={1,2};TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300U,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));TEST_ASSERT_EQUAL(0,net_arp_cache_put(&cache,gateway_ip,gateway_mac));TEST_ASSERT_EQUAL(0,ne2k_tx_udp_via(&device,&io,&cache,request,sizeof(request),rx,sizeof(rx),frame,sizeof(frame),local_ip,dns_ip,gateway_ip,49152U,53U,payload,sizeof(payload),1U));TEST_ASSERT_EQUAL(0x52,frame[0]);TEST_ASSERT_EQUAL(0x54,frame[1]);TEST_ASSERT_EQUAL(1,frame[30]);TEST_ASSERT_EQUAL(1,frame[31]);TEST_ASSERT_EQUAL(1,frame[32]);TEST_ASSERT_EQUAL(1,frame[33]);}
+
 void test_tcp_ack_is_emitted_from_connection_state(void) {
     fake_ne2k_t fake = {0x12, 0, 0, 0}; ne2k_io_t io = {&fake, fake_inb, fake_outb}; ne2k_device_t device;
     net_arp_cache_t cache; net_tcp_connection_t connection; uint8_t frame[128] = {0};
@@ -229,7 +231,7 @@ void test_ne2k_https_llm_request_composes_provider_json_and_bearer(void){fake_ne
 
 int main(void) {
     unity_init();
-    RUN_TEST(test_probe_and_prepare_use_injected_io);
+    RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);
     RUN_TEST(test_tcp_receive_copies_bounded_payload);
     RUN_TEST(test_tcp_poll_is_bounded_when_rx_empty);
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
