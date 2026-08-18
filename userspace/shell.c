@@ -4432,6 +4432,8 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
     print_string("Session LLM noyau  : ");
     print_string(ai_session_phase_name(session_status));
     print_string((session_status & 1U) ? " (NE2000 pret)\n" : " (NE2000 absent)\n");
+    print_string("Bail DHCP noyau    : ");
+    print_string((session_status & 2U) ? "present (routes disponibles)\n" : "absent\n");
     print_string("En ligne           : controle de phase integre; DHCP/DNS/identifiants requis avant appel\n");
     print_string("Secrets OpenAI     : jamais integres a l'image de boot\n\n");
 }

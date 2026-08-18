@@ -107,6 +107,7 @@ def main():
             run_command(monitor, proc, "ai-model", "control.bin")
             run_command(monitor, proc, "ai-runtime", "Runtime IA bare-metal")
             run_command(monitor, proc, "ai-runtime", "Session LLM noyau  : IDLE (NE2000 absent)")
+            run_command(monitor, proc, "ai-runtime", "Bail DHCP noyau    : absent")
             run_command(monitor, proc, "net-status", "net-status ok stub AOS-025")
             run_command(monitor, proc, "net-status json", "\"nic\":\"absent\"")
             run_command(monitor, proc, "net-status json", "\"openai\":\"blocked\"")

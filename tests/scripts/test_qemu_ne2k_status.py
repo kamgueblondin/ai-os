@@ -42,6 +42,7 @@ def main():
                 if '"nic":"detected"' in text()[before:]:
                     keys(s,"ai-runtime")
                     wait("Session LLM noyau  : IDLE (NE2000 pret)",p)
+                    wait("Bail DHCP noyau    : absent",p)
                     print("QEMU NE2000 status smoke passed.")
                     return 0
                 if p.poll() is not None:raise RuntimeError("QEMU stopped while querying net-status")

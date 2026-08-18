@@ -31,13 +31,14 @@ void print_string_serial(const char* str);
 void print_string(const char* str);
 
 static ne2k_device_t boot_ne2k_device;
-static ne2k_llm_connection_state_t boot_llm_connection;
+/* Contexte persistant appartenant au noyau ; aucun buffer, endpoint ou secret n’y est stocké. */
+static ne2k_llm_network_context_t boot_llm_network;
 static uint8_t boot_ne2k_present;
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
     ne2k_io_t io;
-    (void)ne2k_llm_connection_state_init(&boot_llm_connection);
+    (void)ne2k_llm_network_context_init(&boot_llm_network);
     boot_ne2k_present = 0U;
     if (ne2k_i386_io(&io) != 0) return;
     if (ne2k_probe(&boot_ne2k_device, 0x300U, &io) != 0) {
@@ -62,9 +63,11 @@ uint32_t kernel_net_status(void) {
     return boot_ne2k_present ? 3U : 0U;
 }
 
-/* Bits 0..0 : NE2000 prêt ; bits 8..15 : phase du contexte LLM, sans IPv4 ni secret. */
+/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP présent ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
-    return (boot_ne2k_present ? 1U : 0U) | ((uint32_t)boot_llm_connection.phase << 8);
+    return (boot_ne2k_present ? 1U : 0U) |
+           (boot_llm_network.lease.valid ? 2U : 0U) |
+           ((uint32_t)boot_llm_network.session.phase << 8);
 }
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
