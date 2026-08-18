@@ -202,3 +202,16 @@ int x509_rsa_public_key_validate(const x509_certificate_view_t* certificate){
     if(value<3U||(value&1U)==0U)return -5;
     return 0;
 }
+
+typedef struct {uint16_t year;uint8_t month,day,hour,minute,second;} x509_time_t;
+static int x509_time_digit(uint8_t value,uint8_t* out){if(value<'0'||value>'9')return -1;*out=(uint8_t)(value-'0');return 0;}
+static int x509_time_parse(const uint8_t* input,uint32_t length,x509_time_t* out){uint8_t d[14],i;uint8_t days;uint16_t year;
+    if(!input||!out||(length!=13U&&length!=15U)||input[length-1U]!='Z')return -1;
+    for(i=0U;i<(uint8_t)(length-1U);i++)if(x509_time_digit(input[i],&d[i])!=0)return -2;
+    if(length==13U)year=(uint16_t)((d[0]*10U+d[1]>=50U?1900U:2000U)+d[0]*10U+d[1]);else year=(uint16_t)(d[0]*1000U+d[1]*100U+d[2]*10U+d[3]);
+    out->year=year;i=(uint8_t)(length==13U?2U:4U);out->month=(uint8_t)(d[i]*10U+d[i+1U]);out->day=(uint8_t)(d[i+2U]*10U+d[i+3U]);out->hour=(uint8_t)(d[i+4U]*10U+d[i+5U]);out->minute=(uint8_t)(d[i+6U]*10U+d[i+7U]);out->second=(uint8_t)(d[i+8U]*10U+d[i+9U]);
+    if(out->month<1U||out->month>12U||out->hour>23U||out->minute>59U||out->second>59U)return -3;
+    days=(uint8_t)((out->month==4U||out->month==6U||out->month==9U||out->month==11U)?30U:31U);if(out->month==2U)days=(uint8_t)(((out->year%4U==0U&&(out->year%100U!=0U||out->year%400U==0U))?29U:28U));if(out->day<1U||out->day>days)return -4;return 0;
+}
+static int x509_time_compare(const x509_time_t* left,const x509_time_t* right){if(left->year!=right->year)return left->year<right->year?-1:1;if(left->month!=right->month)return left->month<right->month?-1:1;if(left->day!=right->day)return left->day<right->day?-1:1;if(left->hour!=right->hour)return left->hour<right->hour?-1:1;if(left->minute!=right->minute)return left->minute<right->minute?-1:1;if(left->second!=right->second)return left->second<right->second?-1:1;return 0;}
+int x509_certificate_valid_at(const x509_certificate_view_t* certificate,const char* utc_time){x509_time_t before,after,current;if(!certificate||!utc_time||x509_time_parse(certificate->not_before,certificate->not_before_length,&before)!=0||x509_time_parse(certificate->not_after,certificate->not_after_length,&after)!=0||x509_time_parse((const uint8_t*)utc_time,15U,&current)!=0)return -1;if(x509_time_compare(&before,&after)>0)return -2;return x509_time_compare(&current,&before)<0||x509_time_compare(&current,&after)>0?-3:0;}

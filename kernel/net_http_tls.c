@@ -178,7 +178,9 @@ static int net_http_chunked_byte(net_http_chunked_accumulator_t* accumulator,uin
     uint8_t digit;uint32_t next;
     if(accumulator->state==1U){
         if(value=='\r'){if(accumulator->line_length==0U)return -1;accumulator->chunk_remaining=0U;for(digit=0U;digit<accumulator->line_length;digit++){uint8_t hex;if(net_http_chunked_hex(accumulator->line[digit],&hex)!=0)return -2;next=(accumulator->chunk_remaining<<4U)|hex;if(next>65535U)return -3;accumulator->chunk_remaining=next;}accumulator->line_length=0U;accumulator->state=2U;return 1;}
-        if(accumulator->line_length>=sizeof(accumulator->line)||net_http_chunked_hex(value,&digit)!=0)return -4;accumulator->line[accumulator->line_length++]=value;return 1;
+        if(accumulator->line_length>=sizeof(accumulator->line)||net_http_chunked_hex(value,&digit)!=0)return -4;
+        accumulator->line[accumulator->line_length++]=value;
+        return 1;
     }
     if(accumulator->state==2U){if(value!='\n')return -5;accumulator->state=accumulator->chunk_remaining==0U?6U:3U;return 1;}
     if(accumulator->state==3U){if(accumulator->length>=accumulator->capacity)return -6;accumulator->buffer[accumulator->length++]=value;if(--accumulator->chunk_remaining==0U)accumulator->state=4U;return 1;}
