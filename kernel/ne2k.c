@@ -695,6 +695,21 @@ int ne2k_tls_client_init(ne2k_tls_client_t* client,uint8_t* record_buffer,uint16
     return 0;
 }
 
+int ne2k_tls_client_retry_reset(net_tcp_connection_t* connection,ne2k_tls_client_t* client,net_tcp_connection_retry_t* retry,uint32_t local_sequence){
+    ne2k_tls_client_t next_client;net_tcp_connection_t next_connection;uint8_t index;int status;
+    if(!connection||!client||!retry)return -1;
+    next_connection=*connection;next_client=*client;
+    status=net_tcp_connection_retry_reopen(&next_connection,retry,local_sequence);
+    if(status<=0)return status;
+    if(net_tls_handshake_init(&next_client.handshake)!=0)return -2;
+    next_client.stream.record_accumulator.length=0U;next_client.stream.handshake_accumulator.length=0U;next_client.transcript.length=0U;
+    for(index=0U;index<48U;index++)next_client.master_secret[index]=0U;
+    for(index=0U;index<NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH;index++)next_client.key_block[index]=0U;
+    for(index=0U;index<NET_TLS_X25519_KEY_LENGTH;index++){next_client.x25519.client_public[index]=0U;next_client.x25519.shared_secret[index]=0U;}
+    next_client.x25519.ready=0U;next_client.session.write_key=0;next_client.session.read_key=0;next_client.session.write_fixed_iv=0;next_client.session.read_fixed_iv=0;next_client.session.write_sequence=0U;next_client.session.read_sequence=0U;next_client.peer_identity_validated=0U;next_client.complete=0U;
+    *connection=next_connection;*client=next_client;return 1;
+}
+
 int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                           uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
                           net_tcp_connection_t* connection,ne2k_tls_client_t* client,

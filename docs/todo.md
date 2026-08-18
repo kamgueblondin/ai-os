@@ -488,3 +488,10 @@ Le sous-ensemble refuse les formes de nom autres que `dNSName`, les distances no
 La façade `ne2k_tls_client_poll_received_chain_rtc` lit désormais un instant UTC CMOS stable via `rtc_io_t` puis délègue au polling TLS NE2000 utilisant l’intermédiaire reçu. Elle remplace le paramètre UTC caller-owned de ce chemin de production sans modifier les buffers, workspaces ou états TCP/TLS caller-owned. Un échec RTC est retourné avant toute délégation et préserve les sorties du polling.
 
 Le test NE2000 injecte un RTC BCD 12 h valide et une seconde invalide ; les deux chemins de build Unity lient maintenant explicitement `rtc.c`. Validation locale : **368/368 tests**, build i386 et smokes QEMU réussis. Référence : [aos497_504_ne2k_rtc_time_policy.md](aos497_504_ne2k_rtc_time_policy.md). RTC authentifiée, batterie, siècle, dérive, NTP sécurisé et remplacement des APIs UTC historiques restent hors périmètre.
+
+
+### AOS-505 à AOS-512 — récupération transactionnelle TCP/TLS à retry borné
+
+Le noyau expose un budget de reprise caller-owned (`net_tcp_connection_retry_t`) avec consommation bornée et réouverture TCP en `SYN_SENT`. `ne2k_tls_client_retry_reset` emploie ce budget pour reconstruire la connexion et purger transactionnellement le handshake TLS, les accumulateurs, le transcript, les secrets, le contexte X25519, la session AEAD et les indicateurs d’identité, sans toucher aux pointeurs ni capacités des buffers caller-owned.
+
+Une reprise épuisée retourne `0` sans mutation. Les retransmissions de payload TCP et le retry HTTP LLM restent volontairement séparés. Validation locale : **369/369 tests**, build i386 et smokes QEMU réussis. Référence : [aos505_512_tcp_tls_connection_retry.md](aos505_512_tcp_tls_connection_retry.md). Temporisation, backoff, jitter, SYN automatisé, classification de pannes, session resumption et basculement de fournisseur restent hors périmètre.
