@@ -716,3 +716,10 @@ Le test ouvre une paire TLS de fixture, déchiffre le record côté serveur et c
 Ajout d’un état caller-owned `net_llm_sse_reconnect_t` qui conserve le budget, le prochain tick et l’état planifié. `net_llm_sse_reconnect_schedule` réutilise le backoff HTTP borné, réinitialise les accumulateurs HTTP chunked/SSE sans libérer ni remplacer les buffers, et expose une deadline via `net_llm_sse_reconnect_ready`. Aucun sleep, timer global, réémission TCP automatique ou `kmalloc` n’est ajouté.
 
 Les tests couvrent les deadlines 110 et 130 ticks, le reset des longueurs, l’état prêt/non prêt et l’épuisement du budget. Validation ciblée : **21/21 tests HTTP/TLS verts**. Référence : [aos881_888_sse_reconnect_scheduler.md](aos881_888_sse_reconnect_scheduler.md). Last-Event-ID, jitter, timers IRQ intégrés au poller NE2000, reprise au milieu d’un événement et reconnexion automatique multi-fournisseur restent hors périmètre immédiat.
+
+
+### AOS-897 à AOS-904 — hint `retry:` SSE borné
+
+L’accumulateur SSE accepte désormais `retry:` comme entier décimal strict en millisecondes, borné à `NET_LLM_SSE_RETRY_MAX_MS=600000`. La valeur est exposée par `retry_delay_ms` et `retry_valid`, tandis que les valeurs vides, non numériques ou hors borne sont rejetées sans mutation. Le hint n’est pas appliqué implicitement au scheduler, au timer IRQ, au poller NE2000 ou à une reconnexion automatique.
+
+Le test couvre `retry: 1500` avec delta JSON `ok`, la valeur mémorisée et le rejet de `retry: 600001`. Validation ciblée : **23/23 tests HTTP/TLS verts**. Référence : [aos897_904_sse_retry_hint.md](aos897_904_sse_retry_hint.md). L’application automatique du hint, le jitter, les timers IRQ et la persistance inter-session restent hors périmètre immédiat.
