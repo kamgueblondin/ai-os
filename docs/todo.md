@@ -777,3 +777,6 @@ Le parseur ACK extrait l’option 51 et le bail caller-owned expose sa durée, s
 
 ### AOS-1081 à AOS-1096 — contrat writer sectoriel FAT16
 Le volume FAT16 accepte un writer sectoriel explicite caller-owned, désactivé par défaut, avec contrôle du montage et de la plage LBA. Cette primitive prépare les futures écritures FAT/entrées de répertoire sans introduire LFN, FAT32 ou allocation de clusters prématurément. Validation locale : **415/415 tests verts**.
+
+### AOS-1097 à AOS-1112 — provisionnement OpenAI sécurisé
+Ajout de `SYS_LLM_OPENAI_CREDENTIAL` et d’un bearer fixe, borné, validé et effaçable dans le noyau. Le token n’est utilisé que pour OpenAI, jamais retourné ni affiché, et est refusé pendant une session active. Validation locale : **415/415 tests verts**.

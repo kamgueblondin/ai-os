@@ -180,8 +180,10 @@
 #define SYS_LLM_RESET_FOR_REQUEST 96
 /* Aucun argument ; tente un FIN TCP si la session est établie puis purge localement la session. */
 #define SYS_LLM_CLOSE 97
+/* EBX = os_llm_openai_credential_request_t* ; copie un bearer borné dans le noyau. */
+#define SYS_LLM_OPENAI_CREDENTIAL 98
 
-#define MAX_SYSCALLS 98
+#define MAX_SYSCALLS 99
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
@@ -190,6 +192,7 @@
 #define OS_LLM_PATH_MAX 64U
 #define OS_LLM_PROMPT_MAX 1024U
 #define OS_LLM_TEXT_MAX 2048U
+#define OS_LLM_BEARER_MAX 128U
 typedef struct {
     char hostname[OS_LLM_HOSTNAME_MAX];
     uint32_t xid;
@@ -212,6 +215,9 @@ typedef struct {
     uint8_t prompt[OS_LLM_PROMPT_MAX];
 } os_llm_request_t;
 
+/* Credential OpenAI POD : le token n’est jamais retourné par un syscall. */
+typedef struct { char bearer[OS_LLM_BEARER_MAX]; } os_llm_openai_credential_request_t;
+
 /* Sortie copiée par valeur : texte extrait et code HTTP, jamais un buffer TLS interne. */
 typedef struct {
     uint16_t text_length;
@@ -230,6 +236,8 @@ typedef struct {
 #define OS_LLM_REQUEST_BAD_PHASE (-98)
 #define OS_LLM_REQUEST_UNCONFIGURED (-99)
 #define OS_LLM_REQUEST_FAILED (-100)
+#define OS_LLM_CREDENTIAL_BAD_ARGUMENT (-109)
+#define OS_LLM_CREDENTIAL_BAD_PHASE (-110)
 #define OS_LLM_TEXT_BAD_ARGUMENT (-101)
 #define OS_LLM_TEXT_BAD_PHASE (-102)
 #define OS_LLM_TEXT_FAILED (-103)
