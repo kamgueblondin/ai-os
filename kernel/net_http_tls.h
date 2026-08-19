@@ -37,7 +37,8 @@ typedef struct {
     uint8_t state;
 } net_http_chunked_accumulator_t;
 #define NET_LLM_SSE_EVENT_ID_MAX 32U
-typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; uint8_t event_id[NET_LLM_SSE_EVENT_ID_MAX]; uint8_t event_id_length; uint8_t event_id_valid; } net_llm_sse_accumulator_t;
+#define NET_LLM_SSE_RETRY_MAX_MS 600000U
+typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; uint8_t event_id[NET_LLM_SSE_EVENT_ID_MAX]; uint8_t event_id_length; uint8_t event_id_valid; uint32_t retry_delay_ms; uint8_t retry_valid; } net_llm_sse_accumulator_t;
 typedef struct { net_http_chunked_accumulator_t http; net_llm_sse_accumulator_t sse; uint16_t decoded_consumed; } net_llm_sse_response_t;
 typedef struct { uint8_t retries_used; uint8_t retry_limit; uint32_t next_tick; uint8_t scheduled; } net_llm_sse_reconnect_t;
 
