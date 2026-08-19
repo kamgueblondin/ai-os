@@ -188,7 +188,7 @@
 #define OS_LLM_ACQUIRE_MAX_ATTEMPTS 8U
 #define OS_LLM_MODEL_MAX 64U
 #define OS_LLM_PATH_MAX 64U
-#define OS_LLM_PROMPT_MAX 256U
+#define OS_LLM_PROMPT_MAX 1024U
 #define OS_LLM_TEXT_MAX 2048U
 typedef struct {
     char hostname[OS_LLM_HOSTNAME_MAX];
