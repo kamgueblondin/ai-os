@@ -157,6 +157,9 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_sha256.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
     fi
+    if [ "$(basename "$test_file")" = "test_fat32.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/fs/fat32.c"
+    fi
     if [ "$(basename "$test_file")" = "test_rtc.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/rtc.c"
     fi

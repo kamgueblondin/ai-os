@@ -820,3 +820,8 @@ Voir [aos1209_tcp_socket_registry.md](aos1209_tcp_socket_registry.md).
 Les opérations du registre TCP statique sont exposées par six syscalls ABI avec structures POD caller-owned. Les wrappers imposent une tâche utilisateur, copient la vue SYN-ACK par valeur et conservent les buffers d’émission/réception côté appelant. Validation locale : **418/418 tests verts**. Le durcissement suivant doit valider explicitement les fenêtres d’adresses utilisateur avant les copies, puis ajouter l’écoute passive et l’émission NIC.
 
 Voir [aos1225_socket_syscalls.md](aos1225_socket_syscalls.md).
+
+### AOS-1241 à AOS-1256 — montage et lecture FAT32
+Le volume FAT32 valide le BPB, calcule la région de données, lit les entrées FAT 28 bits et restitue un cluster dans un buffer caller-owned. Aucun chemin FAT16 n’est modifié et aucune allocation dynamique n’est introduite. Validation locale : **419/419 tests verts**. La création/écriture FAT32, les entrées LFN FAT32 et les syscalls de montage restent les prochains incréments.
+
+Voir [aos1241_fat32_mount_read.md](aos1241_fat32_mount_read.md).

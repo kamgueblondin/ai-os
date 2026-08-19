@@ -176,6 +176,11 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_http_tls: $(UNIT_DIR)/kernel/test_net_h
 	@echo "Compiled kernel test: $(notdir $@)"
 
 
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_fat32: $(UNIT_DIR)/kernel/test_fat32.c ../kernel/fs/fat32.c ../kernel/fs/fat16.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat32.c ../kernel/fs/fat16.c $(FRAMEWORK_SOURCES)
+	@echo "Compiled kernel test: $(notdir $@)"
+
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_net_dns: $(UNIT_DIR)/kernel/test_net_dns.c ../kernel/net_dns.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/net_dns.c $(FRAMEWORK_SOURCES)
