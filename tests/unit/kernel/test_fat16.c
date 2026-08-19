@@ -26,6 +26,12 @@ static int read_sector(uint32_t lba, void* out) {
     for (i = 0U; i < 512U; i++) ((uint8_t*)out)[i] = disk[lba * 512U + i];
     return 0;
 }
+static int write_sector(uint32_t lba, const void* in) {
+    uint32_t i;
+    if (!in || lba >= TEST_SECTORS) return -1;
+    for (i = 0U; i < 512U; i++) disk[lba * 512U + i] = ((const uint8_t*)in)[i];
+    return 0;
+}
 
 static void make_volume(void) {
     uint32_t fat;
@@ -562,6 +568,7 @@ static void test_rejects_bad_bpb(void) {
     TEST_ASSERT_FALSE(fat16_is_mounted(&volume));
 }
 
+static void test_writes_only_with_explicit_writer(void){fat16_volume_t volume;uint8_t buffer[512]={0};make_volume();TEST_ASSERT_EQUAL(0,fat16_mount(&volume,read_sector,0U));TEST_ASSERT_EQUAL(OS_FAT16_NOT_MOUNTED,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0,fat16_attach_writer(&volume,write_sector));buffer[0]=0xa5U;TEST_ASSERT_EQUAL(0,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0xa5U,disk[2U*512U]);TEST_ASSERT_EQUAL(OS_FAT16_CORRUPT,fat16_write_sector(&volume,TEST_SECTORS,buffer));}
 static void test_rejects_bad_name_and_small_buffer(void) {
     fat16_volume_t volume;
     char content[4];
@@ -579,6 +586,7 @@ int main(void) {
     RUN_TEST(test_cursor_reads_successive_windows);
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
+    RUN_TEST(test_writes_only_with_explicit_writer);
     unity_print_results();
     unity_cleanup();
     return 0;

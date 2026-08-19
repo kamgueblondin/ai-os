@@ -5,9 +5,11 @@
 #include "../../include/os_syscalls.h"
 
 typedef int (*fat16_read_sector_fn)(uint32_t lba, void* buffer);
+typedef int (*fat16_write_sector_fn)(uint32_t lba, const void* buffer);
 
 typedef struct {
     fat16_read_sector_fn read_sector;
+    fat16_write_sector_fn write_sector;
     uint32_t base_lba;
     uint32_t total_sectors;
     uint32_t fat_lba;
@@ -37,6 +39,9 @@ fat16_volume_t* fat16_root(void);
 int fat16_mount(fat16_volume_t* volume, fat16_read_sector_fn read_sector,
                 uint32_t base_lba);
 int fat16_is_mounted(const fat16_volume_t* volume);
+/* Attache explicitement un writer caller-owned ; aucun writer implicite n’est créé au montage. */
+int fat16_attach_writer(fat16_volume_t* volume, fat16_write_sector_fn write_sector);
+int fat16_write_sector(const fat16_volume_t* volume, uint32_t lba, const uint8_t* buffer);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
