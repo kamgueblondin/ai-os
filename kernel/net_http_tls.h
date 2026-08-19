@@ -90,6 +90,12 @@ int net_http_tls_build_post_json(net_tcp_connection_t* connection,net_tls_aes_gc
                                  uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,
                                  uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
                                  const uint8_t* json,uint16_t json_length,uint8_t retransmit_limit);
+/* Variante HTTPS POST Bearer : le token reste dans le store fixe et n’est jamais passé par l’appelant réseau. */
+int net_http_tls_build_post_json_bearer_store(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
+                                              uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,
+                                              uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                                              const net_llm_bearer_store_t* store,const uint8_t* json,uint16_t json_length,
+                                              uint8_t retransmit_limit);
 
 /* Parse une réponse HTTP/1.1 complète déjà déchiffrée. Le body reste une vue sur plaintext. */
 int net_http_response_parse(const uint8_t* plaintext,uint16_t plaintext_length,net_http_response_view_t* out);
