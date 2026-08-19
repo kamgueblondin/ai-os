@@ -49,7 +49,7 @@ static void make_volume(void) {
     put16(22U, 17U);
     put16(510U, 0xAA55U);
     for (fat = 1U; fat <= 2U; fat++) {
-        uint32_t base = fat * 17U * 512U;
+        uint32_t base = (1U + (fat - 1U) * 17U) * 512U;
         put16(base, 0xFFF8U);
         put16(base + 2U, 0xFFFFU);
         put16(base + 4U, 0xFFFFU);
@@ -84,7 +84,7 @@ static void make_gguf_file(void) {
     uint32_t end;
     uint32_t tensor_data;
     make_volume();
-    for (fat = 1U; fat <= 2U; fat++) put16(fat * 17U * 512U + 6U, 0xFFFFU);
+    for (fat = 1U; fat <= 2U; fat++) put16((1U + (fat - 1U) * 17U) * 512U + 6U, 0xFFFFU);
     disk[root + 32U] = 'G'; disk[root + 33U] = 'P'; disk[root + 34U] = 'T'; disk[root + 35U] = '2';
     disk[root + 36U] = ' '; disk[root + 37U] = ' '; disk[root + 38U] = ' '; disk[root + 39U] = ' ';
     disk[root + 40U] = 'G'; disk[root + 41U] = 'G'; disk[root + 42U] = 'U'; disk[root + 43U] = 0x20U;
@@ -568,7 +568,7 @@ static void test_rejects_bad_bpb(void) {
     TEST_ASSERT_FALSE(fat16_is_mounted(&volume));
 }
 
-static void test_writes_only_with_explicit_writer(void){fat16_volume_t volume;uint8_t buffer[512]={0};uint8_t text[3]={'A','I','!'};make_volume();TEST_ASSERT_EQUAL(0,fat16_mount(&volume,read_sector,0U));TEST_ASSERT_EQUAL(OS_FAT16_NOT_MOUNTED,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0,fat16_attach_writer(&volume,write_sector));buffer[0]=0xa5U;TEST_ASSERT_EQUAL(0,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0xa5U,disk[2U*512U]);TEST_ASSERT_EQUAL(0,fat16_write_cluster_range(&volume,2U,7U,text,3U));TEST_ASSERT_EQUAL('A',disk[37U*512U+7U]);TEST_ASSERT_EQUAL('I',disk[37U*512U+8U]);TEST_ASSERT_EQUAL('!',disk[37U*512U+9U]);TEST_ASSERT_EQUAL(OS_FAT16_BUFFER_SMALL,fat16_write_cluster_range(&volume,2U,512U, text, 1U));TEST_ASSERT_EQUAL(OS_FAT16_CORRUPT,fat16_write_sector(&volume,TEST_SECTORS,buffer));}
+static void test_writes_only_with_explicit_writer(void){fat16_volume_t volume;uint8_t buffer[512]={0};uint8_t text[3]={'A','I','!'};make_volume();TEST_ASSERT_EQUAL(0,fat16_mount(&volume,read_sector,0U));TEST_ASSERT_EQUAL(OS_FAT16_NOT_MOUNTED,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0,fat16_attach_writer(&volume,write_sector));buffer[0]=0xa5U;TEST_ASSERT_EQUAL(0,fat16_write_sector(&volume,2U,buffer));TEST_ASSERT_EQUAL(0xa5U,disk[2U*512U]);TEST_ASSERT_EQUAL(0,fat16_write_cluster_range(&volume,2U,7U,text,3U));TEST_ASSERT_EQUAL('A',disk[37U*512U+7U]);TEST_ASSERT_EQUAL('I',disk[37U*512U+8U]);TEST_ASSERT_EQUAL('!',disk[37U*512U+9U]);TEST_ASSERT_EQUAL(OS_FAT16_BUFFER_SMALL,fat16_write_cluster_range(&volume,2U,512U, text, 1U));{uint16_t allocated=0U;TEST_ASSERT_EQUAL(0,fat16_allocate_cluster(&volume,&allocated));TEST_ASSERT_EQUAL(3U,allocated);TEST_ASSERT_EQUAL(0xF8U,disk[1U*512U+6U]);TEST_ASSERT_EQUAL(0xFFU,disk[1U*512U+7U]);TEST_ASSERT_EQUAL(0xF8U,disk[18U*512U+6U]);TEST_ASSERT_EQUAL(0xFFU,disk[18U*512U+7U]);}TEST_ASSERT_EQUAL(OS_FAT16_CORRUPT,fat16_write_sector(&volume,TEST_SECTORS,buffer));}
 static void test_rejects_bad_name_and_small_buffer(void) {
     fat16_volume_t volume;
     char content[4];

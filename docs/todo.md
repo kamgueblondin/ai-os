@@ -783,3 +783,6 @@ Ajout de `SYS_LLM_OPENAI_CREDENTIAL` et d’un bearer fixe, borné, validé et e
 
 ### AOS-1113 à AOS-1128 — écriture bornée d’un cluster FAT16
 `fat16_write_cluster_range` réalise une lecture-modification-écriture caller-owned dans un cluster existant, avec contrôle du volume, du cluster et de la plage. Aucun cluster n’est alloué et la FAT reste inchangée ; LFN/FAT32 seront ajoutés dans les lots suivants. Validation locale : **415/415 tests verts**.
+
+### AOS-1129 à AOS-1144 — allocation bornée de cluster FAT16
+`fat16_allocate_cluster` réserve le premier cluster libre, écrit EOC dans toutes les copies FAT et ne publie le cluster qu’après succès complet. Aucun `kmalloc`; création de fichiers, LFN, chaînes multi-clusters et FAT32 restent des lots supérieurs. Validation locale : **415/415 tests verts**.
