@@ -759,3 +759,6 @@ Le chemin applicatif expose désormais `net_https_application_ready`, qui exige 
 
 ### AOS-1001 à AOS-1008 — émission HTTPS conditionnée par la session TLS complète
 Le wrapper `net_https_build_application_record_if_ready` raccorde le prédicat de readiness à la construction AES-GCM. Il refuse toute émission avant `SERVER_FINISHED_RECEIVED` ou avec une session partiellement initialisée, puis délègue sans copie au builder TLS existant. Validation locale : **413/413 tests verts**.
+
+### AOS-1009 à AOS-1016 — réception HTTPS conditionnée par la session TLS complète
+Le wrapper `net_https_open_application_record_if_ready` complète le garde d’émission : aucun record entrant n’est déchiffré avant `SERVER_FINISHED_RECEIVED` et l’initialisation complète des clés/IV AES-GCM. La séquence de lecture est déléguée au décodeur TLS existant. Validation locale : **413/413 tests verts**.

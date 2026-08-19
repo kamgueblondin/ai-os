@@ -149,4 +149,5 @@ typedef struct { uint8_t provider; const char* model; uint8_t model_length; uint
 int net_llm_model_policy_validate(const net_llm_model_policy_t* policy);
 int net_https_application_ready(const net_tls_handshake_t* handshake,const net_tls_aes_gcm_session_t* session);
 int net_https_build_application_record_if_ready(const net_tls_handshake_t* handshake,net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* plaintext,uint16_t plaintext_length);
+int net_https_open_application_record_if_ready(const net_tls_handshake_t* handshake,net_tls_aes_gcm_session_t* session,const uint8_t* record,uint32_t length,uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out);
 #endif
