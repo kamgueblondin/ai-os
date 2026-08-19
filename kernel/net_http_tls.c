@@ -93,6 +93,7 @@ int net_http_tls_build_post_json(net_tcp_connection_t* connection,net_tls_aes_gc
     if(request_length<0)return -1;
     return net_tcp_connection_build_tls_aes_gcm(connection,session,tcp_segment,tcp_capacity,tls_record,tls_capacity,NET_TLS_CONTENT_APPLICATION_DATA,request,(uint16_t)request_length,retransmit_limit);
 }
+int net_http_tls_build_post_json_bearer_store(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,uint8_t* tcp_segment,uint32_t tcp_capacity,uint8_t* tls_record,uint32_t tls_capacity,uint8_t* request,uint16_t request_capacity,const char* host,const char* path,const net_llm_bearer_store_t* store,const uint8_t* json,uint16_t json_length,uint8_t retransmit_limit){int request_length;if(!store||!store->provisioned)return -1;request_length=net_http_build_post_json_bearer_store(request,request_capacity,host,path,store,json,json_length);if(request_length<0)return -2;return net_tcp_connection_build_tls_aes_gcm(connection,session,tcp_segment,tcp_capacity,tls_record,tls_capacity,NET_TLS_CONTENT_APPLICATION_DATA,request,(uint16_t)request_length,retransmit_limit);}
 
 int net_http_response_parse(const uint8_t* plaintext,uint16_t plaintext_length,net_http_response_view_t* out){
     uint16_t content_length;uint8_t has_content_length;

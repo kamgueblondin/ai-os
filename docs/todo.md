@@ -702,3 +702,10 @@ Les tests vérifient les délais 10/20/25, l’épuisement du budget, le statut 
 Ajout d’un store fixe `NET_LLM_BEARER_MAX=128` pour provisionner un bearer ASCII imprimable dans une structure caller-owned. Le builder POST utilise une copie locale terminée par `NUL`, sans getter de secret ; `net_llm_bearer_store_clear` zéroise tout le tableau et invalide l’état. Les tailles invalides et caractères de contrôle sont rejetés sans écraser un store valide. Aucun champ credential n’est ajouté à l’ABI Ring 3 et aucun `kmalloc` n’est utilisé.
 
 Validation ciblée : **19/19 tests HTTP/TLS verts**. Référence : [aos865_872_secure_llm_bearer_store.md](aos865_872_secure_llm_bearer_store.md). Le raccordement à un secret de boot privilégié, au stockage chiffré matériel, au TPM, à la rotation et au chemin HTTPS ECDHE_ECDSA reste hors périmètre immédiat.
+
+
+### AOS-873 à AOS-880 — raccordement HTTPS du store bearer
+
+Ajout de `net_http_tls_build_post_json_bearer_store`, qui construit le POST Authorization depuis le store bearer fixe puis réutilise le transport TCP et l’encapsulation TLS AES-128-GCM existants. Un store non provisionné est refusé avant émission ; aucun token n’est passé comme chaîne à l’appelant TLS et aucun champ credential n’est exposé à Ring 3.
+
+Le test ouvre une paire TLS de fixture, déchiffre le record côté serveur et compare la requête HTTP complète. Validation ciblée : **20/20 tests HTTP/TLS verts**. Référence : [aos873_880_https_bearer_store.md](aos873_880_https_bearer_store.md). Secret de boot privilégié, coffre matériel/TPM, rotation, persistance chiffrée et sélection dynamique du fournisseur restent hors périmètre immédiat.
