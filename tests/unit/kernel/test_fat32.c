@@ -7,6 +7,11 @@ static int read_sector(uint32_t lba, void* buffer) {
     for (uint32_t i = 0U; i < 512U; i++) ((uint8_t*)buffer)[i] = disk[lba * 512U + i];
     return 0;
 }
+static int write_sector(uint32_t lba, const void* buffer) {
+    if (lba >= 2048U || !buffer) return -1;
+    for (uint32_t i = 0U; i < 512U; i++) disk[lba * 512U + i] = ((const uint8_t*)buffer)[i];
+    return 0;
+}
 static void put16(uint8_t* p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8U); }
 static void put32(uint8_t* p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8U); p[2] = (uint8_t)(v >> 16U); p[3] = (uint8_t)(v >> 24U); }
 void setUp(void) { for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U; }
@@ -21,6 +26,11 @@ void test_fat32_mount_and_read_cluster(void) {
     TEST_ASSERT_EQUAL(0, fat32_cluster_lba(&volume, 2U, &lba)); TEST_ASSERT_EQUAL(2032U, lba);
     disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU; disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
     TEST_ASSERT_EQUAL(0, fat32_read_fat_entry(&volume, 2U, &next)); TEST_ASSERT_EQUAL(FAT32_EOC_MIN, next);
+    TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_allocate_cluster(&volume, &next)); TEST_ASSERT_EQUAL(3U, next);
+    TEST_ASSERT_EQUAL(0, fat32_read_fat_entry(&volume, 3U, &next)); TEST_ASSERT_EQUAL(FAT32_EOC_MIN, next);
+    TEST_ASSERT_EQUAL(0, fat32_link_clusters(&volume, 2U, 3U));
+    TEST_ASSERT_EQUAL(0, fat32_read_fat_entry(&volume, 2U, &next)); TEST_ASSERT_EQUAL(3U, next);
 }
 
 int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); unity_print_results(); unity_cleanup(); return 0; }
