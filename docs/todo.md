@@ -835,3 +835,8 @@ Voir [aos1257_fat32_write_chain.md](aos1257_fat32_write_chain.md).
 Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation locale : **419/419 tests verts**. LFN FAT32, extension automatique du répertoire et orchestration avec rollback multi-clusters restent les prochains incréments.
 
 Voir [aos1273_fat32_data_root.md](aos1273_fat32_data_root.md).
+
+### AOS-1289 à AOS-1304 — création transactionnelle de fichier FAT32
+`fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation locale : **419/419 tests verts**. L’extension automatique du répertoire et les LFN FAT32 restent les prochains incréments.
+
+Voir [aos1289_fat32_create_file.md](aos1289_fat32_create_file.md).

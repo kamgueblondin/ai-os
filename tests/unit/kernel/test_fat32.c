@@ -37,7 +37,12 @@ void test_fat32_mount_and_read_cluster(void) {
       TEST_ASSERT_EQUAL('S', disk[2032U * 512U]); TEST_ASSERT_EQUAL('E', disk[2032U * 512U + 1U]);
       TEST_ASSERT_EQUAL('B', disk[2032U * 512U + 8U]); TEST_ASSERT_EQUAL('N', disk[2032U * 512U + 10U]);
       TEST_ASSERT_EQUAL(0x20U, disk[2032U * 512U + 11U]); TEST_ASSERT_EQUAL(0x00U, disk[2032U * 512U + 20U]);
-      TEST_ASSERT_EQUAL(3U, disk[2032U * 512U + 26U]); TEST_ASSERT_EQUAL(0U, disk[2032U * 512U + 28U]); TEST_ASSERT_EQUAL(4U, disk[2032U * 512U + 29U]); }
+      TEST_ASSERT_EQUAL(3U, disk[2032U * 512U + 26U]); TEST_ASSERT_EQUAL(0U, disk[2032U * 512U + 28U]); TEST_ASSERT_EQUAL(4U, disk[2032U * 512U + 29U]);
+      { uint8_t file_data[1024U]; uint32_t first; for (uint32_t i = 0U; i < sizeof(file_data); i++) file_data[i] = (uint8_t)(0xa0U + (i & 0x0fU));
+        TEST_ASSERT_EQUAL(0, fat32_create_file(&volume, "CHAT.BIN", 0x20U, file_data, sizeof(file_data), &first));
+        TEST_ASSERT_EQUAL(4U, first); TEST_ASSERT_EQUAL(file_data[0], disk[2036U * 512U]); TEST_ASSERT_EQUAL(file_data[511U], disk[2036U * 512U + 511U]);
+        TEST_ASSERT_EQUAL(file_data[512U], disk[2037U * 512U]); TEST_ASSERT_EQUAL('C', disk[2032U * 512U + 32U]); }
+    }
 }
 
 int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); unity_print_results(); unity_cleanup(); return 0; }
