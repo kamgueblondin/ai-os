@@ -186,3 +186,23 @@ int fat32_create_file(const fat32_volume_t* volume, const char* name, uint8_t at
     *out_first_cluster = first;
     return 0;
 }
+
+int fat32_extend_root_directory(const fat32_volume_t* volume, uint32_t* out_cluster) {
+    uint32_t last, next, allocated, guard = 0U;
+    if (!volume || !out_cluster || !fat32_is_mounted(volume) || !volume->write_sector) return OS_FAT16_NOT_MOUNTED;
+    last = volume->root_cluster;
+    while (guard++ <= volume->cluster_count) {
+        if (fat32_read_fat_entry(volume, last, &next) != 0) return OS_FAT16_CORRUPT;
+        if (next >= FAT32_EOC_MIN) break;
+        if (next < 2U || next > volume->cluster_count + 1U || next == FAT32_BAD_CLUSTER) return OS_FAT16_CORRUPT;
+        last = next;
+    }
+    if (fat32_allocate_cluster(volume, &allocated) != 0) return OS_FAT16_NOT_FOUND;
+    for (uint32_t i = 0U; i < (uint32_t)volume->sectors_per_cluster * 512U; i++) fat32_file_cluster[i] = 0U;
+    if (fat32_write_cluster(volume, allocated, fat32_file_cluster) != 0 || fat32_link_clusters(volume, last, allocated) != 0) {
+        (void)fat32_write_fat_entry(volume, allocated, 0U);
+        return OS_FAT16_CORRUPT;
+    }
+    *out_cluster = allocated;
+    return 0;
+}
