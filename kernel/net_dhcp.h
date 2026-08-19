@@ -13,6 +13,7 @@
 #define NET_DHCP_OPTION_SERVER_ID 54U
 #define NET_DHCP_OPTION_PARAMETER_REQUEST_LIST 55U
 #define NET_DHCP_OPTION_END 255U
+#define NET_DHCP_OPTION_LEASE_TIME 51U
 #define NET_DHCP_DISCOVER 1U
 #define NET_DHCP_OFFER 2U
 #define NET_DHCP_REQUEST 3U
@@ -35,6 +36,8 @@ typedef struct {
     uint8_t router_ipv4[4];
     uint8_t dns_ipv4[4];
     uint32_t xid;
+    uint32_t lease_seconds;
+    uint32_t acquired_tick;
 } net_dhcp_lease_t;
 
 int net_dhcp_build_discover(uint8_t* packet, uint32_t capacity,
@@ -51,5 +54,9 @@ int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
 /* Copie la destination si elle est locale, sinon le routeur DHCP ; ne modifie pas next_hop sur erreur. */
 int net_dhcp_lease_next_hop(const net_dhcp_lease_t* lease,
                             const uint8_t destination[4], uint8_t next_hop[4]);
+/* Marque l’acquisition et vérifie un bail live sans attendre ni allouer. */
+int net_dhcp_lease_mark_acquired(net_dhcp_lease_t* lease,uint32_t now);
+int net_dhcp_lease_is_valid_at(const net_dhcp_lease_t* lease,uint32_t now);
+int net_dhcp_lease_renewal_due(const net_dhcp_lease_t* lease,uint32_t now);
 
 #endif

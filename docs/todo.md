@@ -771,3 +771,6 @@ Le wrapper `net_https_open_application_record_if_ready` complète le garde d’�
 
 ### AOS-1049 à AOS-1064 — RTO TCP caller-owned borné
 `net_tcp_rto_timer_t` fournit une échéance non bloquante et un backoff borné pour les retransmissions TCP. La consommation réutilise `pending_payload` et `retransmit_limit`, restaure timer/connexion sur erreur et ne déplace aucune logique dans IRQ0. Validation locale : **414/414 tests verts**.
+
+### AOS-1065 à AOS-1080 — bail DHCP live borné
+Le parseur ACK extrait l’option 51 et le bail caller-owned expose sa durée, son tick d’acquisition, sa validité et son seuil de renouvellement. Les contrôles sont non bloquants, sûrs au wraparound et transactionnels en cas d’option mal formée. Aucun `kmalloc`. Validation locale : **414/414 tests verts**.
