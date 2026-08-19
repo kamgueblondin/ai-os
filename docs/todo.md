@@ -756,3 +756,6 @@ Le handshake expose désormais une opération unique pour accepter `ChangeCipher
 
 ### AOS-993 à AOS-1000 — garde HTTPS applicatif après handshake ECDHE_ECDSA
 Le chemin applicatif expose désormais `net_https_application_ready`, qui exige simultanément `SERVER_FINISHED_RECEIVED` et les quatre pointeurs clé/IV AES-GCM initialisés. Les builders et décodeurs restent caller-owned ; aucun record applicatif ne doit être émis avant ce prédicat. Validation locale : **413/413 tests verts**.
+
+### AOS-1001 à AOS-1008 — émission HTTPS conditionnée par la session TLS complète
+Le wrapper `net_https_build_application_record_if_ready` raccorde le prédicat de readiness à la construction AES-GCM. Il refuse toute émission avant `SERVER_FINISHED_RECEIVED` ou avec une session partiellement initialisée, puis délègue sans copie au builder TLS existant. Validation locale : **413/413 tests verts**.
