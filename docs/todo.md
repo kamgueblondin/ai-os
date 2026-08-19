@@ -738,3 +738,6 @@ Le chemin NE2000 distingue désormais progression, fin normale, statut HTTP retr
 
 ### AOS-945 à AOS-952 — jitter SSE borné et tick caller-owned
 Le scheduler expose désormais `net_llm_sse_reconnect_schedule_jittered`. Une LCG caller-owned produit un décalage déterministe symétrique autour du délai de base, borné par `max_delay`; le résultat réutilise la classification HTTP et le budget de retry existants. Le tick reste fourni par l’appelant, notamment `timer_get_ticks()` côté poller, sans travail bloquant dans l’IRQ. Validation locale : **410/410 tests verts** attendus après le test jitter.
+
+### AOS-953 à AOS-960 — rotation multi-fournisseur après épuisement du budget
+Le caller peut désormais basculer explicitement entre Ollama et OpenAI lorsque `retries_used` atteint `retry_limit`. `ne2k_llm_connection_rotate_provider` refuse les fournisseurs inconnus, ne bascule pas avant épuisement et ne modifie qu’un octet provider ; les secrets, l’hôte, le chemin et le modèle restent caller-owned. Validation ciblée ajoutée ; aucune reconnexion implicite ni allocation dynamique.
