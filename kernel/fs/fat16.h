@@ -49,6 +49,9 @@ int fat16_write_cluster_range(const fat16_volume_t* volume, uint16_t cluster,
 int fat16_allocate_cluster(const fat16_volume_t* volume, uint16_t* out_cluster);
 /* Relie un cluster source EOC à une cible déjà allouée, sans allocation implicite. */
 int fat16_link_clusters(const fat16_volume_t* volume, uint16_t source, uint16_t target);
+/* Crée une entrée 8.3 dans la racine ; le cluster et les buffers sont caller-owned. */
+int fat16_create_root_entry(const fat16_volume_t* volume, const char* name,
+                            uint8_t attributes, uint16_t first_cluster, uint32_t size);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
