@@ -279,6 +279,10 @@ int net_tcp_connection_note_retransmit(net_tcp_connection_t* connection) {
     if (!net_tcp_connection_retransmit_allowed(connection)) return -1;
     connection->retransmit_count++; return 0;
 }
+int net_tcp_rto_init(net_tcp_rto_timer_t* timer,uint32_t initial_delay){if(!timer||initial_delay==0U)return -1;timer->deadline=0U;timer->delay=initial_delay;timer->armed=0U;return 0;}
+int net_tcp_rto_arm(net_tcp_rto_timer_t* timer,uint32_t now,uint32_t max_delay){uint32_t effective;if(!timer||timer->delay==0U||max_delay<timer->delay)return -1;effective=timer->delay;if(now>0xffffffffU-effective)timer->deadline=0xffffffffU;else timer->deadline=now+effective;timer->armed=1U;return 0;}
+int net_tcp_rto_ready(const net_tcp_rto_timer_t* timer,uint32_t now){if(!timer||!timer->armed)return 0;return now>=timer->deadline?1:0;}
+int net_tcp_rto_consume(net_tcp_rto_timer_t* timer,net_tcp_connection_t* connection,uint32_t now,uint32_t max_delay){net_tcp_rto_timer_t previous_timer;net_tcp_connection_t previous_connection;uint32_t next_delay;if(!timer||!connection||!net_tcp_rto_ready(timer,now))return 0;if(!net_tcp_connection_retransmit_allowed(connection))return -1;previous_timer=*timer;previous_connection=*connection;if(net_tcp_connection_note_retransmit(connection)!=0)return -1;next_delay=timer->delay>max_delay/2U?max_delay:timer->delay*2U;timer->delay=next_delay;if(net_tcp_rto_arm(timer,now,max_delay)!=0){*timer=previous_timer;*connection=previous_connection;return -2;}return 1;}
 
 int net_tcp_connection_begin_close(net_tcp_connection_t* connection,uint8_t* segment,uint32_t capacity) {
     int length;

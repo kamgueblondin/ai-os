@@ -22,6 +22,7 @@
 typedef struct { uint16_t source_port; uint16_t destination_port; uint32_t sequence; uint32_t acknowledgment; uint8_t flags; const uint8_t* payload; uint16_t payload_length; } net_tcp_view_t;
 typedef struct { net_tls_record_accumulator_t record_accumulator; net_tls_handshake_accumulator_t handshake_accumulator; } net_tcp_tls_stream_t;
 typedef struct { uint8_t retry_limit; uint8_t retries_used; } net_tcp_connection_retry_t;
+typedef struct { uint32_t deadline; uint32_t delay; uint8_t armed; } net_tcp_rto_timer_t;
 
 
 typedef struct {
@@ -138,6 +139,11 @@ int net_tcp_connection_track_send(net_tcp_connection_t* connection,
                                   uint8_t retransmit_limit);
 int net_tcp_connection_retransmit_allowed(const net_tcp_connection_t* connection);
 int net_tcp_connection_note_retransmit(net_tcp_connection_t* connection);
+/* RTO caller-owned : planifie une échéance bornée sans sleep ni timer global. */
+int net_tcp_rto_init(net_tcp_rto_timer_t* timer,uint32_t initial_delay);
+int net_tcp_rto_arm(net_tcp_rto_timer_t* timer,uint32_t now,uint32_t max_delay);
+int net_tcp_rto_ready(const net_tcp_rto_timer_t* timer,uint32_t now);
+int net_tcp_rto_consume(net_tcp_rto_timer_t* timer,net_tcp_connection_t* connection,uint32_t now,uint32_t max_delay);
 int net_tcp_connection_accept_ack(net_tcp_connection_t* connection,
                                   const net_tcp_view_t* view);
 int net_tcp_build_fin_ack(uint8_t* segment, uint32_t capacity,

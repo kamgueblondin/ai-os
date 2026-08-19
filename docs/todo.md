@@ -768,3 +768,6 @@ Le wrapper `net_https_open_application_record_if_ready` complète le garde d’�
 
 ### AOS-1025 à AOS-1032 — ingestion SSE transactionnelle
 `net_llm_sse_response_feed_transactional` restaure les métadonnées HTTP/SSE et `text_length` lorsqu’un feed échoue, sans copier ni remplacer les buffers caller-owned. Les retours positifs et le budget de reprise restent inchangés. Aucun `kmalloc` ni blocage. Validation locale : **413/413 tests verts**.
+
+### AOS-1049 à AOS-1064 — RTO TCP caller-owned borné
+`net_tcp_rto_timer_t` fournit une échéance non bloquante et un backoff borné pour les retransmissions TCP. La consommation réutilise `pending_payload` et `retransmit_limit`, restaure timer/connexion sur erreur et ne déplace aucune logique dans IRQ0. Validation locale : **414/414 tests verts**.
