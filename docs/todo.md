@@ -830,3 +830,8 @@ Voir [aos1241_fat32_mount_read.md](aos1241_fat32_mount_read.md).
 Le writer FAT32 caller-owned réalise une lecture-modification-écriture 28 bits, préserve les bits réservés et réplique chaque entrée dans toutes les FAT. L’allocation marque EOC et le chaînage exige une source EOC ainsi qu’une cible déjà allouée. Validation locale : **419/419 tests verts**. L’écriture de données, le rollback de chaîne et les entrées de répertoire FAT32 restent le prochain incrément.
 
 Voir [aos1257_fat32_write_chain.md](aos1257_fat32_write_chain.md).
+
+### AOS-1273 à AOS-1288 — données et entrée racine FAT32
+Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation locale : **419/419 tests verts**. LFN FAT32, extension automatique du répertoire et orchestration avec rollback multi-clusters restent les prochains incréments.
+
+Voir [aos1273_fat32_data_root.md](aos1273_fat32_data_root.md).

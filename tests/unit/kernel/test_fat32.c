@@ -31,6 +31,13 @@ void test_fat32_mount_and_read_cluster(void) {
     TEST_ASSERT_EQUAL(0, fat32_read_fat_entry(&volume, 3U, &next)); TEST_ASSERT_EQUAL(FAT32_EOC_MIN, next);
     TEST_ASSERT_EQUAL(0, fat32_link_clusters(&volume, 2U, 3U));
     TEST_ASSERT_EQUAL(0, fat32_read_fat_entry(&volume, 2U, &next)); TEST_ASSERT_EQUAL(3U, next);
+    { uint8_t data[1024U]; for (uint32_t i = 0U; i < sizeof(data); i++) data[i] = (uint8_t)(i & 0xffU);
+      TEST_ASSERT_EQUAL(0, fat32_write_cluster(&volume, 3U, data));
+      TEST_ASSERT_EQUAL(0, fat32_create_root_entry(&volume, "SESSION.BIN", 0x20U, 3U, 1024U));
+      TEST_ASSERT_EQUAL('S', disk[2032U * 512U]); TEST_ASSERT_EQUAL('E', disk[2032U * 512U + 1U]);
+      TEST_ASSERT_EQUAL('B', disk[2032U * 512U + 8U]); TEST_ASSERT_EQUAL('N', disk[2032U * 512U + 10U]);
+      TEST_ASSERT_EQUAL(0x20U, disk[2032U * 512U + 11U]); TEST_ASSERT_EQUAL(0x00U, disk[2032U * 512U + 20U]);
+      TEST_ASSERT_EQUAL(3U, disk[2032U * 512U + 26U]); TEST_ASSERT_EQUAL(0U, disk[2032U * 512U + 28U]); TEST_ASSERT_EQUAL(4U, disk[2032U * 512U + 29U]); }
 }
 
 int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); unity_print_results(); unity_cleanup(); return 0; }
