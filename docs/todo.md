@@ -674,3 +674,10 @@ Le chemin SSE réutilise le même extracteur pour les champs Ollama `response` e
 La sortie texte du service LLM interactif passe de `OS_LLM_TEXT_MAX=512` à `OS_LLM_TEXT_MAX=2048`, toujours dans un POD copié par valeur et sans pointeur utilisateur. Le buffer HTTP noyau de 8 192 octets continue d’accumuler transactionnellement les fragments `Content-Length` avant extraction ; le codec Unicode existant publie les séquences UTF-8 valides, les échappements `\\uXXXX` et les paires surrogate sans sortie partielle.
 
 Le test HTTP/TLS construit une réponse Ollama JSON de 1 015 octets, la fournit en deux fragments et vérifie l’extraction de 1 000 octets, dont un emoji UTF-8 final. Validation locale : **397/397 tests verts**, compilation complète et `git diff --check` attendus propres. Référence : [aos833_840_llm_fragmented_unicode_responses.md](aos833_840_llm_fragmented_unicode_responses.md). La pagination, les tool calls, les objets/tableaux JSON structurés, les réponses supérieures aux buffers fixes, l’augmentation du prompt, l’authentification OpenAI et le streaming SSE multi-événements restent hors périmètre.
+
+
+### AOS-841 à AOS-848 — capacité de prompt UTF-8 du service LLM
+
+`OS_LLM_PROMPT_MAX` passe de 256 à 1 024 octets. Le prompt reste un champ POD copié par valeur dans l’ABI Ring 3 ; le shell, le noyau et les builders conservent leurs contrôles de capacité, de séquence UTF-8 canonique et de rejet transactionnel. Aucun pointeur utilisateur, secret ou `kmalloc` n’est ajouté.
+
+Le test construit un prompt UTF-8 de 1 020 octets, composé de 1 016 caractères ASCII et d’un emoji `U+1F600`, puis vérifie l’acceptation dans un buffer suffisant et le rejet d’une capacité JSON trop courte. Validation locale : **398/398 tests verts**. Référence : [aos841_848_llm_utf8_prompt_capacity.md](aos841_848_llm_utf8_prompt_capacity.md). Les prompts multi-segments, la pagination, la multimodalité, les pièces jointes et les champs modèle/chemin non ASCII restent hors périmètre.
