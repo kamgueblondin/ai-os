@@ -735,3 +735,6 @@ Le contexte de connexion NE2000 expose désormais `ne2k_llm_connection_schedule_
 
 ### AOS-937 à AOS-944 — classification et planification des fins SSE/TCP
 Le chemin NE2000 distingue désormais progression, fin normale, statut HTTP retryable, erreur transport et erreur terminale. `ne2k_llm_connection_handle_sse_terminal` convertit automatiquement les erreurs retryables et transport en planification SSE bornée, avec `503` comme statut synthétique pour une panne de transport ; une fin normale passe en `RESPONSE_READY` et une erreur terminale reste rejetée. Aucun timer implicite ni allocation dynamique n’est introduit. Validation locale : **409/409 tests verts** après le test de classification.
+
+### AOS-945 à AOS-952 — jitter SSE borné et tick caller-owned
+Le scheduler expose désormais `net_llm_sse_reconnect_schedule_jittered`. Une LCG caller-owned produit un décalage déterministe symétrique autour du délai de base, borné par `max_delay`; le résultat réutilise la classification HTTP et le budget de retry existants. Le tick reste fourni par l’appelant, notamment `timer_get_ticks()` côté poller, sans travail bloquant dans l’IRQ. Validation locale : **410/410 tests verts** attendus après le test jitter.
