@@ -33,5 +33,7 @@ int fat32_link_clusters(const fat32_volume_t* volume, uint32_t source, uint32_t 
 int fat32_read_fat_entry(const fat32_volume_t* volume, uint32_t cluster, uint32_t* out_next);
 int fat32_cluster_lba(const fat32_volume_t* volume, uint32_t cluster, uint32_t* out_lba);
 int fat32_read_cluster(const fat32_volume_t* volume, uint32_t cluster, uint8_t* buffer);
+int fat32_write_cluster(const fat32_volume_t* volume, uint32_t cluster, const uint8_t* buffer);
+int fat32_create_root_entry(const fat32_volume_t* volume, const char* name, uint8_t attributes, uint32_t first_cluster, uint32_t size);
 
 #endif
