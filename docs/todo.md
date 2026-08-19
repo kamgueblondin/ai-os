@@ -747,3 +747,6 @@ Un enregistrement fixe, versionné et caller-owned conserve uniquement le fourni
 
 ### AOS-969 à AOS-976 — politique explicite fournisseur/modèle
 `net_llm_model_policy_t` valide un fournisseur connu, un nom de modèle caller-owned imprimable et une autorisation de rotation binaire. La politique ne copie pas le modèle et ne déclenche aucune bascule implicite ; elle fournit un garde avant sérialisation de requête. Validation locale : **413/413 tests verts**.
+
+### AOS-977 à AOS-984 — rattachement de l’identité X.509 au handshake TLS
+Le handshake expose désormais une validation d’identité serveur qui réutilise la chaîne X.509, le trust anchor, le hostname et le temps fournis par l’appelant. Elle exige un certificat serveur déjà parsé et validé, ne copie aucun certificat et ne réalise aucune allocation. La vérification ECDSA de `ServerKeyExchange` existante reste inchangée.

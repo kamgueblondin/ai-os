@@ -438,3 +438,5 @@ int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t r
     hello[57]=0U;hello[58]=13U;hello[59]=0U;hello[60]=4U;hello[61]=0U;hello[62]=2U;hello[63]=4U;hello[64]=1U;
     length=net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello));return length;
 }
+
+int net_tls_handshake_validate_server_identity(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!handshake||!trust_anchor||!hostname||!utc_time||!workspace)return -1;if(!handshake->server_x509_valid)return -2;return x509_certificate_tls_identity_validate(&handshake->server_x509,trust_anchor,hostname,utc_time,workspace,workspace_length);}
