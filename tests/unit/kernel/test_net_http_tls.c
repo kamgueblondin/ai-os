@@ -104,4 +104,19 @@ void test_llm_large_utf8_prompt_builder(void){
     TEST_ASSERT_GREATER_THAN(0,length);TEST_ASSERT_NOT_EQUAL(0,net_llm_build_ollama_generate_json(json,1024U,"tinyllama",prompt,sizeof(prompt)));
 }
 
-int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_post_json_build_and_bounds);RUN_TEST(test_http_post_json_bearer_build_and_bounds);RUN_TEST(test_http_tls_post_json_encrypted);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_chunked_accumulator_fragmented);RUN_TEST(test_llm_json_string_extract);RUN_TEST(test_llm_provider_response_adapters);RUN_TEST(test_llm_request_json_builders);RUN_TEST(test_llm_http_status_and_retry_policy);RUN_TEST(test_http_response_parse_rejects_invalid_framing);RUN_TEST(test_llm_stream_json_and_sse_fragments);RUN_TEST(test_llm_sse_chunked_openai_response);RUN_TEST(test_llm_unicode_utf8_bounded);RUN_TEST(test_llm_large_fragmented_unicode_response);RUN_TEST(test_llm_large_utf8_prompt_builder);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+
+void test_llm_sse_multiline_and_split_utf8(void){
+    net_llm_sse_accumulator_t accumulator,multiline;uint8_t buffer[128]={0},second_buffer[128]={0},text[64]={0};uint16_t text_length=0U;
+    static const uint8_t first[]={"data: {\"response\":\"caf\xf0"};static const uint8_t second[]={0x9fU,0x98U,0x80U,'"','}', '\n','\n'};
+    static const uint8_t joined[]={"data: {\"response\":\"bon\ndata: jour\"}\n\n"};
+    TEST_ASSERT_EQUAL(0,net_llm_sse_accumulator_init(&accumulator,buffer,sizeof(buffer)));
+    TEST_ASSERT_EQUAL(1,net_llm_sse_accumulator_feed(&accumulator,0U,first,sizeof(first)-1U,text,sizeof(text),&text_length));
+    TEST_ASSERT_EQUAL(0U,text_length);
+    TEST_ASSERT_EQUAL(0,net_llm_sse_accumulator_feed(&accumulator,0U,second,sizeof(second),text,sizeof(text),&text_length));
+    TEST_ASSERT_EQUAL(7U,text_length);
+    TEST_ASSERT_EQUAL_MEMORY("caf",text,3U);
+    TEST_ASSERT_EQUAL_MEMORY("\xf0\x9f\x98\x80",text+3U,4U);
+    TEST_ASSERT_EQUAL(0,net_llm_sse_accumulator_init(&multiline,second_buffer,sizeof(second_buffer)));TEST_ASSERT_EQUAL(0,net_llm_sse_accumulator_feed(&multiline,0U,joined,sizeof(joined)-1U,text,sizeof(text),&text_length));TEST_ASSERT_EQUAL(7U,text_length);TEST_ASSERT_EQUAL_MEMORY("bonjour",text,7U);
+}
+
+int main(void){unity_init();RUN_TEST(test_http_tls_get_and_response);RUN_TEST(test_http_post_json_build_and_bounds);RUN_TEST(test_http_post_json_bearer_build_and_bounds);RUN_TEST(test_http_tls_post_json_encrypted);RUN_TEST(test_http_tls_response_stream_content_length);RUN_TEST(test_http_chunked_accumulator_fragmented);RUN_TEST(test_llm_json_string_extract);RUN_TEST(test_llm_provider_response_adapters);RUN_TEST(test_llm_request_json_builders);RUN_TEST(test_llm_http_status_and_retry_policy);RUN_TEST(test_http_response_parse_rejects_invalid_framing);RUN_TEST(test_llm_stream_json_and_sse_fragments);RUN_TEST(test_llm_sse_chunked_openai_response);RUN_TEST(test_llm_unicode_utf8_bounded);RUN_TEST(test_llm_large_fragmented_unicode_response);RUN_TEST(test_llm_large_utf8_prompt_builder);RUN_TEST(test_llm_sse_multiline_and_split_utf8);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
