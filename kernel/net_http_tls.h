@@ -62,6 +62,8 @@ int net_llm_sse_response_feed(net_llm_sse_response_t* response,uint8_t provider,
 int net_llm_http_status_classify(uint16_t status_code);
 /* Consomme au plus retry_limit tentatives caller-owned ; retourne 1 si une nouvelle émission est autorisée. */
 int net_llm_http_retry_consume(uint16_t status_code,uint8_t retry_limit,uint8_t* retries_used);
+/* Planifie une nouvelle tentative retryable avec backoff borné ; aucune horloge implicite ni attente active. */
+int net_llm_http_retry_schedule(uint16_t status_code,uint8_t retry_limit,uint32_t base_delay,uint32_t max_delay,uint32_t now,uint8_t* retries_used,uint32_t* retry_at);
 
 /* Chiffre une requête GET dans un record TLS applicatif et l’encapsule dans un segment TCP. */
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
