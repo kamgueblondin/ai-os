@@ -789,3 +789,12 @@ Ajout de `SYS_LLM_OPENAI_CREDENTIAL` et d’un bearer fixe, borné, validé et e
 
 ### AOS-1145 à AOS-1160 — liaison de chaînes FAT16
 `fat16_link_clusters` remplace l’EOC d’un cluster source par une cible déjà allouée et réplique la valeur dans toutes les FAT. L’API refuse les clusters libres, BAD, hors volume et les auto-lien ; aucun cluster ni répertoire n’est créé implicitement. Validation locale : **415/415 tests verts**.
+
+### AOS-1161 à AOS-1176 — création bornée d’une entrée racine FAT16
+`fat16_create_root_entry` convertit un nom court conforme au format 8.3 en entrée FAT16 caller-owned, recherche le premier slot libre ou supprimé de la racine, initialise l’attribut, le cluster initial et la taille, puis écrit le secteur par le writer explicite. La conversion refuse les chemins, caractères, extensions ou noms dépassant 8 caractères de base et 3 caractères d’extension ; les entrées LFN ne sont pas générées. Les clusters doivent être préalablement valides et alloués par l’appelant, ce qui évite toute allocation implicite et conserve la politique sans `kmalloc`. Les écritures restent répliquées selon le contrat sectoriel du volume et les erreurs d’I/O n’annoncent jamais une entrée comme créée. Validation locale : **415/415 tests verts**.
+
+La prochaine étape logique est l’orchestration d’un fichier FAT16 persistant combinant allocation, chaîne multi-clusters, initialisation des données et création d’entrée. Le lot suivant devra conserver l’API caller-owned et la stratégie de rollback ; le support LFN et la transition FAT32 restent explicitement séparés.
+
+Voir [aos1161_fat16_root_entry.md](aos1161_fat16_root_entry.md) pour le contrat détaillé, les invariants, les scénarios d’erreur et la matrice de tests.
+
+---
