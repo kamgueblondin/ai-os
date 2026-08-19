@@ -695,3 +695,10 @@ Le test couvre un emoji UTF-8 réparti entre deux fragments et un événement Ol
 `net_llm_http_retry_schedule` combine désormais classification HTTP retryable, budget caller-owned et calcul d’un instant de reprise avec backoff exponentiel borné. Les délais suivent `base`, `2*base`, puis `max`, avec addition saturante à l’instant caller-owned. Aucun timer implicite, blocage, état global, retransmission automatique ou `kmalloc` n’est ajouté ; les erreurs et statuts non-retryables préservent les sorties.
 
 Les tests vérifient les délais 10/20/25, l’épuisement du budget, le statut 2xx et le rejet transactionnel d’un délai nul. Référence : [aos857_864_llm_retry_backoff.md](aos857_864_llm_retry_backoff.md). Timer IRQ, jitter, circuit breaker, backoff réseau automatique et réémission TCP restent hors périmètre.
+
+
+### AOS-865 à AOS-872 — store bearer sécurisé pour les appels LLM
+
+Ajout d’un store fixe `NET_LLM_BEARER_MAX=128` pour provisionner un bearer ASCII imprimable dans une structure caller-owned. Le builder POST utilise une copie locale terminée par `NUL`, sans getter de secret ; `net_llm_bearer_store_clear` zéroise tout le tableau et invalide l’état. Les tailles invalides et caractères de contrôle sont rejetés sans écraser un store valide. Aucun champ credential n’est ajouté à l’ABI Ring 3 et aucun `kmalloc` n’est utilisé.
+
+Validation ciblée : **19/19 tests HTTP/TLS verts**. Référence : [aos865_872_secure_llm_bearer_store.md](aos865_872_secure_llm_bearer_store.md). Le raccordement à un secret de boot privilégié, au stockage chiffré matériel, au TPM, à la rotation et au chemin HTTPS ECDHE_ECDSA reste hors périmètre immédiat.

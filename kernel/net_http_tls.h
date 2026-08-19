@@ -64,6 +64,14 @@ int net_llm_http_status_classify(uint16_t status_code);
 int net_llm_http_retry_consume(uint16_t status_code,uint8_t retry_limit,uint8_t* retries_used);
 /* Planifie une nouvelle tentative retryable avec backoff borné ; aucune horloge implicite ni attente active. */
 int net_llm_http_retry_schedule(uint16_t status_code,uint8_t retry_limit,uint32_t base_delay,uint32_t max_delay,uint32_t now,uint8_t* retries_used,uint32_t* retry_at);
+#define NET_LLM_BEARER_MAX 128U
+typedef struct { uint8_t token[NET_LLM_BEARER_MAX]; uint16_t length; uint8_t provisioned; } net_llm_bearer_store_t;
+/* Copie un bearer ASCII imprimable dans un store fixe ; le secret ne peut pas être lu via l’API. */
+int net_llm_bearer_store_provision(net_llm_bearer_store_t* store,const uint8_t* token,uint16_t token_length);
+/* Efface le bearer et son état, sans libérer de mémoire. */
+void net_llm_bearer_store_clear(net_llm_bearer_store_t* store);
+/* Construit un POST Bearer sans exposer le token à l’appelant après provisionnement. */
+int net_http_build_post_json_bearer_store(uint8_t* request,uint16_t capacity,const char* host,const char* path,const net_llm_bearer_store_t* store,const uint8_t* json,uint16_t json_length);
 
 /* Chiffre une requête GET dans un record TLS applicatif et l’encapsule dans un segment TCP. */
 int net_http_tls_build_get(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,
