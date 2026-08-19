@@ -744,3 +744,6 @@ Le caller peut désormais basculer explicitement entre Ollama et OpenAI lorsque 
 
 ### AOS-961 à AOS-968 — persistance inter-session minimale de la reprise SSE
 Un enregistrement fixe, versionné et caller-owned conserve uniquement le fournisseur, le compteur de retries et `Last-Event-ID`. Une empreinte FNV-1a détecte les corruptions ; les valeurs magiques, la version, la longueur d’ID et le fournisseur sont vérifiés au chargement. Aucun bearer, hôte, chemin, modèle ou secret n’est persisté. Validation locale : **412/412 tests verts**.
+
+### AOS-969 à AOS-976 — politique explicite fournisseur/modèle
+`net_llm_model_policy_t` valide un fournisseur connu, un nom de modèle caller-owned imprimable et une autorisation de rotation binaire. La politique ne copie pas le modèle et ne déclenche aucune bascule implicite ; elle fournit un garde avant sérialisation de requête. Validation locale : **413/413 tests verts**.
