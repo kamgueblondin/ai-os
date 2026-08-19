@@ -63,6 +63,8 @@ int net_llm_sse_accumulator_feed(net_llm_sse_accumulator_t* accumulator,uint8_t 
 /* Combine le décodage HTTP chunked et SSE. Les deux buffers restent caller-owned. */
 int net_llm_sse_response_init(net_llm_sse_response_t* response,uint8_t* http_buffer,uint16_t http_capacity,uint8_t* sse_buffer,uint16_t sse_capacity);
 int net_llm_sse_response_feed(net_llm_sse_response_t* response,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
+/* Variante transactionnelle : restaure l’état SSE/HTTP et text_length sur erreur, sans copier les buffers caller-owned. */
+int net_llm_sse_response_feed_transactional(net_llm_sse_response_t* response,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
 /* Réinitialise les accumulateurs SSE en conservant les buffers caller-owned. */
 int net_llm_sse_response_reset(net_llm_sse_response_t* response);
 /* Planifie une reconnexion SSE retryable ; le scheduler ne bloque jamais et expose une deadline caller-owned. */

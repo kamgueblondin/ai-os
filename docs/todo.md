@@ -765,3 +765,6 @@ Le wrapper `net_https_open_application_record_if_ready` complète le garde d’�
 
 ### AOS-1017 à AOS-1024 — adaptateur PIT pour le polling SSE
 `ne2k_llm_connection_poll_sse_or_resume_now` fournit le tick matériel `timer_get_ticks()` au poller SSE sans déplacer de logique réseau dans l’IRQ0. La référence timer est faible pour garder les tests unitaires autonomes ; le noyau i386 utilise le PIT lié. Tous les buffers et états restent caller-owned, sans allocation dynamique. Validation locale : **413/413 tests verts**.
+
+### AOS-1025 à AOS-1032 — ingestion SSE transactionnelle
+`net_llm_sse_response_feed_transactional` restaure les métadonnées HTTP/SSE et `text_length` lorsqu’un feed échoue, sans copier ni remplacer les buffers caller-owned. Les retours positifs et le budget de reprise restent inchangés. Aucun `kmalloc` ni blocage. Validation locale : **413/413 tests verts**.
