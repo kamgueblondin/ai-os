@@ -810,3 +810,8 @@ Voir [aos1177_fat16_create_file.md](aos1177_fat16_create_file.md) pour le contra
 `fat16_create_lfn_file` publie une séquence LFN ASCII bornée en UTF-16LE avec checksum de l’alias 8.3, puis l’entrée courte et les données déjà persistées. `fat16_list_root` valide l’ordre, le checksum et reconstruit le nom long dans `OS_NAME_MAX` sans allocation dynamique. Les caractères non ASCII sont représentés de manière conservative lors du listage ; la recherche directe par nom long dans les APIs de lecture et l’Unicode complet restent le prochain incrément LFN. Validation noyau : **33/33 tests verts** et suite globale **417/417 tests verts**.
 
 Voir [aos1193_fat16_lfn.md](aos1193_fat16_lfn.md).
+
+### AOS-1209 à AOS-1224 — registre socket TCP statique
+Le registre caller-owned fournit quatre slots TCP avec ouverture, acceptation SYN-ACK, émission bornée, alimentation RX après validation TCP, lecture et fermeture. Aucun buffer dynamique ni couplage à la session LLM n’est introduit. Validation locale : **418/418 tests verts**. L’exposition par syscalls `socket/connect/send/recv/close`, l’émission NIC et l’écoute passive sont le prochain incrément.
+
+Voir [aos1209_tcp_socket_registry.md](aos1209_tcp_socket_registry.md).

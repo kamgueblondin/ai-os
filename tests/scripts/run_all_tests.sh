@@ -160,7 +160,11 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_rtc.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/rtc.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_socket.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/net_socket.c"
+        extra_src="$extra_src $BASE_DIR/kernel/x25519.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_net_socket.c" ] || [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
