@@ -168,7 +168,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
         extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c $BASE_DIR/kernel/ecdsa_p256.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_http_tls.c"
     fi
     if [ "$(basename "$test_file")" = "test_net_dns.c" ]; then
