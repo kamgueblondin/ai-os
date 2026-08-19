@@ -151,3 +151,38 @@ int fat32_create_root_entry(const fat32_volume_t* volume, const char* name, uint
     }
     return OS_FAT16_NOT_FOUND;
 }
+
+static uint8_t fat32_file_cluster[128U * 512U];
+
+static void fat32_release_chain(const fat32_volume_t* volume, uint32_t first) {
+    uint32_t current = first, next, guard = 0U;
+    while (current >= 2U && current <= volume->cluster_count + 1U && guard++ <= volume->cluster_count) {
+        if (fat32_read_fat_entry(volume, current, &next) != 0) break;
+        (void)fat32_write_fat_entry(volume, current, 0U);
+        if (next >= FAT32_EOC_MIN || next == FAT32_BAD_CLUSTER || next == 0U) break;
+        current = next;
+    }
+}
+
+int fat32_create_file(const fat32_volume_t* volume, const char* name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster) {
+    uint32_t first = 0U, previous = 0U, current = 0U, offset = 0U, cluster_bytes, needed, i, take;
+    if (!volume || !data || !out_first_cluster || !fat32_is_mounted(volume) || !volume->write_sector) return OS_FAT16_NOT_MOUNTED;
+    if (fat32_short_name(name, fat32_file_cluster) != 0) return OS_FAT16_BAD_PATH;
+    cluster_bytes = (uint32_t)volume->sectors_per_cluster * 512U;
+    needed = size == 0U ? 1U : (size + cluster_bytes - 1U) / cluster_bytes;
+    if (needed > volume->cluster_count) return OS_FAT16_NOT_FOUND;
+    for (i = 0U; i < needed; i++) {
+        if (fat32_allocate_cluster(volume, &current) != 0) { if (first) fat32_release_chain(volume, first); return OS_FAT16_NOT_FOUND; }
+        if (!first) first = current;
+        if (previous && fat32_link_clusters(volume, previous, current) != 0) { fat32_release_chain(volume, first); return OS_FAT16_CORRUPT; }
+        previous = current;
+        for (uint32_t j = 0U; j < cluster_bytes; j++) fat32_file_cluster[j] = 0U;
+        take = size - offset; if (take > cluster_bytes) take = cluster_bytes;
+        for (uint32_t j = 0U; j < take; j++) fat32_file_cluster[j] = data[offset + j];
+        if (fat32_write_cluster(volume, current, fat32_file_cluster) != 0) { fat32_release_chain(volume, first); return OS_FAT16_CORRUPT; }
+        offset += take;
+    }
+    if (fat32_create_root_entry(volume, name, attributes, first, size) != 0) { fat32_release_chain(volume, first); return OS_FAT16_CORRUPT; }
+    *out_first_cluster = first;
+    return 0;
+}
