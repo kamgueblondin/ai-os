@@ -148,4 +148,5 @@ int net_llm_sse_persist_load(const net_llm_sse_persisted_state_t* persisted,uint
 typedef struct { uint8_t provider; const char* model; uint8_t model_length; uint8_t allow_rotation; } net_llm_model_policy_t;
 int net_llm_model_policy_validate(const net_llm_model_policy_t* policy);
 int net_https_application_ready(const net_tls_handshake_t* handshake,const net_tls_aes_gcm_session_t* session);
+int net_https_build_application_record_if_ready(const net_tls_handshake_t* handshake,net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* plaintext,uint16_t plaintext_length);
 #endif
