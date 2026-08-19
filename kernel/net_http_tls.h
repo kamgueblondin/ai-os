@@ -135,4 +135,5 @@ int net_http_tls_open_sse_stream(net_tcp_connection_t* connection,net_tls_aes_gc
                                  net_llm_sse_response_t* response,uint8_t provider,
                                  uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 
+int net_llm_sse_reconnect_schedule_jittered(net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now,uint32_t jitter_window,uint32_t* jitter_seed);
 #endif
