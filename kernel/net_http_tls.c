@@ -275,3 +275,5 @@ int net_llm_model_policy_validate(const net_llm_model_policy_t* policy){uint8_t 
 int net_https_application_ready(const net_tls_handshake_t* handshake,const net_tls_aes_gcm_session_t* session){if(!handshake||!session||!net_tls_handshake_is_complete(handshake))return 0;if(!session->write_key||!session->write_fixed_iv||!session->read_key||!session->read_fixed_iv)return 0;return 1;}
 
 int net_https_build_application_record_if_ready(const net_tls_handshake_t* handshake,net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity,uint8_t content_type,const uint8_t* plaintext,uint16_t plaintext_length){if(!net_https_application_ready(handshake,session))return -1;return net_tls_aes_gcm_session_build(session,record,capacity,content_type,plaintext,plaintext_length);}
+
+int net_https_open_application_record_if_ready(const net_tls_handshake_t* handshake,net_tls_aes_gcm_session_t* session,const uint8_t* record,uint32_t length,uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out){if(!net_https_application_ready(handshake,session))return -1;return net_tls_aes_gcm_session_open(session,record,length,plaintext,plaintext_capacity,out);}
