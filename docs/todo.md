@@ -741,3 +741,6 @@ Le scheduler expose désormais `net_llm_sse_reconnect_schedule_jittered`. Une LC
 
 ### AOS-953 à AOS-960 — rotation multi-fournisseur après épuisement du budget
 Le caller peut désormais basculer explicitement entre Ollama et OpenAI lorsque `retries_used` atteint `retry_limit`. `ne2k_llm_connection_rotate_provider` refuse les fournisseurs inconnus, ne bascule pas avant épuisement et ne modifie qu’un octet provider ; les secrets, l’hôte, le chemin et le modèle restent caller-owned. Validation ciblée ajoutée ; aucune reconnexion implicite ni allocation dynamique.
+
+### AOS-961 à AOS-968 — persistance inter-session minimale de la reprise SSE
+Un enregistrement fixe, versionné et caller-owned conserve uniquement le fournisseur, le compteur de retries et `Last-Event-ID`. Une empreinte FNV-1a détecte les corruptions ; les valeurs magiques, la version, la longueur d’ID et le fournisseur sont vérifiés au chargement. Aucun bearer, hôte, chemin, modèle ou secret n’est persisté. Validation locale : **412/412 tests verts**.

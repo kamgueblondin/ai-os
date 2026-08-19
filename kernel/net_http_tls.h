@@ -136,4 +136,12 @@ int net_http_tls_open_sse_stream(net_tcp_connection_t* connection,net_tls_aes_gc
                                  uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 
 int net_llm_sse_reconnect_schedule_jittered(net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now,uint32_t jitter_window,uint32_t* jitter_seed);
+#define NET_LLM_SSE_PERSIST_MAGIC 0x53534531U
+#define NET_LLM_SSE_PERSIST_VERSION 1U
+typedef struct { uint32_t magic; uint8_t version; uint8_t provider; uint8_t retries_used; uint8_t event_id_length; uint8_t event_id[NET_LLM_SSE_EVENT_ID_MAX]; uint32_t checksum; } net_llm_sse_persisted_state_t;
+int net_llm_sse_persist_save(net_llm_sse_persisted_state_t* persisted,uint8_t provider,uint8_t retries_used,const net_llm_sse_response_t* response);
+int net_llm_sse_persist_load(const net_llm_sse_persisted_state_t* persisted,uint8_t* provider,uint8_t* retries_used,net_llm_sse_response_t* response);
+
+
+
 #endif
