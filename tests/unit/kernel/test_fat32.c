@@ -57,4 +57,13 @@ void test_fat32_extend_full_root(void) {
     TEST_ASSERT_EQUAL(3U, disk[32U * 512U + 8U]); TEST_ASSERT_EQUAL(0U, disk[2034U * 512U]);
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); unity_print_results(); unity_cleanup(); return 0; }
+void test_fat32_lfn_encoding(void) {
+    uint8_t alias[11] = {'C','H','A','T',' ',' ',' ',' ','B','I','N'}, entry[32];
+    TEST_ASSERT_EQUAL(0, fat32_encode_lfn_entry("Session-2026", 0x41U, fat32_lfn_checksum(alias), entry));
+    TEST_ASSERT_EQUAL(0x41U, entry[0]); TEST_ASSERT_EQUAL(0x0fU, entry[11]); TEST_ASSERT_EQUAL(fat32_lfn_checksum(alias), entry[13]);
+    TEST_ASSERT_EQUAL('S', entry[1]); TEST_ASSERT_EQUAL(0U, entry[2]); TEST_ASSERT_EQUAL('n', entry[16]); TEST_ASSERT_EQUAL(0U, entry[17]);
+    TEST_ASSERT_EQUAL(0, fat32_encode_lfn_entry("abcdefghijklm", 1U, 0U, entry));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat32_encode_lfn_entry("abcdefghijklmn", 2U, 0U, entry));
+}
+
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_fat32_lfn_encoding); unity_print_results(); unity_cleanup(); return 0; }

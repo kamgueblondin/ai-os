@@ -36,6 +36,8 @@ int fat32_read_cluster(const fat32_volume_t* volume, uint32_t cluster, uint8_t* 
 int fat32_write_cluster(const fat32_volume_t* volume, uint32_t cluster, const uint8_t* buffer);
 int fat32_create_root_entry(const fat32_volume_t* volume, const char* name, uint8_t attributes, uint32_t first_cluster, uint32_t size);
 int fat32_extend_root_directory(const fat32_volume_t* volume, uint32_t* out_cluster);
+uint8_t fat32_lfn_checksum(const uint8_t short_name[11]);
+int fat32_encode_lfn_entry(const char* name, uint8_t ordinal, uint8_t checksum, uint8_t entry[32]);
 int fat32_create_file(const fat32_volume_t* volume, const char* name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster);
 
 #endif

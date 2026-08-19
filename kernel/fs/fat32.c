@@ -206,3 +206,26 @@ int fat32_extend_root_directory(const fat32_volume_t* volume, uint32_t* out_clus
     *out_cluster = allocated;
     return 0;
 }
+
+uint8_t fat32_lfn_checksum(const uint8_t short_name[11]) {
+    uint8_t sum = 0U;
+    uint32_t i;
+    if (!short_name) return 0U;
+    for (i = 0U; i < 11U; i++) sum = (uint8_t)(((sum & 1U) ? 0x80U : 0U) + (sum >> 1U) + short_name[i]);
+    return sum;
+}
+
+int fat32_encode_lfn_entry(const char* name, uint8_t ordinal, uint8_t checksum, uint8_t entry[32]) {
+    uint32_t length = 0U, i, pos;
+    static const uint8_t offsets[13] = {1U,3U,5U,7U,9U,14U,16U,18U,20U,22U,24U,28U,30U};
+    if (!name || !entry || ordinal == 0U || (ordinal & 0x1fU) == 0U) return OS_FAT16_BAD_PATH;
+    while (name[length]) { if ((uint8_t)name[length] > 0x7fU || name[length] == '/' || length >= 13U) return OS_FAT16_BAD_PATH; length++; }
+    for (i = 0U; i < 32U; i++) entry[i] = 0xffU;
+    entry[0] = ordinal; entry[11] = 0x0fU; entry[12] = 0U; entry[13] = checksum; entry[26] = 0U; entry[27] = 0U;
+    for (i = 0U; i < 13U; i++) {
+        pos = (uint32_t)(ordinal & 0x1fU) * 13U - 13U + i;
+        if (pos < length) { entry[offsets[i]] = (uint8_t)name[pos]; entry[offsets[i] + 1U] = 0U; }
+        else if (pos == length) { entry[offsets[i]] = 0U; entry[offsets[i] + 1U] = 0U; }
+    }
+    return 0;
+}
