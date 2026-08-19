@@ -40,7 +40,7 @@ void print_string(const char* str);
 
 static ne2k_device_t boot_ne2k_device;
 static ne2k_io_t boot_ne2k_io;
-/* Contexte persistant appartenant au noyau ; aucun buffer, endpoint ou secret n’y est stocké. */
+/* Contexte persistant appartenant au noyau ; le seul secret est le bearer borné et effaçable ci-dessous. */
 static ne2k_llm_network_context_t boot_llm_network;
 /* Espaces de travail noyau fixes : aucun buffer du chemin DHCP→LLM n’est alloué. */
 static net_arp_cache_t boot_llm_arp_cache;
@@ -55,6 +55,8 @@ static x509_certificate_view_t boot_llm_trust_anchor;
 static uint8_t boot_llm_trust_anchor_ready;
 static rtc_io_t boot_llm_rtc_io;
 static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
+static char boot_llm_openai_bearer[OS_LLM_BEARER_MAX];
+static uint8_t boot_llm_openai_bearer_ready;
 static uint8_t boot_llm_client_random[NET_TLS_X25519_KEY_LENGTH];
 static uint8_t boot_llm_client_private[NET_TLS_X25519_KEY_LENGTH];
 static uint8_t boot_llm_rdrand_supported;
@@ -85,6 +87,7 @@ static net_llm_sse_response_t boot_llm_sse_response;
 static uint8_t boot_llm_http_provider;
 static uint8_t boot_llm_http_streaming;
 static uint8_t boot_ne2k_present;
+static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length);
 static int kernel_llm_rdrand_supported(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
@@ -268,6 +271,7 @@ static int kernel_llm_text_field_is_valid(const char* field, uint16_t capacity) 
     return 0;
 }
 
+int kernel_llm_configure_openai(const os_llm_openai_credential_request_t* request){uint16_t index;if(!request||!kernel_llm_text_field_is_valid(request->bearer,OS_LLM_BEARER_MAX))return OS_LLM_CREDENTIAL_BAD_ARGUMENT;if(boot_llm_network.session.phase!=NE2K_LLM_CONNECTION_IDLE)return OS_LLM_CREDENTIAL_BAD_PHASE;kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer,sizeof(boot_llm_openai_bearer));for(index=0U;index<OS_LLM_BEARER_MAX;index++){boot_llm_openai_bearer[index]=request->bearer[index];if(request->bearer[index]=='\0')break;}boot_llm_openai_bearer_ready=1U;return 0;}
 int kernel_llm_request(const os_llm_request_t* request) {
     int status;
     if (!request || !kernel_llm_text_field_is_valid(request->model, OS_LLM_MODEL_MAX) ||
@@ -277,8 +281,7 @@ int kernel_llm_request(const os_llm_request_t* request) {
         return OS_LLM_REQUEST_BAD_REQUEST;
     if (!boot_ne2k_present || boot_llm_network.session.phase != NE2K_LLM_CONNECTION_TLS_COMPLETE)
         return OS_LLM_REQUEST_BAD_PHASE;
-    /* Aucun canal Ring 3 ne fournit de bearer token ; OpenAI attend un provisionnement noyau dédié. */
-    if (request->provider == NE2K_LLM_PROVIDER_OPENAI) return OS_LLM_REQUEST_UNCONFIGURED;
+    if (request->provider == NE2K_LLM_PROVIDER_OPENAI && !boot_llm_openai_bearer_ready) return OS_LLM_REQUEST_UNCONFIGURED;
     if (request->streaming) {
         if (net_llm_sse_response_init(&boot_llm_sse_response, boot_llm_sse_http_buffer,
                                       sizeof(boot_llm_sse_http_buffer), boot_llm_sse_event_buffer,
@@ -287,7 +290,8 @@ int kernel_llm_request(const os_llm_request_t* request) {
             &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_frame, sizeof(boot_llm_frame),
             boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
             &boot_llm_tls_client, request->provider, boot_llm_http_json, sizeof(boot_llm_http_json),
-            boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path, 0,
+            boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path,
+            request->provider == NE2K_LLM_PROVIDER_OPENAI ? boot_llm_openai_bearer : 0,
             request->model, request->prompt, request->prompt_length, boot_llm_http_tls_record,
             sizeof(boot_llm_http_tls_record), 2U);
     } else {
@@ -299,7 +303,8 @@ int kernel_llm_request(const os_llm_request_t* request) {
             &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_frame, sizeof(boot_llm_frame),
             boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
             &boot_llm_tls_client, request->provider, boot_llm_http_json, sizeof(boot_llm_http_json),
-            boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path, 0,
+            boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path,
+            request->provider == NE2K_LLM_PROVIDER_OPENAI ? boot_llm_openai_bearer : 0,
             request->model, request->prompt, request->prompt_length, boot_llm_http_tls_record,
             sizeof(boot_llm_http_tls_record), 2U);
     }
@@ -369,6 +374,8 @@ static void kernel_llm_clear_session_preserve_lease(void) {
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_response, sizeof(boot_llm_http_response));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_sse_response, sizeof(boot_llm_sse_response));
     kernel_llm_clear_bytes((uint8_t*)boot_llm_hostname, sizeof(boot_llm_hostname));
+    kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer, sizeof(boot_llm_openai_bearer));
+    boot_llm_openai_bearer_ready = 0U;
     kernel_llm_clear_tls_material();
     boot_llm_network.lease = retained_lease;
     boot_llm_network.session.phase = NE2K_LLM_CONNECTION_IDLE;
