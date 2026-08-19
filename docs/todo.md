@@ -786,3 +786,6 @@ Ajout de `SYS_LLM_OPENAI_CREDENTIAL` et d’un bearer fixe, borné, validé et e
 
 ### AOS-1129 à AOS-1144 — allocation bornée de cluster FAT16
 `fat16_allocate_cluster` réserve le premier cluster libre, écrit EOC dans toutes les copies FAT et ne publie le cluster qu’après succès complet. Aucun `kmalloc`; création de fichiers, LFN, chaînes multi-clusters et FAT32 restent des lots supérieurs. Validation locale : **415/415 tests verts**.
+
+### AOS-1145 à AOS-1160 — liaison de chaînes FAT16
+`fat16_link_clusters` remplace l’EOC d’un cluster source par une cible déjà allouée et réplique la valeur dans toutes les FAT. L’API refuse les clusters libres, BAD, hors volume et les auto-lien ; aucun cluster ni répertoire n’est créé implicitement. Validation locale : **415/415 tests verts**.
