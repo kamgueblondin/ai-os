@@ -805,3 +805,8 @@ Voir [aos1161_fat16_root_entry.md](aos1161_fat16_root_entry.md) pour le contrat 
 La fonction ne fournit toujours pas de nom long LFN et ne modifie pas les règles FAT32. Elle constitue la fondation du stockage persistant des sessions LLM avant l’ajout des métadonnées LFN et de la généralisation FAT32.
 
 Voir [aos1177_fat16_create_file.md](aos1177_fat16_create_file.md) pour le contrat, la séquence transactionnelle et les limites.
+
+### AOS-1193 à AOS-1208 — sous-lot LFN FAT16 borné
+`fat16_create_lfn_file` publie une séquence LFN ASCII bornée en UTF-16LE avec checksum de l’alias 8.3, puis l’entrée courte et les données déjà persistées. `fat16_list_root` valide l’ordre, le checksum et reconstruit le nom long dans `OS_NAME_MAX` sans allocation dynamique. Les caractères non ASCII sont représentés de manière conservative lors du listage ; la recherche directe par nom long dans les APIs de lecture et l’Unicode complet restent le prochain incrément LFN. Validation noyau : **33/33 tests verts** et suite globale **417/417 tests verts**.
+
+Voir [aos1193_fat16_lfn.md](aos1193_fat16_lfn.md).

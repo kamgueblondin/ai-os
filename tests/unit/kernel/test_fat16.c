@@ -629,6 +629,47 @@ static void test_creates_persistent_file(void) {
     TEST_ASSERT_EQUAL(600, fat16_read_file(&volume, "persist.bin", (char*)readback, sizeof(readback)));
     for (i = 0U; i < sizeof(data); i++) TEST_ASSERT_EQUAL(data[i], readback[i]);
 }
+static void test_creates_lfn_file(void) {
+    fat16_volume_t volume;
+    uint8_t data[3] = {'L', 'F', 'N'};
+    uint16_t first = 0U;
+    os_fat16_dirent_t entries[4];
+    uint32_t root = 35U * 512U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_lfn_file(&volume, "Session-2026-A", "SESS01.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0xE5U, disk[root + 32U]);
+    TEST_ASSERT_EQUAL(0x42U, disk[root + 64U]);
+    TEST_ASSERT_EQUAL(0x0FU, disk[root + 64U + 11U]);
+    TEST_ASSERT_EQUAL('A', disk[root + 64U + 1U]);
+    TEST_ASSERT_EQUAL(0x01U, disk[root + 96U]);
+    TEST_ASSERT_EQUAL('S', disk[root + 96U + 1U]);
+    TEST_ASSERT_EQUAL('S', disk[root + 128U]);
+    TEST_ASSERT_EQUAL('E', disk[root + 128U + 1U]);
+    TEST_ASSERT_EQUAL('S', disk[root + 128U + 2U]);
+    TEST_ASSERT_EQUAL('S', disk[root + 128U + 3U]);
+    TEST_ASSERT_EQUAL('T', disk[root + 128U + 8U]);
+    TEST_ASSERT_EQUAL(2, fat16_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL('S', entries[1].name[0]);
+    TEST_ASSERT_EQUAL('e', entries[1].name[1]);
+    TEST_ASSERT_EQUAL('s', entries[1].name[2]);
+    TEST_ASSERT_EQUAL('s', entries[1].name[3]);
+    TEST_ASSERT_EQUAL('i', entries[1].name[4]);
+    TEST_ASSERT_EQUAL('o', entries[1].name[5]);
+    TEST_ASSERT_EQUAL('n', entries[1].name[6]);
+    TEST_ASSERT_EQUAL('-', entries[1].name[7]);
+    TEST_ASSERT_EQUAL('2', entries[1].name[8]);
+    TEST_ASSERT_EQUAL('0', entries[1].name[9]);
+    TEST_ASSERT_EQUAL('2', entries[1].name[10]);
+    TEST_ASSERT_EQUAL('6', entries[1].name[11]);
+    TEST_ASSERT_EQUAL('-', entries[1].name[12]);
+    TEST_ASSERT_EQUAL('A', entries[1].name[13]);
+    TEST_ASSERT_EQUAL('\0', entries[1].name[14]);
+    TEST_ASSERT_EQUAL(3U, entries[1].size);
+}
 static void test_rejects_bad_name_and_small_buffer(void) {
     fat16_volume_t volume;
     char content[4];
@@ -648,6 +689,7 @@ int main(void) {
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);
     RUN_TEST(test_creates_persistent_file);
+    RUN_TEST(test_creates_lfn_file);
     unity_print_results();
     unity_cleanup();
     return 0;
