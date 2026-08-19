@@ -732,3 +732,6 @@ Le contexte de connexion NE2000 expose désormais `ne2k_llm_connection_schedule_
 
 ### AOS-929 à AOS-936 — orchestration du polling SSE et de la reprise
 `ne2k_llm_connection_poll_sse_or_resume` choisit désormais le chemin RX SSE lorsque la session est en streaming et le chemin GET de reprise lorsque la session est en `TLS_COMPLETE` et que le tick `retry` est arrivé. Le chemin non bloquant conserve les longueurs de sortie lorsque la reconnexion n’est pas encore prête ; après émission réussie, il replace la phase en `REQUEST_SENT`. Validation locale : **408/408 tests verts** avant ajout du test d’orchestration, puis test dédié à relancer.
+
+### AOS-937 à AOS-944 — classification et planification des fins SSE/TCP
+Le chemin NE2000 distingue désormais progression, fin normale, statut HTTP retryable, erreur transport et erreur terminale. `ne2k_llm_connection_handle_sse_terminal` convertit automatiquement les erreurs retryables et transport en planification SSE bornée, avec `503` comme statut synthétique pour une panne de transport ; une fin normale passe en `RESPONSE_READY` et une erreur terminale reste rejetée. Aucun timer implicite ni allocation dynamique n’est introduit. Validation locale : **409/409 tests verts** après le test de classification.
