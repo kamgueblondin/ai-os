@@ -726,3 +726,6 @@ Le test couvre `retry: 1500` avec delta JSON `ok`, la valeur mémorisée et le r
 
 ### AOS-913 à AOS-920 — émission NE2000/TLS du GET SSE de reprise
 Le chemin matériel dispose maintenant de `ne2k_https_llm_sse_resume_request`. Il valide l’ID `Last-Event-ID` mémorisé par l’accumulateur, construit le GET caller-owned, le chiffre avec la session TLS AES-GCM, suit le segment TCP, transmet via NE2000 puis ne commit la séquence qu’après succès. Toute erreur restaure la connexion et le compteur de séquence TLS. Validation ciblée ajoutée dans `test_ne2k`; aucun `kmalloc` ni buffer global n’est introduit. Le scheduler `retry` reste fourni par `net_llm_sse_reconnect_schedule` et son appel au poller temporel est le prochain axe.
+
+### AOS-921 à AOS-928 — adaptateur temporel du scheduler SSE dans le poller
+Le contexte de connexion NE2000 expose désormais `ne2k_llm_connection_schedule_sse_retry` et `ne2k_llm_connection_sse_retry_ready`. Le premier accepte les phases de streaming/réponse, consomme le hint `retry`, programme le tick caller-owned et replace la session en `TLS_COMPLETE` pour permettre l’émission du GET de reprise. Le second reste non bloquant et ne signale prêt qu’après échéance. Validation ciblée ajoutée ; aucun timer global ni allocation dynamique.
