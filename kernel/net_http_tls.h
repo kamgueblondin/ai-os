@@ -36,12 +36,15 @@ typedef struct {
     uint8_t line_length;
     uint8_t state;
 } net_http_chunked_accumulator_t;
-typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; } net_llm_sse_accumulator_t;
+#define NET_LLM_SSE_EVENT_ID_MAX 32U
+typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; uint8_t event_id[NET_LLM_SSE_EVENT_ID_MAX]; uint8_t event_id_length; uint8_t event_id_valid; } net_llm_sse_accumulator_t;
 typedef struct { net_http_chunked_accumulator_t http; net_llm_sse_accumulator_t sse; uint16_t decoded_consumed; } net_llm_sse_response_t;
 typedef struct { uint8_t retries_used; uint8_t retry_limit; uint32_t next_tick; uint8_t scheduled; } net_llm_sse_reconnect_t;
 
 /* Construit une requête HTTP/1.1 GET avec Host et Connection: close dans un buffer caller-owned. */
 int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const char* path);
+/* Construit un GET SSE de reprise avec Last-Event-ID borné et caller-owned. */
+int net_http_build_sse_resume_get(uint8_t* request,uint16_t capacity,const char* host,const char* path,const uint8_t* last_event_id,uint8_t last_event_id_length);
 /* Extrait et décode une valeur JSON string associée à une clé ASCII, dans un buffer caller-owned. */
 int net_json_extract_string(const uint8_t* json,uint16_t json_length,const char* key,uint8_t* output,uint16_t output_capacity,uint16_t* output_length);
 /* Adapteurs non-streaming : champ response d’Ollama et champ content d’une réponse OpenAI compatible. */
@@ -65,6 +68,8 @@ int net_llm_sse_response_reset(net_llm_sse_response_t* response);
 int net_llm_sse_reconnect_init(net_llm_sse_reconnect_t* reconnect,uint8_t retry_limit);
 int net_llm_sse_reconnect_schedule(net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now);
 int net_llm_sse_reconnect_ready(const net_llm_sse_reconnect_t* reconnect,uint32_t now);
+/* Construit le GET de reprise depuis l’identifiant mémorisé par l’accumulateur. */
+int net_llm_sse_build_resume_get(uint8_t* request,uint16_t capacity,const char* host,const char* path,const net_llm_sse_response_t* response);
 /* Classe un statut HTTP LLM : succès, retryable, authentification, permanent ou protocole. */
 int net_llm_http_status_classify(uint16_t status_code);
 /* Consomme au plus retry_limit tentatives caller-owned ; retourne 1 si une nouvelle émission est autorisée. */
