@@ -492,4 +492,6 @@ int ne2k_llm_connection_poll_sse_or_resume(ne2k_device_t* device,const ne2k_io_t
 enum { NE2K_LLM_SSE_RESULT_PROGRESS=0, NE2K_LLM_SSE_RESULT_COMPLETED=1, NE2K_LLM_SSE_RESULT_RETRYABLE=2, NE2K_LLM_SSE_RESULT_TERMINAL=3, NE2K_LLM_SSE_RESULT_TRANSPORT=4 };
 int ne2k_llm_connection_classify_sse_result(int poll_status,uint16_t status_code);
 int ne2k_llm_connection_handle_sse_terminal(ne2k_llm_connection_state_t* state,net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,int poll_status,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now);
+uint8_t ne2k_llm_provider_next(uint8_t provider);
+int ne2k_llm_connection_rotate_provider(uint8_t* provider,uint8_t retry_limit,uint8_t retries_used);
 #endif
