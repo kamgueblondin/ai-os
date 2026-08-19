@@ -753,3 +753,6 @@ Le handshake expose désormais une validation d’identité serveur qui réutili
 
 ### AOS-985 à AOS-992 — postflight TLS ECDHE_ECDSA transactionnel
 Le handshake expose désormais une opération unique pour accepter `ChangeCipherSpec` puis vérifier `Finished` serveur. Toute erreur de parsing, d’état ou de verify_data restaure l’état précédent ; l’état complet n’est publié qu’après `SERVER_FINISHED_RECEIVED`, avant l’ouverture HTTPS applicative. Aucun buffer dynamique n’est ajouté.
+
+### AOS-993 à AOS-1000 — garde HTTPS applicatif après handshake ECDHE_ECDSA
+Le chemin applicatif expose désormais `net_https_application_ready`, qui exige simultanément `SERVER_FINISHED_RECEIVED` et les quatre pointeurs clé/IV AES-GCM initialisés. Les builders et décodeurs restent caller-owned ; aucun record applicatif ne doit être émis avant ce prédicat. Validation locale : **413/413 tests verts**.
