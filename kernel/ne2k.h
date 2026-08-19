@@ -485,4 +485,5 @@ int ne2k_rx_poll_tcp(ne2k_device_t* device, const ne2k_io_t* io,
 int ne2k_rx_extract(const uint8_t* dma_buffer, uint16_t dma_length,
                     net_nic_queue_t* rx_queue);
 
+int ne2k_https_llm_sse_resume_request(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,ne2k_tls_client_t* client,net_llm_sse_response_t* response,uint8_t* request,uint16_t request_capacity,const char* host,const char* path,uint8_t* tls_record,uint32_t tls_capacity,uint8_t retransmit_limit);
 #endif
