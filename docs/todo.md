@@ -688,3 +688,10 @@ Le test construit un prompt UTF-8 de 1 020 octets, composé de 1 016 caractères
 L’accumulateur SSE accepte désormais plusieurs lignes `data:` dans un événement et concatène leurs charges utiles avant extraction JSON. Une séquence UTF-8 peut être coupée entre deux appels `net_llm_sse_accumulator_feed` ; l’extraction reste différée jusqu’à l’événement complet, sans publier de sortie partielle. Les lignes SSE qui ne commencent pas strictement par `data:` restent rejetées.
 
 Le test couvre un emoji UTF-8 réparti entre deux fragments et un événement Ollama multi-ligne reconstruit en `bonjour`. Validation locale ciblée : **17/17 tests HTTP/TLS verts**. Référence : [aos849_856_sse_multiline_utf8.md](aos849_856_sse_multiline_utf8.md). Pagination, file de sortie multi-appels, reconnexion SSE, champs `id`/`retry`, commentaires et réponses dépassant les buffers fixes restent hors périmètre.
+
+
+### AOS-857 à AOS-864 — backoff borné des retries HTTP LLM
+
+`net_llm_http_retry_schedule` combine désormais classification HTTP retryable, budget caller-owned et calcul d’un instant de reprise avec backoff exponentiel borné. Les délais suivent `base`, `2*base`, puis `max`, avec addition saturante à l’instant caller-owned. Aucun timer implicite, blocage, état global, retransmission automatique ou `kmalloc` n’est ajouté ; les erreurs et statuts non-retryables préservent les sorties.
+
+Les tests vérifient les délais 10/20/25, l’épuisement du budget, le statut 2xx et le rejet transactionnel d’un délai nul. Référence : [aos857_864_llm_retry_backoff.md](aos857_864_llm_retry_backoff.md). Timer IRQ, jitter, circuit breaker, backoff réseau automatique et réémission TCP restent hors périmètre.
