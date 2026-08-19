@@ -709,3 +709,10 @@ Validation ciblée : **19/19 tests HTTP/TLS verts**. Référence : [aos865_872_s
 Ajout de `net_http_tls_build_post_json_bearer_store`, qui construit le POST Authorization depuis le store bearer fixe puis réutilise le transport TCP et l’encapsulation TLS AES-128-GCM existants. Un store non provisionné est refusé avant émission ; aucun token n’est passé comme chaîne à l’appelant TLS et aucun champ credential n’est exposé à Ring 3.
 
 Le test ouvre une paire TLS de fixture, déchiffre le record côté serveur et compare la requête HTTP complète. Validation ciblée : **20/20 tests HTTP/TLS verts**. Référence : [aos873_880_https_bearer_store.md](aos873_880_https_bearer_store.md). Secret de boot privilégié, coffre matériel/TPM, rotation, persistance chiffrée et sélection dynamique du fournisseur restent hors périmètre immédiat.
+
+
+### AOS-881 à AOS-888 — scheduler de reconnexion SSE
+
+Ajout d’un état caller-owned `net_llm_sse_reconnect_t` qui conserve le budget, le prochain tick et l’état planifié. `net_llm_sse_reconnect_schedule` réutilise le backoff HTTP borné, réinitialise les accumulateurs HTTP chunked/SSE sans libérer ni remplacer les buffers, et expose une deadline via `net_llm_sse_reconnect_ready`. Aucun sleep, timer global, réémission TCP automatique ou `kmalloc` n’est ajouté.
+
+Les tests couvrent les deadlines 110 et 130 ticks, le reset des longueurs, l’état prêt/non prêt et l’épuisement du budget. Validation ciblée : **21/21 tests HTTP/TLS verts**. Référence : [aos881_888_sse_reconnect_scheduler.md](aos881_888_sse_reconnect_scheduler.md). Last-Event-ID, jitter, timers IRQ intégrés au poller NE2000, reprise au milieu d’un événement et reconnexion automatique multi-fournisseur restent hors périmètre immédiat.

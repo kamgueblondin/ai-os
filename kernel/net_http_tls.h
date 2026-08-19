@@ -38,6 +38,7 @@ typedef struct {
 } net_http_chunked_accumulator_t;
 typedef struct { uint8_t* buffer; uint16_t capacity; uint16_t length; uint8_t done; } net_llm_sse_accumulator_t;
 typedef struct { net_http_chunked_accumulator_t http; net_llm_sse_accumulator_t sse; uint16_t decoded_consumed; } net_llm_sse_response_t;
+typedef struct { uint8_t retries_used; uint8_t retry_limit; uint32_t next_tick; uint8_t scheduled; } net_llm_sse_reconnect_t;
 
 /* Construit une requête HTTP/1.1 GET avec Host et Connection: close dans un buffer caller-owned. */
 int net_http_build_get(uint8_t* request,uint16_t capacity,const char* host,const char* path);
@@ -58,6 +59,12 @@ int net_llm_sse_accumulator_feed(net_llm_sse_accumulator_t* accumulator,uint8_t 
 /* Combine le décodage HTTP chunked et SSE. Les deux buffers restent caller-owned. */
 int net_llm_sse_response_init(net_llm_sse_response_t* response,uint8_t* http_buffer,uint16_t http_capacity,uint8_t* sse_buffer,uint16_t sse_capacity);
 int net_llm_sse_response_feed(net_llm_sse_response_t* response,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
+/* Réinitialise les accumulateurs SSE en conservant les buffers caller-owned. */
+int net_llm_sse_response_reset(net_llm_sse_response_t* response);
+/* Planifie une reconnexion SSE retryable ; le scheduler ne bloque jamais et expose une deadline caller-owned. */
+int net_llm_sse_reconnect_init(net_llm_sse_reconnect_t* reconnect,uint8_t retry_limit);
+int net_llm_sse_reconnect_schedule(net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now);
+int net_llm_sse_reconnect_ready(const net_llm_sse_reconnect_t* reconnect,uint32_t now);
 /* Classe un statut HTTP LLM : succès, retryable, authentification, permanent ou protocole. */
 int net_llm_http_status_classify(uint16_t status_code);
 /* Consomme au plus retry_limit tentatives caller-owned ; retourne 1 si une nouvelle émission est autorisée. */
