@@ -47,6 +47,8 @@ int fat16_write_cluster_range(const fat16_volume_t* volume, uint16_t cluster,
                               uint32_t offset, const uint8_t* buffer, uint32_t length);
 /* Réserve le premier cluster FAT libre et le marque EOC dans toutes les FAT. */
 int fat16_allocate_cluster(const fat16_volume_t* volume, uint16_t* out_cluster);
+/* Relie un cluster source EOC à une cible déjà allouée, sans allocation implicite. */
+int fat16_link_clusters(const fat16_volume_t* volume, uint16_t source, uint16_t target);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
