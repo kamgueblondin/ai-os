@@ -42,6 +42,9 @@ int fat16_is_mounted(const fat16_volume_t* volume);
 /* Attache explicitement un writer caller-owned ; aucun writer implicite n’est créé au montage. */
 int fat16_attach_writer(fat16_volume_t* volume, fat16_write_sector_fn write_sector);
 int fat16_write_sector(const fat16_volume_t* volume, uint32_t lba, const uint8_t* buffer);
+/* Écrit une plage dans un cluster existant ; n’alloue aucun cluster et reste caller-owned. */
+int fat16_write_cluster_range(const fat16_volume_t* volume, uint16_t cluster,
+                              uint32_t offset, const uint8_t* buffer, uint32_t length);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
