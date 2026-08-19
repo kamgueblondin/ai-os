@@ -729,3 +729,6 @@ Le chemin matériel dispose maintenant de `ne2k_https_llm_sse_resume_request`. I
 
 ### AOS-921 à AOS-928 — adaptateur temporel du scheduler SSE dans le poller
 Le contexte de connexion NE2000 expose désormais `ne2k_llm_connection_schedule_sse_retry` et `ne2k_llm_connection_sse_retry_ready`. Le premier accepte les phases de streaming/réponse, consomme le hint `retry`, programme le tick caller-owned et replace la session en `TLS_COMPLETE` pour permettre l’émission du GET de reprise. Le second reste non bloquant et ne signale prêt qu’après échéance. Validation ciblée ajoutée ; aucun timer global ni allocation dynamique.
+
+### AOS-929 à AOS-936 — orchestration du polling SSE et de la reprise
+`ne2k_llm_connection_poll_sse_or_resume` choisit désormais le chemin RX SSE lorsque la session est en streaming et le chemin GET de reprise lorsque la session est en `TLS_COMPLETE` et que le tick `retry` est arrivé. Le chemin non bloquant conserve les longueurs de sortie lorsque la reconnexion n’est pas encore prête ; après émission réussie, il replace la phase en `REQUEST_SENT`. Validation locale : **408/408 tests verts** avant ajout du test d’orchestration, puis test dédié à relancer.
