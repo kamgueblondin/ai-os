@@ -840,3 +840,8 @@ Voir [aos1273_fat32_data_root.md](aos1273_fat32_data_root.md).
 `fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation locale : **419/419 tests verts**. L’extension automatique du répertoire et les LFN FAT32 restent les prochains incréments.
 
 Voir [aos1289_fat32_create_file.md](aos1289_fat32_create_file.md).
+
+### AOS-1305 à AOS-1320 — extension automatique du répertoire racine FAT32
+Le répertoire racine FAT32 peut être étendu de façon caller-owned : le dernier cluster EOC est trouvé, un cluster est réservé et nettoyé, puis le lien est persisté dans toutes les FAT. En cas d’erreur, le cluster nouveau est libéré. Validation locale : **420/420 tests verts**. L’intégration à la publication LFN et l’UTF-16LE restent le prochain incrément.
+
+Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).

@@ -45,4 +45,16 @@ void test_fat32_mount_and_read_cluster(void) {
     }
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); unity_print_results(); unity_cleanup(); return 0; }
+void test_fat32_extend_full_root(void) {
+    fat32_volume_t volume; uint32_t next;
+    for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
+    disk[13] = 2U; put16(disk + 11U, 512U); put16(disk + 14U, 32U); disk[16] = 2U;
+    put32(disk + 32U, 200000U); put32(disk + 36U, 1000U); put32(disk + 44U, 2U); put16(disk + 510U, 0xaa55U);
+    for (uint32_t i = 0U; i < 1024U; i++) disk[2032U * 512U + i] = 0x41U;
+    disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU; disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector, 0U)); TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_extend_root_directory(&volume, &next)); TEST_ASSERT_EQUAL(3U, next);
+    TEST_ASSERT_EQUAL(3U, disk[32U * 512U + 8U]); TEST_ASSERT_EQUAL(0U, disk[2034U * 512U]);
+}
+
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); unity_print_results(); unity_cleanup(); return 0; }
