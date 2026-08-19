@@ -681,3 +681,10 @@ Le test HTTP/TLS construit une réponse Ollama JSON de 1 015 octets, la fournit 
 `OS_LLM_PROMPT_MAX` passe de 256 à 1 024 octets. Le prompt reste un champ POD copié par valeur dans l’ABI Ring 3 ; le shell, le noyau et les builders conservent leurs contrôles de capacité, de séquence UTF-8 canonique et de rejet transactionnel. Aucun pointeur utilisateur, secret ou `kmalloc` n’est ajouté.
 
 Le test construit un prompt UTF-8 de 1 020 octets, composé de 1 016 caractères ASCII et d’un emoji `U+1F600`, puis vérifie l’acceptation dans un buffer suffisant et le rejet d’une capacité JSON trop courte. Validation locale : **398/398 tests verts**. Référence : [aos841_848_llm_utf8_prompt_capacity.md](aos841_848_llm_utf8_prompt_capacity.md). Les prompts multi-segments, la pagination, la multimodalité, les pièces jointes et les champs modèle/chemin non ASCII restent hors périmètre.
+
+
+### AOS-849 à AOS-856 — SSE multi-ligne et UTF-8 fragmenté
+
+L’accumulateur SSE accepte désormais plusieurs lignes `data:` dans un événement et concatène leurs charges utiles avant extraction JSON. Une séquence UTF-8 peut être coupée entre deux appels `net_llm_sse_accumulator_feed` ; l’extraction reste différée jusqu’à l’événement complet, sans publier de sortie partielle. Les lignes SSE qui ne commencent pas strictement par `data:` restent rejetées.
+
+Le test couvre un emoji UTF-8 réparti entre deux fragments et un événement Ollama multi-ligne reconstruit en `bonjour`. Validation locale ciblée : **17/17 tests HTTP/TLS verts**. Référence : [aos849_856_sse_multiline_utf8.md](aos849_856_sse_multiline_utf8.md). Pagination, file de sortie multi-appels, reconnexion SSE, champs `id`/`retry`, commentaires et réponses dépassant les buffers fixes restent hors périmètre.
