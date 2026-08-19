@@ -182,8 +182,53 @@
 #define SYS_LLM_CLOSE 97
 /* EBX = os_llm_openai_credential_request_t* ; copie un bearer borné dans le noyau. */
 #define SYS_LLM_OPENAI_CREDENTIAL 98
+/* EBX = port local, ECX = port distant, EDX = séquence locale. */
+#define SYS_SOCKET_OPEN 99
+/* EBX = descripteur, ECX = os_socket_syn_ack_t* caller-owned. */
+#define SYS_SOCKET_ACCEPT_SYN_ACK 100
+/* EBX = os_socket_send_request_t* caller-owned. */
+#define SYS_SOCKET_SEND 101
+/* EBX = os_socket_feed_request_t* caller-owned. */
+#define SYS_SOCKET_FEED 102
+/* EBX = os_socket_receive_request_t* caller-owned. */
+#define SYS_SOCKET_RECEIVE 103
+/* EBX = descripteur socket. */
+#define SYS_SOCKET_CLOSE 104
+#define MAX_SYSCALLS 105
 
-#define MAX_SYSCALLS 99
+typedef struct {
+    uint16_t source_port;
+    uint16_t destination_port;
+    uint32_t sequence;
+    uint32_t acknowledgment;
+    uint8_t flags;
+} os_socket_syn_ack_t;
+typedef struct {
+    int32_t socket_id;
+    const uint8_t* payload;
+    uint16_t length;
+    uint8_t* segment;
+    uint16_t capacity;
+    uint16_t* out_length;
+} os_socket_send_request_t;
+typedef struct {
+    int32_t socket_id;
+    const uint8_t* segment;
+    uint16_t length;
+} os_socket_feed_request_t;
+typedef struct {
+    int32_t socket_id;
+    uint8_t* buffer;
+    uint16_t capacity;
+    uint16_t* out_length;
+} os_socket_receive_request_t;
+
+#define OS_SOCKET_BAD_ARGUMENT (-120)
+#define OS_SOCKET_NO_SLOT (-121)
+#define OS_SOCKET_NOT_OPEN (-122)
+#define OS_SOCKET_NOT_CONNECTED (-123)
+#define OS_SOCKET_BUFFER_SMALL (-124)
+#define OS_SOCKET_PROTOCOL (-125)
 
 /* Requête POD sans pointeur : hostname, ports et budgets uniquement. */
 #define OS_LLM_HOSTNAME_MAX 96U
