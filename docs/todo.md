@@ -762,3 +762,6 @@ Le wrapper `net_https_build_application_record_if_ready` raccorde le prédicat d
 
 ### AOS-1009 à AOS-1016 — réception HTTPS conditionnée par la session TLS complète
 Le wrapper `net_https_open_application_record_if_ready` complète le garde d’émission : aucun record entrant n’est déchiffré avant `SERVER_FINISHED_RECEIVED` et l’initialisation complète des clés/IV AES-GCM. La séquence de lecture est déléguée au décodeur TLS existant. Validation locale : **413/413 tests verts**.
+
+### AOS-1017 à AOS-1024 — adaptateur PIT pour le polling SSE
+`ne2k_llm_connection_poll_sse_or_resume_now` fournit le tick matériel `timer_get_ticks()` au poller SSE sans déplacer de logique réseau dans l’IRQ0. La référence timer est faible pour garder les tests unitaires autonomes ; le noyau i386 utilise le PIT lié. Tous les buffers et états restent caller-owned, sans allocation dynamique. Validation locale : **413/413 tests verts**.
