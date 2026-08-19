@@ -15,6 +15,7 @@
 #include "../llm/gpt2_tokenizer.h"
 #include "../service_registry.h"
 #include "../fs/fat16.h"
+#include "../net_socket.h"
 /* Completions locales : BPE, top-k basse temperature, arret newline/EOT/repetition. */
 #define GPT2_BAREMETAL_GENERATION_STEPS 12U
 
@@ -311,6 +312,25 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_FAT16_LIST:
             cpu->eax = (uint32_t)sys_fat16_list((os_fat16_dirent_t*)cpu->ebx, cpu->ecx);
             break;
+        case SYS_SOCKET_OPEN:
+            cpu->eax = (uint32_t)sys_socket_open((uint16_t)cpu->ebx, (uint16_t)cpu->ecx, cpu->edx);
+            break;
+        case SYS_SOCKET_ACCEPT_SYN_ACK:
+            cpu->eax = (uint32_t)sys_socket_accept_syn_ack((int)cpu->ebx,
+                (const os_socket_syn_ack_t*)cpu->ecx);
+            break;
+        case SYS_SOCKET_SEND:
+            cpu->eax = (uint32_t)sys_socket_send((const os_socket_send_request_t*)cpu->ebx);
+            break;
+        case SYS_SOCKET_FEED:
+            cpu->eax = (uint32_t)sys_socket_feed((const os_socket_feed_request_t*)cpu->ebx);
+            break;
+        case SYS_SOCKET_RECEIVE:
+            cpu->eax = (uint32_t)sys_socket_receive((const os_socket_receive_request_t*)cpu->ebx);
+            break;
+        case SYS_SOCKET_CLOSE:
+            cpu->eax = (uint32_t)sys_socket_close((int)cpu->ebx);
+            break;
         case SYS_NET_STATUS:
             cpu->eax = kernel_net_status();
             break;
@@ -576,6 +596,40 @@ int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat16_list_root(fat16_root(), out, capacity);
+}
+
+int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_open(local_port, remote_port, local_sequence);
+}
+
+int sys_socket_accept_syn_ack(int socket_id, const os_socket_syn_ack_t* view) {
+    net_tcp_view_t tcp_view;
+    if (!current_task || current_task->type != TASK_TYPE_USER || !view) return OS_SOCKET_BAD_ARGUMENT;
+    tcp_view.source_port = view->source_port; tcp_view.destination_port = view->destination_port;
+    tcp_view.sequence = view->sequence; tcp_view.acknowledgment = view->acknowledgment;
+    tcp_view.flags = view->flags; tcp_view.payload = 0; tcp_view.payload_length = 0U;
+    return net_socket_accept_syn_ack(socket_id, &tcp_view);
+}
+
+int sys_socket_send(const os_socket_send_request_t* request) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->payload || !request->segment || !request->out_length) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_send(request->socket_id, request->payload, request->length, request->segment, request->capacity, request->out_length);
+}
+
+int sys_socket_feed(const os_socket_feed_request_t* request) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->segment) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_feed(request->socket_id, request->segment, request->length);
+}
+
+int sys_socket_receive(const os_socket_receive_request_t* request) {
+    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->buffer || !request->out_length) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_receive(request->socket_id, request->buffer, request->capacity, request->out_length);
+}
+
+int sys_socket_close(int socket_id) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_close(socket_id);
 }
 
 int sys_service_register(const char* name) {

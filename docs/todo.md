@@ -815,3 +815,8 @@ Voir [aos1193_fat16_lfn.md](aos1193_fat16_lfn.md).
 Le registre caller-owned fournit quatre slots TCP avec ouverture, acceptation SYN-ACK, émission bornée, alimentation RX après validation TCP, lecture et fermeture. Aucun buffer dynamique ni couplage à la session LLM n’est introduit. Validation locale : **418/418 tests verts**. L’exposition par syscalls `socket/connect/send/recv/close`, l’émission NIC et l’écoute passive sont le prochain incrément.
 
 Voir [aos1209_tcp_socket_registry.md](aos1209_tcp_socket_registry.md).
+
+### AOS-1225 à AOS-1240 — syscalls socket TCP utilisateur
+Les opérations du registre TCP statique sont exposées par six syscalls ABI avec structures POD caller-owned. Les wrappers imposent une tâche utilisateur, copient la vue SYN-ACK par valeur et conservent les buffers d’émission/réception côté appelant. Validation locale : **418/418 tests verts**. Le durcissement suivant doit valider explicitement les fenêtres d’adresses utilisateur avant les copies, puis ajouter l’écoute passive et l’émission NIC.
+
+Voir [aos1225_socket_syscalls.md](aos1225_socket_syscalls.md).
