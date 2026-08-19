@@ -105,6 +105,7 @@ int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
         if (code == NET_DHCP_OPTION_SUBNET_MASK) { if (size != 4U) return -4; copy_bytes(next.subnet_mask, packet + pos, 4U); next.subnet_valid = 1U; }
         if (code == NET_DHCP_OPTION_ROUTER) { if (size < 4U || (size & 3U) != 0U) return -4; copy_bytes(next.router_ipv4, packet + pos, 4U); next.router_valid = 1U; }
         if (code == NET_DHCP_OPTION_DNS) { if (size < 4U || (size & 3U) != 0U) return -4; copy_bytes(next.dns_ipv4, packet + pos, 4U); next.dns_valid = 1U; }
+        if (code == NET_DHCP_OPTION_LEASE_TIME) { if (size != 4U) return -4; next.lease_seconds = get_be32(packet + pos); }
         pos += size;
     }
     if (type != NET_DHCP_ACK || !server_seen) return -3;
@@ -115,3 +116,6 @@ int net_dhcp_parse_ack(const uint8_t* packet, uint32_t length,
 
 int net_dhcp_lease_next_hop(const net_dhcp_lease_t* lease,const uint8_t destination[4],uint8_t next_hop[4]){uint8_t next[4],index,local=1U;if(!lease||!destination||!next_hop||!lease->valid||!lease->subnet_valid)return -1;for(index=0U;index<4U;index++)if((uint8_t)(lease->ipv4[index]&lease->subnet_mask[index])!=(uint8_t)(destination[index]&lease->subnet_mask[index]))local=0U;if(local)copy_bytes(next,destination,4U);else{if(!lease->router_valid)return -2;copy_bytes(next,lease->router_ipv4,4U);}copy_bytes(next_hop,next,4U);return 0;
 }
+int net_dhcp_lease_mark_acquired(net_dhcp_lease_t* lease,uint32_t now){if(!lease||!lease->valid||lease->lease_seconds==0U)return -1;lease->acquired_tick=now;return 0;}
+int net_dhcp_lease_is_valid_at(const net_dhcp_lease_t* lease,uint32_t now){uint32_t elapsed;if(!lease||!lease->valid||lease->lease_seconds==0U)return 0;elapsed=now-lease->acquired_tick;return elapsed<lease->lease_seconds?1:0;}
+int net_dhcp_lease_renewal_due(const net_dhcp_lease_t* lease,uint32_t now){uint32_t elapsed,renew_after;if(!lease||!lease->valid||lease->lease_seconds==0U)return 0;elapsed=now-lease->acquired_tick;renew_after=lease->lease_seconds-(lease->lease_seconds/2U);return elapsed>=renew_after?1:0;}
