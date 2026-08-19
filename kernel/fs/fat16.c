@@ -112,6 +112,7 @@ int fat16_mount(fat16_volume_t* v, fat16_read_sector_fn read_sector, uint32_t ba
     if (!v || !read_sector) return OS_FAT16_CORRUPT;
     v->mounted = 0U;
     v->read_sector = read_sector;
+    v->write_sector = 0;
     v->base_lba = base_lba;
     if (read_sector(base_lba, sector) != 0) {
         status_text = "FAT16: secteur boot illisible";
@@ -168,6 +169,8 @@ int fat16_mount(fat16_volume_t* v, fat16_read_sector_fn read_sector, uint32_t ba
 int fat16_is_mounted(const fat16_volume_t* v) {
     return v && v->mounted != 0U;
 }
+int fat16_attach_writer(fat16_volume_t* v, fat16_write_sector_fn write_sector){if(!v||!fat16_is_mounted(v)||!write_sector)return OS_FAT16_CORRUPT;v->write_sector=write_sector;return 0;}
+int fat16_write_sector(const fat16_volume_t* v,uint32_t lba,const uint8_t* buffer){if(!v||!buffer||!fat16_is_mounted(v)||!v->write_sector)return OS_FAT16_NOT_MOUNTED;if(lba<v->base_lba||lba-v->base_lba>=v->total_sectors)return OS_FAT16_CORRUPT;return v->write_sector(lba,buffer)==0?0:OS_FAT16_CORRUPT;}
 
 int fat16_list_root(const fat16_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
     uint32_t i;

@@ -774,3 +774,6 @@ Le wrapper `net_https_open_application_record_if_ready` complète le garde d’�
 
 ### AOS-1065 à AOS-1080 — bail DHCP live borné
 Le parseur ACK extrait l’option 51 et le bail caller-owned expose sa durée, son tick d’acquisition, sa validité et son seuil de renouvellement. Les contrôles sont non bloquants, sûrs au wraparound et transactionnels en cas d’option mal formée. Aucun `kmalloc`. Validation locale : **414/414 tests verts**.
+
+### AOS-1081 à AOS-1096 — contrat writer sectoriel FAT16
+Le volume FAT16 accepte un writer sectoriel explicite caller-owned, désactivé par défaut, avec contrôle du montage et de la plage LBA. Cette primitive prépare les futures écritures FAT/entrées de répertoire sans introduire LFN, FAT32 ou allocation de clusters prématurément. Validation locale : **415/415 tests verts**.
