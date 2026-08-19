@@ -750,3 +750,6 @@ Un enregistrement fixe, versionné et caller-owned conserve uniquement le fourni
 
 ### AOS-977 à AOS-984 — rattachement de l’identité X.509 au handshake TLS
 Le handshake expose désormais une validation d’identité serveur qui réutilise la chaîne X.509, le trust anchor, le hostname et le temps fournis par l’appelant. Elle exige un certificat serveur déjà parsé et validé, ne copie aucun certificat et ne réalise aucune allocation. La vérification ECDSA de `ServerKeyExchange` existante reste inchangée.
+
+### AOS-985 à AOS-992 — postflight TLS ECDHE_ECDSA transactionnel
+Le handshake expose désormais une opération unique pour accepter `ChangeCipherSpec` puis vérifier `Finished` serveur. Toute erreur de parsing, d’état ou de verify_data restaure l’état précédent ; l’état complet n’est publié qu’après `SERVER_FINISHED_RECEIVED`, avant l’ouverture HTTPS applicative. Aucun buffer dynamique n’est ajouté.

@@ -186,4 +186,5 @@ int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake);
 int net_tls_client_hello_build(uint8_t* record, uint32_t capacity,
                                const uint8_t random[32]);
 int net_tls_handshake_validate_server_identity(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
+int net_tls_handshake_accept_server_postflight(net_tls_handshake_t* handshake,const uint8_t* change_cipher_spec,uint16_t change_cipher_spec_length,const uint8_t* finished,uint16_t finished_length,const uint8_t expected_verify_data[12]);
 #endif
