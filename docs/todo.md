@@ -780,3 +780,6 @@ Le volume FAT16 accepte un writer sectoriel explicite caller-owned, désactivé 
 
 ### AOS-1097 à AOS-1112 — provisionnement OpenAI sécurisé
 Ajout de `SYS_LLM_OPENAI_CREDENTIAL` et d’un bearer fixe, borné, validé et effaçable dans le noyau. Le token n’est utilisé que pour OpenAI, jamais retourné ni affiché, et est refusé pendant une session active. Validation locale : **415/415 tests verts**.
+
+### AOS-1113 à AOS-1128 — écriture bornée d’un cluster FAT16
+`fat16_write_cluster_range` réalise une lecture-modification-écriture caller-owned dans un cluster existant, avec contrôle du volume, du cluster et de la plage. Aucun cluster n’est alloué et la FAT reste inchangée ; LFN/FAT32 seront ajoutés dans les lots suivants. Validation locale : **415/415 tests verts**.
