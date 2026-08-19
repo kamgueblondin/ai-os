@@ -144,4 +144,7 @@ int net_llm_sse_persist_load(const net_llm_sse_persisted_state_t* persisted,uint
 
 
 
+#define NET_LLM_MODEL_NAME_MAX 32U
+typedef struct { uint8_t provider; const char* model; uint8_t model_length; uint8_t allow_rotation; } net_llm_model_policy_t;
+int net_llm_model_policy_validate(const net_llm_model_policy_t* policy);
 #endif
