@@ -87,6 +87,7 @@ static net_llm_sse_response_t boot_llm_sse_response;
 static uint8_t boot_llm_http_provider;
 static uint8_t boot_llm_http_streaming;
 static uint8_t boot_ne2k_present;
+static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length);
 static int kernel_llm_rdrand_supported(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
