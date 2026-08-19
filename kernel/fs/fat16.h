@@ -56,6 +56,11 @@ int fat16_create_root_entry(const fat16_volume_t* volume, const char* name,
 int fat16_create_file(const fat16_volume_t* volume, const char* name,
                       uint8_t attributes, const uint8_t* data, uint32_t size,
                       uint16_t* out_first_cluster);
+/* Crée un fichier avec une séquence LFN ASCII bornée et un alias 8.3 explicite. */
+int fat16_create_lfn_file(const fat16_volume_t* volume, const char* long_name,
+                          const char* short_name, uint8_t attributes,
+                          const uint8_t* data, uint32_t size,
+                          uint16_t* out_first_cluster);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
