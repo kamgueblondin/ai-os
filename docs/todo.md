@@ -825,3 +825,8 @@ Voir [aos1225_socket_syscalls.md](aos1225_socket_syscalls.md).
 Le volume FAT32 valide le BPB, calcule la région de données, lit les entrées FAT 28 bits et restitue un cluster dans un buffer caller-owned. Aucun chemin FAT16 n’est modifié et aucune allocation dynamique n’est introduite. Validation locale : **419/419 tests verts**. La création/écriture FAT32, les entrées LFN FAT32 et les syscalls de montage restent les prochains incréments.
 
 Voir [aos1241_fat32_mount_read.md](aos1241_fat32_mount_read.md).
+
+### AOS-1257 à AOS-1272 — écriture et chaînage FAT32
+Le writer FAT32 caller-owned réalise une lecture-modification-écriture 28 bits, préserve les bits réservés et réplique chaque entrée dans toutes les FAT. L’allocation marque EOC et le chaînage exige une source EOC ainsi qu’une cible déjà allouée. Validation locale : **419/419 tests verts**. L’écriture de données, le rollback de chaîne et les entrées de répertoire FAT32 restent le prochain incrément.
+
+Voir [aos1257_fat32_write_chain.md](aos1257_fat32_write_chain.md).
