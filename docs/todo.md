@@ -798,3 +798,10 @@ La prochaine étape logique est l’orchestration d’un fichier FAT16 persistan
 Voir [aos1161_fat16_root_entry.md](aos1161_fat16_root_entry.md) pour le contrat détaillé, les invariants, les scénarios d’erreur et la matrice de tests.
 
 ---
+
+### AOS-1177 à AOS-1192 — orchestration de création d’un fichier FAT16
+`fat16_create_file` compose les primitives caller-owned existantes pour réserver une chaîne de clusters, la relier, écrire un buffer de données par plages puis publier une entrée 8.3 dans la racine. En cas d’échec avant publication, la chaîne réservée est parcourue et ses entrées FAT sont libérées dans toutes les copies accessibles. Le fichier vide reçoit un cluster initial afin de rester compatible avec le contrat actuel de création d’entrée. Aucun `kmalloc`, buffer de taille variable ou copie persistante interne n’est ajouté. Validation noyau : **33/33 tests verts** ; la suite complète doit confirmer le total global.
+
+La fonction ne fournit toujours pas de nom long LFN et ne modifie pas les règles FAT32. Elle constitue la fondation du stockage persistant des sessions LLM avant l’ajout des métadonnées LFN et de la généralisation FAT32.
+
+Voir [aos1177_fat16_create_file.md](aos1177_fat16_create_file.md) pour le contrat, la séquence transactionnelle et les limites.

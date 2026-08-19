@@ -609,6 +609,26 @@ static void test_writes_only_with_explicit_writer(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_root_entry(&volume, "TOOLONG12.TXT", 0x20U, 3U, 3U));
     TEST_ASSERT_EQUAL(OS_FAT16_CORRUPT, fat16_write_sector(&volume, TEST_SECTORS, buffer));
 }
+static void test_creates_persistent_file(void) {
+    fat16_volume_t volume;
+    uint8_t data[600];
+    uint8_t readback[600];
+    uint16_t first = 0U;
+    uint32_t i;
+    make_volume();
+    for (i = 0U; i < sizeof(data); i++) data[i] = (uint8_t)(i ^ 0x5AU);
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "PERSIST.BIN", 0x20U,
+                                           data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(4U, le16(1U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0xFFF8U, le16(1U * 512U + 8U));
+    TEST_ASSERT_EQUAL(4U, le16(18U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0xFFF8U, le16(18U * 512U + 8U));
+    TEST_ASSERT_EQUAL(600, fat16_read_file(&volume, "persist.bin", (char*)readback, sizeof(readback)));
+    for (i = 0U; i < sizeof(data); i++) TEST_ASSERT_EQUAL(data[i], readback[i]);
+}
 static void test_rejects_bad_name_and_small_buffer(void) {
     fat16_volume_t volume;
     char content[4];
@@ -627,6 +647,7 @@ int main(void) {
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);
+    RUN_TEST(test_creates_persistent_file);
     unity_print_results();
     unity_cleanup();
     return 0;
