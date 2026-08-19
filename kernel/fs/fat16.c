@@ -176,6 +176,66 @@ int fat16_allocate_cluster(const fat16_volume_t* v,uint16_t* out_cluster){uint32
 int fat16_link_clusters(const fat16_volume_t* v,uint16_t source,uint16_t target){uint32_t fat,byte_offset,lba,offset,i;uint16_t next,target_next;if(!v||!fat16_is_mounted(v)||!v->write_sector)return OS_FAT16_NOT_MOUNTED;if(source<2U||target<2U||(uint32_t)source>v->cluster_count+1U||(uint32_t)target>v->cluster_count+1U||source==target)return OS_FAT16_CORRUPT;if(read_fat_entry(v,source,&next)!=0||read_fat_entry(v,target,&target_next)!=0)return OS_FAT16_CORRUPT;if(next<FAT16_EOC_MIN||next==FAT16_BAD_CLUSTER||target_next==0U||target_next==FAT16_BAD_CLUSTER)return OS_FAT16_CORRUPT;byte_offset=(uint32_t)source*2U;offset=byte_offset&511U;for(fat=0U;fat<v->fat_count;fat++){lba=v->fat_lba+fat*v->fat_sectors+(byte_offset>>9U);if(read_at(v,lba,sector)!=0)return OS_FAT16_CORRUPT;for(i=0U;i<512U;i++)sector2[i]=sector[i];sector[offset]=(uint8_t)target;sector[offset+1U]=(uint8_t)(target>>8U);if(fat16_write_sector(v,lba,sector)!=0){(void)v->write_sector(lba,sector2);return OS_FAT16_CORRUPT;}}return 0;}
 
 int fat16_create_root_entry(const fat16_volume_t* v,const char* name,uint8_t attributes,uint16_t first_cluster,uint32_t size){uint8_t short_name[11];uint32_t index,byte_offset,lba,entry_offset,i;if(!v||!name||!fat16_is_mounted(v)||!v->write_sector)return OS_FAT16_NOT_MOUNTED;if(first_cluster<2U||(uint32_t)first_cluster>v->cluster_count+1U)return OS_FAT16_CORRUPT;if((attributes&0x0FU)==0x0FU)return OS_FAT16_BAD_PATH;if(make_short_name(name,short_name)!=0)return OS_FAT16_BAD_PATH;for(index=0U;index<v->root_entries;index++){byte_offset=index*FAT16_ENTRY_SIZE;lba=v->root_lba+(byte_offset/FAT16_SECTOR_SIZE);entry_offset=byte_offset%FAT16_SECTOR_SIZE;if(read_at(v,lba,sector)!=0)return OS_FAT16_CORRUPT;if(sector[entry_offset]!=0U&&sector[entry_offset]!=0xE5U)continue;for(i=0U;i<FAT16_ENTRY_SIZE;i++)sector[entry_offset+i]=0U;for(i=0U;i<11U;i++)sector[entry_offset+i]=short_name[i];sector[entry_offset+11U]=attributes;sector[entry_offset+26U]=(uint8_t)first_cluster;sector[entry_offset+27U]=(uint8_t)(first_cluster>>8U);sector[entry_offset+28U]=(uint8_t)size;sector[entry_offset+29U]=(uint8_t)(size>>8U);sector[entry_offset+30U]=(uint8_t)(size>>16U);sector[entry_offset+31U]=(uint8_t)(size>>24U);if(fat16_write_sector(v,lba,sector)!=0)return OS_FAT16_CORRUPT;return 0;}return OS_FAT16_NOT_FOUND;}
+static int fat16_set_fat_entry(const fat16_volume_t* v, uint16_t cluster, uint16_t value) {
+    uint32_t fat, byte_offset = (uint32_t)cluster * 2U, lba, offset = byte_offset & 511U, i;
+    if (!v || cluster < 2U || (uint32_t)cluster > v->cluster_count + 1U || offset > 510U) return OS_FAT16_CORRUPT;
+    for (fat = 0U; fat < v->fat_count; fat++) {
+        lba = v->fat_lba + fat * v->fat_sectors + (byte_offset >> 9U);
+        if (read_at(v, lba, sector) != 0) return OS_FAT16_CORRUPT;
+        for (i = 0U; i < FAT16_SECTOR_SIZE; i++) sector2[i] = sector[i];
+        sector[offset] = (uint8_t)value;
+        sector[offset + 1U] = (uint8_t)(value >> 8U);
+        if (fat16_write_sector(v, lba, sector) != 0) {
+            (void)v->write_sector(lba, sector2);
+            return OS_FAT16_CORRUPT;
+        }
+    }
+    return 0;
+}
+
+static void fat16_release_chain(const fat16_volume_t* v, uint16_t first) {
+    uint16_t current = first, next;
+    uint32_t guard = 0U;
+    while (current >= 2U && (uint32_t)current <= v->cluster_count + 1U && guard++ <= v->cluster_count) {
+        if (read_fat_entry(v, current, &next) != 0) return;
+        if (fat16_set_fat_entry(v, current, 0U) != 0) return;
+        if (next >= FAT16_EOC_MIN || next == FAT16_BAD_CLUSTER || next < 2U) return;
+        current = next;
+    }
+}
+
+int fat16_create_file(const fat16_volume_t* v, const char* name, uint8_t attributes,
+                      const uint8_t* data, uint32_t size, uint16_t* out_first_cluster) {
+    uint32_t cluster_bytes, remaining, offset = 0U;
+    uint16_t first = 0U, previous = 0U, current;
+    int rc;
+    if (!v || !name || !out_first_cluster || !fat16_is_mounted(v) || !v->write_sector) return OS_FAT16_NOT_MOUNTED;
+    if ((attributes & 0x0FU) == 0x0FU || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
+    cluster_bytes = (uint32_t)v->bytes_per_sector * v->sectors_per_cluster;
+    remaining = size == 0U ? 1U : size;
+    while (remaining != 0U) {
+        rc = fat16_allocate_cluster(v, &current);
+        if (rc != 0) { if (first != 0U) fat16_release_chain(v, first); return rc; }
+        if (first == 0U) first = current;
+        if (previous != 0U) {
+            rc = fat16_link_clusters(v, previous, current);
+            if (rc != 0) { fat16_release_chain(v, first); return rc; }
+        }
+        if (size != 0U) {
+            uint32_t chunk = remaining > cluster_bytes ? cluster_bytes : remaining;
+            rc = fat16_write_cluster_range(v, current, 0U, data + offset, chunk);
+            if (rc != 0) { fat16_release_chain(v, first); return rc; }
+            offset += chunk;
+            remaining -= chunk;
+        } else remaining = 0U;
+        previous = current;
+    }
+    rc = fat16_create_root_entry(v, name, attributes, first, size);
+    if (rc != 0) { fat16_release_chain(v, first); return rc; }
+    *out_first_cluster = first;
+    return 0;
+}
+
 int fat16_list_root(const fat16_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
     uint32_t i;
     uint32_t count = 0U;
