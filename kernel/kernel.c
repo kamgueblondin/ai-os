@@ -102,6 +102,7 @@ static uint8_t boot_llm_http_streaming;
 static uint8_t boot_ne2k_present;
 static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length);
 static int kernel_llm_rdrand_supported(void);
+static int kernel_llm_close_internal(uint8_t preserve_provider);
 int kernel_llm_close(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
@@ -296,7 +297,7 @@ int kernel_llm_dhcp_maintenance(uint32_t now) {
                                         boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
                                         now, &boot_llm_lease);
         if (status != -2) return status;
-        (void)kernel_llm_close();
+        (void)kernel_llm_close_internal(1U);
         net_dhcp_lease_clear(&boot_llm_lease);
     }
     if (now < boot_llm_dhcp_maintenance.next_retry_tick) return 0;
@@ -408,7 +409,7 @@ static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length) {
     for (index = 0U; index < length; ++index) buffer[index] = 0U;
 }
 
-static void kernel_llm_clear_session_preserve_lease(void) {
+static void kernel_llm_clear_session_preserve_lease(uint8_t preserve_provider) {
     net_dhcp_lease_t retained_lease = boot_llm_lease;
     kernel_llm_clear_bytes(boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx));
     kernel_llm_clear_bytes(boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx));
@@ -438,8 +439,10 @@ static void kernel_llm_clear_session_preserve_lease(void) {
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_response, sizeof(boot_llm_http_response));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_sse_response, sizeof(boot_llm_sse_response));
     kernel_llm_clear_bytes((uint8_t*)boot_llm_hostname, sizeof(boot_llm_hostname));
-    kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer, sizeof(boot_llm_openai_bearer));
-    boot_llm_openai_bearer_ready = 0U;
+    if (!preserve_provider) {
+        kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer, sizeof(boot_llm_openai_bearer));
+        boot_llm_openai_bearer_ready = 0U;
+    }
     kernel_llm_clear_tls_material();
     boot_llm_lease = retained_lease;
     (void)ne2k_llm_socket_session_init(&boot_llm_socket_session);
@@ -452,7 +455,7 @@ static void kernel_llm_clear_session_preserve_lease(void) {
     boot_llm_http_streaming = 0U;
 }
 
-int kernel_llm_close(void) {
+static int kernel_llm_close_internal(uint8_t preserve_provider) {
     uint8_t fin_failed = 0U, socket_state = NET_TCP_STATE_CLOSED;
     if (boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_IDLE)
         return OS_LLM_CLOSE_BAD_PHASE;
@@ -467,8 +470,12 @@ int kernel_llm_close(void) {
     }
     if (boot_llm_socket_session.socket_id >= 0)
         (void)net_socket_close(boot_llm_socket_session.socket_id);
-    kernel_llm_clear_session_preserve_lease();
+    kernel_llm_clear_session_preserve_lease(preserve_provider);
     return fin_failed ? OS_LLM_CLOSE_FIN_FAILED : 0;
+}
+
+int kernel_llm_close(void) {
+    return kernel_llm_close_internal(0U);
 }
 
 int kernel_llm_reset_for_request(void) {
