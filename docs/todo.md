@@ -61,7 +61,7 @@
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [ ] Planification périodique du renouvellement DHCP, réacquisition après expiration, délais/backoff de session, puis client OpenAI effectif
+- [ ] Réacquisition DHCP après expiration, délais/backoff de session, puis client OpenAI effectif
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
@@ -74,6 +74,7 @@
 - [x] AOS-1437…1448 : session LLM socket de SYN-ACK à HTTP/SSE, avec phases transactionnelles et réarmement TLS — [aos1437_1448_llm_socket_session.md](aos1437_1448_llm_socket_session.md)
 - [x] AOS-1449…1460 : bootstrap DHCP/DNS/ARP/SYN transactionnel vers session LLM socket et libération du slot en rollback — [aos1449_1460_socket_bootstrap.md](aos1449_1460_socket_bootstrap.md)
 - [x] AOS-1461…1472 : orchestrateur noyau DHCP→socket→TLS→HTTP/SSE, extraction LLM et FIN+ACK transactionnel — [aos1461_1472_kernel_socket_orchestrator.md](aos1461_1472_kernel_socket_orchestrator.md)
+- [x] AOS-1473…1480 : maintenance DHCP différée hors IRQ0 et renouvellement transactionnel à l’entrée syscall — [aos1473_1480_dhcp_deferred_maintenance.md](aos1473_1480_dhcp_deferred_maintenance.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

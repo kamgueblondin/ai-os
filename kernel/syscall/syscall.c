@@ -35,6 +35,7 @@ extern int kernel_llm_poll_sse(os_llm_text_result_t* result);
 extern int kernel_llm_reset_for_request(void);
 extern int kernel_llm_close(void);
 extern int kernel_llm_configure_openai(const os_llm_openai_credential_request_t* request);
+extern int kernel_llm_dhcp_maintenance(uint32_t now);
 extern void print_char(char c, int x, int y, char color);
 extern void write_serial(char c);
 
@@ -73,6 +74,9 @@ static void service_notify_purge_pid(int32_t pid) {
 void syscall_handler(cpu_state_t* cpu) {
     // Réactive les interruptions pour permettre au clavier de fonctionner
     asm volatile("sti");
+
+    /* Maintenance réseau différée : aucune E/S DHCP n’est réalisée dans IRQ0. */
+    (void)kernel_llm_dhcp_maintenance(timer_get_ticks());
 
     // Le numéro de syscall est dans le registre EAX
     switch (cpu->eax) {
