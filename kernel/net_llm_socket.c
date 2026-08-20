@@ -42,3 +42,51 @@ int net_llm_socket_build_request(int socket_id, net_tls_aes_gcm_session_t* sessi
                             retransmit_limit) != 0) return -6;
     return (int)segment_length;
 }
+
+int net_llm_socket_open_response(int socket_id, net_tls_aes_gcm_session_t* session,
+                                 const net_tcp_view_t* view, uint8_t* plaintext,
+                                 uint16_t plaintext_capacity,
+                                 net_http_response_accumulator_t* accumulator,
+                                 net_http_response_view_t* response,
+                                 uint16_t* consumed) {
+    net_tcp_connection_t previous_connection;
+    net_tls_aes_gcm_session_t previous_session;
+    net_http_response_accumulator_t previous_accumulator;
+    net_tls_record_view_t record;
+    int status;
+    if (!session || !view || !plaintext || !accumulator || !response || !consumed) return -1;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
+    previous_session = *session; previous_accumulator = *accumulator;
+    status = net_socket_receive_tls(socket_id, session, view, plaintext, plaintext_capacity, &record, consumed);
+    if (status != 0 || record.content_type != NET_TLS_CONTENT_APPLICATION_DATA) goto rollback;
+    status = net_http_response_accumulator_feed(accumulator, record.payload, record.payload_length, response);
+    if (status >= 0) return status;
+rollback:
+    (void)net_socket_connection_restore(socket_id, &previous_connection);
+    *session = previous_session; *accumulator = previous_accumulator; *consumed = 0U;
+    return -3;
+}
+
+int net_llm_socket_open_sse(int socket_id, net_tls_aes_gcm_session_t* session,
+                            const net_tcp_view_t* view, uint8_t* plaintext,
+                            uint16_t plaintext_capacity, net_llm_sse_response_t* response,
+                            uint8_t provider, uint8_t* text, uint16_t text_capacity,
+                            uint16_t* text_length, uint16_t* consumed) {
+    net_tcp_connection_t previous_connection;
+    net_tls_aes_gcm_session_t previous_session;
+    net_llm_sse_response_t previous_response;
+    net_tls_record_view_t record;
+    int status;
+    if (!session || !view || !plaintext || !response || !text || !text_length || !consumed) return -1;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
+    previous_session = *session; previous_response = *response;
+    status = net_socket_receive_tls(socket_id, session, view, plaintext, plaintext_capacity, &record, consumed);
+    if (status != 0 || record.content_type != NET_TLS_CONTENT_APPLICATION_DATA) goto rollback;
+    status = net_llm_sse_response_feed(response, provider, record.payload, record.payload_length,
+                                       text, text_capacity, text_length);
+    if (status >= 0) return status;
+rollback:
+    (void)net_socket_connection_restore(socket_id, &previous_connection);
+    *session = previous_session; *response = previous_response; *text_length = 0U; *consumed = 0U;
+    return -3;
+}
