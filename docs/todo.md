@@ -847,6 +847,6 @@ Le répertoire racine FAT32 peut être étendu de façon caller-owned : le derni
 Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
 
 ### AOS-1321 à AOS-1332 — fondations LFN FAT32 bornées
-`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. Le contrat accepte au plus 13 caractères par entrée, refuse les caractères non ASCII, conserve l’appelant propriétaire du buffer et initialise l’attribut LFN, le type et le cluster initial. Validation actuelle : **35/35 tests noyau** et **421 tests exécutés avec succès** ; la publication multi-entrée, la reconstruction et l’intégration VFS restent à réaliser.
+`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. `fat32_create_lfn_file` publie désormais une séquence multi-entrée dans la chaîne racine, et `fat32_list_root` reconstruit le nom après validation des ordinals et du checksum dans un buffer caller-owned. Le contrat accepte au plus 13 caractères par entrée et 20 entrées par fichier, refuse les caractères non ASCII et conserve l’alias 8.3 en repli si la séquence est invalide. Validation actuelle : **4/4 tests FAT32** et **421 tests exécutés avec succès** ; l’intégration complète au VFS, Unicode hors ASCII et suppression/renommage LFN restent à réaliser.
 
 Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).
