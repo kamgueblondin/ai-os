@@ -11,61 +11,75 @@ static float gpt2_fast_exp(float value) {
     return convert.f;
 }
 
+void gpt2_sample_top_k_init(gpt2_sample_top_k_state_t* state,
+                            const uint32_t* generated, uint32_t generated_count) {
+    if (!state) return;
+    state->generated = generated;
+    state->generated_count = generated_count;
+    state->count = 0U;
+}
+
+void gpt2_sample_top_k_offer(gpt2_sample_top_k_state_t* state,
+                             uint32_t token, float logit) {
+    uint32_t banned;
+    uint32_t repeats = 0U;
+    uint32_t pos;
+    float value = logit;
+    if (!state) return;
+    banned = (state->generated && state->generated_count > 0U)
+        ? state->generated[state->generated_count - 1U] : 0xFFFFFFFFu;
+    if (token == banned) return;
+    if (state->generated) {
+        for (uint32_t i = 0U; i < state->generated_count; i++) {
+            if (state->generated[i] == token) repeats++;
+        }
+    }
+    if (repeats > 0U) value -= GPT2_REPEAT_PENALTY * (float)repeats;
+    pos = state->count < GPT2_SAMPLE_TOP_K ? state->count++ : GPT2_SAMPLE_TOP_K;
+    while (pos > 0U && value > state->values[pos - 1U]) {
+        if (pos < GPT2_SAMPLE_TOP_K) {
+            state->values[pos] = state->values[pos - 1U];
+            state->ids[pos] = state->ids[pos - 1U];
+        }
+        pos--;
+    }
+    if (pos < GPT2_SAMPLE_TOP_K) {
+        state->values[pos] = value;
+        state->ids[pos] = token;
+    }
+}
+
+uint32_t gpt2_sample_top_k_finish(const gpt2_sample_top_k_state_t* state,
+                                  uint32_t* rng_state) {
+    float weights[GPT2_SAMPLE_TOP_K];
+    uint32_t random_state = rng_state && *rng_state ? *rng_state : 0x9e3779b9U;
+    uint32_t banned;
+    float total = 0.0f;
+    float target;
+    if (!state) return 0U;
+    banned = (state->generated && state->generated_count > 0U)
+        ? state->generated[state->generated_count - 1U] : 0xFFFFFFFFu;
+    if (state->count == 0U) return banned == 0xFFFFFFFFu ? 0U : banned;
+    for (uint32_t i = 0U; i < state->count; i++) {
+        weights[i] = gpt2_fast_exp((state->values[i] - state->values[0]) / GPT2_SAMPLE_TEMPERATURE);
+        total += weights[i];
+    }
+    random_state = random_state * 1664525U + 1013904223U;
+    if (rng_state) *rng_state = random_state;
+    target = ((float)(random_state & 0x00ffffffU) / 16777216.0f) * total;
+    for (uint32_t i = 0U; i < state->count; i++) {
+        if (target <= weights[i]) return state->ids[i];
+        target -= weights[i];
+    }
+    return state->ids[state->count - 1U];
+}
+
 uint32_t gpt2_sample_top_k(const float* logits, uint32_t vocab,
                            const uint32_t* generated, uint32_t generated_count,
                            uint32_t* rng_state) {
-    uint32_t ids[GPT2_SAMPLE_TOP_K];
-    float values[GPT2_SAMPLE_TOP_K];
-    float weights[GPT2_SAMPLE_TOP_K];
-    uint32_t count = 0;
-    uint32_t state = rng_state && *rng_state ? *rng_state : 0x9e3779b9U;
-    uint32_t banned = (generated && generated_count > 0U)
-        ? generated[generated_count - 1U] : 0xFFFFFFFFu;
-
+    gpt2_sample_top_k_state_t state;
     if (!logits || vocab == 0U) return 0U;
-
-    for (uint32_t i = 0; i < vocab; i++) {
-        float value;
-        uint32_t repeats = 0;
-        uint32_t pos;
-
-        if (i == banned) continue;
-        value = logits[i];
-        if (generated) {
-            for (uint32_t j = 0; j < generated_count; j++) {
-                if (generated[j] == i) repeats++;
-            }
-        }
-        if (repeats > 0U) value -= GPT2_REPEAT_PENALTY * (float)repeats;
-        pos = count < GPT2_SAMPLE_TOP_K ? count++ : GPT2_SAMPLE_TOP_K;
-        while (pos > 0U && value > values[pos - 1U]) {
-            if (pos < GPT2_SAMPLE_TOP_K) {
-                values[pos] = values[pos - 1U];
-                ids[pos] = ids[pos - 1U];
-            }
-            pos--;
-        }
-        if (pos < GPT2_SAMPLE_TOP_K) {
-            values[pos] = value;
-            ids[pos] = i;
-        }
-    }
-    if (count == 0U) return banned == 0xFFFFFFFFu ? 0U : banned;
-
-    {
-        float total = 0.0f;
-        float target;
-        for (uint32_t i = 0; i < count; i++) {
-            weights[i] = gpt2_fast_exp((values[i] - values[0]) / GPT2_SAMPLE_TEMPERATURE);
-            total += weights[i];
-        }
-        state = state * 1664525U + 1013904223U;
-        if (rng_state) *rng_state = state;
-        target = ((float)(state & 0x00ffffffU) / 16777216.0f) * total;
-        for (uint32_t i = 0; i < count; i++) {
-            if (target <= weights[i]) return ids[i];
-            target -= weights[i];
-        }
-        return ids[count - 1U];
-    }
+    gpt2_sample_top_k_init(&state, generated, generated_count);
+    for (uint32_t i = 0U; i < vocab; i++) gpt2_sample_top_k_offer(&state, i, logits[i]);
+    return gpt2_sample_top_k_finish(&state, rng_state);
 }

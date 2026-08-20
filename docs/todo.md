@@ -88,10 +88,11 @@
 - [x] AOS-1561…1568 : exécution GPT-2 GGUF token-vers-logits sur FAT16, cache KV et workspace caller-owned — [aos1561_1568_gguf_token_logits.md](aos1561_1568_gguf_token_logits.md)
 - [x] AOS-1569…1576 : runtime GPT-2 GGUF local, disque FAT16 de déploiement, shell, top-k et lectures séquentielles — [aos1569_1576_gguf_local_shell.md](aos1569_1576_gguf_local_shell.md)
 - [x] AOS-1577…1584 : cache de curseur FAT16, pré-calcul Q4_K/Q6_K et smoke local chronométré — [aos1577_1584_gguf_fat16_latency.md](aos1577_1584_gguf_fat16_latency.md)
+- [x] AOS-1585…1592 : projection GGUF top-k en flux, suppression du buffer de logits et équivalence RNG — [aos1585_1592_gguf_stream_topk.md](aos1585_1592_gguf_stream_topk.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 453 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 454 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

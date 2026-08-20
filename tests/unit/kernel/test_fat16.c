@@ -826,6 +826,39 @@ static void test_generates_gguf_token_logits_from_fat16(void) {
                                                             logits, sizeof(logits)));
 }
 
+static void test_streams_output_top_k_equivalently_from_fat16(void) {
+    fat16_volume_t volume;
+    gpt2_gguf_loaded_model_t model;
+    gpt2_gguf_layer_t layers[1];
+    gpt2_gguf_generation_t generation;
+    float hidden[BLOCK_CHANNELS] = {0.0f};
+    float logits[4U] = {0.0f};
+    uint8_t row[4U * GPT2_Q4_K_BLOCK_BYTES] = {0U};
+    uint32_t generated[1] = {1U};
+    uint32_t rng_logits = 0x12345678U;
+    uint32_t rng_streamed = 0x12345678U;
+    uint32_t token_logits;
+    uint32_t token_streamed;
+    gpt2_sample_top_k_state_t top_k;
+    char name[64];
+    make_block_gguf_file();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_load_fat16(&volume, "block.ggu", block_model_buffer,
+                                               sizeof(block_model_buffer), &model));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_generation_prepare(&model, name, sizeof(name), layers, 1U, &generation));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_forward_output_logits_fat16(
+        &volume, "block.ggu", &model, &generation.output_weight, BLOCK_CHANNELS, 4U,
+        hidden, row, sizeof(row), logits, sizeof(logits)));
+    gpt2_sample_top_k_init(&top_k, generated, 1U);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_forward_output_top_k_fat16(
+        &volume, "block.ggu", &model, &generation.output_weight, BLOCK_CHANNELS, 4U,
+        hidden, row, sizeof(row), &top_k));
+    token_logits = gpt2_sample_top_k(logits, 4U, generated, 1U, &rng_logits);
+    token_streamed = gpt2_sample_top_k_finish(&top_k, &rng_streamed);
+    TEST_ASSERT_EQUAL((int)token_logits, (int)token_streamed);
+    TEST_ASSERT_EQUAL((int)rng_logits, (int)rng_streamed);
+}
+
 static void test_mount_list_and_read(void) {
     fat16_volume_t volume;
     os_fat16_dirent_t entries[4];
@@ -1027,6 +1060,7 @@ int main(void) {
     RUN_TEST(test_indexes_gpt2_header_from_fat16);
     RUN_TEST(test_executes_q4_block_from_fat16);
     RUN_TEST(test_generates_gguf_token_logits_from_fat16);
+    RUN_TEST(test_streams_output_top_k_equivalently_from_fat16);
     RUN_TEST(test_reads_bounded_file_range);
     RUN_TEST(test_cursor_reads_successive_windows);
     RUN_TEST(test_cursor_caches_shared_sector);
