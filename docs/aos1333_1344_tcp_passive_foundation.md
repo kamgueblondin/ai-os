@@ -21,7 +21,7 @@ Le registre `net_socket` expose désormais `net_socket_listen`, `net_socket_acce
 
 ## Validation
 
-Le runner noyau passe **35/35 tests** et la suite complète passe **427/427 tests**. Le builder IPv4 SYN-ACK et l’émission NE2000 via passerelle sont couverts par les tests TCP/NE2000. Les tests vérifient aussi le routage d’un SYN puis d’un ACK final via `net_socket_feed`, chemin compatible avec les vues produites par `ne2k_rx_poll_tcp`. Les tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré, le rejet d’un SYN accompagné à tort d’un ACK et le cycle équivalent dans le registre socket. Les wrappers syscall réutilisent la validation VMM page-par-page déjà appliquée aux six syscalls socket actifs.
+Le runner noyau passe **35/35 tests** et la suite complète passe **428/428 tests**. Le builder IPv4 SYN-ACK et l’émission NE2000 via passerelle sont couverts par les tests TCP/NE2000. Les tests vérifient aussi le routage d’un SYN puis d’un ACK final via `net_socket_feed`, chemin compatible avec les vues produites par `ne2k_rx_poll_tcp`. Les tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré, le rejet d’un SYN accompagné à tort d’un ACK et le cycle équivalent dans le registre socket. Les wrappers syscall réutilisent la validation VMM page-par-page déjà appliquée aux six syscalls socket actifs.
 
 ## Mémoire
 
