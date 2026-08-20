@@ -500,6 +500,12 @@ int sys_gpt2_generate(const char* prompt, char* out, int max) {
     return result;
 }
 
+int sys_gpt2_gguf_generate(const char* prompt, char* out, int max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_GPT2_GGUF_GENERATE), "b"(prompt), "c"(out), "d"(max));
+    return result;
+}
+
 int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_IPC_SEND), "b"(target_pid), "c"(payload));
@@ -4457,7 +4463,7 @@ static void cmd_ai_model(shell_context_t* ctx, char args[][128], int arg_count) 
     if (strcmp(args[0], "list") == 0) {
         print_string("Modeles locaux declares :\n");
         print_string("  gpt2_124M.bin  [operationnel : checkpoint llm.c v3, CPU bare-metal]\n");
-        print_string("  qwen2.5-1.5b-instruct-q4_0.gguf  [profil futur : chargeur GGUF requis]\n");
+        print_string("  gpt2.gguf      [operationnel : GPT-2 GGUF FAT16, catalogue statique et cache KV]\n");
         return;
     }
     if (strcmp(args[0], "use") == 0 && arg_count == 2) {
@@ -4466,10 +4472,12 @@ static void cmd_ai_model(shell_context_t* ctx, char args[][128], int arg_count) 
             return;
         }
         strcpy(ctx->ai_model, args[1]);
-        if (strstr(args[1], "gpt2") != 0) {
-            print_success("Profil GPT-2 selectionne; validation par le chargeur au boot");
+        if (strstr(args[1], "gpt2") != 0 && strstr(args[1], ".gguf") != 0) {
+            print_success("Profil GPT-2 GGUF selectionne; modele FAT16 requis au boot");
+        } else if (strstr(args[1], "gpt2") != 0) {
+            print_success("Profil GPT-2 FP32 selectionne; validation par le chargeur au boot");
         } else {
-            print_warning("Profil memorise; seul GPT-2 .bin est actuellement executable");
+            print_warning("Profil memorise; seuls les profils GPT-2 locaux sont executables");
         }
         return;
     }
@@ -4741,8 +4749,8 @@ static void cmd_ai_runtime(shell_context_t* ctx, char args[][128], int arg_count
     print_string(ai_provider_name(ctx));
     print_string("\nModele declare     : ");
     print_string(ai_model_name(ctx));
-    print_string("\nLocal              : GPT-2 124M .bin + tokenizer .bin, generation top-k\n");
-    print_string("Limite locale      : 64 jetons de contexte, 4 jetons generes, cache KV actif\n");
+    print_string("\nLocal              : GPT-2 FP32 initrd ou GPT-2 GGUF FAT16, generation top-k\n");
+    print_string("Limite locale      : 64 jetons de contexte, cache KV actif; GGUF lit les poids par fenetres\n");
     print_string("Session LLM noyau  : ");
     print_string(ai_session_phase_name(session_status));
     print_string((session_status & 1U) ? " (NE2000 pret)\n" : " (NE2000 absent)\n");
@@ -4817,15 +4825,18 @@ void call_ai_assistant(shell_context_t* ctx, const char* query) {
     print_string("\n");
     if (strstr(ai_model_name(ctx), "gpt2") != 0) {
         char generated[384];
-        int generated_len = sys_gpt2_generate(query, generated, sizeof(generated));
+        int use_gguf = strstr(ai_model_name(ctx), ".gguf") != 0;
+        int generated_len = use_gguf
+            ? sys_gpt2_gguf_generate(query, generated, sizeof(generated))
+            : sys_gpt2_generate(query, generated, sizeof(generated));
         if (generated_len >= 0) {
-            print_colored("[GPT-2 local] ", COLOR_GREEN);
+            print_colored(use_gguf ? "[GPT-2 GGUF local] " : "[GPT-2 local] ", COLOR_GREEN);
             if (generated_len == 0) print_string("(fin de sequence)");
             else print_string(generated);
             print_string("\n");
             return;
         }
-        print_colored("[GPT-2 local] indisponible (code ", COLOR_YELLOW);
+        print_colored(use_gguf ? "[GPT-2 GGUF local] indisponible (code " : "[GPT-2 local] indisponible (code ", COLOR_YELLOW);
         print_int(generated_len);
         print_colored("); repli de compatibilite.\n", COLOR_YELLOW);
     }

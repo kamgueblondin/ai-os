@@ -202,7 +202,9 @@
 #define SYS_SOCKET_BUILD_SYN_ACK 107
 /* EBX = descripteur, ECX = os_socket_passive_view_t* avec ACK final. */
 #define SYS_SOCKET_ACCEPT_ACK 108
-#define MAX_SYSCALLS 109
+/* prompt (EBX), buffer de réponse (ECX), taille du buffer (EDX), backend GGUF FAT16. */
+#define SYS_GPT2_GGUF_GENERATE 109
+#define MAX_SYSCALLS 110
 
 typedef struct {
     uint16_t source_port;

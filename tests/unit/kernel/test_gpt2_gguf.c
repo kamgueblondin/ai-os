@@ -97,18 +97,19 @@ static uint32_t make_role_tensors(void) {
         "blk.0.attn_qkv.weight", "blk.0.attn_qkv.bias",
         "blk.0.attn_output.weight", "blk.0.attn_output.bias",
         "blk.0.ffn_norm.weight", "blk.0.ffn_norm.bias",
-        "blk.0.ffn_up.weight", "blk.0.ffn_down.weight"
+        "blk.0.ffn_up.weight", "blk.0.ffn_down.weight",
+        "blk.0.ffn_up.bias", "blk.0.ffn_down.bias"
     };
     uint32_t i;
     uint32_t padded;
     reset_blob();
     put_u32(GPT2_GGUF_MAGIC);
     put_u32(GPT2_GGUF_VERSION);
-    put_u64(15U);
+    put_u64(17U);
     put_u64(2U);
     put_metadata_string("general.architecture", "gpt2");
     put_metadata_u32("general.alignment", 32U);
-    for (i = 0U; i < 15U; i++) {
+    for (i = 0U; i < 17U; i++) {
         put_tensor(names[i], 1U, GPT2_QK_K, 0U, GPT2_GGUF_TENSOR_Q4_K, (uint64_t)(i * 160U));
     }
     padded = 4096U;
@@ -149,7 +150,8 @@ static void test_prepares_generation_context_from_descriptors(void) {
         "blk.0.attn_qkv.weight", "blk.0.attn_qkv.bias",
         "blk.0.attn_output.weight", "blk.0.attn_output.bias",
         "blk.0.ffn_norm.weight", "blk.0.ffn_norm.bias",
-        "blk.0.ffn_up.weight", "blk.0.ffn_down.weight"
+        "blk.0.ffn_up.weight", "blk.0.ffn_down.weight",
+        "blk.0.ffn_up.bias", "blk.0.ffn_down.bias"
     };
     gpt2_gguf_loaded_model_t model = {0};
     gpt2_gguf_layer_t layers[1];
@@ -157,13 +159,13 @@ static void test_prepares_generation_context_from_descriptors(void) {
     char name[64];
     uint32_t i;
     model.index.info.is_valid = 1U;
-    model.index.tensor_count = 15U;
+    model.index.tensor_count = 17U;
     set_descriptor(&model.index.tensors[0], names[0], GPT2_QK_K, 4U, GPT2_GGUF_TENSOR_F32);
     set_descriptor(&model.index.tensors[1], names[1], GPT2_QK_K, 2U, GPT2_GGUF_TENSOR_F16);
     set_descriptor(&model.index.tensors[2], names[2], GPT2_QK_K, 1U, GPT2_GGUF_TENSOR_F32);
     set_descriptor(&model.index.tensors[3], names[3], GPT2_QK_K, 1U, GPT2_GGUF_TENSOR_F16);
     set_descriptor(&model.index.tensors[4], names[4], GPT2_QK_K, 4U, GPT2_GGUF_TENSOR_Q4_K);
-    for (i = 5U; i < 15U; i++) {
+    for (i = 5U; i < 17U; i++) {
         uint32_t width = GPT2_QK_K;
         uint32_t rows = 1U;
         uint32_t type = GPT2_GGUF_TENSOR_F32;
@@ -172,6 +174,7 @@ static void test_prepares_generation_context_from_descriptors(void) {
         else if (i == 9U) { rows = GPT2_QK_K; type = GPT2_GGUF_TENSOR_Q4_K; }
         else if (i == 13U) { rows = 4U * GPT2_QK_K; type = GPT2_GGUF_TENSOR_Q4_K; }
         else if (i == 14U) { width = 4U * GPT2_QK_K; rows = GPT2_QK_K; type = GPT2_GGUF_TENSOR_Q4_K; }
+        else if (i == 15U) width = 4U * GPT2_QK_K;
         set_descriptor(&model.index.tensors[i], names[i], width, rows, type);
     }
     TEST_ASSERT_EQUAL(0, gpt2_gguf_generation_prepare(&model, name, sizeof(name),
@@ -238,7 +241,7 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
     uint32_t size = make_role_tensors();
     TEST_ASSERT_EQUAL(0, gpt2_gguf_build_index(blob, size, &index));
     char name[40];
-    TEST_ASSERT_EQUAL(15, index.tensor_count);
+    TEST_ASSERT_EQUAL(17, index.tensor_count);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_index_find(&index, "output.weight", &tensor));
     TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
     TEST_ASSERT_EQUAL(4 * 160, (int)tensor.data_offset);
@@ -258,14 +261,17 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
     TEST_ASSERT_EQUAL_STRING("blk.0.attn_norm.weight", name);
     TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT, name, sizeof(name), &tensor));
     TEST_ASSERT_EQUAL_STRING("blk.0.attn_qkv.weight", name);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_FFN_UP_BIAS, name, sizeof(name), &tensor));
+    TEST_ASSERT_EQUAL_STRING("blk.0.ffn_up.bias", name);
     TEST_ASSERT_EQUAL(-8, gpt2_gguf_map_layer_role(&index, 1U, GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT, name, sizeof(name), &tensor));
     TEST_ASSERT_EQUAL(-2, gpt2_gguf_map_layer_role(&index, 0U, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT, name, 8U, &tensor));
     {
         gpt2_gguf_layer_t layer;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_map_layer(&index, 0U, name, sizeof(name), &layer));
-        TEST_ASSERT_EQUAL(0x3FF, (int)layer.present_mask);
+        TEST_ASSERT_EQUAL(0xFFF, (int)layer.present_mask);
         TEST_ASSERT_EQUAL(0, (int)layer.layer_index);
         TEST_ASSERT_EQUAL(0, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &tensor));
+        TEST_ASSERT_EQUAL(0, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_UP_BIAS, &tensor));
         TEST_ASSERT_EQUAL(-1, gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_OUTPUT_WEIGHT, &tensor));
         layer.tensors[0].dimensions = 1U; layer.tensors[0].shape[0] = GPT2_QK_K;
         layer.tensors[1].dimensions = 1U; layer.tensors[1].shape[0] = GPT2_QK_K;
@@ -277,6 +283,8 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
         layer.tensors[7].dimensions = 1U; layer.tensors[7].shape[0] = GPT2_QK_K;
         layer.tensors[8].dimensions = 2U; layer.tensors[8].shape[0] = GPT2_QK_K; layer.tensors[8].shape[1] = 4U * GPT2_QK_K;
         layer.tensors[9].dimensions = 2U; layer.tensors[9].shape[0] = 4U * GPT2_QK_K; layer.tensors[9].shape[1] = GPT2_QK_K;
+        layer.tensors[10].dimensions = 1U; layer.tensors[10].shape[0] = 4U * GPT2_QK_K; layer.tensors[10].type = GPT2_GGUF_TENSOR_F32;
+        layer.tensors[11].dimensions = 1U; layer.tensors[11].shape[0] = GPT2_QK_K; layer.tensors[11].type = GPT2_GGUF_TENSOR_F32;
         layer.tensors[0].byte_size = GPT2_Q4_K_BLOCK_BYTES;
         layer.tensors[1].byte_size = GPT2_Q4_K_BLOCK_BYTES;
         layer.tensors[2].byte_size = 3U * GPT2_QK_K * GPT2_Q4_K_BLOCK_BYTES;
@@ -287,6 +295,8 @@ static void test_builds_index_and_maps_gpt2_roles(void) {
         layer.tensors[7].byte_size = GPT2_Q4_K_BLOCK_BYTES;
         layer.tensors[8].byte_size = 4U * GPT2_QK_K * GPT2_Q4_K_BLOCK_BYTES;
         layer.tensors[9].byte_size = 4U * GPT2_QK_K * GPT2_Q4_K_BLOCK_BYTES;
+        layer.tensors[10].byte_size = 4U * GPT2_QK_K * 4U;
+        layer.tensors[11].byte_size = GPT2_QK_K * 4U;
         TEST_ASSERT_EQUAL(0, gpt2_gguf_validate_gpt2_layer(&layer, GPT2_QK_K));
         TEST_ASSERT_EQUAL(0, gpt2_gguf_validate_gpt2_layer_storage(&layer, GPT2_QK_K));
         layer.tensors[8].byte_size--;

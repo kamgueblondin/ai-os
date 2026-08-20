@@ -56,8 +56,8 @@
 - [x] `spawn` / `yield` coopératifs (cadre syscall user) et préemption IRQ0 sûre entre tâches Ring 3
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
-- [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index et mapping ; génération shell encore FP32
-- [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s ; le socle de workspace GPT-2 statique borné est désormais livré
+- [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
+- [ ] Réduire la latence locale GGUF ; le forward bout-en-bout, le cache KV et les lectures séquentielles FAT16 sont désormais livrés
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
@@ -86,10 +86,11 @@
 - [x] AOS-1545…1552 : forward de bloc transformeur GPT-2 Q4_K sur FAT16, cache KV et workspace caller-owned — [aos1545_1552_gguf_transformer_block.md](aos1545_1552_gguf_transformer_block.md)
 - [x] AOS-1553…1560 : préparation statique de génération GPT-2 GGUF, rôles globaux, couches contiguës et dimensions déduites — [aos1553_1560_gguf_generation_prepare.md](aos1553_1560_gguf_generation_prepare.md)
 - [x] AOS-1561…1568 : exécution GPT-2 GGUF token-vers-logits sur FAT16, cache KV et workspace caller-owned — [aos1561_1568_gguf_token_logits.md](aos1561_1568_gguf_token_logits.md)
+- [x] AOS-1569…1576 : runtime GPT-2 GGUF local, disque FAT16 de déploiement, shell, top-k et lectures séquentielles — [aos1569_1576_gguf_local_shell.md](aos1569_1576_gguf_local_shell.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 450 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 452 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

@@ -11,6 +11,7 @@
 #include "../mem/pmm.h"
 #include "../timer.h"
 #include "../llm/gpt2_infer.h"
+#include "../llm/gpt2_gguf_infer.h"
 #include "../llm/gpt2_model.h"
 #include "../llm/gpt2_tokenizer.h"
 #include "../service_registry.h"
@@ -404,6 +405,9 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_GPT2_GENERATE:
             cpu->eax = (uint32_t)sys_gpt2_generate((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_GPT2_GGUF_GENERATE:
+            cpu->eax = (uint32_t)sys_gpt2_gguf_generate((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
             break;
         case SYS_IPC_SEND:
             cpu->eax = (uint32_t)sys_ipc_send((int)cpu->ebx,
@@ -944,13 +948,15 @@ int sys_vfs_overlay_rmdir(const char* path) {
  * modele s'execute dans le noyau freestanding et ne doit jamais consommer un
  * buffer utilisateur non borne.
  */
-int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
+static int sys_gpt2_generate_impl(const char* prompt, char* out, uint32_t max,
+                                  uint8_t use_gguf) {
     char prompt_copy[128];
     uint32_t tokens[64];
     uint32_t token_count = 0;
     uint32_t written = 0;
     uint32_t rng_state;
     uint32_t prompt_tokens;
+    uint32_t generation_steps;
     uint32_t prev_generated = 0xFFFFFFFFu;
     const gpt2_model_t* model;
     int rc;
@@ -971,21 +977,30 @@ int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
     rc = gpt2_tokenizer_encode(prompt_copy, tokens, 64, &token_count);
     if (rc != 0) return -2;
     model = gpt2_model_current();
-    if (!model->ready || token_count > model->config.max_seq_len) return -5;
+    if (use_gguf) {
+        if (!gpt2_gguf_infer_ready() || token_count > GPT2_GGUF_INFER_MAX_CONTEXT) return -5;
+    } else if (!model->ready || token_count > model->config.max_seq_len) return -5;
     prompt_tokens = token_count;
 
+    generation_steps = use_gguf ? 1U : GPT2_BAREMETAL_GENERATION_STEPS;
     rng_state = 0x9e3779b9U;
     for (uint32_t i = 0; prompt_copy[i] != '\0'; i++) {
         rng_state = rng_state * 16777619U + (uint8_t)prompt_copy[i];
     }
     if (rng_state == 0U) rng_state = 1U;
 
-    for (uint32_t step = 0; step < GPT2_BAREMETAL_GENERATION_STEPS && token_count < 64 && token_count < model->config.max_seq_len; step++) {
+    for (uint32_t step = 0; step < generation_steps && token_count < 64 &&
+         (use_gguf || token_count < model->config.max_seq_len); step++) {
         uint32_t next_token = 0;
         const char* piece;
         int saw_newline = 0;
         uint32_t generated_count = token_count - prompt_tokens;
-        rc = gpt2_generate_next_sampled(tokens, token_count, generated_count, &next_token, &rng_state);
+        if (use_gguf)
+            rc = gpt2_gguf_generate_next_sampled(tokens, token_count, generated_count,
+                                                  &next_token, &rng_state);
+        else
+            rc = gpt2_generate_next_sampled(tokens, token_count, generated_count,
+                                            &next_token, &rng_state);
         if (rc != 0) return -30 + rc;
         if (next_token == gpt2_tokenizer_eot()) break;
         if (next_token == prev_generated) break;
@@ -1005,6 +1020,14 @@ int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
     }
     out[written] = '\0';
     return (int)written;
+}
+
+int sys_gpt2_generate(const char* prompt, char* out, uint32_t max) {
+    return sys_gpt2_generate_impl(prompt, out, max, 0U);
+}
+
+int sys_gpt2_gguf_generate(const char* prompt, char* out, uint32_t max) {
+    return sys_gpt2_generate_impl(prompt, out, max, 1U);
 }
 
 // Cette fonction est maintenant obsolète pour l'entrée clavier

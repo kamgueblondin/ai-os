@@ -27,6 +27,7 @@ typedef struct {
 
 typedef struct {
     const fat16_volume_t* volume;
+    uint16_t first_cluster;
     uint16_t cluster;
     uint32_t size;
     uint32_t position;
@@ -73,6 +74,8 @@ int fat16_open_file(const fat16_volume_t* volume, const char* name,
                     fat16_file_t* out);
 int fat16_file_read(fat16_file_t* file, uint8_t* buffer, uint32_t max,
                     uint32_t* out_read);
+/* Positionne un curseur ouvert sur un offset, en parcourant seulement la FAT. */
+int fat16_file_seek(fat16_file_t* file, uint32_t offset);
 const char* fat16_status(void);
 
 #endif

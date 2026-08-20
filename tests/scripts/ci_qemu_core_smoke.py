@@ -124,7 +124,10 @@ def main():
         except OSError:
             pass
 
-    prepare_test_disk()
+    if os.environ.get("AIOS_PRESERVE_FAT16") != "1":
+        prepare_test_disk()
+    elif not os.path.isfile(TEST_DISK):
+        raise RuntimeError("missing preserved FAT16 deployment disk")
     proc = None
     monitor = None
     try:

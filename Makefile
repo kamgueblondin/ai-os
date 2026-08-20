@@ -16,6 +16,8 @@ OS_IMAGE = build/ai_os.bin
 ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 DISK_IMAGE ?= build/overlay.img
+GGUF_DISK_IMAGE ?= build/gpt2_gguf_fat16.img
+GPT2_GGUF_DEPLOY_MODEL ?= models/gpt2-Q3_K_M.gguf
 DISK_SECTORS ?= 4224
 FAT_BASE_LBA ?= 64
 QEMU_DISK_OPTS = -drive file=$(DISK_IMAGE),format=raw,if=ide,cache=writethrough
@@ -33,7 +35,7 @@ BIN_DEST_DIR := $(INITRD_DIR)/bin
 # Liste des fichiers objets - MISE À JOUR avec tous les nouveaux fichiers
 OBJECTS = build/boot.o build/idt_loader.o build/isr_stubs.o build/paging.o build/context_switch.o build/userspace_switch.o \
           build/string.o build/pmm.o build/heap.o build/gdt_asm.o build/gdt.o build/idt.o build/vmm.o build/task.o \
-          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/rtc.o build/fat16.o build/fat32.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_gguf_loader.o build/gpt2_quant.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
+          build/syscall.o build/elf.o build/initrd.o build/overlay.o build/ata.o build/rtc.o build/fat16.o build/fat32.o build/gpt2_model.o build/gpt2_gguf.o build/gpt2_gguf_loader.o build/gpt2_quant.o build/gpt2_gguf_infer.o build/gpt2_tokenizer.o build/gpt2_sample.o build/gpt2_infer.o build/interrupts.o \
           build/keyboard.o build/timer.o build/ipc.o build/service_registry.o build/multiboot.o build/kernel.o build/vga_console.o build/kbd_buffer.o build/net_ethernet_arp.o build/net_nic.o build/pci.o build/ne2k.o build/net_dhcp.o build/net_ipv4_udp.o build/net_dns.o build/net_tcp.o build/net_socket.o build/net_llm_socket.o build/sha256.o build/aes_gcm.o build/x509_der.o build/bigint.o build/ecdsa_p256.o build/x25519.o build/rsa_verify.o build/net_tls_record.o build/net_http_tls.o
 
 # L'ABI partagée influence notamment la taille de task_t et des messages IPC.
@@ -291,6 +293,10 @@ build/gpt2_sample.o: kernel/llm/gpt2_sample.c kernel/llm/gpt2_sample.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Noyau d'inference GPT-2 CPU freestanding.
+build/gpt2_gguf_infer.o: kernel/llm/gpt2_gguf_infer.c kernel/llm/gpt2_gguf_infer.h kernel/llm/gpt2_gguf_loader.h kernel/llm/gpt2_sample.h kernel/fs/fat16.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 build/gpt2_infer.o: kernel/llm/gpt2_infer.c kernel/llm/gpt2_infer.h kernel/llm/gpt2_sample.h kernel/llm/gpt2_model.h kernel/mem/heap.h
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -564,7 +570,7 @@ $(DISK_IMAGE):
 	dd if=/dev/zero of=$@ bs=512 count=$(DISK_SECTORS) status=none
 	python3 tests/scripts/make_fat16_image.py --image $@
 
-.PHONY: disk fat16-fixture
+.PHONY: disk fat16-fixture gguf-disk
 disk: $(DISK_IMAGE)
 
 fat16-fixture: $(DISK_IMAGE)
@@ -687,3 +693,10 @@ help:
 
 .PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk gui-captures gui-record
 
+
+gguf-disk:
+	@python3 scripts/make_gguf_fat16_image.py --model $(GPT2_GGUF_DEPLOY_MODEL) --image $(GGUF_DISK_IMAGE)
+
+.PHONY: qemu-gguf-smoke
+qemu-gguf-smoke: $(OS_IMAGE) pack-initrd gguf-disk
+	@OVERLAY_DISK="$(abspath $(GGUF_DISK_IMAGE))" python3 tests/scripts/ci_qemu_gguf_local_smoke.py
