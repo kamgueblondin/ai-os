@@ -23,5 +23,18 @@ int net_llm_socket_build_request(int socket_id, net_tls_aes_gcm_session_t* sessi
                                  uint8_t* tls_record, uint32_t tls_capacity,
                                  uint8_t* tcp_segment, uint16_t tcp_capacity,
                                  uint8_t retransmit_limit);
+/* Ouvre un record TLS socket et alimente l’accumulateur HTTP caller-owned. */
+int net_llm_socket_open_response(int socket_id, net_tls_aes_gcm_session_t* session,
+                                 const net_tcp_view_t* view, uint8_t* plaintext,
+                                 uint16_t plaintext_capacity,
+                                 net_http_response_accumulator_t* accumulator,
+                                 net_http_response_view_t* response,
+                                 uint16_t* consumed);
+/* Ouvre un record TLS socket et publie un delta SSE LLM caller-owned. */
+int net_llm_socket_open_sse(int socket_id, net_tls_aes_gcm_session_t* session,
+                            const net_tcp_view_t* view, uint8_t* plaintext,
+                            uint16_t plaintext_capacity, net_llm_sse_response_t* response,
+                            uint8_t provider, uint8_t* text, uint16_t text_capacity,
+                            uint16_t* text_length, uint16_t* consumed);
 
 #endif

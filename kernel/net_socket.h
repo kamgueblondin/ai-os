@@ -47,6 +47,8 @@ int net_socket_receive_tls(int socket_id, net_tls_aes_gcm_session_t* session,
                            uint16_t* consumed);
 int net_socket_accept_syn_ack(int socket_id, const net_tcp_view_t* view);
 int net_socket_get_state(int socket_id, uint8_t* out_state);
+int net_socket_connection_snapshot(int socket_id, net_tcp_connection_t* out_connection);
+int net_socket_connection_restore(int socket_id, const net_tcp_connection_t* connection);
 void net_socket_reset_all(void);
 
 #endif

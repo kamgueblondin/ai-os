@@ -121,6 +121,20 @@ int net_socket_get_state(int socket_id, uint8_t* out_state) {
     return 0;
 }
 
+int net_socket_connection_snapshot(int socket_id, net_tcp_connection_t* out_connection) {
+    if (!valid_id(socket_id)) return NET_SOCKET_NOT_OPEN;
+    if (!out_connection) return NET_SOCKET_BAD_ARGUMENT;
+    *out_connection = sockets[socket_id].connection;
+    return 0;
+}
+
+int net_socket_connection_restore(int socket_id, const net_tcp_connection_t* connection) {
+    if (!valid_id(socket_id)) return NET_SOCKET_NOT_OPEN;
+    if (!connection) return NET_SOCKET_BAD_ARGUMENT;
+    sockets[socket_id].connection = *connection;
+    return 0;
+}
+
 void net_socket_reset_all(void) {
     uint32_t i;
     for (i = 0U; i < NET_SOCKET_CAPACITY; i++) sockets[i].used = 0U;
