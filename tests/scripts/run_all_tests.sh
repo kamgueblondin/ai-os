@@ -191,7 +191,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/net_dhcp.c"
     fi
     if [ "$(basename "$test_file")" = "test_ne2k.c" ]; then
-        extra_src="$extra_src $BASE_DIR/kernel/ne2k.c $BASE_DIR/kernel/net_socket.c $BASE_DIR/kernel/rtc.c"
+        extra_src="$extra_src $BASE_DIR/kernel/ne2k.c $BASE_DIR/kernel/net_socket.c $BASE_DIR/kernel/net_llm_socket.c $BASE_DIR/kernel/rtc.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_nic.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_ethernet_arp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_ipv4_udp.c"
