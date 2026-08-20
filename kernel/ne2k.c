@@ -1,4 +1,5 @@
 #include "ne2k.h"
+#include "net_socket.h"
 #include <stdint.h>
 extern uint32_t timer_get_ticks(void) __attribute__((weak));
 
@@ -598,6 +599,19 @@ int ne2k_rx_poll_tcp(ne2k_device_t* device, const ne2k_io_t* io,
                       (uint32_t)(*frame_length - NET_ETHERNET_HEADER_SIZE - ip_header_size), tcp) != 0)
         return -4;
     return 0;
+}
+
+int ne2k_socket_poll_tcp(ne2k_device_t* device, const ne2k_io_t* io,
+                         uint8_t* frame, uint16_t frame_capacity, int socket_id) {
+    net_tcp_view_t view;
+    uint16_t frame_length, ip_header_size, tcp_offset;
+    int status;
+    status = ne2k_rx_poll_tcp(device, io, frame, frame_capacity, &frame_length, &view);
+    if (status != 0) return status;
+    ip_header_size = (uint16_t)(frame[NET_ETHERNET_HEADER_SIZE] & 0x0fU) * 4U;
+    tcp_offset = (uint16_t)(NET_ETHERNET_HEADER_SIZE + ip_header_size);
+    if (tcp_offset >= frame_length) return -5;
+    return net_socket_feed(socket_id, frame + tcp_offset, (uint16_t)(frame_length - tcp_offset));
 }
 
 int ne2k_rx_poll_udp(ne2k_device_t* device, const ne2k_io_t* io,
