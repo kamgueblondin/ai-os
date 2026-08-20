@@ -99,6 +99,11 @@ static uint8_t boot_llm_sse_event_buffer[KERNEL_LLM_TLS_RECORD_CAPACITY];
 static net_llm_sse_response_t boot_llm_sse_response;
 static uint8_t boot_llm_http_provider;
 static uint8_t boot_llm_http_streaming;
+typedef struct {
+    uint8_t pending;
+    os_llm_request_t request;
+} kernel_llm_application_recovery_t;
+static kernel_llm_application_recovery_t boot_llm_application_recovery;
 static uint8_t boot_ne2k_present;
 static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length);
 static int kernel_llm_rdrand_supported(void);
@@ -119,6 +124,7 @@ static void ne2k_boot_probe(void) {
     boot_llm_flight_records_length = 0U;
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
     boot_llm_http_streaming = 0U;
+    boot_llm_application_recovery.pending = 0U;
     boot_llm_dhcp_maintenance.armed = 0U;
     boot_llm_dhcp_maintenance.retries_used = 0U;
     boot_llm_dhcp_maintenance.retry_limit = KERNEL_LLM_DHCP_RETRY_LIMIT;
@@ -366,6 +372,8 @@ int kernel_llm_request(const os_llm_request_t* request) {
     if (status < 0) return OS_LLM_REQUEST_FAILED;
     boot_llm_http_provider = request->provider;
     boot_llm_http_streaming = request->streaming;
+    boot_llm_application_recovery.request = *request;
+    boot_llm_application_recovery.pending = 1U;
     return 0;
 }
 
@@ -442,6 +450,8 @@ static void kernel_llm_clear_session_preserve_lease(uint8_t preserve_provider) {
     if (!preserve_provider) {
         kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer, sizeof(boot_llm_openai_bearer));
         boot_llm_openai_bearer_ready = 0U;
+        kernel_llm_clear_bytes((uint8_t*)&boot_llm_application_recovery,
+                               sizeof(boot_llm_application_recovery));
     }
     kernel_llm_clear_tls_material();
     boot_llm_lease = retained_lease;
@@ -560,7 +570,13 @@ int kernel_llm_poll_tls(void) {
         sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),
         boot_llm_flight_records, sizeof(boot_llm_flight_records), &boot_llm_flight_records_length,
         boot_llm_plaintext, sizeof(boot_llm_plaintext), 2U, &consumed);
-    return status < 0 ? OS_LLM_TLS_FAILED : status;
+    if (status < 0) return OS_LLM_TLS_FAILED;
+    if (status == 0 && boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_TLS_COMPLETE &&
+        boot_llm_application_recovery.pending) {
+        status = kernel_llm_request(&boot_llm_application_recovery.request);
+        return status == 0 ? 2 : OS_LLM_REQUEST_FAILED;
+    }
+    return status;
 }
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
