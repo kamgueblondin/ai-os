@@ -54,6 +54,12 @@ int net_socket_feed(int socket_id, const uint8_t* segment, uint16_t length) {
     uint16_t available;
     if (!valid_id(socket_id) || !segment) return NET_SOCKET_BAD_ARGUMENT;
     if (net_tcp_parse(segment, length, &view) != 0) return NET_SOCKET_PROTOCOL;
+    if (sockets[socket_id].connection.state == NET_TCP_STATE_LISTEN) {
+        return net_tcp_connection_accept_syn(&sockets[socket_id].connection, &view) == 0 ? 0 : NET_SOCKET_PROTOCOL;
+    }
+    if (sockets[socket_id].connection.state == NET_TCP_STATE_SYN_RECEIVED) {
+        return net_tcp_connection_accept_ack(&sockets[socket_id].connection, &view) == 0 ? 0 : NET_SOCKET_PROTOCOL;
+    }
     if (net_tcp_connection_accept_data(&sockets[socket_id].connection, &view, &accepted) != 0) return NET_SOCKET_PROTOCOL;
     available = (uint16_t)(NET_SOCKET_RX_CAPACITY - sockets[socket_id].receive_length);
     if (accepted > available) return NET_SOCKET_BUFFER_SMALL;
