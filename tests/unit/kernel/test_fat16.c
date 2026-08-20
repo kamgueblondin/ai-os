@@ -405,6 +405,33 @@ static void test_loads_gpt2_from_fat16(void) {
         TEST_ASSERT_EQUAL(0, tensor_bytes[1]);
         TEST_ASSERT_EQUAL(0, tensor_bytes[2]);
         TEST_ASSERT_EQUAL(0, tensor_bytes[3]);
+        {
+            gpt2_gguf_tensor_t dense = tensor;
+            uint8_t dense_scratch[4] = {0U};
+            float dense_output[1] = {0.0f};
+            dense.dimensions = 1U;
+            dense.shape[0] = 1U;
+            dense.shape[1] = 0U;
+            dense.type = GPT2_GGUF_TENSOR_F32;
+            dense.byte_size = 4U;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_dense_row_fat16(
+                &volume, "gpt2.ggu", &model, &dense, 0U, 1U,
+                dense_scratch, sizeof(dense_scratch), dense_output, sizeof(dense_output)));
+            TEST_ASSERT_TRUE(dense_output[0] > 0.0f);
+            TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_dense_row_fat16(
+                &volume, "gpt2.ggu", &model, &dense, 0U, 1U,
+                dense_scratch, 1U, dense_output, sizeof(dense_output)));
+            dense.type = GPT2_GGUF_TENSOR_F16;
+            dense.byte_size = 2U;
+            TEST_ASSERT_EQUAL(0, gpt2_gguf_read_dense_row_fat16(
+                &volume, "gpt2.ggu", &model, &dense, 0U, 1U,
+                dense_scratch, sizeof(dense_scratch), dense_output, sizeof(dense_output)));
+            TEST_ASSERT_TRUE(dense_output[0] > 0.0f);
+            dense.type = GPT2_GGUF_TENSOR_Q4_K;
+            TEST_ASSERT_EQUAL(-4, gpt2_gguf_read_dense_row_fat16(
+                &volume, "gpt2.ggu", &model, &dense, 0U, 1U,
+                dense_scratch, sizeof(dense_scratch), dense_output, sizeof(dense_output)));
+        }
     }
     {
         uint8_t block[GPT2_Q4_K_BLOCK_BYTES];
@@ -461,6 +488,20 @@ static void test_loads_gpt2_from_fat16(void) {
                                                                          &tensor, 32U, 2U,
                                                                          input, row, sizeof(row),
                                                                          projected, 2U * sizeof(float)));
+                    {
+                        float logits[2] = {99.0f, 99.0f};
+                        TEST_ASSERT_EQUAL(0, gpt2_gguf_forward_output_logits_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, GPT2_QK_K, 2U,
+                            input, row, sizeof(row), logits, sizeof(logits)));
+                        TEST_ASSERT_EQUAL(0, (int)logits[0]);
+                        TEST_ASSERT_EQUAL(0, (int)logits[1]);
+                        TEST_ASSERT_EQUAL(-6, gpt2_gguf_forward_output_logits_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, GPT2_QK_K, 2U,
+                            input, row, sizeof(row), logits, sizeof(float)));
+                        TEST_ASSERT_EQUAL(-9, gpt2_gguf_forward_output_logits_fat16(
+                            &volume, "gpt2.ggu", &model, &tensor, 32U, 2U,
+                            input, row, sizeof(row), logits, sizeof(logits)));
+                    }
                 }
             {
                 gpt2_gguf_tensor_t qkv = tensor;

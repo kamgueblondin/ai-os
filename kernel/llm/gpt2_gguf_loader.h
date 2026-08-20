@@ -197,6 +197,13 @@ int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filena
                                 const gpt2_gguf_tensor_t* tensor,
                                 uint32_t tensor_offset, uint8_t* buffer,
                                 uint32_t capacity, uint32_t* out_read);
+/* Décode une ligne dense F32/F16 dans un buffer float caller-owned. */
+int gpt2_gguf_read_dense_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t row_index, uint32_t width,
+                                   uint8_t* scratch, uint32_t scratch_capacity,
+                                   float* output, uint32_t output_capacity);
 /* Lit un super-bloc complet d’un tenseur Q3_K/Q4_K/Q6_K. */
 int gpt2_gguf_read_quant_block_fat16(const fat16_volume_t* volume, const char* filename,
                                      const gpt2_gguf_loaded_model_t* model,
@@ -257,5 +264,14 @@ int gpt2_gguf_project_matrix_fat16(const fat16_volume_t* volume, const char* fil
                                    const float* input, uint8_t* row_buffer,
                                    uint32_t row_capacity, float* output,
                                    uint32_t output_capacity);
+/* Calcule les logits d’une tête de sortie quantifiée depuis un état caché. */
+int gpt2_gguf_forward_output_logits_fat16(const fat16_volume_t* volume,
+                                          const char* filename,
+                                          const gpt2_gguf_loaded_model_t* model,
+                                          const gpt2_gguf_tensor_t* output_tensor,
+                                          uint32_t channels, uint32_t vocabulary,
+                                          const float* hidden, uint8_t* row_buffer,
+                                          uint32_t row_capacity, float* logits,
+                                          uint32_t logits_capacity);
 
 #endif

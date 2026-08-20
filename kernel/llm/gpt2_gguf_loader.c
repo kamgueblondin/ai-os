@@ -35,6 +35,57 @@ int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filena
 }
 
 
+int gpt2_gguf_read_dense_row_fat16(const fat16_volume_t* volume, const char* filename,
+                                   const gpt2_gguf_loaded_model_t* model,
+                                   const gpt2_gguf_tensor_t* tensor,
+                                   uint32_t row_index, uint32_t width,
+                                   uint8_t* scratch, uint32_t scratch_capacity,
+                                   float* output, uint32_t output_capacity) {
+    uint64_t rows = 1U;
+    uint64_t row_bytes;
+    uint64_t row_offset;
+    uint32_t element_bytes;
+    uint32_t read = 0U;
+    uint32_t index;
+    int status;
+    if (!volume || !filename || !model || !tensor || !scratch || !output) return -1;
+    if (tensor->dimensions == 0U || tensor->dimensions > 2U || width == 0U ||
+        width > 0xFFFFFFFFU / (uint32_t)sizeof(float) ||
+        tensor->shape[0] != width) return -9;
+    if (tensor->dimensions == 2U) rows = tensor->shape[1];
+    if (rows == 0U || row_index >= rows) return -9;
+    if (tensor->type == GPT2_GGUF_TENSOR_F32) element_bytes = 4U;
+    else if (tensor->type == GPT2_GGUF_TENSOR_F16) element_bytes = 2U;
+    else return -4;
+    row_bytes = (uint64_t)width * element_bytes;
+    row_offset = row_bytes * row_index;
+    if (row_bytes > 0xFFFFFFFFULL || row_offset > 0xFFFFFFFFULL ||
+        row_offset > tensor->byte_size || row_bytes > tensor->byte_size - row_offset ||
+        scratch_capacity < (uint32_t)row_bytes ||
+        output_capacity < width * (uint32_t)sizeof(float)) return -6;
+    status = gpt2_gguf_read_tensor_fat16(volume, filename, model, tensor,
+                                          (uint32_t)row_offset, scratch,
+                                          (uint32_t)row_bytes, &read);
+    if (status != 0) return status;
+    if (read != (uint32_t)row_bytes) return -8;
+    for (index = 0U; index < width; index++) {
+        uint32_t offset = index * element_bytes;
+        if (element_bytes == 4U) {
+            union { uint32_t bits; float value; } convert;
+            convert.bits = (uint32_t)scratch[offset] |
+                           ((uint32_t)scratch[offset + 1U] << 8U) |
+                           ((uint32_t)scratch[offset + 2U] << 16U) |
+                           ((uint32_t)scratch[offset + 3U] << 24U);
+            output[index] = convert.value;
+        } else {
+            uint16_t bits = (uint16_t)scratch[offset] |
+                            (uint16_t)((uint16_t)scratch[offset + 1U] << 8U);
+            output[index] = gpt2_f16_to_f32(bits);
+        }
+    }
+    return 0;
+}
+
 int gpt2_gguf_read_quant_block_fat16(const fat16_volume_t* volume, const char* filename,
                                      const gpt2_gguf_loaded_model_t* model,
                                      const gpt2_gguf_tensor_t* tensor,
@@ -349,6 +400,28 @@ int gpt2_gguf_project_matrix_fat16(const fat16_volume_t* volume, const char* fil
     return 0;
 }
 
+
+int gpt2_gguf_forward_output_logits_fat16(const fat16_volume_t* volume,
+                                          const char* filename,
+                                          const gpt2_gguf_loaded_model_t* model,
+                                          const gpt2_gguf_tensor_t* output_tensor,
+                                          uint32_t channels, uint32_t vocabulary,
+                                          const float* hidden, uint8_t* row_buffer,
+                                          uint32_t row_capacity, float* logits,
+                                          uint32_t logits_capacity) {
+    if (!volume || !filename || !model || !output_tensor || !hidden ||
+        !row_buffer || !logits || channels == 0U || vocabulary == 0U) return -1;
+    if (vocabulary > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
+    if (output_tensor->dimensions != 2U || output_tensor->shape[0] != channels ||
+        output_tensor->shape[1] != vocabulary ||
+        (output_tensor->type != GPT2_GGUF_TENSOR_Q3_K &&
+         output_tensor->type != GPT2_GGUF_TENSOR_Q4_K &&
+         output_tensor->type != GPT2_GGUF_TENSOR_Q6_K)) return -9;
+    if (logits_capacity < vocabulary * (uint32_t)sizeof(float)) return -6;
+    return gpt2_gguf_project_matrix_fat16(volume, filename, model, output_tensor,
+                                          channels, vocabulary, hidden, row_buffer,
+                                          row_capacity, logits, logits_capacity);
+}
 
 static int gpt2_gguf_kv_cache_offset(const gpt2_gguf_kv_cache_t* cache,
                                      uint32_t layer, uint32_t position,
