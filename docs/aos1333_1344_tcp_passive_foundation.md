@@ -17,11 +17,11 @@ Les états `LISTEN` et `SYN_RECEIVED` sont ajoutés sans modifier la représenta
 
 ## Limites
 
-Le registre `net_socket` expose désormais `net_socket_listen`, `net_socket_accept_syn`, `net_socket_build_syn_ack` et `net_socket_accept_ack`. Les syscalls `SYS_SOCKET_LISTEN` (105), `SYS_SOCKET_ACCEPT_SYN` (106), `SYS_SOCKET_BUILD_SYN_ACK` (107) et `SYS_SOCKET_ACCEPT_ACK` (108) valident les vues et buffers Ring 3 par page avant d’appeler le registre. La réception/émission NE2000 et l’injection automatique des trames restent hors périmètre ; les buffers et l’état restent caller-owned.
+Le registre `net_socket` expose désormais `net_socket_listen`, `net_socket_accept_syn`, `net_socket_build_syn_ack` et `net_socket_accept_ack`. `net_socket_feed` route aussi un segment SYN vers un socket `LISTEN` et l’ACK final vers `SYN_RECEIVED`, ce qui permet au chemin `ne2k_rx_poll_tcp` de faire progresser le cycle passif. Les syscalls `SYS_SOCKET_LISTEN` (105), `SYS_SOCKET_ACCEPT_SYN` (106), `SYS_SOCKET_BUILD_SYN_ACK` (107) et `SYS_SOCKET_ACCEPT_ACK` (108) valident les vues et buffers Ring 3 par page avant d’appeler le registre. La construction caller-owned du SYN-ACK est disponible ; sa transformation en trame Ethernet complète et sa mise en file TX NE2000 restent à intégrer au pilote.
 
 ## Validation
 
-Le runner noyau passe **35/35 tests** et la suite complète passe **425/425 tests**. Les tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré, le rejet d’un SYN accompagné à tort d’un ACK et le cycle équivalent dans le registre socket. Les wrappers syscall réutilisent la validation VMM page-par-page déjà appliquée aux six syscalls socket actifs.
+Le runner noyau passe **35/35 tests** et la suite complète passe **426/426 tests**. Les tests vérifient aussi le routage d’un SYN puis d’un ACK final via `net_socket_feed`, chemin compatible avec les vues produites par `ne2k_rx_poll_tcp`. Les tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré, le rejet d’un SYN accompagné à tort d’un ACK et le cycle équivalent dans le registre socket. Les wrappers syscall réutilisent la validation VMM page-par-page déjà appliquée aux six syscalls socket actifs.
 
 ## Mémoire
 

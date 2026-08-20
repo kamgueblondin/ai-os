@@ -3,6 +3,7 @@
 
 void setUp(void) {}
 void tearDown(void) {}
+void test_socket_feed_routes_passive_segments(void);
 
 void test_socket_passive_lifecycle(void) {
     int id; uint8_t segment[32] = {0}; uint16_t segment_length = 0U; uint8_t state = 0U;
@@ -57,7 +58,20 @@ int main(void) {
     unity_init();
     RUN_TEST(test_socket_lifecycle_send_receive);
     RUN_TEST(test_socket_passive_lifecycle);
+    RUN_TEST(test_socket_feed_routes_passive_segments);
     unity_print_results();
     unity_cleanup();
     return 0;
+}
+
+void test_socket_feed_routes_passive_segments(void) {
+    int id; uint8_t syn_segment[20] = {0}; uint8_t ack_segment[20] = {0}; uint8_t state = 0U;
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, net_tcp_build_syn(syn_segment, sizeof(syn_segment), 40000U, 8080U, 900U));
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, net_tcp_build_ack(ack_segment, sizeof(ack_segment), 40000U, 8080U, 901U, 1235U));
+    net_socket_reset_all(); id = net_socket_listen(8080U, 1234U); TEST_ASSERT_TRUE(id >= 0);
+    TEST_ASSERT_EQUAL(0, net_socket_feed(id, syn_segment, sizeof(syn_segment)));
+    TEST_ASSERT_EQUAL(0, net_socket_get_state(id, &state)); TEST_ASSERT_EQUAL(NET_TCP_STATE_SYN_RECEIVED, state);
+    TEST_ASSERT_EQUAL(0, net_socket_feed(id, ack_segment, sizeof(ack_segment)));
+    TEST_ASSERT_EQUAL(0, net_socket_get_state(id, &state)); TEST_ASSERT_EQUAL(NET_TCP_STATE_ESTABLISHED, state);
+    TEST_ASSERT_EQUAL(0, net_socket_close(id));
 }
