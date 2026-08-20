@@ -191,6 +191,13 @@ int ne2k_tcp_syn_via(ne2k_device_t* device, const ne2k_io_t* io,
                      uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
                      const uint8_t local_ip[4], const uint8_t remote_ip[4], const uint8_t next_hop_ip[4],
                      uint16_t local_port, uint16_t remote_port, uint32_t sequence, uint16_t attempts);
+/* Émet un SYN-ACK IPv4 vers remote_ip après résolution bornée du prochain saut. */
+int ne2k_tcp_syn_ack_via(ne2k_device_t* device, const ne2k_io_t* io,
+                         net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
+                         uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,
+                         const uint8_t local_ip[4], const uint8_t remote_ip[4], const uint8_t next_hop_ip[4],
+                         uint16_t local_port, uint16_t remote_port, uint32_t sequence,
+                         uint32_t acknowledgment, uint16_t attempts);
 /* Résout un hostname LLM par DNS A, résout son ARP puis émet SYN et publie la connexion/IPv4 caller-owned seulement au succès. */
 int ne2k_llm_dns_syn_bootstrap(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
                                 uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
