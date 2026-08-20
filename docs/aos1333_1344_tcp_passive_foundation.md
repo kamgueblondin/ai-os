@@ -17,11 +17,11 @@ Les états `LISTEN` et `SYN_RECEIVED` sont ajoutés sans modifier la représenta
 
 ## Limites
 
-Ce lot ne publie pas encore de syscall `listen`/`accept`, ne réserve pas automatiquement un slot dans le registre `net_socket`, ne scrute pas la NIC NE2000 et n’émet pas encore le SYN-ACK sur le réseau. Le raccordement registre/socket/NIC constituera le prochain lot ; les buffers et l’état restent caller-owned.
+Le registre `net_socket` expose désormais `net_socket_listen`, `net_socket_accept_syn`, `net_socket_build_syn_ack` et `net_socket_accept_ack`. Les syscalls `SYS_SOCKET_LISTEN` (105), `SYS_SOCKET_ACCEPT_SYN` (106), `SYS_SOCKET_BUILD_SYN_ACK` (107) et `SYS_SOCKET_ACCEPT_ACK` (108) valident les vues et buffers Ring 3 par page avant d’appeler le registre. La réception/émission NE2000 et l’injection automatique des trames restent hors périmètre ; les buffers et l’état restent caller-owned.
 
 ## Validation
 
-Le runner noyau passe **35/35 tests**. Les nouveaux tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré et le rejet d’un SYN accompagné à tort d’un ACK. La suite complète doit être relancée avant la PR afin de confirmer l’absence de régression globale.
+Le runner noyau passe **35/35 tests** et la suite complète passe **425/425 tests**. Les tests vérifient la séquence `LISTEN → SYN_RECEIVED → ESTABLISHED`, le décodage du SYN-ACK généré, le rejet d’un SYN accompagné à tort d’un ACK et le cycle équivalent dans le registre socket. Les wrappers syscall réutilisent la validation VMM page-par-page déjà appliquée aux six syscalls socket actifs.
 
 ## Mémoire
 

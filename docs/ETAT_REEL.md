@@ -12,8 +12,8 @@
 |---|---|
 | FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et encode une entrée LFN ASCII UTF-16LE bornée. |
 | LFN FAT32 | Le checksum 8.3, la publication multi-entrée et la reconstruction au listage sont livrés ; l’intégration VFS complète, Unicode hors ASCII et suppression/renommage restent à réaliser. |
-| Réseau utilisateur | Le registre TCP statique et six syscalls socket sont présents ; les requêtes et buffers socket sont validés page-par-page dans l’espace utilisateur VMM. Le registre expose maintenant listen, SYN entrant, construction SYN-ACK et ACK final ; l’émission/réception NE2000 et l’exposition de ces opérations par syscalls restent à intégrer. |
-| Validation | Le runner noyau passe **35/35** tests et la suite complète passe **425/425** après l’intégration du cycle passif au registre socket. La CI et le smoke QEMU de la PR suivante restent à valider. |
+| Réseau utilisateur | Le registre TCP statique expose le cycle actif et passif ; les syscalls 99–108 valident les requêtes et buffers page-par-page dans l’espace utilisateur VMM. Les opérations passives `listen`, SYN entrant, SYN-ACK et ACK final sont disponibles. L’émission/réception NE2000 automatique reste à intégrer. |
+| Validation | Le runner noyau passe **35/35** tests et la suite complète passe **425/425** avec le registre et les syscalls passifs. La CI et le smoke QEMU de la PR suivante restent à valider. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.

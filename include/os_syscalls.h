@@ -194,7 +194,15 @@
 #define SYS_SOCKET_RECEIVE 103
 /* EBX = descripteur socket. */
 #define SYS_SOCKET_CLOSE 104
-#define MAX_SYSCALLS 105
+/* EBX = port local, ECX = séquence initiale. */
+#define SYS_SOCKET_LISTEN 105
+/* EBX = descripteur, ECX = os_socket_passive_view_t* avec SYN entrant. */
+#define SYS_SOCKET_ACCEPT_SYN 106
+/* EBX = descripteur, ECX = buffer SYN-ACK, EDX = capacité, ESI = out_length. */
+#define SYS_SOCKET_BUILD_SYN_ACK 107
+/* EBX = descripteur, ECX = os_socket_passive_view_t* avec ACK final. */
+#define SYS_SOCKET_ACCEPT_ACK 108
+#define MAX_SYSCALLS 109
 
 typedef struct {
     uint16_t source_port;
@@ -222,6 +230,13 @@ typedef struct {
     uint16_t capacity;
     uint16_t* out_length;
 } os_socket_receive_request_t;
+typedef struct {
+    uint16_t source_port;
+    uint16_t destination_port;
+    uint32_t sequence;
+    uint32_t acknowledgment;
+    uint8_t flags;
+} os_socket_passive_view_t;
 
 #define OS_SOCKET_BAD_ARGUMENT (-120)
 #define OS_SOCKET_NO_SLOT (-121)
