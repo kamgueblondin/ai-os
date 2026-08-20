@@ -57,7 +57,7 @@
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index et mapping ; génération shell encore FP32
-- [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s
+- [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s ; le socle de workspace GPT-2 statique borné est désormais livré
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
@@ -81,10 +81,11 @@
 - [x] AOS-1505…1512 : reprise applicative HTTP/SSE après réacquisition réseau et TLS complet — [aos1505_1512_application_recovery.md](aos1505_1512_application_recovery.md)
 - [x] AOS-1513…1520 : reprise SSE fine sur `Last-Event-ID` après réacquisition réseau, TLS complet et rollback TCP/TLS — [aos1513_1520_sse_fine_resume.md](aos1513_1520_sse_fine_resume.md)
 - [x] AOS-1521…1528 : activation contrôlée OpenAI depuis le shell, bearer masqué dans l’historique et diagnostics réseau réalignés — [aos1521_1528_openai_shell_activation.md](aos1521_1528_openai_shell_activation.md)
+- [x] AOS-1529…1536 : workspace GPT-2 statique, bornes 124M, suppression de `kmalloc` et test de capacité — [aos1529_1536_static_gpt2_workspace.md](aos1529_1536_static_gpt2_workspace.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 445 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 447 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
