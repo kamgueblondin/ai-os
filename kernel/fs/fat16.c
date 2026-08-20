@@ -499,6 +499,8 @@ int fat16_open_file(const fat16_volume_t* v, const char* name, fat16_file_t* out
         out->position = 0U;
         out->cluster_offset = 0U;
         out->guard = 0U;
+        out->cached_lba = 0U;
+        out->cache_valid = 0U;
         out->open = 1U;
         return 0;
     }
@@ -518,6 +520,7 @@ int fat16_file_seek(fat16_file_t* file, uint32_t offset) {
     file->position = 0U;
     file->cluster_offset = 0U;
     file->guard = 0U;
+    file->cache_valid = 0U;
     if (offset == file->size) {
         file->position = offset;
         return 0;
@@ -555,10 +558,14 @@ int fat16_file_read(fat16_file_t* file, uint8_t* buffer, uint32_t max,
         if (file->cluster < 2U || file->cluster >= FAT16_EOC_MIN ||
             file->cluster - 2U >= v->cluster_count || file->guard++ > v->cluster_count) return OS_FAT16_CORRUPT;
         lba = v->data_lba + (uint32_t)(file->cluster - 2U) * v->sectors_per_cluster + sector_in_cluster;
-        if (read_at(v, lba, sector2) != 0) return OS_FAT16_CORRUPT;
+        if (!file->cache_valid || file->cached_lba != lba) {
+            if (read_at(v, lba, file->sector_cache) != 0) return OS_FAT16_CORRUPT;
+            file->cached_lba = lba;
+            file->cache_valid = 1U;
+        }
         if (take > max - copied) take = max - copied;
         if (take > file->size - file->position) take = file->size - file->position;
-        for (uint32_t i = 0U; i < take; i++) buffer[copied + i] = sector2[sector_offset + i];
+        for (uint32_t i = 0U; i < take; i++) buffer[copied + i] = file->sector_cache[sector_offset + i];
         copied += take;
         file->position += take;
         file->cluster_offset += take;

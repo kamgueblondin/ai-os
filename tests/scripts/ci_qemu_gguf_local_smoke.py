@@ -95,9 +95,10 @@ def main():
             send(client, "ai-model use gpt2.gguf")
             wait_for(proc, "Profil GPT-2 GGUF selectionne", BOOT_TIMEOUT, start)
             start = len(text())
+            started = time.monotonic()
             send(client, "ai bonjour")
             wait_for(proc, "[GPT-2 GGUF local]", GENERATION_TIMEOUT, start)
-        print("QEMU GGUF local smoke passed.")
+        print("QEMU GGUF local smoke passed in %.2fs." % (time.monotonic() - started))
         return 0
     finally:
         if client is not None:

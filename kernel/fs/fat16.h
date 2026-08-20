@@ -33,6 +33,9 @@ typedef struct {
     uint32_t position;
     uint32_t cluster_offset;
     uint32_t guard;
+    uint32_t cached_lba;
+    uint8_t sector_cache[512];
+    uint8_t cache_valid;
     uint8_t open;
 } fat16_file_t;
 
