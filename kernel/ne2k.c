@@ -515,6 +515,21 @@ int ne2k_tcp_segment(ne2k_device_t* device, const ne2k_io_t* io,
     return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + ip_length));
 }
 
+int ne2k_socket_fin(ne2k_device_t* device, const ne2k_io_t* io,
+                    const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                    const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id) {
+    net_tcp_connection_t previous_connection;
+    uint8_t segment[64]; uint16_t segment_length = 0U;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -1;
+    if (net_socket_begin_close(socket_id, segment, sizeof(segment), &segment_length) != 0 ||
+        ne2k_tcp_segment(device, io, cache, frame, frame_capacity, local_ip, remote_ip,
+                         segment, segment_length) != 0) {
+        (void)net_socket_connection_restore(socket_id, &previous_connection);
+        return -2;
+    }
+    return 0;
+}
+
 int ne2k_socket_syn(ne2k_device_t* device, const ne2k_io_t* io,
                     const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                     const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id,

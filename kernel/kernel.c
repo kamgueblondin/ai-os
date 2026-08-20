@@ -20,6 +20,7 @@
 #include "service_registry.h"
 #include "vga_console.h"
 #include "ne2k.h"
+#include "net_socket.h"
 #include "tls_trust_anchor.h"
 #include "ecdsa_p256.h"
 #include <stddef.h>
@@ -41,7 +42,8 @@ void print_string(const char* str);
 static ne2k_device_t boot_ne2k_device;
 static ne2k_io_t boot_ne2k_io;
 /* Contexte persistant appartenant au noyau ; le seul secret est le bearer borné et effaçable ci-dessous. */
-static ne2k_llm_network_context_t boot_llm_network;
+static net_dhcp_lease_t boot_llm_lease;
+static ne2k_llm_socket_session_t boot_llm_socket_session;
 /* Espaces de travail noyau fixes : aucun buffer du chemin DHCP→LLM n’est alloué. */
 static net_arp_cache_t boot_llm_arp_cache;
 static uint8_t boot_llm_dhcp_tx[KERNEL_LLM_FRAME_CAPACITY];
@@ -92,7 +94,8 @@ static int kernel_llm_rdrand_supported(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
-    (void)ne2k_llm_network_context_init(&boot_llm_network);
+    net_dhcp_lease_clear(&boot_llm_lease);
+    (void)ne2k_llm_socket_session_init(&boot_llm_socket_session);
     (void)net_arp_cache_init(&boot_llm_arp_cache);
     boot_llm_rdrand_supported = kernel_llm_rdrand_supported() ? 1U : 0U;
     boot_llm_trust_anchor_ready = (x509_certificate_parse(aos_tls_isrg_root_x1_der,
@@ -198,10 +201,10 @@ failure:
 /* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
-           (boot_llm_network.lease.valid ? 2U : 0U) |
+           (boot_llm_lease.valid ? 2U : 0U) |
            (boot_llm_rdrand_supported ? 4U : 0U) |
            (boot_llm_trust_anchor_ready ? 8U : 0U) |
-           ((uint32_t)boot_llm_network.session.phase << 8);
+           ((uint32_t)boot_llm_socket_session.state.phase << 8);
 }
 
 static int kernel_llm_hostname_is_valid(const char hostname[OS_LLM_HOSTNAME_MAX]) {
@@ -234,7 +237,7 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         request->arp_attempts > OS_LLM_ACQUIRE_MAX_ATTEMPTS ||
         request->local_port == 0U || request->remote_port == 0U) return OS_LLM_ACQUIRE_BAD_REQUEST;
     if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
-    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
+    if (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
     if (kernel_llm_fill_tls_material() != 0) return OS_LLM_TLS_ENTROPY_UNAVAILABLE;
     if (net_arp_cache_init(&boot_llm_arp_cache) != 0 ||
         ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
@@ -244,14 +247,14 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         return OS_LLM_ACQUIRE_FAILED;
     }
     boot_llm_flight_records_length = 0U;
-    status = ne2k_llm_network_context_acquire_start_dhcp(
+    status = ne2k_llm_socket_session_acquire_start_dhcp(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx), boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
         request->xid, request->dhcp_attempts,
         boot_llm_arp_request, sizeof(boot_llm_arp_request), boot_llm_arp_rx, sizeof(boot_llm_arp_rx),
         boot_llm_frame, sizeof(boot_llm_frame), request->dns_id, request->hostname,
         request->dns_attempts, request->arp_attempts, request->local_port, request->remote_port,
-        request->local_sequence, &boot_llm_network);
+        request->local_sequence, &boot_llm_lease, &boot_llm_socket_session);
     if (status != 0) {
         kernel_llm_clear_tls_material();
         return OS_LLM_ACQUIRE_FAILED;
@@ -271,7 +274,7 @@ static int kernel_llm_text_field_is_valid(const char* field, uint16_t capacity) 
     return 0;
 }
 
-int kernel_llm_configure_openai(const os_llm_openai_credential_request_t* request){uint16_t index;if(!request||!kernel_llm_text_field_is_valid(request->bearer,OS_LLM_BEARER_MAX))return OS_LLM_CREDENTIAL_BAD_ARGUMENT;if(boot_llm_network.session.phase!=NE2K_LLM_CONNECTION_IDLE)return OS_LLM_CREDENTIAL_BAD_PHASE;kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer,sizeof(boot_llm_openai_bearer));for(index=0U;index<OS_LLM_BEARER_MAX;index++){boot_llm_openai_bearer[index]=request->bearer[index];if(request->bearer[index]=='\0')break;}boot_llm_openai_bearer_ready=1U;return 0;}
+int kernel_llm_configure_openai(const os_llm_openai_credential_request_t* request){uint16_t index;if(!request||!kernel_llm_text_field_is_valid(request->bearer,OS_LLM_BEARER_MAX))return OS_LLM_CREDENTIAL_BAD_ARGUMENT;if(boot_llm_socket_session.state.phase!=NE2K_LLM_CONNECTION_IDLE)return OS_LLM_CREDENTIAL_BAD_PHASE;kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer,sizeof(boot_llm_openai_bearer));for(index=0U;index<OS_LLM_BEARER_MAX;index++){boot_llm_openai_bearer[index]=request->bearer[index];if(request->bearer[index]=='\0')break;}boot_llm_openai_bearer_ready=1U;return 0;}
 int kernel_llm_request(const os_llm_request_t* request) {
     int status;
     if (!request || !kernel_llm_text_field_is_valid(request->model, OS_LLM_MODEL_MAX) ||
@@ -279,34 +282,34 @@ int kernel_llm_request(const os_llm_request_t* request) {
         request->prompt_length > OS_LLM_PROMPT_MAX || request->streaming > 1U ||
         (request->provider != NE2K_LLM_PROVIDER_OLLAMA && request->provider != NE2K_LLM_PROVIDER_OPENAI))
         return OS_LLM_REQUEST_BAD_REQUEST;
-    if (!boot_ne2k_present || boot_llm_network.session.phase != NE2K_LLM_CONNECTION_TLS_COMPLETE)
+    if (!boot_ne2k_present || boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_TLS_COMPLETE)
         return OS_LLM_REQUEST_BAD_PHASE;
     if (request->provider == NE2K_LLM_PROVIDER_OPENAI && !boot_llm_openai_bearer_ready) return OS_LLM_REQUEST_UNCONFIGURED;
     if (request->streaming) {
         if (net_llm_sse_response_init(&boot_llm_sse_response, boot_llm_sse_http_buffer,
                                       sizeof(boot_llm_sse_http_buffer), boot_llm_sse_event_buffer,
                                       sizeof(boot_llm_sse_event_buffer)) != 0) return OS_LLM_REQUEST_FAILED;
-        status = ne2k_llm_connection_stream_request(
+        status = ne2k_llm_socket_session_request(
             &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_frame, sizeof(boot_llm_frame),
-            boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
-            &boot_llm_tls_client, request->provider, boot_llm_http_json, sizeof(boot_llm_http_json),
+            boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client.session,
+            request->provider, 1U, boot_llm_http_json, sizeof(boot_llm_http_json),
             boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path,
             request->provider == NE2K_LLM_PROVIDER_OPENAI ? boot_llm_openai_bearer : 0,
             request->model, request->prompt, request->prompt_length, boot_llm_http_tls_record,
-            sizeof(boot_llm_http_tls_record), 2U);
+            sizeof(boot_llm_http_tls_record), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment), 2U);
     } else {
         if (net_http_response_accumulator_init(&boot_llm_http_accumulator,
                                                boot_llm_http_response_buffer,
                                                sizeof(boot_llm_http_response_buffer)) != 0)
             return OS_LLM_REQUEST_FAILED;
-        status = ne2k_llm_connection_request(
+        status = ne2k_llm_socket_session_request(
             &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_frame, sizeof(boot_llm_frame),
-            boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
-            &boot_llm_tls_client, request->provider, boot_llm_http_json, sizeof(boot_llm_http_json),
+            boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client.session,
+            request->provider, 0U, boot_llm_http_json, sizeof(boot_llm_http_json),
             boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname, request->path,
             request->provider == NE2K_LLM_PROVIDER_OPENAI ? boot_llm_openai_bearer : 0,
             request->model, request->prompt, request->prompt_length, boot_llm_http_tls_record,
-            sizeof(boot_llm_http_tls_record), 2U);
+            sizeof(boot_llm_http_tls_record), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment), 2U);
     }
     if (status < 0) return OS_LLM_REQUEST_FAILED;
     boot_llm_http_provider = request->provider;
@@ -322,16 +325,26 @@ int kernel_llm_poll_text(os_llm_text_result_t* result) {
     if (!result) return OS_LLM_TEXT_BAD_ARGUMENT;
     result->text_length = 0U;
     result->status_code = 0U;
-    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_REQUEST_SENT || boot_llm_http_streaming)
+    if (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_REQUEST_SENT || boot_llm_http_streaming)
         return OS_LLM_TEXT_BAD_PHASE;
-    status = ne2k_llm_connection_poll_text(
+    status = ne2k_llm_socket_session_poll_response(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_arp_rx, sizeof(boot_llm_arp_rx),
-        boot_llm_frame, sizeof(boot_llm_frame), boot_llm_network.lease.ipv4, &boot_llm_network.session,
-        &boot_llm_network.connection, &boot_llm_tls_client, boot_llm_http_provider, boot_llm_plaintext,
-        sizeof(boot_llm_plaintext), &boot_llm_http_accumulator, &boot_llm_http_response, boot_llm_http_text,
-        sizeof(boot_llm_http_text), &text_length, &consumed);
+        boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4, &boot_llm_socket_session,
+        &boot_llm_tls_client.session, boot_llm_plaintext, sizeof(boot_llm_plaintext),
+        &boot_llm_http_accumulator, &boot_llm_http_response, &consumed);
     if (status < 0) return OS_LLM_TEXT_FAILED;
     result->status_code = boot_llm_http_response.status_code;
+    if (status == 0) {
+        if (boot_llm_http_response.status_code < 200U || boot_llm_http_response.status_code >= 300U)
+            return OS_LLM_TEXT_FAILED;
+        status = boot_llm_http_provider == NE2K_LLM_PROVIDER_OLLAMA
+            ? net_llm_ollama_response_extract(boot_llm_http_response.body, boot_llm_http_response.body_length,
+                                              boot_llm_http_text, sizeof(boot_llm_http_text), &text_length)
+            : net_llm_openai_response_extract(boot_llm_http_response.body, boot_llm_http_response.body_length,
+                                              boot_llm_http_text, sizeof(boot_llm_http_text), &text_length);
+        if (status < 0) return OS_LLM_TEXT_FAILED;
+        status = 0;
+    }
     if (text_length > OS_LLM_TEXT_MAX) return OS_LLM_TEXT_FAILED;
     for (index = 0U; index < text_length; ++index) result->text[index] = boot_llm_http_text[index];
     result->text_length = text_length;
@@ -345,7 +358,7 @@ static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length) {
 }
 
 static void kernel_llm_clear_session_preserve_lease(void) {
-    net_dhcp_lease_t retained_lease = boot_llm_network.lease;
+    net_dhcp_lease_t retained_lease = boot_llm_lease;
     kernel_llm_clear_bytes(boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx));
     kernel_llm_clear_bytes(boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx));
     kernel_llm_clear_bytes(boot_llm_arp_request, sizeof(boot_llm_arp_request));
@@ -369,7 +382,7 @@ static void kernel_llm_clear_session_preserve_lease(void) {
     kernel_llm_clear_bytes(boot_llm_sse_http_buffer, sizeof(boot_llm_sse_http_buffer));
     kernel_llm_clear_bytes(boot_llm_sse_event_buffer, sizeof(boot_llm_sse_event_buffer));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_tls_client, sizeof(boot_llm_tls_client));
-    kernel_llm_clear_bytes((uint8_t*)&boot_llm_network, sizeof(boot_llm_network));
+    kernel_llm_clear_bytes((uint8_t*)&boot_llm_socket_session, sizeof(boot_llm_socket_session));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_accumulator, sizeof(boot_llm_http_accumulator));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_http_response, sizeof(boot_llm_http_response));
     kernel_llm_clear_bytes((uint8_t*)&boot_llm_sse_response, sizeof(boot_llm_sse_response));
@@ -377,8 +390,8 @@ static void kernel_llm_clear_session_preserve_lease(void) {
     kernel_llm_clear_bytes((uint8_t*)boot_llm_openai_bearer, sizeof(boot_llm_openai_bearer));
     boot_llm_openai_bearer_ready = 0U;
     kernel_llm_clear_tls_material();
-    boot_llm_network.lease = retained_lease;
-    boot_llm_network.session.phase = NE2K_LLM_CONNECTION_IDLE;
+    boot_llm_lease = retained_lease;
+    (void)ne2k_llm_socket_session_init(&boot_llm_socket_session);
     (void)net_arp_cache_init(&boot_llm_arp_cache);
     (void)ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
                                boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake),
@@ -389,24 +402,28 @@ static void kernel_llm_clear_session_preserve_lease(void) {
 }
 
 int kernel_llm_close(void) {
-    uint8_t fin_failed = 0U;
-    if (boot_llm_network.session.phase == NE2K_LLM_CONNECTION_IDLE)
+    uint8_t fin_failed = 0U, socket_state = NET_TCP_STATE_CLOSED;
+    if (boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_IDLE)
         return OS_LLM_CLOSE_BAD_PHASE;
-    if (boot_llm_network.connection.state == NET_TCP_STATE_ESTABLISHED) {
-        if (!boot_ne2k_present || !boot_llm_network.lease.valid ||
-            ne2k_tcp_fin(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
-                         boot_llm_frame, sizeof(boot_llm_frame), boot_llm_network.lease.ipv4,
-                         boot_llm_network.session.remote_ip, &boot_llm_network.connection) != 0)
-            fin_failed = 1U;
+    if (boot_llm_socket_session.socket_id >= 0 &&
+        net_socket_get_state(boot_llm_socket_session.socket_id, &socket_state) == 0 &&
+        socket_state == NET_TCP_STATE_ESTABLISHED) {
+        if (!boot_ne2k_present || !boot_llm_lease.valid ||
+            ne2k_socket_fin(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+                            boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4,
+                            boot_llm_socket_session.state.remote_ip,
+                            boot_llm_socket_session.socket_id) != 0) fin_failed = 1U;
     }
+    if (boot_llm_socket_session.socket_id >= 0)
+        (void)net_socket_close(boot_llm_socket_session.socket_id);
     kernel_llm_clear_session_preserve_lease();
     return fin_failed ? OS_LLM_CLOSE_FIN_FAILED : 0;
 }
 
 int kernel_llm_reset_for_request(void) {
-    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_RESPONSE_READY)
+    if (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_RESPONSE_READY)
         return OS_LLM_RESET_BAD_PHASE;
-    if (ne2k_llm_network_context_reset_for_request(&boot_llm_network) != 0)
+    if (ne2k_llm_socket_session_reset_for_request(&boot_llm_socket_session) != 0)
         return OS_LLM_RESET_FAILED;
     boot_llm_http_streaming = 0U;
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
@@ -440,14 +457,13 @@ int kernel_llm_poll_sse(os_llm_text_result_t* result) {
     result->text_length = 0U;
     result->status_code = 0U;
     if (!boot_llm_http_streaming ||
-        (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_REQUEST_SENT &&
-         boot_llm_network.session.phase != NE2K_LLM_CONNECTION_STREAMING)) return OS_LLM_SSE_BAD_PHASE;
-    status = ne2k_llm_connection_poll_sse(
+        (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_REQUEST_SENT &&
+         boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_STREAMING)) return OS_LLM_SSE_BAD_PHASE;
+    status = ne2k_llm_socket_session_poll_sse(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_arp_rx, sizeof(boot_llm_arp_rx),
-        boot_llm_frame, sizeof(boot_llm_frame), boot_llm_network.lease.ipv4, &boot_llm_network.session,
-        &boot_llm_network.connection, &boot_llm_tls_client, boot_llm_http_provider, boot_llm_plaintext,
-        sizeof(boot_llm_plaintext), &boot_llm_sse_response, boot_llm_http_text, sizeof(boot_llm_http_text),
-        &text_length, &consumed);
+        boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4, &boot_llm_socket_session,
+        &boot_llm_tls_client.session, boot_llm_plaintext, sizeof(boot_llm_plaintext), &boot_llm_sse_response,
+        boot_llm_http_provider, boot_llm_http_text, sizeof(boot_llm_http_text), &text_length, &consumed);
     if (status < 0) return OS_LLM_SSE_FAILED;
     result->status_code = boot_llm_sse_response.http.status_code;
     if (text_length > OS_LLM_TEXT_MAX) return OS_LLM_SSE_FAILED;
@@ -458,27 +474,30 @@ int kernel_llm_poll_sse(os_llm_text_result_t* result) {
 
 int kernel_llm_poll_tls(void) {
     uint16_t consumed = 0U;
+    char utc_time[RTC_UTC_BUFFER_LENGTH];
     int status;
     if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
-    if (boot_llm_network.session.phase != NE2K_LLM_CONNECTION_SYN_SENT &&
-        boot_llm_network.session.phase != NE2K_LLM_CONNECTION_TLS_STARTED) return OS_LLM_TLS_BAD_PHASE;
+    if (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_SYN_SENT &&
+        boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_TLS_STARTED) return OS_LLM_TLS_BAD_PHASE;
     /* Aucune clé éphémère faible ni ancre vide ne doit initier un ClientHello. */
     if (!boot_llm_tls_material_ready) return OS_LLM_TLS_UNCONFIGURED;
-    if (boot_llm_network.session.phase == NE2K_LLM_CONNECTION_SYN_SENT) {
-        status = ne2k_llm_connection_poll_tls_start(
+    if (boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_SYN_SENT) {
+        status = ne2k_llm_socket_session_poll_tls_start(
             &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
             boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
-            boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
-            &boot_llm_tls_client, boot_llm_client_random, boot_llm_tls_hello, sizeof(boot_llm_tls_hello), 2U);
+            boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
+            boot_llm_tls_hello, sizeof(boot_llm_tls_hello), boot_llm_tcp_segment,
+            sizeof(boot_llm_tcp_segment), 2U);
         return status < 0 ? OS_LLM_TLS_FAILED : status;
     }
-    if (rtc_i386_io(&boot_llm_rtc_io) != 0) return OS_LLM_TLS_FAILED;
-    status = ne2k_llm_connection_poll_tls(
+    if (rtc_i386_io(&boot_llm_rtc_io) != 0 ||
+        rtc_read_utc(&boot_llm_rtc_io, utc_time, sizeof(utc_time)) != 0) return OS_LLM_TLS_FAILED;
+    status = ne2k_llm_socket_session_poll_tls(
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
-        boot_llm_network.lease.ipv4, &boot_llm_network.session, &boot_llm_network.connection,
-        &boot_llm_tls_client, boot_llm_client_random, boot_llm_client_private, &boot_llm_trust_anchor,
-        boot_llm_hostname, &boot_llm_rtc_io, boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
+        boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
+        boot_llm_client_private, &boot_llm_trust_anchor, boot_llm_hostname, utc_time,
+        boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
         boot_llm_x25519_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS, boot_llm_prf_workspace,
         sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),
         boot_llm_flight_records, sizeof(boot_llm_flight_records), &boot_llm_flight_records_length,

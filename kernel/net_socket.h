@@ -57,6 +57,8 @@ int net_socket_get_state(int socket_id, uint8_t* out_state);
 int net_socket_connection_snapshot(int socket_id, net_tcp_connection_t* out_connection);
 int net_socket_connection_restore(int socket_id, const net_tcp_connection_t* connection);
 int net_socket_build_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length);
+/* Construit FIN+ACK et publie FIN_WAIT_1 ; le pont doit restaurer le snapshot en cas d’échec TX. */
+int net_socket_begin_close(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length);
 int net_socket_commit_send(int socket_id, uint16_t payload_length);
 int net_socket_accept_tls_authenticated_fragment(int socket_id, const net_tcp_view_t* view,
                                                  net_tcp_tls_stream_t* stream, net_tls_handshake_t* handshake,
