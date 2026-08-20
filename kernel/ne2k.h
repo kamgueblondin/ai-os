@@ -279,6 +279,11 @@ int ne2k_tcp_segment(ne2k_device_t* device, const ne2k_io_t* io,
                      const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                      const uint8_t local_ip[4], const uint8_t remote_ip[4],
                      const uint8_t* segment, uint16_t segment_length);
+/* Construit le SYN d’un socket ouvert et l’émet via le pont TCP caller-owned. */
+int ne2k_socket_syn(ne2k_device_t* device, const ne2k_io_t* io,
+                    const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                    const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id,
+                    uint8_t* segment, uint16_t segment_capacity);
 /* Retransmet le dernier payload caller-owned sans avancer le sequence. */
 int ne2k_tcp_retransmit(ne2k_device_t* device, const ne2k_io_t* io,
                         const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,

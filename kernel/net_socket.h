@@ -26,6 +26,9 @@ typedef struct {
 } net_socket_slot_t;
 
 int net_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence);
+/* Construit le SYN actif du socket ouvert, sans modifier ses buffers statiques. */
+int net_socket_build_syn(int socket_id, uint8_t* segment, uint16_t capacity,
+                         uint16_t* out_length);
 int net_socket_listen(uint16_t local_port, uint32_t local_sequence);
 int net_socket_accept_syn(int socket_id, const net_tcp_view_t* view);
 int net_socket_build_syn_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length);
