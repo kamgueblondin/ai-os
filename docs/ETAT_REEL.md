@@ -11,9 +11,9 @@
 | Domaine | État au 20 août 2026 |
 |---|---|
 | FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et encode une entrée LFN ASCII UTF-16LE bornée. |
-| LFN FAT32 | Le checksum 8.3 et l’encodage d’une entrée de 32 octets sont livrés ; la publication multi-entrée, la reconstruction au listage et l’intégration VFS restent à réaliser. |
-| Réseau utilisateur | Le registre TCP statique et six syscalls socket sont présents ; la validation stricte des pointeurs utilisateur, l’écoute passive complète et le raccordement LLM HTTP/TLS restent à durcir ou intégrer. |
-| Validation | Le runner noyau passe **35/35** tests ; la suite complète exécute **421 tests** avec succès. La CI de la PR #377 a validé compilation, tests et smoke QEMU. |
+| LFN FAT32 | Le checksum 8.3, la publication multi-entrée et la reconstruction au listage sont livrés ; l’intégration VFS complète, Unicode hors ASCII et suppression/renommage restent à réaliser. |
+| Réseau utilisateur | Le registre TCP statique et six syscalls socket sont présents ; les requêtes et buffers socket sont maintenant validés page-par-page dans l’espace utilisateur VMM. L’écoute passive complète et le raccordement LLM HTTP/TLS restent à intégrer. |
+| Validation | Le runner FAT32 passe **4/4** tests ; la suite complète exécute **422 tests** avec succès après l’ajout du scénario LFN multi-entrée. La CI de la PR #379 a validé compilation, tests et smoke QEMU ; la validation socket est également couverte par la suite globale. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.

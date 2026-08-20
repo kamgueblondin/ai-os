@@ -45,7 +45,7 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE (AIOV + FAT16 à partir du LBA 64) |
-| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 421 tests exécutés avec succès |
+| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 422 tests exécutés avec succès |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, NE2000, IPC, VFS avec montages dynamiques, mutations médiées, révocation, notifications, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
@@ -94,7 +94,7 @@ Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` / `net-s
 
 ## Tests et artefacts
 
-`make test-all` a validé **421 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, TLS, sockets TCP, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make integration-qemu` ajoute les validations QEMU séparées, dont le smoke NE2000 et les contrats IPC, VFS et service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
+`make test-all` a validé **422 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, TLS, sockets TCP, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make integration-qemu` ajoute les validations QEMU séparées, dont le smoke NE2000 et les contrats IPC, VFS et service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 

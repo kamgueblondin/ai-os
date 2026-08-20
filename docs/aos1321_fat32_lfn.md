@@ -28,4 +28,4 @@ Le contrat reste borné à l’ASCII, à `OS_NAME_MAX - 1` caractères et à 20 
 
 ## Validation
 
-Le test `test_fat32_lfn_encoding` vérifie checksum, ordinal, attribut, UTF-16LE, borne de 13 caractères et rejet du quatorzième caractère. `test_fat32_lfn_file_and_list` vérifie création d’un nom multi-entrée, publication de l’alias et reconstruction validée au listage. Le module FAT32 passe **4/4 tests** et la suite `make test-all` reste verte avec **421 tests exécutés avec succès**.
+Le test `test_fat32_lfn_encoding` vérifie checksum, ordinal, attribut, UTF-16LE, borne de 13 caractères et rejet du quatorzième caractère. `test_fat32_lfn_file_and_list` vérifie création d’un nom multi-entrée, publication de l’alias et reconstruction validée au listage. Le module FAT32 passe **4/4 tests** et la suite `make test-all` reste verte avec **422 tests exécutés avec succès**.
