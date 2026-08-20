@@ -61,18 +61,19 @@
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [ ] Planification périodique du renouvellement DHCP, polling TLS authentifié et orchestration HTTP/SSE sur API socket, puis client OpenAI effectif
+- [ ] Planification périodique du renouvellement DHCP et orchestrateur actif HTTP/SSE sur API socket, puis client OpenAI effectif
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
 - [x] AOS-1373…1384 : réception HTTP et SSE LLM sur socket TLS avec rollback TCP/TLS/accumulateur ; l’orchestrateur de bout en bout reste ouvert — [aos1373_1384_llm_socket_http_sse.md](aos1373_1384_llm_socket_http_sse.md)
 - [x] AOS-1385…1392 : injection de réception TCP NE2000 dans le registre socket statique ; orchestration active et commande `ai` encore ouvertes — [aos1385_1392_ne2k_socket_rx_bridge.md](aos1385_1392_ne2k_socket_rx_bridge.md)
 - [x] AOS-1393…1400 : SYN actif construit par socket et émis via NE2000 ; handshake TLS et orchestration applicative encore ouverts — [aos1393_1400_socket_active_syn.md](aos1393_1400_socket_active_syn.md)
-- [x] AOS-1401…1412 : ClientHello TLS après SYN-ACK via socket et NE2000, avec rollback socket/TLS ; polling TLS authentifié encore ouvert — [aos1401_1412_socket_tls_clienthello.md](aos1401_1412_socket_tls_clienthello.md)
+- [x] AOS-1401…1412 : ClientHello TLS après SYN-ACK via socket et NE2000, avec rollback socket/TLS — [aos1401_1412_socket_tls_clienthello.md](aos1401_1412_socket_tls_clienthello.md)
+- [x] AOS-1413…1424 : polling TLS authentifié sur socket, ACK NE2000, validation X.509 directe/chaînée, flight X25519 et post-flight transactionnels — [aos1413_1424_socket_tls_poll.md](aos1413_1424_socket_tls_poll.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 438 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 440 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

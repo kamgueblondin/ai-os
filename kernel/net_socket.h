@@ -56,6 +56,32 @@ int net_socket_accept_syn_ack(int socket_id, const net_tcp_view_t* view);
 int net_socket_get_state(int socket_id, uint8_t* out_state);
 int net_socket_connection_snapshot(int socket_id, net_tcp_connection_t* out_connection);
 int net_socket_connection_restore(int socket_id, const net_tcp_connection_t* connection);
+int net_socket_build_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length);
+int net_socket_commit_send(int socket_id, uint16_t payload_length);
+int net_socket_accept_tls_authenticated_fragment(int socket_id, const net_tcp_view_t* view,
+                                                 net_tcp_tls_stream_t* stream, net_tls_handshake_t* handshake,
+                                                 const uint8_t client_random[32], net_tls_transcript_t* transcript,
+                                                 uint32_t* rsa_workspace, uint16_t rsa_workspace_length,
+                                                 uint16_t* consumed);
+int net_socket_build_tls_x25519_flight(int socket_id, net_tls_handshake_t* handshake,
+                                       net_tls_x25519_context_t* context,
+                                       const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                       const uint8_t client_random[32], net_tls_transcript_t* transcript,
+                                       uint8_t master_secret[48],
+                                       uint8_t key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH],
+                                       net_tls_aes_gcm_session_t* session, uint8_t* segment,
+                                       uint16_t segment_capacity, uint8_t* records,
+                                       uint32_t records_capacity, uint32_t* records_length,
+                                       uint32_t* x25519_workspace, uint16_t x25519_workspace_length,
+                                       uint8_t* prf_workspace, uint32_t prf_workspace_capacity,
+                                       uint8_t retransmit_limit);
+int net_socket_accept_tls_x25519_postflight(int socket_id, net_tls_handshake_t* handshake,
+                                            net_tls_transcript_t* transcript,
+                                            const uint8_t master_secret[48],
+                                            net_tls_aes_gcm_session_t* session,
+                                            const net_tcp_view_t* view, uint8_t* plaintext,
+                                            uint16_t plaintext_capacity, uint8_t* prf_workspace,
+                                            uint32_t prf_workspace_capacity, uint16_t* consumed);
 void net_socket_reset_all(void);
 
 #endif

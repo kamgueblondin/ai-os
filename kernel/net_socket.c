@@ -154,6 +154,72 @@ int net_socket_connection_restore(int socket_id, const net_tcp_connection_t* con
     return 0;
 }
 
+int net_socket_build_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+    int built;
+    if (!valid_id(socket_id) || !segment || !out_length) return NET_SOCKET_BAD_ARGUMENT;
+    built = net_tcp_connection_build_ack(&sockets[socket_id].connection, segment, capacity);
+    if (built < 0) return NET_SOCKET_PROTOCOL;
+    *out_length = (uint16_t)built;
+    return 0;
+}
+
+int net_socket_commit_send(int socket_id, uint16_t payload_length) {
+    if (!valid_id(socket_id)) return NET_SOCKET_BAD_ARGUMENT;
+    return net_tcp_connection_commit_send(&sockets[socket_id].connection, payload_length) == 0 ? 0 : NET_SOCKET_PROTOCOL;
+}
+
+int net_socket_accept_tls_authenticated_fragment(int socket_id, const net_tcp_view_t* view,
+                                                 net_tcp_tls_stream_t* stream, net_tls_handshake_t* handshake,
+                                                 const uint8_t client_random[32], net_tls_transcript_t* transcript,
+                                                 uint32_t* rsa_workspace, uint16_t rsa_workspace_length,
+                                                 uint16_t* consumed) {
+    int status;
+    if (!valid_id(socket_id)) return NET_SOCKET_BAD_ARGUMENT;
+    status = net_tcp_connection_accept_tls_authenticated_fragment(&sockets[socket_id].connection, view, stream,
+                                                                    handshake, client_random, transcript,
+                                                                    rsa_workspace, rsa_workspace_length, consumed);
+    return status < 0 ? NET_SOCKET_PROTOCOL : status;
+}
+
+int net_socket_build_tls_x25519_flight(int socket_id, net_tls_handshake_t* handshake,
+                                       net_tls_x25519_context_t* context,
+                                       const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                       const uint8_t client_random[32], net_tls_transcript_t* transcript,
+                                       uint8_t master_secret[48],
+                                       uint8_t key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH],
+                                       net_tls_aes_gcm_session_t* session, uint8_t* segment,
+                                       uint16_t segment_capacity, uint8_t* records,
+                                       uint32_t records_capacity, uint32_t* records_length,
+                                       uint32_t* x25519_workspace, uint16_t x25519_workspace_length,
+                                       uint8_t* prf_workspace, uint32_t prf_workspace_capacity,
+                                       uint8_t retransmit_limit) {
+    int status;
+    if (!valid_id(socket_id)) return NET_SOCKET_BAD_ARGUMENT;
+    status = net_tcp_connection_build_tls_x25519_flight(&sockets[socket_id].connection, handshake, context,
+                                                         client_private, client_random, transcript, master_secret,
+                                                         key_block, session, segment, segment_capacity, records,
+                                                         records_capacity, records_length, x25519_workspace,
+                                                         x25519_workspace_length, prf_workspace,
+                                                         prf_workspace_capacity, retransmit_limit);
+    return status < 0 ? NET_SOCKET_PROTOCOL : status;
+}
+
+int net_socket_accept_tls_x25519_postflight(int socket_id, net_tls_handshake_t* handshake,
+                                            net_tls_transcript_t* transcript,
+                                            const uint8_t master_secret[48],
+                                            net_tls_aes_gcm_session_t* session,
+                                            const net_tcp_view_t* view, uint8_t* plaintext,
+                                            uint16_t plaintext_capacity, uint8_t* prf_workspace,
+                                            uint32_t prf_workspace_capacity, uint16_t* consumed) {
+    int status;
+    if (!valid_id(socket_id)) return NET_SOCKET_BAD_ARGUMENT;
+    status = net_tcp_connection_accept_tls_x25519_postflight(&sockets[socket_id].connection, handshake,
+                                                              transcript, master_secret, session, view, plaintext,
+                                                              plaintext_capacity, prf_workspace,
+                                                              prf_workspace_capacity, consumed);
+    return status < 0 ? NET_SOCKET_PROTOCOL : status;
+}
+
 void net_socket_reset_all(void) {
     uint32_t i;
     for (i = 0U; i < NET_SOCKET_CAPACITY; i++) sockets[i].used = 0U;
