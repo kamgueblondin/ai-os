@@ -70,9 +70,21 @@ void test_socket_tls_send_wrapper(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(id));
 }
 
+void test_socket_build_syn_active(void) {
+    int id; uint8_t segment[NET_TCP_HEADER_SIZE] = {0}; uint16_t segment_length = 0U; net_tcp_view_t view;
+    net_socket_reset_all(); id = net_socket_open(49152U, 443U, 100U); TEST_ASSERT_TRUE(id >= 0);
+    TEST_ASSERT_EQUAL(0, net_socket_build_syn(id, segment, sizeof(segment), &segment_length));
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, segment_length); TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, segment_length, &view));
+    TEST_ASSERT_EQUAL(49152U, view.source_port); TEST_ASSERT_EQUAL(443U, view.destination_port);
+    TEST_ASSERT_EQUAL(100U, view.sequence); TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN, view.flags);
+    TEST_ASSERT_EQUAL(NET_SOCKET_BUFFER_SMALL, net_socket_build_syn(id, segment, NET_TCP_HEADER_SIZE - 1U, &segment_length));
+    TEST_ASSERT_EQUAL(0, net_socket_close(id));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_socket_lifecycle_send_receive);
+    RUN_TEST(test_socket_build_syn_active);
     RUN_TEST(test_socket_tls_send_wrapper);
     RUN_TEST(test_socket_passive_lifecycle);
     RUN_TEST(test_socket_feed_routes_passive_segments);

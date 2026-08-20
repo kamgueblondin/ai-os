@@ -23,6 +23,19 @@ int net_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_se
     return NET_SOCKET_NO_SLOT;
 }
 
+int net_socket_build_syn(int socket_id, uint8_t* segment, uint16_t capacity,
+                         uint16_t* out_length) {
+    int built;
+    if (!valid_id(socket_id) || !segment || !out_length) return NET_SOCKET_BAD_ARGUMENT;
+    if (sockets[socket_id].connection.state != NET_TCP_STATE_SYN_SENT) return NET_SOCKET_NOT_CONNECTED;
+    built = net_tcp_build_syn(segment, capacity, sockets[socket_id].connection.local_port,
+                              sockets[socket_id].connection.remote_port,
+                              sockets[socket_id].connection.local_sequence - 1U);
+    if (built < 0) return NET_SOCKET_BUFFER_SMALL;
+    *out_length = (uint16_t)built;
+    return 0;
+}
+
 int net_socket_close(int socket_id) {
     if (!valid_id(socket_id)) return NET_SOCKET_NOT_OPEN;
     sockets[socket_id].used = 0U;
