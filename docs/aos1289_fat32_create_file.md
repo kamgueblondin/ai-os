@@ -1,6 +1,6 @@
 # AOS-1289 à AOS-1304 — création transactionnelle de fichier FAT32
 
-> **État :** implémenté et validé localement. **Suite globale : 419/419 tests verts.**
+> **État :** implémenté ; validation historique du lot : **419 tests verts**. La validation courante est maintenue dans `docs/todo.md`.
 
 `fat32_create_file` orchestre les primitives FAT32 caller-owned. Il valide l’alias 8.3, calcule le nombre de clusters requis, réserve chaque cluster avec un marqueur EOC, relie les clusters successifs, remplit un buffer statique borné à 128 secteurs, écrit chaque cluster puis publie l’entrée racine seulement après succès de toutes les écritures.
 
@@ -15,8 +15,8 @@ En cas d’échec d’allocation, d’écriture, de chaînage ou de publication,
 | Nom | 8.3 ASCII, sans LFN |
 | Allocation dynamique | aucune |
 | Tests noyau | 35/35 |
-| Suite globale | 419/419 |
+| Validation au moment du lot | 419 tests verts |
 
-Le prochain incrément pourra ajouter l’extension automatique du répertoire FAT32, puis les entrées LFN FAT32. L’écriture de fichier est volontairement séparée de la recherche par nom long et des syscalls de montage afin de préserver le contrat ABI actuel.
+La création de fichier reste volontairement limitée à un alias 8.3 et séparée de la recherche par nom long. Depuis ce lot, l’extension de la racine et les primitives LFN FAT32 bornées ont été livrées ; la publication multi-entrée, la reconstruction LFN et l’intégration VFS restent à réaliser.
 
 **Auteur :** Manus AI

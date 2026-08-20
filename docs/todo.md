@@ -58,13 +58,13 @@
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index et mapping ; génération shell encore FP32
 - [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s
-- [ ] Écriture FAT, LFN et FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; pas ext2
+- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 bornées — [aos_fat_volume.md](aos_fat_volume.md) ; publication multi-entrée LFN, reconstruction et intégration VFS restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
-- [ ] Bail DHCP live, socket TCP utilisateur, handshake TLS et client OpenAI effectif
+- [ ] Validation pointeurs socket utilisateur, bail DHCP live, écoute passive complète, handshake TLS HTTP et client OpenAI effectif
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 299 Unity ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 421 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
@@ -822,26 +822,31 @@ Les opérations du registre TCP statique sont exposées par six syscalls ABI ave
 Voir [aos1225_socket_syscalls.md](aos1225_socket_syscalls.md).
 
 ### AOS-1241 à AOS-1256 — montage et lecture FAT32
-Le volume FAT32 valide le BPB, calcule la région de données, lit les entrées FAT 28 bits et restitue un cluster dans un buffer caller-owned. Aucun chemin FAT16 n’est modifié et aucune allocation dynamique n’est introduite. Validation locale : **419/419 tests verts**. La création/écriture FAT32, les entrées LFN FAT32 et les syscalls de montage restent les prochains incréments.
+Le volume FAT32 valide le BPB, calcule la région de données, lit les entrées FAT 28 bits et restitue un cluster dans un buffer caller-owned. Aucun chemin FAT16 n’est modifié et aucune allocation dynamique n’est introduite. Validation historique du lot : **419 tests verts**. La création/écriture FAT32 et les syscalls de montage ont ensuite été livrés ; les noms longs complets restent partiels.
 
 Voir [aos1241_fat32_mount_read.md](aos1241_fat32_mount_read.md).
 
 ### AOS-1257 à AOS-1272 — écriture et chaînage FAT32
-Le writer FAT32 caller-owned réalise une lecture-modification-écriture 28 bits, préserve les bits réservés et réplique chaque entrée dans toutes les FAT. L’allocation marque EOC et le chaînage exige une source EOC ainsi qu’une cible déjà allouée. Validation locale : **419/419 tests verts**. L’écriture de données, le rollback de chaîne et les entrées de répertoire FAT32 restent le prochain incrément.
+Le writer FAT32 caller-owned réalise une lecture-modification-écriture 28 bits, préserve les bits réservés et réplique chaque entrée dans toutes les FAT. L’allocation marque EOC et le chaînage exige une source EOC ainsi qu’une cible déjà allouée. Validation historique du lot : **419 tests verts**. L’écriture de données, le rollback de chaîne et les entrées de répertoire ont ensuite été livrés.
 
 Voir [aos1257_fat32_write_chain.md](aos1257_fat32_write_chain.md).
 
 ### AOS-1273 à AOS-1288 — données et entrée racine FAT32
-Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation locale : **419/419 tests verts**. LFN FAT32, extension automatique du répertoire et orchestration avec rollback multi-clusters restent les prochains incréments.
+Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation historique du lot : **419 tests verts**. L’extension de la racine, la création transactionnelle et les primitives LFN bornées ont ensuite été livrées ; la publication multi-entrée LFN reste à faire.
 
 Voir [aos1273_fat32_data_root.md](aos1273_fat32_data_root.md).
 
 ### AOS-1289 à AOS-1304 — création transactionnelle de fichier FAT32
-`fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation locale : **419/419 tests verts**. L’extension automatique du répertoire et les LFN FAT32 restent les prochains incréments.
+`fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation historique du lot : **419 tests verts**. L’extension automatique de la racine et les primitives LFN bornées ont ensuite été livrées ; la publication de séquences LFN reste à faire.
 
 Voir [aos1289_fat32_create_file.md](aos1289_fat32_create_file.md).
 
 ### AOS-1305 à AOS-1320 — extension automatique du répertoire racine FAT32
-Le répertoire racine FAT32 peut être étendu de façon caller-owned : le dernier cluster EOC est trouvé, un cluster est réservé et nettoyé, puis le lien est persisté dans toutes les FAT. En cas d’erreur, le cluster nouveau est libéré. Validation locale : **420/420 tests verts**. L’intégration à la publication LFN et l’UTF-16LE restent le prochain incrément.
+Le répertoire racine FAT32 peut être étendu de façon caller-owned : le dernier cluster EOC est trouvé, un cluster est réservé et nettoyé, puis le lien est persisté dans toutes les FAT. En cas d’erreur, le cluster nouveau est libéré. Validation historique du lot : **420 tests verts**. L’encodage LFN borné et le checksum ont ensuite été livrés.
 
 Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
+
+### AOS-1321 à AOS-1332 — fondations LFN FAT32 bornées
+`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. Le contrat accepte au plus 13 caractères par entrée, refuse les caractères non ASCII, conserve l’appelant propriétaire du buffer et initialise l’attribut LFN, le type et le cluster initial. Validation actuelle : **35/35 tests noyau** et **421 tests exécutés avec succès** ; la publication multi-entrée, la reconstruction et l’intégration VFS restent à réaliser.
+
+Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).
