@@ -795,14 +795,16 @@ int gpt2_gguf_mlp_forward_fat16(const fat16_volume_t* volume, const char* filena
     if (!volume || !filename || !model || !up_tensor || !down_tensor ||
         !input || !row_buffer || !hidden || !output) return -1;
     if (channels == 0U || hidden_channels == 0U ||
-        hidden_capacity < hidden_channels || output_capacity < channels) return -6;
+        channels > 0xFFFFFFFFU / (uint32_t)sizeof(float) ||
+        hidden_channels > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
+    if (hidden_capacity < hidden_channels || output_capacity < channels) return -6;
     if (up_tensor->dimensions != 2U || down_tensor->dimensions != 2U ||
         up_tensor->shape[0] != channels || up_tensor->shape[1] != hidden_channels ||
         down_tensor->shape[0] != hidden_channels || down_tensor->shape[1] != channels) return -9;
     status = gpt2_gguf_project_matrix_fat16(volume, filename, model, up_tensor,
                                              channels, hidden_channels, input,
                                              row_buffer, row_capacity, hidden,
-                                             hidden_capacity);
+                                             hidden_capacity * (uint32_t)sizeof(float));
     if (status != 0) return status;
     if (up_bias) for (i = 0U; i < hidden_channels; i++) hidden[i] += up_bias[i];
     status = gpt2_gguf_gelu(hidden, hidden_channels, hidden, hidden_capacity);
@@ -810,7 +812,7 @@ int gpt2_gguf_mlp_forward_fat16(const fat16_volume_t* volume, const char* filena
     status = gpt2_gguf_project_matrix_fat16(volume, filename, model, down_tensor,
                                              hidden_channels, channels, hidden,
                                              row_buffer, row_capacity, output,
-                                             output_capacity);
+                                             output_capacity * (uint32_t)sizeof(float));
     if (status != 0) return status;
     if (down_bias) for (i = 0U; i < channels; i++) output[i] += down_bias[i];
     return 0;
@@ -881,19 +883,108 @@ int gpt2_gguf_attention_output_add_residual_fat16(
     int status;
     if (!volume || !filename || !model || !output_tensor ||
         !attention_concat || !row_buffer || !projected || !residual) return -1;
-    if (channels == 0U || projected_capacity < channels ||
-        residual_capacity < channels) return -6;
+    if (channels == 0U || channels > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
+    if (projected_capacity < channels || residual_capacity < channels) return -6;
     if (output_tensor->dimensions != 2U || output_tensor->shape[0] != channels ||
         output_tensor->shape[1] != channels) return -9;
     status = gpt2_gguf_project_matrix_fat16(
         volume, filename, model, output_tensor, channels, channels,
         attention_concat, row_buffer, row_capacity, projected,
-        projected_capacity);
+        projected_capacity * (uint32_t)sizeof(float));
     if (status != 0) return status;
     if (bias) for (i = 0U; i < channels; i++) projected[i] += bias[i];
     return gpt2_gguf_add_residual(residual, residual_capacity, projected, channels);
 }
 
+
+int gpt2_gguf_block_forward_fat16(
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t layer, uint32_t position,
+                                      float* residual, uint32_t residual_capacity,
+                                      uint32_t channels, uint32_t head_count,
+                                      uint32_t hidden_channels,
+                                      const float* attention_gamma,
+                                      const float* attention_beta,
+                                      const gpt2_gguf_tensor_t* qkv_tensor,
+                                      const gpt2_gguf_tensor_t* attention_output_tensor,
+                                      const float* attention_output_bias,
+                                      const float* ffn_gamma,
+                                      const float* ffn_beta,
+                                      const gpt2_gguf_tensor_t* ffn_up_tensor,
+                                      const gpt2_gguf_tensor_t* ffn_down_tensor,
+                                      const float* ffn_up_bias,
+                                      const float* ffn_down_bias,
+                                      float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      gpt2_gguf_block_workspace_t* workspace) {
+    uint32_t position_count;
+    uint32_t attention_count = 0U;
+    int status;
+    if (!cache || !residual || !attention_gamma || !attention_beta || !qkv_tensor ||
+        !attention_output_tensor || !ffn_gamma || !ffn_beta || !ffn_up_tensor ||
+        !ffn_down_tensor || !volume || !filename || !model || !workspace ||
+        !workspace->norm || !workspace->query || !workspace->key || !workspace->value ||
+        !workspace->head_outputs || !workspace->key_scratch || !workspace->scores ||
+        !workspace->attention || !workspace->projected || !workspace->hidden ||
+        !workspace->mlp_output || !workspace->row_buffer) return -1;
+    if (channels == 0U || head_count == 0U || hidden_channels == 0U ||
+        channels % head_count != 0U || epsilon <= 0.0f ||
+        channels > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
+    if (cache->channels != channels || layer >= cache->layers ||
+        position >= cache->max_positions || position > cache->count) return -9;
+    if (residual_capacity < channels || workspace->norm_capacity < channels ||
+        workspace->query_capacity < channels || workspace->key_capacity < channels ||
+        workspace->value_capacity < channels || workspace->head_output_capacity < channels ||
+        workspace->key_scratch_capacity < channels / head_count ||
+        workspace->score_capacity < position + 1U || workspace->attention_capacity < channels ||
+        workspace->projected_capacity < channels || workspace->hidden_capacity < hidden_channels ||
+        workspace->mlp_output_capacity < channels) return -6;
+    if (qkv_tensor->dimensions != 2U || qkv_tensor->shape[0] != channels ||
+        qkv_tensor->shape[1] != 3ULL * channels ||
+        attention_output_tensor->dimensions != 2U || attention_output_tensor->shape[0] != channels ||
+        attention_output_tensor->shape[1] != channels ||
+        ffn_up_tensor->dimensions != 2U || ffn_up_tensor->shape[0] != channels ||
+        ffn_up_tensor->shape[1] != hidden_channels ||
+        ffn_down_tensor->dimensions != 2U || ffn_down_tensor->shape[0] != hidden_channels ||
+        ffn_down_tensor->shape[1] != channels) return -9;
+    status = gpt2_gguf_layernorm(residual, channels, attention_gamma, attention_beta,
+                                  epsilon, workspace->norm, workspace->norm_capacity);
+    if (status != 0) return status;
+    status = gpt2_gguf_project_qkv_fat16(volume, filename, model, qkv_tensor, channels,
+                                          workspace->norm, workspace->row_buffer,
+                                          workspace->row_capacity, workspace->query,
+                                          workspace->query_capacity * (uint32_t)sizeof(float),
+                                          workspace->key, workspace->key_capacity * (uint32_t)sizeof(float),
+                                          workspace->value, workspace->value_capacity * (uint32_t)sizeof(float));
+    if (status != 0) return status;
+    status = gpt2_gguf_kv_cache_put(cache, layer, position, workspace->key, workspace->value);
+    if (status != 0) return status;
+    position_count = position + 1U;
+    status = gpt2_gguf_kv_cache_attention_multi_head(
+        cache, layer, 0U, position_count, workspace->query, head_count,
+        workspace->head_outputs, workspace->head_output_capacity,
+        workspace->key_scratch, workspace->key_scratch_capacity,
+        workspace->scores, workspace->score_capacity, workspace->attention,
+        workspace->attention_capacity, &attention_count);
+    if (status != 0) return status;
+    if (attention_count != channels) return -7;
+    status = gpt2_gguf_attention_output_add_residual_fat16(
+        volume, filename, model, attention_output_tensor, channels, workspace->attention,
+        workspace->row_buffer, workspace->row_capacity, workspace->projected,
+        workspace->projected_capacity, attention_output_bias, residual, residual_capacity);
+    if (status != 0) return status;
+    status = gpt2_gguf_layernorm(residual, channels, ffn_gamma, ffn_beta, epsilon,
+                                  workspace->norm, workspace->norm_capacity);
+    if (status != 0) return status;
+    status = gpt2_gguf_mlp_forward_fat16(
+        volume, filename, model, ffn_up_tensor, ffn_down_tensor, channels,
+        hidden_channels, workspace->norm, workspace->row_buffer, workspace->row_capacity,
+        ffn_up_bias, ffn_down_bias, workspace->hidden, workspace->hidden_capacity,
+        workspace->mlp_output, workspace->mlp_output_capacity);
+    if (status != 0) return status;
+    return gpt2_gguf_add_residual(residual, residual_capacity, workspace->mlp_output, channels);
+}
 
 int gpt2_gguf_block_attention_forward_fat16(
                                       const gpt2_gguf_kv_cache_t* cache,
