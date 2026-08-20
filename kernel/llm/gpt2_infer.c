@@ -1,9 +1,11 @@
 #include "gpt2_infer.h"
 #include "gpt2_model.h"
 #include "gpt2_sample.h"
-#include "../mem/heap.h"
 
 #define GPT2_BAREMETAL_MAX_CONTEXT 64U
+#define GPT2_BAREMETAL_MAX_CHANNELS 768U
+#define GPT2_BAREMETAL_MAX_LAYERS 12U
+#define GPT2_BAREMETAL_MAX_VOCAB 50304U
 
 typedef struct {
     const float* wte;
@@ -43,6 +45,15 @@ typedef struct {
     int ready;
 } gpt2_workspace_t;
 
+static float workspace_residual[GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_temporary[GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_normalized[GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_qkv[3U * GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_attention[GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_scores[GPT2_BAREMETAL_MAX_CONTEXT];
+static float workspace_hidden[4U * GPT2_BAREMETAL_MAX_CHANNELS];
+static float workspace_logits[GPT2_BAREMETAL_MAX_VOCAB];
+static float workspace_kv_cache[GPT2_BAREMETAL_MAX_LAYERS * GPT2_BAREMETAL_MAX_CONTEXT * 2U * GPT2_BAREMETAL_MAX_CHANNELS];
 static gpt2_workspace_t workspace;
 static const char* infer_status = "GPT-2: moteur CPU non initialise";
 
@@ -170,31 +181,33 @@ static void gpt2_attention_cached(float* out, float* scores, const float* qkv,
 }
 
 static int gpt2_workspace_init(const gpt2_config_t* cfg) {
-    uint32_t c = cfg->channels;
-    uint32_t v = cfg->padded_vocab_size;
-    uint32_t hidden = 4U * c;
-    uint32_t cache_floats = cfg->num_layers * GPT2_BAREMETAL_MAX_CONTEXT * 2U * c;
-
-    if (workspace.ready && workspace.channels == c && workspace.vocab == v) return 0;
-    if (workspace.ready) {
-        infer_status = "GPT-2: changement de configuration non supporte pendant la session";
-        return -1;
-    }
-    workspace.residual = (float*)kmalloc(c * sizeof(float));
-    workspace.temporary = (float*)kmalloc(c * sizeof(float));
-    workspace.normalized = (float*)kmalloc(c * sizeof(float));
-    workspace.qkv = (float*)kmalloc(3U * c * sizeof(float));
-    workspace.attention = (float*)kmalloc(c * sizeof(float));
-    workspace.scores = (float*)kmalloc(GPT2_BAREMETAL_MAX_CONTEXT * sizeof(float));
-    workspace.hidden = (float*)kmalloc(hidden * sizeof(float));
-    workspace.logits = (float*)kmalloc(v * sizeof(float));
-    workspace.kv_cache = (float*)kmalloc(cache_floats * sizeof(float));
-    if (!workspace.residual || !workspace.temporary || !workspace.normalized ||
-        !workspace.qkv || !workspace.attention || !workspace.scores || !workspace.hidden ||
-        !workspace.logits || !workspace.kv_cache) {
-        infer_status = "GPT-2: memoire insuffisante pour le cache KV";
+    uint32_t c;
+    uint32_t v;
+    if (!cfg) return -1;
+    c = cfg->channels;
+    v = cfg->padded_vocab_size;
+    if (c == 0U || c > GPT2_BAREMETAL_MAX_CHANNELS ||
+        cfg->num_layers == 0U || cfg->num_layers > GPT2_BAREMETAL_MAX_LAYERS ||
+        v == 0U || v > GPT2_BAREMETAL_MAX_VOCAB) {
+        infer_status = "GPT-2: configuration hors capacite statique";
         return -2;
     }
+    if (workspace.ready && workspace.channels == c && workspace.vocab == v &&
+        workspace.cache_model && workspace.cache_model->config.num_layers == cfg->num_layers)
+        return 0;
+    if (workspace.ready) {
+        infer_status = "GPT-2: changement de configuration non supporte pendant la session";
+        return -3;
+    }
+    workspace.residual = workspace_residual;
+    workspace.temporary = workspace_temporary;
+    workspace.normalized = workspace_normalized;
+    workspace.qkv = workspace_qkv;
+    workspace.attention = workspace_attention;
+    workspace.scores = workspace_scores;
+    workspace.hidden = workspace_hidden;
+    workspace.logits = workspace_logits;
+    workspace.kv_cache = workspace_kv_cache;
     workspace.context = GPT2_BAREMETAL_MAX_CONTEXT;
     workspace.channels = c;
     workspace.vocab = v;
