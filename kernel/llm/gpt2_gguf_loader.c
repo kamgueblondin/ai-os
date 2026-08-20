@@ -16,6 +16,28 @@ int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
     return 0;
 }
 
+int gpt2_gguf_load_fat16_header(const fat16_volume_t* volume, const char* filename,
+                                uint8_t* header, uint32_t header_capacity,
+                                gpt2_gguf_loaded_model_t* out) {
+    fat16_file_t file;
+    uint32_t read = 0U;
+    uint32_t requested;
+    int status;
+    if (!volume || !filename || !header || header_capacity == 0U || !out) return -1;
+    if (!fat16_is_mounted(volume)) return OS_FAT16_NOT_MOUNTED;
+    status = fat16_open_file(volume, filename, &file);
+    if (status != 0) return status;
+    if (file.size == 0U) return -2;
+    requested = file.size < header_capacity ? file.size : header_capacity;
+    status = fat16_read_file_range(volume, filename, 0U, header, requested, &read);
+    if (status != 0) return status;
+    if (read == 0U) return -2;
+    status = gpt2_gguf_build_index_header(header, read, file.size, &out->index);
+    if (status != 0) return -100 + status;
+    out->bytes_loaded = read;
+    return 0;
+}
+
 
 int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filename,
                                 const gpt2_gguf_loaded_model_t* model,
@@ -294,7 +316,10 @@ int gpt2_gguf_generation_prepare(const gpt2_gguf_loaded_model_t* model,
         prepared.output_weight.shape[0] != channels ||
         prepared.output_weight.shape[1] != prepared.token_embedding.shape[1]) return -9;
     if ((prepared.token_embedding.type != GPT2_GGUF_TENSOR_F32 &&
-         prepared.token_embedding.type != GPT2_GGUF_TENSOR_F16) ||
+         prepared.token_embedding.type != GPT2_GGUF_TENSOR_F16 &&
+         prepared.token_embedding.type != GPT2_GGUF_TENSOR_Q3_K &&
+         prepared.token_embedding.type != GPT2_GGUF_TENSOR_Q4_K &&
+         prepared.token_embedding.type != GPT2_GGUF_TENSOR_Q6_K) ||
         (prepared.position_embedding.type != GPT2_GGUF_TENSOR_F32 &&
          prepared.position_embedding.type != GPT2_GGUF_TENSOR_F16) ||
         (prepared.output_norm_weight.type != GPT2_GGUF_TENSOR_F32 &&
@@ -399,6 +424,33 @@ int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* fil
     return 0;
 }
 
+int gpt2_gguf_read_quant_row_dequant_fat16(const fat16_volume_t* volume,
+                                           const char* filename,
+                                           const gpt2_gguf_loaded_model_t* model,
+                                           const gpt2_gguf_tensor_t* tensor,
+                                           uint32_t row_index, uint8_t* row_buffer,
+                                           uint32_t row_capacity, float* output,
+                                           uint32_t output_capacity) {
+    uint32_t read = 0U;
+    uint32_t width;
+    int status;
+    if (!tensor || !row_buffer || !output || tensor->dimensions == 0U ||
+        tensor->dimensions > 2U || tensor->shape[0] == 0U ||
+        tensor->shape[0] > 0xFFFFFFFFULL) return -1;
+    width = (uint32_t)tensor->shape[0];
+    if (output_capacity < width) return -6;
+    status = gpt2_gguf_read_quant_row_fat16(volume, filename, model, tensor,
+                                             row_index, row_buffer, row_capacity, &read);
+    if (status != 0) return status;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K)
+        return gpt2_q3_k_dequantize(row_buffer, width, output);
+    if (tensor->type == GPT2_GGUF_TENSOR_Q4_K)
+        return gpt2_q4_k_dequantize(row_buffer, width, output);
+    if (tensor->type == GPT2_GGUF_TENSOR_Q6_K)
+        return gpt2_q6_k_dequantize(row_buffer, width, output);
+    return -4;
+}
+
 
 int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
                                    const uint8_t* row_buffer, uint32_t row_capacity,
@@ -453,17 +505,42 @@ int gpt2_gguf_project_qkv_fat16(const fat16_volume_t* volume, const char* filena
                                 uint32_t row_capacity, float* query, uint32_t query_capacity,
                                 float* key, uint32_t key_capacity,
                                 float* value, uint32_t value_capacity) {
+    fat16_file_t file;
     uint32_t output_index;
+    uint32_t block_bytes;
+    uint32_t row_bytes;
+    uint32_t offset;
     int status;
-    if (!query || !key || !value || channels == 0U ||
+    if (!volume || !filename || !model || !tensor || !input || !row_buffer ||
+        !query || !key || !value || channels == 0U ||
         query_capacity < channels * sizeof(float) ||
         key_capacity < channels * sizeof(float) ||
         value_capacity < channels * sizeof(float)) return -6;
+    if (tensor->dimensions != 2U || tensor->shape[0] != channels ||
+        tensor->shape[1] != 3ULL * channels) return -9;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    if ((channels % GPT2_QK_K) != 0U ||
+        channels / GPT2_QK_K > 0xFFFFFFFFU / block_bytes) return -7;
+    row_bytes = (channels / GPT2_QK_K) * block_bytes;
+    if (row_bytes == 0U || row_capacity < row_bytes ||
+        model->index.info.tensor_data_offset > 0xFFFFFFFFU - tensor->data_offset) return -6;
+    offset = model->index.info.tensor_data_offset + tensor->data_offset;
+    status = fat16_open_file(volume, filename, &file);
+    if (status != 0) return status;
+    if (offset > file.size || tensor->byte_size > file.size - offset) return -3;
+    status = fat16_file_seek(&file, offset);
+    if (status != 0) return status;
     for (output_index = 0U; output_index < 3U * channels; output_index++) {
         float result = 0.0f;
-        status = gpt2_gguf_project_qkv_row_fat16(volume, filename, model, tensor, channels,
-                                                  output_index, input, row_buffer,
-                                                  row_capacity, &result);
+        uint32_t read = 0U;
+        status = fat16_file_read(&file, row_buffer, row_bytes, &read);
+        if (status != 0) return status;
+        if (read != row_bytes) return -8;
+        status = gpt2_gguf_dot_quant_row_buffer(tensor, row_buffer, read,
+                                                input, channels, &result);
         if (status != 0) return status;
         if (output_index < channels) query[output_index] = result;
         else if (output_index < 2U * channels) key[output_index - channels] = result;
@@ -480,18 +557,37 @@ int gpt2_gguf_project_matrix_fat16(const fat16_volume_t* volume, const char* fil
                                    const float* input, uint8_t* row_buffer,
                                    uint32_t row_capacity, float* output,
                                    uint32_t output_capacity) {
+    fat16_file_t file;
     uint32_t row;
+    uint32_t block_bytes;
+    uint32_t row_bytes;
+    uint32_t offset;
     int status;
     if (!volume || !filename || !model || !tensor || !input || !row_buffer || !output) return -1;
     if (input_channels == 0U || output_channels == 0U ||
         tensor->dimensions != 2U || tensor->shape[0] != input_channels ||
         tensor->shape[1] != output_channels) return -9;
     if (output_capacity < output_channels * sizeof(float)) return -6;
+    if (tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else if (tensor->type == GPT2_GGUF_TENSOR_Q6_K) block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    else return -4;
+    if ((input_channels % GPT2_QK_K) != 0U ||
+        input_channels / GPT2_QK_K > 0xFFFFFFFFU / block_bytes) return -7;
+    row_bytes = (input_channels / GPT2_QK_K) * block_bytes;
+    if (row_bytes == 0U || row_capacity < row_bytes ||
+        model->index.info.tensor_data_offset > 0xFFFFFFFFU - tensor->data_offset) return -6;
+    offset = model->index.info.tensor_data_offset + tensor->data_offset;
+    status = fat16_open_file(volume, filename, &file);
+    if (status != 0) return status;
+    if (offset > file.size || tensor->byte_size > file.size - offset) return -3;
+    status = fat16_file_seek(&file, offset);
+    if (status != 0) return status;
     for (row = 0U; row < output_channels; row++) {
         uint32_t read = 0U;
-        status = gpt2_gguf_read_quant_row_fat16(volume, filename, model, tensor,
-                                                row, row_buffer, row_capacity, &read);
+        status = fat16_file_read(&file, row_buffer, row_bytes, &read);
         if (status != 0) return status;
+        if (read != row_bytes) return -8;
         status = gpt2_gguf_dot_quant_row_buffer(tensor, row_buffer, read,
                                                 input, input_channels, &output[row]);
         if (status != 0) return status;
@@ -516,10 +612,37 @@ int gpt2_gguf_forward_output_logits_fat16(const fat16_volume_t* volume,
         (output_tensor->type != GPT2_GGUF_TENSOR_Q3_K &&
          output_tensor->type != GPT2_GGUF_TENSOR_Q4_K &&
          output_tensor->type != GPT2_GGUF_TENSOR_Q6_K)) return -9;
+    fat16_file_t file;
+    uint32_t block_bytes;
+    uint32_t row_bytes;
+    uint32_t offset;
+    uint32_t row;
+    int status;
     if (logits_capacity < vocabulary * (uint32_t)sizeof(float)) return -6;
-    return gpt2_gguf_project_matrix_fat16(volume, filename, model, output_tensor,
-                                          channels, vocabulary, hidden, row_buffer,
-                                          row_capacity, logits, logits_capacity);
+    if (output_tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (output_tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    if ((channels % GPT2_QK_K) != 0U ||
+        channels / GPT2_QK_K > 0xFFFFFFFFU / block_bytes) return -7;
+    row_bytes = (channels / GPT2_QK_K) * block_bytes;
+    if (row_bytes == 0U || row_capacity < row_bytes ||
+        model->index.info.tensor_data_offset > 0xFFFFFFFFU - output_tensor->data_offset) return -6;
+    offset = model->index.info.tensor_data_offset + output_tensor->data_offset;
+    status = fat16_open_file(volume, filename, &file);
+    if (status != 0) return status;
+    if (offset > file.size || output_tensor->byte_size > file.size - offset) return -3;
+    status = fat16_file_seek(&file, offset);
+    if (status != 0) return status;
+    for (row = 0U; row < vocabulary; row++) {
+        uint32_t read = 0U;
+        status = fat16_file_read(&file, row_buffer, row_bytes, &read);
+        if (status != 0) return status;
+        if (read != row_bytes) return -8;
+        status = gpt2_gguf_dot_quant_row_buffer(output_tensor, row_buffer, read,
+                                                hidden, channels, &logits[row]);
+        if (status != 0) return status;
+    }
+    return 0;
 }
 
 static int gpt2_gguf_kv_cache_offset(const gpt2_gguf_kv_cache_t* cache,
@@ -1106,6 +1229,7 @@ int gpt2_gguf_generation_token_fat16(
     gpt2_gguf_tensor_t attention_gamma, attention_beta, qkv, qkv_bias;
     gpt2_gguf_tensor_t attention_output, attention_output_bias;
     gpt2_gguf_tensor_t ffn_gamma, ffn_beta, ffn_up, ffn_down;
+    gpt2_gguf_tensor_t ffn_up_bias, ffn_down_bias;
     uint32_t channels;
     uint32_t hidden_channels;
     uint32_t layer_index;
@@ -1116,27 +1240,41 @@ int gpt2_gguf_generation_token_fat16(
         !workspace->position_embedding || !workspace->attention_gamma ||
         !workspace->attention_beta || !workspace->qkv_bias ||
         !workspace->attention_output_bias || !workspace->ffn_gamma ||
-        !workspace->ffn_beta || !workspace->final_gamma || !workspace->final_beta ||
+        !workspace->ffn_beta || !workspace->ffn_up_bias || !workspace->ffn_down_bias ||
+        !workspace->final_gamma || !workspace->final_beta ||
         !workspace->final_hidden) return -1;
     channels = generation->runtime.channels;
     if (channels == 0U || channels > 0x3FFFFFFFU || head_count == 0U ||
         channels % head_count != 0U || epsilon <= 0.0f ||
         token >= generation->vocabulary || position >= generation->max_positions ||
         cache->layers != generation->runtime.layer_count || cache->channels != channels ||
-        cache->max_positions < generation->max_positions || position != cache->count) return -9;
+        position >= cache->max_positions || position != cache->count) return -9;
     if (workspace->position_embedding_capacity < channels ||
         workspace->attention_gamma_capacity < channels ||
         workspace->attention_beta_capacity < channels ||
         workspace->qkv_bias_capacity < 3U * channels ||
         workspace->attention_output_bias_capacity < channels ||
         workspace->ffn_gamma_capacity < channels || workspace->ffn_beta_capacity < channels ||
+        workspace->ffn_down_bias_capacity < channels ||
         workspace->final_gamma_capacity < channels || workspace->final_beta_capacity < channels ||
         workspace->final_hidden_capacity < channels ||
         logits_capacity < generation->vocabulary * (uint32_t)sizeof(float)) return -6;
-    status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
-                                             &generation->token_embedding, token, channels,
-                                             workspace->dense_scratch, workspace->dense_scratch_capacity,
-                                             workspace->final_hidden, workspace->final_hidden_capacity * (uint32_t)sizeof(float));
+    if (generation->token_embedding.type == GPT2_GGUF_TENSOR_F32 ||
+        generation->token_embedding.type == GPT2_GGUF_TENSOR_F16) {
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &generation->token_embedding, token, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->final_hidden,
+                                                 workspace->final_hidden_capacity * (uint32_t)sizeof(float));
+    } else {
+        status = gpt2_gguf_read_quant_row_dequant_fat16(volume, filename,
+                                                         generation->runtime.model,
+                                                         &generation->token_embedding, token,
+                                                         workspace->dense_scratch,
+                                                         workspace->dense_scratch_capacity,
+                                                         workspace->final_hidden,
+                                                         workspace->final_hidden_capacity);
+    }
     if (status != 0) return status;
     status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
                                              &generation->position_embedding, position, channels,
@@ -1157,10 +1295,13 @@ int gpt2_gguf_generation_token_fat16(
             gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_NORM_WEIGHT, &ffn_gamma) != 0 ||
             gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_NORM_BIAS, &ffn_beta) != 0 ||
             gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_UP_WEIGHT, &ffn_up) != 0 ||
-            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &ffn_down) != 0) return -8;
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &ffn_down) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_UP_BIAS, &ffn_up_bias) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_BIAS, &ffn_down_bias) != 0) return -8;
         hidden_channels = (uint32_t)ffn_up.shape[1];
         if (hidden_channels == 0U || hidden_channels > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
-        if (workspace->block.hidden_capacity < hidden_channels) return -6;
+        if (workspace->block.hidden_capacity < hidden_channels ||
+            workspace->ffn_up_bias_capacity < hidden_channels) return -6;
         status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
                                                  &attention_gamma, 0U, channels,
                                                  workspace->dense_scratch, workspace->dense_scratch_capacity,
@@ -1194,12 +1335,25 @@ int gpt2_gguf_generation_token_fat16(
                                                  workspace->dense_scratch, workspace->dense_scratch_capacity,
                                                  workspace->ffn_beta, workspace->ffn_beta_capacity * (uint32_t)sizeof(float));
         if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &ffn_up_bias, 0U, hidden_channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->ffn_up_bias,
+                                                 workspace->ffn_up_bias_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &ffn_down_bias, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->ffn_down_bias,
+                                                 workspace->ffn_down_bias_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
         status = gpt2_gguf_block_forward_fat16(
             cache, layer_index, position, workspace->final_hidden, workspace->final_hidden_capacity,
             channels, head_count, hidden_channels, workspace->attention_gamma,
             workspace->attention_beta, &qkv, workspace->qkv_bias, &attention_output,
             workspace->attention_output_bias, workspace->ffn_gamma, workspace->ffn_beta,
-            &ffn_up, &ffn_down, 0, 0, epsilon, volume, filename,
+            &ffn_up, &ffn_down, workspace->ffn_up_bias, workspace->ffn_down_bias,
+            epsilon, volume, filename,
             generation->runtime.model, &workspace->block);
         if (status != 0) return status;
     }

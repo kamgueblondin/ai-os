@@ -26,5 +26,10 @@ float gpt2_q8_0_dot_f32(const float* input, const uint8_t* q8_blocks, uint32_t c
 float gpt2_q3_k_dot_f32(const float* input, const uint8_t* q3_blocks, uint32_t count);
 float gpt2_q4_k_dot_f32(const float* input, const uint8_t* q4_blocks, uint32_t count);
 float gpt2_q6_k_dot_f32(const float* input, const uint8_t* q6_blocks, uint32_t count);
+/* Déquantifie des super-blocs K vers un buffer float caller-owned. `count` doit
+ * être un multiple non nul de 256 ; 0 signifie succès. */
+int gpt2_q3_k_dequantize(const uint8_t* q3_blocks, uint32_t count, float* output);
+int gpt2_q4_k_dequantize(const uint8_t* q4_blocks, uint32_t count, float* output);
+int gpt2_q6_k_dequantize(const uint8_t* q6_blocks, uint32_t count, float* output);
 
 #endif

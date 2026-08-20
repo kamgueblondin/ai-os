@@ -493,7 +493,8 @@ int fat16_open_file(const fat16_volume_t* v, const char* name, fat16_file_t* out
         if (!entry_matches(entry, short_name)) continue;
         if (entry[11] & 0x10U) return OS_FAT16_BAD_PATH;
         out->volume = v;
-        out->cluster = le16(entry + 26U);
+        out->first_cluster = le16(entry + 26U);
+        out->cluster = out->first_cluster;
         out->size = le32(entry + 28U);
         out->position = 0U;
         out->cluster_offset = 0U;
@@ -502,6 +503,38 @@ int fat16_open_file(const fat16_volume_t* v, const char* name, fat16_file_t* out
         return 0;
     }
     return OS_FAT16_NOT_FOUND;
+}
+
+int fat16_file_seek(fat16_file_t* file, uint32_t offset) {
+    const fat16_volume_t* v;
+    uint32_t cluster_bytes;
+    uint32_t steps;
+    uint32_t i;
+    if (!file || !file->open || !file->volume || offset > file->size) return OS_FAT16_BAD_PATH;
+    v = file->volume;
+    cluster_bytes = (uint32_t)v->sectors_per_cluster * FAT16_SECTOR_SIZE;
+    if (cluster_bytes == 0U) return OS_FAT16_CORRUPT;
+    file->cluster = file->first_cluster;
+    file->position = 0U;
+    file->cluster_offset = 0U;
+    file->guard = 0U;
+    if (offset == file->size) {
+        file->position = offset;
+        return 0;
+    }
+    steps = offset / cluster_bytes;
+    if (steps > v->cluster_count) return OS_FAT16_CORRUPT;
+    for (i = 0U; i < steps; i++) {
+        if (file->cluster < 2U || file->cluster >= FAT16_EOC_MIN ||
+            file->cluster - 2U >= v->cluster_count ||
+            read_fat_entry(v, file->cluster, &file->cluster) != 0) return OS_FAT16_CORRUPT;
+    }
+    if (file->cluster < 2U || file->cluster >= FAT16_EOC_MIN ||
+        file->cluster - 2U >= v->cluster_count) return OS_FAT16_CORRUPT;
+    file->position = offset;
+    file->cluster_offset = offset % cluster_bytes;
+    file->guard = steps;
+    return 0;
 }
 
 int fat16_file_read(fat16_file_t* file, uint8_t* buffer, uint32_t max,

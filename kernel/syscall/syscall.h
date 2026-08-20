@@ -87,6 +87,7 @@ int sys_rename(const char* oldpath, const char* newpath);
 int sys_copy(const char* src, const char* dst);
 int sys_append(const char* path, const char* buf, uint32_t n);
 int sys_gpt2_generate(const char* prompt, char* out, uint32_t max);
+int sys_gpt2_gguf_generate(const char* prompt, char* out, uint32_t max);
 int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload);
 int sys_ipc_receive(os_ipc_message_t* out);
 int sys_service_register(const char* name);

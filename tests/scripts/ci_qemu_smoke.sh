@@ -24,7 +24,7 @@ export OVERLAY_DISK PERSIST_DISK
 reset_overlay_disk() {
     local img="$1"
     mkdir -p "$(dirname "$img")"
-    dd if=/dev/zero of="$img" bs=512 count=64 status=none
+    dd if=/dev/zero of="$img" bs=512 count=64 conv=notrunc status=none
 }
 
 if [ ! -f "$KERNEL" ] || [ ! -f "$INITRD" ]; then

@@ -279,10 +279,15 @@ int gpt2_gguf_block_attention_forward_fat16(
                                       const float* bias, float* residual,
                                       uint32_t residual_capacity);
 
-/* Lit un fichier FAT16 8.3 dans le buffer fourni puis indexe son GGUF. */
+/* Lit un fichier FAT16 dans le buffer fourni puis indexe son GGUF complet. */
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
                          uint8_t* buffer, uint32_t capacity,
                          gpt2_gguf_loaded_model_t* out);
+/* Charge seulement le catalogue GGUF dans un buffer caller-owned. La taille du
+ * fichier reste la borne logique des poids, lus ensuite par fenêtres FAT16. */
+int gpt2_gguf_load_fat16_header(const fat16_volume_t* volume, const char* filename,
+                                uint8_t* header, uint32_t header_capacity,
+                                gpt2_gguf_loaded_model_t* out);
 /* Lit une fenêtre relative aux données d’un tenseur déjà indexé. */
 int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filename,
                                 const gpt2_gguf_loaded_model_t* model,
@@ -329,6 +334,14 @@ int gpt2_gguf_read_quant_row_fat16(const fat16_volume_t* volume, const char* fil
                                    const gpt2_gguf_tensor_t* tensor,
                                    uint32_t row_index, uint8_t* buffer,
                                    uint32_t capacity, uint32_t* out_read);
+/* Lit puis déquantifie une ligne Q3_K/Q4_K/Q6_K vers des floats caller-owned. */
+int gpt2_gguf_read_quant_row_dequant_fat16(const fat16_volume_t* volume,
+                                           const char* filename,
+                                           const gpt2_gguf_loaded_model_t* model,
+                                           const gpt2_gguf_tensor_t* tensor,
+                                           uint32_t row_index, uint8_t* row_buffer,
+                                           uint32_t row_capacity, float* output,
+                                           uint32_t output_capacity);
 /* Calcule une ligne quantifiée déjà présente dans un buffer caller-owned. */
 int gpt2_gguf_dot_quant_row_buffer(const gpt2_gguf_tensor_t* tensor,
                                    const uint8_t* row_buffer, uint32_t row_capacity,

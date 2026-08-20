@@ -21,7 +21,7 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Ce 
 | Découverte Foundation | Registre volatile de 8 services et 8 abonnements ; retrait, transfert par propriétaire, notifications et purge immédiate à la terminaison ; pas de capabilities |
 | Fichiers | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO (64 nœuds, V1 compatible), volume FAT16 et primitives FAT32 d’écriture/chaînage/rollback hors intégration VFS complète |
 | IA locale | GPT-2 124M `llm.c v3`, BPE UTF-8, cache KV, SSE2 et top-k sur workspace statique borné, sans réseau au boot ni allocation dynamique dans le moteur d’inférence |
-| GGUF | Sonde GGUF v3, contexte de génération préparé depuis les rôles globaux et couches réelles, exécution FAT16 d’un token vers les logits avec cache KV/workspace caller-owned, lecture dense F32/F16 et kernels Q3_K/Q4_K/Q6_K ; intégration shell, tokenizer et échantillonnage local restent ouverts |
+| GGUF | Runtime GPT-2 GGUF v3 local : catalogue FAT16 borné à 2 MiB, embeddings Q3_K, matrices Q3_K/Q4_K/Q6_K, bloc avec biais MLP, cache KV statique, top-k et shell `ai-model use gpt2.gguf`, sans allocation dynamique |
 | Réseau | Pilote NE2000 ISA, `SYS_NET_STATUS`, codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record, renouvellement, réacquisition et backoff DHCP caller-owned différés hors IRQ0, conservation fournisseur et reprise HTTP/SSE contrôlées, reprise SSE fine `Last-Event-ID`, registre TCP statique, orchestrateur noyau DHCP/DNS/ARP/SYN→TLS→HTTP/SSE socket et FIN+ACK transactionnel ; client OpenAI Chat Completions activable depuis le shell, campagne externe réelle en attente d’une clé API valide |
 
 Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`, `cp`, `mv`, `write`, `append`, `touch`, `stat`, `grep`, `wc`, `sort`, `head`, `tail`, `fat16-list`, `fat16-cat`, `spawn`, `yield`, `ipc-send`, `ipc-recv`, `service-publish`, `service-grant`, `service-find`, `service-status <nom>`, `service-watch`, `vfs-backend-probe <fichier>`, `vfs-backend-write-probe <fichier> <texte>`, `vfs-backend-remove-probe <fichier>`, `vfs-backend-rename-probe <src> <dst>`, `vfs-grant <pid>`, `vfs-backend-grant <pid>`, `vfs-backend-grant-read <pid>`, `vfs-backend-grant-mutate <pid>`, `vfs-backend-revoke <pid>`, `vfs-backend-status <pid>`, `vfs-backend-list`, `vfs-read <chemin>`, `vfs-stat <chemin>`, `vfs-list <repertoire/>`, `vfs-list-page <repertoire/> <depart>`, `vfs-mkdir`, `vfs-rmdir`, `vfs-stats`, `vfs-mount-add <prefixe/> <initrd|overlay>`, `vfs-mount-remove <prefixe/>`, `vfs-write <chemin> <texte>`, `vfs-remove <chemin>`, `vfs-rename <src> <dst>`, `jobs`, `top`, `ai`, `ai-provider`, `ai-model`, `ai-runtime`, `ai-credential`, `net-status` et `net-status json`. La liste complète, y compris la supervision de tâches, est dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md).
@@ -45,8 +45,10 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE (AIOV + FAT16 à partir du LBA 64) |
-| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 444 tests exécutés avec succès |
+| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 452 tests exécutés avec succès |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
+| `make gguf-disk` | Construit un disque FAT16 de déploiement contenant le modèle sous l’alias `GPT2.GGU` |
+| `make qemu-gguf-smoke` | Démarre le disque GGUF, sélectionne `gpt2.gguf` dans le shell et valide un token local |
 | `make integration-qemu` | Contrats QEMU AOS-022, AOS-024, AOS-025, NE2000, IPC, VFS avec montages dynamiques, mutations médiées, révocation, notifications, cycle de vie et transfert Foundation |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
@@ -72,7 +74,8 @@ Les poids ne sont **pas** dans Git. Les actifs validés sont distribués par la 
 ```text
 models/
 ├── gpt2_124M.bin
-└── gpt2_tokenizer.bin
+├── gpt2_tokenizer.bin
+└── gpt2-Q3_K_M.gguf       # optionnel : source de `make gguf-disk`
 ```
 
 ```bash
@@ -84,17 +87,17 @@ curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/ai-os
 make all
 ```
 
-QEMU nécessite **1 Gio** de RAM quand ce checkpoint est dans l’initrd. Dans le shell, utilisez `ai hello`, `ai-provider local`, `ai-model list`, `ai-runtime` et `rc`. La génération est volontairement bornée à 64 jetons de contexte et quatre jetons nouveaux. Sous QEMU TCG sans KVM, le temps d’une courte génération reste de l’ordre de **7 à 9 secondes** : l’objectif inférieur à une seconde n’est pas atteint.
+QEMU nécessite **1 Gio** de RAM quand le checkpoint FP32 est dans l’initrd. Dans le shell, utilisez `ai hello`, `ai-provider local`, `ai-model list`, `ai-model use gpt2.gguf`, `ai-runtime` et `rc`. Le profil GGUF garde 64 jetons de contexte dans son cache KV et retourne un token par appel pour éviter de monopoliser le noyau pendant un forward quantifié sur FAT16.
 
 ## GGUF, OpenAI et réseau : limites assumées
 
-AI-OS valide la structure de fichiers GGUF v3 et fournit des kernels Q8_0/Q3_K/Q4_K/Q6_K, mais le chemin de génération livré reste le checkpoint FP32 `llm.c v3`. `ai-model` peut mémoriser un profil `.gguf`, sans le faire exécuter.
+AI-OS valide la structure GGUF v3 et exécute désormais le profil GPT-2 GGUF quantifié depuis FAT16. `make gguf-disk` conserve les poids hors initrd sous `GPT2.GGU`; le boot indexe seulement le catalogue et `ai-model use gpt2.gguf` sélectionne le syscall local dédié. Les lectures de QKV, MLP et logits sont séquentielles sur FAT16 et le workspace reste entièrement statique.
 
-Le profil `ai-provider openai` est un **stub contrôlé**. `net-status` / `net-status json` publient la présence réelle d’une NIC NE2000 ISA (smoke `make qemu-ne2k-status`) ; les codecs TCP/TLS et le registre socket statique existent, mais aucun chemin HTTP/TLS live ni client OpenAI n’est encore raccordé. Une commande `ai` avec le profil OpenAI ne transmet aucune requête. QEMU peut connecter `ne2k_isa` à un backend hôte ; le guest possède désormais un pilote, des codecs caller-owned et une API socket noyau, pas un client HTTP [1]. Les secrets OpenAI ne doivent jamais être inclus dans l’image, les logs série ou le dépôt.
+Le profil `ai-provider openai` est activable de façon contrôlée : la session noyau relie DHCP, DNS, socket TCP statique, TLS, HTTP/SSE et extraction de réponse. `net-status` / `net-status json` publient la présence réelle d’une NIC NE2000 ISA ; l’appel externe reste désactivé tant qu’un bearer n’est pas configuré par `ai-credential`. Les secrets OpenAI ne doivent jamais être inclus dans l’image, les logs série ou le dépôt.
 
 ## Tests et artefacts
 
-`make test-all` a validé **444 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, orchestrateur noyau LLM TLS/HTTP/SSE sur socket, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make integration-qemu` ajoute les validations QEMU séparées, dont le smoke NE2000 et les contrats IPC, VFS et service ; il réinitialise son disque de contrat sans toucher à `build/overlay.img`. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
+`make test-all` a validé **452 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, curseur et saut FAT16, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, orchestrateur noyau LLM TLS/HTTP/SSE sur socket, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make qemu-gguf-smoke` complète les smokes QEMU en validant le disque GPT2.GGU et la génération locale sélectionnée dans le shell. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -104,7 +107,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 
 - [x] GPT-2 local, cache KV, SSE2 et top-k borné
 - [x] Tokenizer BPE UTF-8 avec couverture de lettres Unicode ciblée
-- [x] Sonde GGUF v3, kernels Q3_K/Q4_K/Q6_K et mapping de couches
+- [x] Sonde GGUF v3, kernels Q3_K/Q4_K/Q6_K, mapping de couches et runtime FAT16 local via shell
 - [x] Tests QEMU versionnés
 - [x] Overlay ATA PIO V2, 64 nœuds et restauration V1
 - [x] Préemption IRQ0 sûre entre tâches Ring 3
@@ -143,7 +146,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Inventaire médié de capacités backend VFS : `vfs-backend-list` affiche jusqu’à quatre délégations actives et leurs masques au propriétaire public de `vfs`
 - [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend de chemins
 - [ ] Migration microkernel réelle
-- [ ] Inférence GGUF quantifiée bout-en-bout et latence QEMU inférieure à une seconde
+- [ ] Optimisation de la latence GGUF quantifiée sur QEMU ; l’inférence bout-en-bout est livrée
 - [ ] Bail DHCP live, DNS/TCP utilisateur, handshake TLS et client OpenAI effectif
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de la racine et primitives LFN FAT32 bornées ; publication multi-entrée LFN, reconstruction LFN et intégration complète au VFS restent à livrer — [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 

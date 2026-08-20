@@ -13,6 +13,8 @@
 #define BLOCK_TOKEN_BYTES (BLOCK_CHANNELS * 4U * 4U)
 #define BLOCK_POSITION_BYTES (BLOCK_CHANNELS * 2U * 2U)
 #define BLOCK_NORM_BYTES (BLOCK_CHANNELS * 4U)
+#define BLOCK_FFN_UP_BIAS_BYTES (BLOCK_HIDDEN * 4U)
+#define BLOCK_FFN_DOWN_BIAS_BYTES (BLOCK_CHANNELS * 4U)
 #define BLOCK_OUTPUT_BYTES (4U * GPT2_Q4_K_BLOCK_BYTES)
 #define BLOCK_GLOBAL_BYTES (BLOCK_TOKEN_BYTES + BLOCK_POSITION_BYTES + 2U * BLOCK_NORM_BYTES + BLOCK_OUTPUT_BYTES)
 #define BLOCK_MODEL_BUFFER_BYTES 500000U
@@ -118,6 +120,33 @@ static void make_gguf_file(void) {
     while (p < end) disk[p++] = 0U;
     disk[tensor_data] = 0x11U;
     disk[tensor_data + GPT2_Q4_K_BLOCK_BYTES] = 0x77U;
+}
+
+static void test_indexes_gpt2_header_from_fat16(void) {
+    fat16_volume_t volume;
+    gpt2_gguf_loaded_model_t model;
+    gpt2_gguf_tensor_t tensor;
+    float decoded[GPT2_QK_K] = {0.0f};
+    uint8_t row[GPT2_Q4_K_BLOCK_BYTES] = {0U};
+    uint8_t header[160];
+    uint8_t short_header[120];
+    make_gguf_file();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_load_fat16_header(&volume, "gpt2.ggu", header,
+                                                      sizeof(header), &model));
+    TEST_ASSERT_EQUAL(sizeof(header), model.bytes_loaded);
+    TEST_ASSERT_EQUAL(480U, model.index.blob_size);
+    TEST_ASSERT_EQUAL(1U, model.index.tensor_count);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_index_find(&model.index, "output.weight", &tensor));
+    TEST_ASSERT_EQUAL(GPT2_GGUF_TENSOR_Q4_K, tensor.type);
+    TEST_ASSERT_EQUAL(0, gpt2_gguf_read_quant_row_dequant_fat16(&volume, "gpt2.ggu", &model,
+                                                                 &tensor, 0U, row, sizeof(row),
+                                                                 decoded, GPT2_QK_K));
+    TEST_ASSERT_EQUAL(-6, gpt2_gguf_read_quant_row_dequant_fat16(&volume, "gpt2.ggu", &model,
+                                                                  &tensor, 0U, row, sizeof(row),
+                                                                  decoded, GPT2_QK_K - 1U));
+    TEST_ASSERT_TRUE(gpt2_gguf_load_fat16_header(&volume, "gpt2.ggu", short_header,
+                                                 sizeof(short_header), &model) != 0);
 }
 
 static void test_loads_gpt2_from_fat16(void) {
@@ -594,11 +623,12 @@ static void make_block_gguf_file(void) {
     uint32_t fat;
     uint32_t total_tensor_bytes = BLOCK_GLOBAL_BYTES + 4U * BLOCK_NORM_BYTES +
                                   3U * BLOCK_CHANNELS * 4U + BLOCK_QKV_BYTES +
-                                  BLOCK_ATTN_BYTES + BLOCK_UP_BYTES + BLOCK_DOWN_BYTES;
+                                  BLOCK_ATTN_BYTES + BLOCK_UP_BYTES + BLOCK_DOWN_BYTES +
+                                  BLOCK_FFN_UP_BIAS_BYTES + BLOCK_FFN_DOWN_BIAS_BYTES;
     make_volume();
     put32(cursor, GPT2_GGUF_MAGIC); cursor += 4U;
     put32(cursor, GPT2_GGUF_VERSION); cursor += 4U;
-    put64_at(cursor, 15U); cursor += 8U;
+    put64_at(cursor, 17U); cursor += 8U;
     put64_at(cursor, 2U); cursor += 8U;
     put_text_at(&cursor, "general.architecture");
     put32(cursor, GPT2_GGUF_VALUE_STRING); cursor += 4U;
@@ -638,6 +668,12 @@ static void make_block_gguf_file(void) {
     put_tensor_at(&cursor, "blk.0.ffn_down.weight", BLOCK_HIDDEN,
                   BLOCK_CHANNELS, GPT2_GGUF_TENSOR_Q4_K,
                   BLOCK_GLOBAL_BYTES + 4U * BLOCK_NORM_BYTES + BLOCK_QKV_BYTES + 3U * BLOCK_CHANNELS * 4U + BLOCK_ATTN_BYTES + BLOCK_UP_BYTES);
+    put_vector_at(&cursor, "blk.0.ffn_up.bias", BLOCK_HIDDEN,
+                  GPT2_GGUF_TENSOR_F32,
+                  BLOCK_GLOBAL_BYTES + 4U * BLOCK_NORM_BYTES + BLOCK_QKV_BYTES + 3U * BLOCK_CHANNELS * 4U + BLOCK_ATTN_BYTES + BLOCK_UP_BYTES + BLOCK_DOWN_BYTES);
+    put_vector_at(&cursor, "blk.0.ffn_down.bias", BLOCK_CHANNELS,
+                  GPT2_GGUF_TENSOR_F32,
+                  BLOCK_GLOBAL_BYTES + 4U * BLOCK_NORM_BYTES + BLOCK_QKV_BYTES + 3U * BLOCK_CHANNELS * 4U + BLOCK_ATTN_BYTES + BLOCK_UP_BYTES + BLOCK_DOWN_BYTES + BLOCK_FFN_UP_BIAS_BYTES);
     tensor_data = (cursor + 31U) & ~31U;
     file_size = tensor_data - file_start + total_tensor_bytes;
     clusters = (file_size + 511U) / 512U;
@@ -730,6 +766,7 @@ static void test_generates_gguf_token_logits_from_fat16(void) {
     float position[BLOCK_CHANNELS] = {0.0f}, ag[BLOCK_CHANNELS] = {0.0f}, ab[BLOCK_CHANNELS] = {0.0f};
     float qkv_bias[3U * BLOCK_CHANNELS] = {0.0f}, aob[BLOCK_CHANNELS] = {0.0f};
     float fg[BLOCK_CHANNELS] = {0.0f}, fb[BLOCK_CHANNELS] = {0.0f};
+    float fub[BLOCK_HIDDEN] = {0.0f}, fdb[BLOCK_CHANNELS] = {0.0f};
     float final_gamma[BLOCK_CHANNELS] = {0.0f}, final_beta[BLOCK_CHANNELS] = {0.0f};
     float hidden[BLOCK_CHANNELS] = {0.0f}, norm[BLOCK_CHANNELS] = {0.0f};
     float query[BLOCK_CHANNELS] = {0.0f}, key[BLOCK_CHANNELS] = {0.0f}, value[BLOCK_CHANNELS] = {0.0f};
@@ -737,7 +774,7 @@ static void test_generates_gguf_token_logits_from_fat16(void) {
     float attention[BLOCK_CHANNELS] = {0.0f}, projected[BLOCK_CHANNELS] = {0.0f};
     float mlp_hidden[BLOCK_HIDDEN] = {0.0f}, mlp_output[BLOCK_CHANNELS] = {0.0f};
     float logits[4U] = {0.0f};
-    uint8_t dense_scratch[3U * BLOCK_CHANNELS * 4U] = {0U};
+    uint8_t dense_scratch[BLOCK_HIDDEN * 4U] = {0U};
     uint8_t row[4U * GPT2_Q4_K_BLOCK_BYTES] = {0U};
     char name[64];
     make_block_gguf_file();
@@ -755,6 +792,8 @@ static void test_generates_gguf_token_logits_from_fat16(void) {
     workspace.attention_output_bias=aob; workspace.attention_output_bias_capacity=BLOCK_CHANNELS;
     workspace.ffn_gamma=fg; workspace.ffn_gamma_capacity=BLOCK_CHANNELS;
     workspace.ffn_beta=fb; workspace.ffn_beta_capacity=BLOCK_CHANNELS;
+    workspace.ffn_up_bias=fub; workspace.ffn_up_bias_capacity=BLOCK_HIDDEN;
+    workspace.ffn_down_bias=fdb; workspace.ffn_down_bias_capacity=BLOCK_CHANNELS;
     workspace.final_gamma=final_gamma; workspace.final_gamma_capacity=BLOCK_CHANNELS;
     workspace.final_beta=final_beta; workspace.final_beta_capacity=BLOCK_CHANNELS;
     workspace.final_hidden=hidden; workspace.final_hidden_capacity=BLOCK_CHANNELS;
@@ -833,6 +872,13 @@ static void test_cursor_reads_successive_windows(void) {
     TEST_ASSERT_EQUAL('o', second[1]);
     TEST_ASSERT_EQUAL(0, fat16_file_read(&file, second, sizeof(second), &read));
     TEST_ASSERT_EQUAL(0, (int)read);
+    TEST_ASSERT_EQUAL(0, fat16_file_seek(&file, 2U));
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, second, sizeof(second), &read));
+    TEST_ASSERT_EQUAL(3, (int)read);
+    TEST_ASSERT_EQUAL('l', second[0]);
+    TEST_ASSERT_EQUAL('l', second[1]);
+    TEST_ASSERT_EQUAL('o', second[2]);
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_file_seek(&file, 6U));
 }
 
 static void test_rejects_bad_bpb(void) {
@@ -958,6 +1004,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
     RUN_TEST(test_loads_gpt2_from_fat16);
+    RUN_TEST(test_indexes_gpt2_header_from_fat16);
     RUN_TEST(test_executes_q4_block_from_fat16);
     RUN_TEST(test_generates_gguf_token_logits_from_fat16);
     RUN_TEST(test_reads_bounded_file_range);

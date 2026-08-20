@@ -14,6 +14,7 @@
 #include "fs/fat16.h"
 #include "llm/gpt2_model.h"
 #include "llm/gpt2_gguf.h"
+#include "llm/gpt2_gguf_infer.h"
 #include "llm/gpt2_infer.h"
 #include "llm/gpt2_tokenizer.h"
 #include "keyboard.h"
@@ -1105,15 +1106,15 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
                     print_string("\n");
                 }
             }
+            if (gpt2_tokenizer_load_from_initrd("models/gpt2_tokenizer.bin") == 0) {
+                print_string("Tokenizer GPT-2 local charge depuis l'initrd.\n");
+            } else {
+                print_string(gpt2_tokenizer_status());
+                print_string("\n");
+            }
             if (gpt2_model_load_from_initrd("models/gpt2_124M.bin") == 0) {
                 const gpt2_model_t* gpt2 = gpt2_model_current();
                 print_string("Modele GPT-2 local charge depuis l'initrd.\n");
-                if (gpt2_tokenizer_load_from_initrd("models/gpt2_tokenizer.bin") == 0) {
-                    print_string("Tokenizer GPT-2 local charge depuis l'initrd.\n");
-                } else {
-                    print_string(gpt2_tokenizer_status());
-                    print_string("\n");
-                }
                 /* Les mini-checkpoints de validation executent un jeton CPU au boot. */
                 if (gpt2->config.vocab_size <= 8 && gpt2->config.channels <= 16) {
                     uint32_t seed_token = 0;
@@ -1143,6 +1144,12 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {
             print_string(fat16_status());
             print_string("\n");
+            if (gpt2_gguf_infer_init_fat16(fat16_root(), "GPT2.GGU") == 0) {
+                print_string(gpt2_gguf_infer_status());
+                print_string("\n");
+            } else {
+                print_string("GGUF FAT16 optionnel indisponible; profil .gguf desactive.\n");
+            }
         } else {
             print_string(fat16_status());
             print_string("\n");

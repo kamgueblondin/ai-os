@@ -58,7 +58,9 @@ typedef enum {
     GPT2_GGUF_ROLE_LAYER_FFN_NORM_WEIGHT = 11U,
     GPT2_GGUF_ROLE_LAYER_FFN_NORM_BIAS = 12U,
     GPT2_GGUF_ROLE_LAYER_FFN_UP_WEIGHT = 13U,
-    GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT = 14U
+    GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT = 14U,
+    GPT2_GGUF_ROLE_LAYER_FFN_UP_BIAS = 15U,
+    GPT2_GGUF_ROLE_LAYER_FFN_DOWN_BIAS = 16U
 } gpt2_gguf_role_t;
 
 typedef struct {
@@ -78,7 +80,7 @@ typedef struct {
 } gpt2_gguf_info_t;
 
 typedef struct {
-    gpt2_gguf_tensor_t tensors[10];
+    gpt2_gguf_tensor_t tensors[12];
     uint32_t layer_index;
     uint32_t present_mask;
 } gpt2_gguf_layer_t;
@@ -106,6 +108,10 @@ int gpt2_gguf_find_tensor(const uint8_t* blob, uint32_t blob_size,
 /* Builds a caller-owned table so repeated lookups do not rescan the blob. */
 int gpt2_gguf_build_index(const uint8_t* blob, uint32_t blob_size,
                           gpt2_gguf_index_t* out);
+/* Indexe un en-tête GGUF déjà chargé. `header_size` borne toute lecture mémoire,
+ * tandis que `file_size` valide les plages des tenseurs laissés sur FAT16. */
+int gpt2_gguf_build_index_header(const uint8_t* blob, uint32_t header_size,
+                                 uint32_t file_size, gpt2_gguf_index_t* out);
 int gpt2_gguf_index_find(const gpt2_gguf_index_t* index, const char* name,
                          gpt2_gguf_tensor_t* out);
 /* Maps the stable GPT-2 GGUF names to semantic model roles. */
