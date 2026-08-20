@@ -851,3 +851,8 @@ Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
 `fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. `fat32_create_lfn_file` publie désormais une séquence multi-entrée dans la chaîne racine, et `fat32_list_root` reconstruit le nom après validation des ordinals et du checksum dans un buffer caller-owned. Le contrat accepte au plus 13 caractères par entrée et 20 entrées par fichier, refuse les caractères non ASCII et conserve l’alias 8.3 en repli si la séquence est invalide. Validation actuelle : **4/4 tests FAT32** et **422 tests exécutés avec succès** ; l’intégration complète au VFS, Unicode hors ASCII et suppression/renommage LFN restent à réaliser.
 
 Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).
+
+### AOS-1333 à AOS-1344 — fondation TCP d’écoute passive
+`net_tcp_connection_listen`, `net_tcp_connection_accept_syn`, `net_tcp_connection_build_syn_ack` et l’extension de `net_tcp_connection_accept_ack` livrent les transitions bornées `LISTEN → SYN_RECEIVED → ESTABLISHED` sans allocation dynamique. Les ports, drapeaux, séquences et acquittements sont validés. Validation locale : **35/35 tests noyau**. Le raccordement au registre `net_socket`, aux syscalls, à la réception/émission NE2000 et à l’écoute réseau complète reste le prochain incrément.
+
+Voir [aos1333_1344_tcp_passive_foundation.md](aos1333_1344_tcp_passive_foundation.md).

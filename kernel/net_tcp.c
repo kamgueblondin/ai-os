@@ -22,6 +22,12 @@ int net_tcp_build_syn(uint8_t* segment, uint32_t capacity, uint16_t source_port,
     return build_control(segment, capacity, source_port, destination_port, sequence, 0U, NET_TCP_FLAG_SYN);
 }
 
+int net_tcp_build_syn_ack(uint8_t* segment, uint32_t capacity, uint16_t source_port,
+                          uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment) {
+    return build_control(segment, capacity, source_port, destination_port, sequence,
+                         acknowledgment, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK);
+}
+
 int net_tcp_build_ack(uint8_t* segment, uint32_t capacity, uint16_t source_port,
                       uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment) {
     return build_control(segment, capacity, source_port, destination_port, sequence, acknowledgment, NET_TCP_FLAG_ACK);
@@ -86,6 +92,33 @@ int net_tcp_connection_open(net_tcp_connection_t* connection,uint16_t local_port
     connection->pending_payload=0; connection->pending_length=0U; connection->retransmit_count=0U;
     connection->retransmit_limit=0U; connection->receive_window=0xffffU;
     connection->state=NET_TCP_STATE_SYN_SENT; return 0;
+}
+
+int net_tcp_connection_listen(net_tcp_connection_t* connection, uint16_t local_port,
+                              uint32_t local_sequence) {
+    if (!connection || local_port == 0U) return -1;
+    connection->local_port = local_port; connection->remote_port = 0U;
+    connection->local_sequence = local_sequence; connection->remote_sequence = 0U;
+    connection->pending_payload = 0; connection->pending_length = 0U;
+    connection->retransmit_count = 0U; connection->retransmit_limit = 0U;
+    connection->receive_window = 0xffffU; connection->state = NET_TCP_STATE_LISTEN;
+    return 0;
+}
+
+int net_tcp_connection_accept_syn(net_tcp_connection_t* connection, const net_tcp_view_t* view) {
+    if (!connection || !view || connection->state != NET_TCP_STATE_LISTEN ||
+        view->source_port == 0U || view->destination_port != connection->local_port ||
+        (view->flags & NET_TCP_FLAG_SYN) == 0U || (view->flags & NET_TCP_FLAG_ACK) != 0U) return -1;
+    connection->remote_port = view->source_port; connection->remote_sequence = view->sequence + 1U;
+    connection->state = NET_TCP_STATE_SYN_RECEIVED; return 0;
+}
+
+int net_tcp_connection_build_syn_ack(const net_tcp_connection_t* connection,
+                                     uint8_t* segment, uint32_t capacity) {
+    if (!connection || !segment || connection->state != NET_TCP_STATE_SYN_RECEIVED) return -1;
+    return net_tcp_build_syn_ack(segment, capacity, connection->local_port,
+                                 connection->remote_port, connection->local_sequence,
+                                 connection->remote_sequence);
 }
 
 int net_tcp_connection_retry_init(net_tcp_connection_retry_t* retry,uint8_t retry_limit){if(!retry)return -1;retry->retry_limit=retry_limit;retry->retries_used=0U;return 0;}
@@ -295,9 +328,15 @@ int net_tcp_connection_begin_close(net_tcp_connection_t* connection,uint8_t* seg
 }
 
 int net_tcp_connection_accept_ack(net_tcp_connection_t* connection,const net_tcp_view_t* view) {
-    if (!connection || !view || (connection->state != NET_TCP_STATE_ESTABLISHED && connection->state != NET_TCP_STATE_FIN_WAIT_1)) return -1;
+    if (!connection || !view || (connection->state != NET_TCP_STATE_ESTABLISHED &&
+        connection->state != NET_TCP_STATE_FIN_WAIT_1 && connection->state != NET_TCP_STATE_SYN_RECEIVED)) return -1;
     if (view->source_port != connection->remote_port || view->destination_port != connection->local_port ||
-        (view->flags & NET_TCP_FLAG_ACK) == 0U || view->acknowledgment > connection->local_sequence) return -2;
+        (view->flags & NET_TCP_FLAG_ACK) == 0U) return -2;
+    if (connection->state == NET_TCP_STATE_SYN_RECEIVED) {
+        if (view->sequence != connection->remote_sequence || view->acknowledgment != connection->local_sequence + 1U) return -3;
+        connection->local_sequence++; connection->state = NET_TCP_STATE_ESTABLISHED; return 0;
+    }
+    if (view->acknowledgment > connection->local_sequence) return -2;
     if (connection->pending_length != 0U && view->acknowledgment < connection->local_sequence) return -3;
     if (connection->pending_length != 0U) {
         connection->pending_payload = 0; connection->pending_length = 0U;
