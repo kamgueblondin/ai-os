@@ -61,7 +61,7 @@
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [ ] Planification périodique du renouvellement DHCP et bootstrap DHCP/DNS/ARP/SYN directement vers la session LLM socket, puis client OpenAI effectif
+- [ ] Raccordement de l’orchestrateur noyau à la session LLM socket, planification périodique du renouvellement DHCP, puis client OpenAI effectif
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
@@ -72,10 +72,11 @@
 - [x] AOS-1413…1424 : polling TLS authentifié sur socket, ACK NE2000, validation X.509 directe/chaînée, flight X25519 et post-flight transactionnels — [aos1413_1424_socket_tls_poll.md](aos1413_1424_socket_tls_poll.md)
 - [x] AOS-1425…1436 : émission LLM et polling HTTP/SSE actifs sur socket TLS via NE2000, avec rollback TCP/TLS/applicatif — [aos1425_1436_socket_llm_orchestrator.md](aos1425_1436_socket_llm_orchestrator.md)
 - [x] AOS-1437…1448 : session LLM socket de SYN-ACK à HTTP/SSE, avec phases transactionnelles et réarmement TLS — [aos1437_1448_llm_socket_session.md](aos1437_1448_llm_socket_session.md)
+- [x] AOS-1449…1460 : bootstrap DHCP/DNS/ARP/SYN transactionnel vers session LLM socket et libération du slot en rollback — [aos1449_1460_socket_bootstrap.md](aos1449_1460_socket_bootstrap.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 442 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 443 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

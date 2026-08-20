@@ -303,6 +303,27 @@ int ne2k_llm_socket_session_poll_sse(ne2k_device_t* device,const ne2k_io_t* io,c
                                      uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 int ne2k_llm_socket_session_reset_for_request(ne2k_llm_socket_session_t* session);
 
+/* Bootstrap transactionnel DNS/ARP/SYN vers une session socket ; aucun TCP privé n’est publié. */
+int ne2k_llm_socket_session_start(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                  uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                  uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],
+                                  uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                  uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                  ne2k_llm_socket_session_t* session);
+int ne2k_llm_socket_session_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                       uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                       uint8_t* frame,uint16_t frame_capacity,const net_dhcp_lease_t* lease,
+                                       uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                       uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                       ne2k_llm_socket_session_t* session);
+int ne2k_llm_socket_session_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                               uint8_t* dhcp_tx,uint16_t dhcp_tx_capacity,uint8_t* dhcp_rx,uint16_t dhcp_rx_capacity,
+                                               uint32_t xid,uint16_t dhcp_attempts,uint8_t* arp_request,uint16_t arp_request_capacity,
+                                               uint8_t* arp_rx,uint16_t arp_rx_capacity,uint8_t* frame,uint16_t frame_capacity,
+                                               uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                               uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                               net_dhcp_lease_t* lease,ne2k_llm_socket_session_t* session);
+
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
