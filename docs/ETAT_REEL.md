@@ -1,10 +1,20 @@
 # État réel d’AI-OS
 
-**Date de constat :** 17 août 2026
+**Date de constat :** 20 août 2026
 
 **Référence :** hobby OS pédagogique i386 32-bit, BIOS/Multiboot, QEMU et Ring 3. Ce n’est pas une distribution Linux.
 
-**Rôle :** cette page décrit uniquement les fonctions observables dans le code et les tests. Elle prévaut sur les diagnostics historiques et sur la vision MOHHOS. Lexique : [vocabulaire.md](vocabulaire.md).
+**Rôle :** cette page décrit uniquement les fonctions observables dans le code et les tests. Elle prévaut sur les diagnostics historiques et sur la vision MOHHOS. Les paragraphes historiques conservent les compteurs de leur livraison ; l’encadré ci-dessous décrit l’état courant. Lexique : [vocabulaire.md](vocabulaire.md).
+
+## État courant vérifié
+
+| Domaine | État au 20 août 2026 |
+|---|---|
+| FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et encode une entrée LFN ASCII UTF-16LE bornée. |
+| LFN FAT32 | Le checksum 8.3 et l’encodage d’une entrée de 32 octets sont livrés ; la publication multi-entrée, la reconstruction au listage et l’intégration VFS restent à réaliser. |
+| Réseau utilisateur | Le registre TCP statique et six syscalls socket sont présents ; la validation stricte des pointeurs utilisateur, l’écoute passive complète et le raccordement LLM HTTP/TLS restent à durcir ou intégrer. |
+| Validation | Le runner noyau passe **35/35** tests ; la suite complète exécute **421 tests** avec succès. La CI de la PR #377 a validé compilation, tests et smoke QEMU. |
+| Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.
 
@@ -12,7 +22,7 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 |---|---|
 | Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3, curseur bloc et historique d’écran (Page Up/Down) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; kernels GGML Q3_K/Q4_K/Q6_K vérifiés au niveau mathématique |
-| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63 et volume FAT16 lecture seule à partir du LBA 64 |
+| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63, volume FAT16 et primitives FAT32 d’écriture/chaînage hors intégration VFS complète |
 | Ordonnancement et télémétrie | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur ; instantané de ticks, sélections, priorité CPU, parent et enfants directs ; terminaison, réattribution, attente et capacité de création limitées à la filiation directe |
 | IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; capacité de deux messages clients et état borné pour un propriétaire de service, médiateur VFS, métadonnées et listage de racine ou de sous-répertoire source-spécifiques, sources virtuelles, compteurs volatils et alias initrd/overlay dynamiques |
 | Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS, abonnements de service best-effort et nettoyage à la terminaison |

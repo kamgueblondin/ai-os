@@ -1,6 +1,6 @@
 # AOS-1273 à AOS-1288 — données et entrée racine FAT32
 
-> **État :** implémenté et validé localement. **Suite globale : 419/419 tests verts.**
+> **État :** fondation implémentée ; validation historique du lot : **419 tests verts**. La validation courante est maintenue dans `docs/todo.md` et `docs/aos1321_fat32_lfn.md`.
 
 Ce macro-lot ajoute l’écriture complète d’un cluster FAT32 dans un buffer caller-owned et la publication d’une entrée racine 8.3. Le nom est validé sans chemin ni caractères interdits, puis normalisé en majuscules dans les onze octets 8.3. L’entrée stocke l’attribut, le cluster initial sur 28 bits réparti entre les champs haut et bas et la taille little-endian sur 32 bits.
 
@@ -14,8 +14,8 @@ La recherche parcourt la chaîne du répertoire racine FAT32, secteur par secteu
 | Entrée | attribut, cluster haut/bas, taille 32 bits |
 | Allocation dynamique | aucune |
 | Tests noyau | 35/35 |
-| Suite globale | 419/419 |
+| Validation au moment du lot | 419 tests verts |
 
-Les entrées LFN FAT32, l’extension automatique de la chaîne de répertoire et l’orchestrateur fichier avec rollback multi-clusters restent à traiter. Le lot est volontairement borné pour conserver une publication persistante après écriture réussie des données.
+Le lot reste volontairement borné aux entrées 8.3. Depuis sa livraison, l’extension de la chaîne racine, l’orchestrateur fichier avec rollback multi-clusters et les primitives LFN FAT32 bornées ont été ajoutés ; la publication multi-entrée et la reconstruction LFN restent hors périmètre.
 
 **Auteur :** Manus AI

@@ -1,6 +1,6 @@
 # AOS-1305 à AOS-1320 — extension automatique du répertoire racine FAT32
 
-> **État :** implémenté et validé localement. **Suite globale : 420/420 tests verts.**
+> **État :** implémenté ; validation historique du lot : **420 tests verts**. La validation courante est maintenue dans `docs/todo.md`.
 
 `fat32_extend_root_directory` parcourt la chaîne du répertoire racine jusqu’à son dernier cluster EOC, réserve un nouveau cluster, l’efface dans le buffer statique borné, l’écrit dans la région de données puis remplace l’EOC du dernier cluster par le nouveau lien. En cas d’échec d’écriture ou de chaînage, l’entrée du cluster nouvellement réservé est libérée.
 
@@ -14,8 +14,8 @@ L’API restitue le nouveau cluster à l’appelant et ne publie aucune entrée 
 | Échec | nouveau cluster libéré, chaîne précédente intacte |
 | LFN | non inclus dans ce sous-lot |
 | Tests noyau | 36/36 |
-| Suite globale | 420/420 |
+| Validation au moment du lot | 420 tests verts |
 
-Le prochain sous-lot peut intégrer cette extension dans la publication d’entrées LFN FAT32 et ajouter la génération checksum/UTF-16LE, sans modifier l’ABI publique existante.
+Depuis ce lot, les primitives de checksum et d’encodage UTF-16LE LFN borné ont été livrées dans AOS-1321 à AOS-1332. L’extension reste une primitive séparée : la publication automatique de séquences multi-entrées et la reconstruction LFN ne sont pas encore intégrées.
 
 **Auteur :** Manus AI
