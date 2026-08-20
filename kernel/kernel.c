@@ -44,6 +44,11 @@ static ne2k_io_t boot_ne2k_io;
 /* Contexte persistant appartenant au noyau ; le seul secret est le bearer borné et effaçable ci-dessous. */
 static net_dhcp_lease_t boot_llm_lease;
 static ne2k_llm_socket_session_t boot_llm_socket_session;
+typedef struct {
+    uint8_t armed;
+    os_llm_acquire_start_request_t acquire;
+} kernel_llm_dhcp_maintenance_t;
+static kernel_llm_dhcp_maintenance_t boot_llm_dhcp_maintenance;
 /* Espaces de travail noyau fixes : aucun buffer du chemin DHCP→LLM n’est alloué. */
 static net_arp_cache_t boot_llm_arp_cache;
 static uint8_t boot_llm_dhcp_tx[KERNEL_LLM_FRAME_CAPACITY];
@@ -106,6 +111,7 @@ static void ne2k_boot_probe(void) {
     boot_llm_flight_records_length = 0U;
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
     boot_llm_http_streaming = 0U;
+    boot_llm_dhcp_maintenance.armed = 0U;
     boot_ne2k_present = 0U;
     if (ne2k_i386_io(&boot_ne2k_io) != 0) return;
     if (ne2k_probe(&boot_ne2k_device, 0x300U, &boot_ne2k_io) != 0) {
@@ -259,8 +265,24 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         kernel_llm_clear_tls_material();
         return OS_LLM_ACQUIRE_FAILED;
     }
+    boot_llm_dhcp_maintenance.acquire = *request;
+    boot_llm_dhcp_maintenance.armed = 1U;
     kernel_llm_copy_hostname(request->hostname);
     return 0;
+}
+
+/* Appelé depuis un contexte noyau sûr ; jamais depuis le gestionnaire IRQ0. */
+int kernel_llm_dhcp_maintenance(uint32_t now) {
+    int status;
+    if (!boot_llm_dhcp_maintenance.armed || !boot_ne2k_present) return 0;
+    if (!boot_llm_lease.valid) return -1;
+    status = ne2k_dhcp_renew_if_due(&boot_ne2k_device, &boot_ne2k_io,
+                                    boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx),
+                                    boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
+                                    boot_llm_dhcp_maintenance.acquire.xid,
+                                    boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
+                                    now, &boot_llm_lease);
+    return status;
 }
 
 static int kernel_llm_text_field_is_valid(const char* field, uint16_t capacity) {
