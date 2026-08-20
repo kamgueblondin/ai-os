@@ -35,6 +35,11 @@ void test_build_and_parse_syn_ack(void) {
       TEST_ASSERT_EQUAL(40, net_tcp_build_syn_ipv4(packet, sizeof(packet), src, dst, 49152, 443, 0x10203040U));
       TEST_ASSERT_EQUAL(0x45, packet[0]); TEST_ASSERT_EQUAL(NET_TCP_PROTOCOL, packet[9]);
       TEST_ASSERT_EQUAL(49152, (packet[20] << 8) | packet[21]); TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN, packet[33] & 0x3f); }
+    { uint8_t packet[48] = {0}; uint8_t src[4] = {10,0,2,2}; uint8_t dst[4] = {10,0,2,15}; net_tcp_view_t syn_ack;
+      TEST_ASSERT_EQUAL(40, net_tcp_build_syn_ack_ipv4(packet, sizeof(packet), src, dst, 443, 49152, 700U, 901U));
+      TEST_ASSERT_EQUAL(0, net_tcp_parse(packet + 20U, 20U, &syn_ack));
+      TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, syn_ack.flags);
+      TEST_ASSERT_EQUAL(700U, syn_ack.sequence); TEST_ASSERT_EQUAL(901U, syn_ack.acknowledgment); }
 }
 
 void test_connection_builds_first_ack(void) {

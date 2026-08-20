@@ -62,6 +62,10 @@ int net_tcp_build_syn_ipv4(uint8_t* packet, uint32_t capacity,
                            const uint8_t source_ip[4], const uint8_t destination_ip[4],
                            uint16_t source_port, uint16_t destination_port,
                            uint32_t sequence);
+int net_tcp_build_syn_ack_ipv4(uint8_t* packet, uint32_t capacity,
+                               const uint8_t source_ip[4], const uint8_t destination_ip[4],
+                               uint16_t source_port, uint16_t destination_port,
+                               uint32_t sequence, uint32_t acknowledgment);
 int net_tcp_is_syn_ack_for(const net_tcp_view_t* view, uint16_t local_port,
                            uint16_t remote_port, uint32_t local_sequence,
                            uint32_t* remote_sequence);
