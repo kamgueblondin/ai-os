@@ -847,6 +847,50 @@ int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_ar
     *connection=next_connection;*client=next_client;return length;
 }
 
+int ne2k_socket_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                          int socket_id,ne2k_tls_client_t* client,const uint8_t client_random[32],
+                          uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                          uint8_t* tcp_segment,uint16_t tcp_segment_capacity,uint8_t retransmit_limit) {
+    ne2k_tls_client_t next_client; net_tcp_connection_t previous_connection; net_tls_record_view_t record;
+    uint16_t segment_length; int length, status;
+    if (!device || !io || !cache || !tx_frame || !local_ip || !remote_ip || !client || !client_random ||
+        !client_hello_record || !tcp_segment) return -1;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0 ||
+        previous_connection.state != NET_TCP_STATE_ESTABLISHED || client->handshake.state != NET_TLS_HANDSHAKE_IDLE) return -2;
+    next_client = *client;
+    length = net_tls_client_hello_build(client_hello_record, client_hello_capacity, client_random);
+    if (length < 0 || net_tls_record_parse(client_hello_record, (uint32_t)length, &record) != 0) return -3;
+    if (net_tls_handshake_note_client_hello(&next_client.handshake) != 0 ||
+        net_tls_transcript_append(&next_client.transcript, record.payload, record.payload_length) != 0) return -4;
+    status = net_socket_send_limit(socket_id, client_hello_record, (uint16_t)length, tcp_segment,
+                                   tcp_segment_capacity, &segment_length, retransmit_limit);
+    if (status != 0) return -5;
+    status = ne2k_tcp_segment(device, io, cache, tx_frame, tx_capacity, local_ip, remote_ip,
+                              tcp_segment, segment_length);
+    if (status != 0) { (void)net_socket_connection_restore(socket_id, &previous_connection); return -6; }
+    *client = next_client;
+    return length;
+}
+
+int ne2k_socket_tls_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                         uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                                         int socket_id,const net_tcp_view_t* syn_ack,ne2k_tls_client_t* client,
+                                         const uint8_t client_random[32],uint8_t* client_hello_record,
+                                         uint32_t client_hello_capacity,uint8_t* tcp_segment,
+                                         uint16_t tcp_segment_capacity,uint8_t retransmit_limit) {
+    net_tcp_connection_t previous_connection; ne2k_tls_client_t previous_client; int status;
+    if (!syn_ack || !client) return -1;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
+    previous_client = *client;
+    if (net_socket_accept_syn_ack(socket_id, syn_ack) != 0) return -3;
+    status = ne2k_socket_tls_start(device, io, cache, tx_frame, tx_capacity, local_ip, remote_ip,
+                                   socket_id, client, client_random, client_hello_record,
+                                   client_hello_capacity, tcp_segment, tcp_segment_capacity, retransmit_limit);
+    if (status < 0) { (void)net_socket_connection_restore(socket_id, &previous_connection); *client = previous_client; return -4; }
+    return status;
+}
+
 int ne2k_tls_client_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],const net_tcp_view_t* syn_ack,net_tcp_connection_t* connection,ne2k_tls_client_t* client,const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,uint8_t retransmit_limit){net_tcp_connection_t next_connection;ne2k_tls_client_t next_client;int status;if(!device||!io||!cache||!tx_frame||!local_ip||!remote_ip||!syn_ack||!connection||!client||!client_random||!client_hello_record)return -1;next_connection=*connection;next_client=*client;if(net_tcp_connection_accept_syn_ack(&next_connection,syn_ack)!=0)return -2;status=ne2k_tls_client_start(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,&next_connection,&next_client,client_random,client_hello_record,client_hello_capacity,retransmit_limit);if(status<0)return -3;*connection=next_connection;*client=next_client;return status;}
 int ne2k_llm_syn_ack_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,ne2k_tls_client_t* client,const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,uint8_t retransmit_limit){net_tcp_view_t syn_ack;uint16_t frame_length=0U;int status;if(!device||!io||!cache||!rx_frame||!tx_frame||!local_ip||!remote_ip||!connection||!client||!client_random||!client_hello_record)return -1;status=ne2k_rx_poll_tcp(device,io,rx_frame,rx_capacity,&frame_length,&syn_ack);if(status!=0)return status;return ne2k_tls_client_accept_syn_ack_start(device,io,cache,tx_frame,tx_capacity,local_ip,remote_ip,&syn_ack,connection,client,client_random,client_hello_record,client_hello_capacity,retransmit_limit);}
 

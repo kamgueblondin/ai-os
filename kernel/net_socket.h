@@ -36,6 +36,10 @@ int net_socket_accept_ack(int socket_id, const net_tcp_view_t* view);
 int net_socket_close(int socket_id);
 int net_socket_send(int socket_id, const uint8_t* payload, uint16_t length,
                     uint8_t* segment, uint16_t capacity, uint16_t* out_length);
+/* Variante d’émission TCP avec budget de retransmission fourni par l’appelant. */
+int net_socket_send_limit(int socket_id, const uint8_t* payload, uint16_t length,
+                          uint8_t* segment, uint16_t capacity, uint16_t* out_length,
+                          uint8_t retransmit_limit);
 int net_socket_feed(int socket_id, const uint8_t* segment, uint16_t length);
 int net_socket_receive(int socket_id, uint8_t* buffer, uint16_t capacity,
                        uint16_t* out_length);

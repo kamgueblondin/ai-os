@@ -47,18 +47,24 @@ int net_socket_accept_syn_ack(int socket_id, const net_tcp_view_t* view) {
     return net_tcp_connection_accept_syn_ack(&sockets[socket_id].connection, view) == 0 ? 0 : NET_SOCKET_PROTOCOL;
 }
 
-int net_socket_send(int socket_id, const uint8_t* payload, uint16_t length,
-                    uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+int net_socket_send_limit(int socket_id, const uint8_t* payload, uint16_t length,
+                          uint8_t* segment, uint16_t capacity, uint16_t* out_length,
+                          uint8_t retransmit_limit) {
     int built;
     if (!valid_id(socket_id) || !payload || !segment || !out_length) return NET_SOCKET_BAD_ARGUMENT;
     if (sockets[socket_id].connection.state != NET_TCP_STATE_ESTABLISHED) return NET_SOCKET_NOT_CONNECTED;
     if (length == 0U || length > NET_SOCKET_TX_CAPACITY) return NET_SOCKET_BUFFER_SMALL;
     built = net_tcp_connection_build_data(&sockets[socket_id].connection, segment, capacity,
-                                          payload, length, 3U);
+                                          payload, length, retransmit_limit);
     if (built < 0) return NET_SOCKET_PROTOCOL;
     if (net_tcp_connection_commit_send(&sockets[socket_id].connection, length) != 0) return NET_SOCKET_PROTOCOL;
     *out_length = (uint16_t)built;
     return 0;
+}
+
+int net_socket_send(int socket_id, const uint8_t* payload, uint16_t length,
+                    uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+    return net_socket_send_limit(socket_id, payload, length, segment, capacity, out_length, 3U);
 }
 
 int net_socket_feed(int socket_id, const uint8_t* segment, uint16_t length) {
