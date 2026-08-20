@@ -45,7 +45,8 @@ static float gguf_attention[GPT2_GGUF_INFER_MAX_CHANNELS];
 static float gguf_projected[GPT2_GGUF_INFER_MAX_CHANNELS];
 static float gguf_hidden[GPT2_GGUF_INFER_HIDDEN];
 static float gguf_mlp_output[GPT2_GGUF_INFER_MAX_CHANNELS];
-static float gguf_logits[GPT2_GGUF_INFER_MAX_VOCAB];
+static gpt2_sample_top_k_state_t gguf_last_top_k;
+static uint8_t gguf_last_top_k_ready;
 static uint8_t gguf_ready;
 static const char* gguf_status = "GGUF: profil local non initialise";
 
@@ -118,6 +119,7 @@ static void gpt2_gguf_workspace_bind(void) {
 int gpt2_gguf_infer_init_fat16(const fat16_volume_t* volume, const char* filename) {
     int status;
     gguf_ready = 0U;
+    gguf_last_top_k_ready = 0U;
     gguf_status = "GGUF: profil local non initialise";
     if (!volume || gpt2_gguf_copy_filename(filename) != 0) {
         gguf_status = "GGUF: nom FAT16 invalide";
@@ -177,6 +179,7 @@ int gpt2_gguf_generate_next_sampled(const uint32_t* tokens, uint32_t token_count
                                     uint32_t* rng_state) {
     uint32_t generated = generated_count;
     uint32_t i;
+    gpt2_sample_top_k_state_t top_k;
     int status;
     if (!tokens || !next_token || !gguf_ready || !gguf_volume) {
         gguf_status = "GGUF: profil local indisponible";
@@ -193,26 +196,36 @@ int gpt2_gguf_generate_next_sampled(const uint32_t* tokens, uint32_t token_count
             return -3;
         }
     }
-    if (!gpt2_gguf_cache_matches(tokens, token_count)) gpt2_gguf_kv_cache_reset(&gguf_cache);
+    if (!gpt2_gguf_cache_matches(tokens, token_count) ||
+        (gguf_cache.count == token_count && generated != 0U)) {
+        gpt2_gguf_kv_cache_reset(&gguf_cache);
+        gguf_last_top_k_ready = 0U;
+    }
     while (gguf_cache.count < token_count) {
         uint32_t position = gguf_cache.count;
-        status = gpt2_gguf_generation_token_fat16(&gguf_generation, &gguf_cache,
-                                                   tokens[position], position,
-                                                   GPT2_GGUF_INFER_HEADS, 0.00001f,
-                                                   gguf_volume, gguf_filename,
-                                                   &gguf_workspace, gguf_logits,
-                                                   sizeof(gguf_logits));
+        gpt2_sample_top_k_init(&top_k,
+                                generated ? tokens + token_count - generated : 0,
+                                generated);
+        status = gpt2_gguf_generation_token_top_k_fat16(&gguf_generation, &gguf_cache,
+                                                         tokens[position], position,
+                                                         GPT2_GGUF_INFER_HEADS, 0.00001f,
+                                                         gguf_volume, gguf_filename,
+                                                         &gguf_workspace, &top_k);
         if (status != 0) {
             gguf_status = "GGUF: echec de lecture ou forward FAT16";
             return -20 + status;
         }
         gguf_cache_tokens[position] = tokens[position];
+        gguf_last_top_k = top_k;
+        gguf_last_top_k_ready = 1U;
+    }
+    if (!gguf_last_top_k_ready) {
+        gguf_status = "GGUF: logits top-k indisponibles";
+        return -4;
     }
     if (generated > token_count) generated = token_count;
-    *next_token = gpt2_sample_top_k(gguf_logits, gguf_generation.vocabulary,
-                                    generated ? tokens + token_count - generated : 0,
-                                    generated, rng_state);
-    gguf_status = "GGUF: jeton echantillonne localement (cache KV FAT16 actif)";
+    *next_token = gpt2_sample_top_k_finish(&gguf_last_top_k, rng_state);
+    gguf_status = "GGUF: jeton top-k en flux (cache KV FAT16 actif)";
     return 0;
 }
 

@@ -3,6 +3,7 @@
 
 #include "gpt2_gguf.h"
 #include "gpt2_quant.h"
+#include "gpt2_sample.h"
 #include "../fs/fat16.h"
 
 typedef struct {
@@ -258,6 +259,15 @@ int gpt2_gguf_generation_token_fat16(
                                       const fat16_volume_t* volume, const char* filename,
                                       gpt2_gguf_generation_workspace_t* workspace,
                                       float* logits, uint32_t logits_capacity);
+/* Exécute le même token complet mais accumule directement les candidats top-k. */
+int gpt2_gguf_generation_token_top_k_fat16(
+                                      const gpt2_gguf_generation_t* generation,
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t token, uint32_t position,
+                                      uint32_t head_count, float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      gpt2_gguf_generation_workspace_t* workspace,
+                                      gpt2_sample_top_k_state_t* top_k);
 
 int gpt2_gguf_block_attention_forward_fat16(
                                       const gpt2_gguf_kv_cache_t* cache,
@@ -378,5 +388,14 @@ int gpt2_gguf_forward_output_logits_fat16(const fat16_volume_t* volume,
                                           const float* hidden, uint8_t* row_buffer,
                                           uint32_t row_capacity, float* logits,
                                           uint32_t logits_capacity);
+/* Projette toute la tête quantifiée en alimentant un top-k caller-owned. */
+int gpt2_gguf_forward_output_top_k_fat16(const fat16_volume_t* volume,
+                                         const char* filename,
+                                         const gpt2_gguf_loaded_model_t* model,
+                                         const gpt2_gguf_tensor_t* output_tensor,
+                                         uint32_t channels, uint32_t vocabulary,
+                                         const float* hidden, uint8_t* row_buffer,
+                                         uint32_t row_capacity,
+                                         gpt2_sample_top_k_state_t* top_k);
 
 #endif

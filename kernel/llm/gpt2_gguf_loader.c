@@ -645,6 +645,55 @@ int gpt2_gguf_forward_output_logits_fat16(const fat16_volume_t* volume,
     return 0;
 }
 
+int gpt2_gguf_forward_output_top_k_fat16(const fat16_volume_t* volume,
+                                         const char* filename,
+                                         const gpt2_gguf_loaded_model_t* model,
+                                         const gpt2_gguf_tensor_t* output_tensor,
+                                         uint32_t channels, uint32_t vocabulary,
+                                         const float* hidden, uint8_t* row_buffer,
+                                         uint32_t row_capacity,
+                                         gpt2_sample_top_k_state_t* top_k) {
+    fat16_file_t file;
+    uint32_t block_bytes;
+    uint32_t row_bytes;
+    uint32_t offset;
+    uint32_t row;
+    int status;
+    if (!volume || !filename || !model || !output_tensor || !hidden ||
+        !row_buffer || !top_k || channels == 0U || vocabulary == 0U) return -1;
+    if (output_tensor->dimensions != 2U || output_tensor->shape[0] != channels ||
+        output_tensor->shape[1] != vocabulary ||
+        (output_tensor->type != GPT2_GGUF_TENSOR_Q3_K &&
+         output_tensor->type != GPT2_GGUF_TENSOR_Q4_K &&
+         output_tensor->type != GPT2_GGUF_TENSOR_Q6_K)) return -9;
+    if (output_tensor->type == GPT2_GGUF_TENSOR_Q3_K) block_bytes = GPT2_Q3_K_BLOCK_BYTES;
+    else if (output_tensor->type == GPT2_GGUF_TENSOR_Q4_K) block_bytes = GPT2_Q4_K_BLOCK_BYTES;
+    else block_bytes = GPT2_Q6_K_BLOCK_BYTES;
+    if ((channels % GPT2_QK_K) != 0U ||
+        channels / GPT2_QK_K > 0xFFFFFFFFU / block_bytes) return -7;
+    row_bytes = (channels / GPT2_QK_K) * block_bytes;
+    if (row_bytes == 0U || row_capacity < row_bytes ||
+        model->index.info.tensor_data_offset > 0xFFFFFFFFU - output_tensor->data_offset) return -6;
+    offset = model->index.info.tensor_data_offset + output_tensor->data_offset;
+    status = fat16_open_file(volume, filename, &file);
+    if (status != 0) return status;
+    if (offset > file.size || output_tensor->byte_size > file.size - offset) return -3;
+    status = fat16_file_seek(&file, offset);
+    if (status != 0) return status;
+    for (row = 0U; row < vocabulary; row++) {
+        float logit = 0.0f;
+        uint32_t read = 0U;
+        status = fat16_file_read(&file, row_buffer, row_bytes, &read);
+        if (status != 0) return status;
+        if (read != row_bytes) return -8;
+        status = gpt2_gguf_dot_quant_row_buffer(output_tensor, row_buffer, read,
+                                                hidden, channels, &logit);
+        if (status != 0) return status;
+        gpt2_sample_top_k_offer(top_k, row, logit);
+    }
+    return 0;
+}
+
 static int gpt2_gguf_kv_cache_offset(const gpt2_gguf_kv_cache_t* cache,
                                      uint32_t layer, uint32_t position,
                                      uint32_t* out_offset) {
@@ -1217,14 +1266,15 @@ int gpt2_gguf_block_forward_fat16(
     return gpt2_gguf_add_residual(residual, residual_capacity, workspace->mlp_output, channels);
 }
 
-int gpt2_gguf_generation_token_fat16(
+static int gpt2_gguf_generation_token_impl(
                                       const gpt2_gguf_generation_t* generation,
                                       gpt2_gguf_kv_cache_t* cache,
                                       uint32_t token, uint32_t position,
                                       uint32_t head_count, float epsilon,
                                       const fat16_volume_t* volume, const char* filename,
                                       gpt2_gguf_generation_workspace_t* workspace,
-                                      float* logits, uint32_t logits_capacity) {
+                                      float* logits, uint32_t logits_capacity,
+                                      gpt2_sample_top_k_state_t* top_k) {
     gpt2_gguf_layer_t layer;
     gpt2_gguf_tensor_t attention_gamma, attention_beta, qkv, qkv_bias;
     gpt2_gguf_tensor_t attention_output, attention_output_bias;
@@ -1236,7 +1286,8 @@ int gpt2_gguf_generation_token_fat16(
     uint32_t i;
     int status;
     if (!generation || !generation->ready || !generation->runtime.ready || !cache ||
-        !volume || !filename || !workspace || !logits || !workspace->dense_scratch ||
+        !volume || !filename || !workspace || (!logits && !top_k) ||
+        (logits && top_k) || !workspace->dense_scratch ||
         !workspace->position_embedding || !workspace->attention_gamma ||
         !workspace->attention_beta || !workspace->qkv_bias ||
         !workspace->attention_output_bias || !workspace->ffn_gamma ||
@@ -1258,7 +1309,7 @@ int gpt2_gguf_generation_token_fat16(
         workspace->ffn_down_bias_capacity < channels ||
         workspace->final_gamma_capacity < channels || workspace->final_beta_capacity < channels ||
         workspace->final_hidden_capacity < channels ||
-        logits_capacity < generation->vocabulary * (uint32_t)sizeof(float)) return -6;
+        (logits && logits_capacity < generation->vocabulary * (uint32_t)sizeof(float))) return -6;
     if (generation->token_embedding.type == GPT2_GGUF_TENSOR_F32 ||
         generation->token_embedding.type == GPT2_GGUF_TENSOR_F16) {
         status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
@@ -1371,10 +1422,39 @@ int gpt2_gguf_generation_token_fat16(
                                   workspace->final_beta, epsilon, workspace->block.norm,
                                   workspace->block.norm_capacity);
     if (status != 0) return status;
+    if (top_k) return gpt2_gguf_forward_output_top_k_fat16(
+        volume, filename, generation->runtime.model, &generation->output_weight,
+        channels, generation->vocabulary, workspace->block.norm,
+        workspace->block.row_buffer, workspace->block.row_capacity, top_k);
     return gpt2_gguf_forward_output_logits_fat16(
         volume, filename, generation->runtime.model, &generation->output_weight,
         channels, generation->vocabulary, workspace->block.norm,
         workspace->block.row_buffer, workspace->block.row_capacity, logits, logits_capacity);
+}
+
+int gpt2_gguf_generation_token_fat16(
+                                      const gpt2_gguf_generation_t* generation,
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t token, uint32_t position,
+                                      uint32_t head_count, float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      gpt2_gguf_generation_workspace_t* workspace,
+                                      float* logits, uint32_t logits_capacity) {
+    return gpt2_gguf_generation_token_impl(generation, cache, token, position, head_count,
+                                            epsilon, volume, filename, workspace, logits,
+                                            logits_capacity, 0);
+}
+
+int gpt2_gguf_generation_token_top_k_fat16(
+                                      const gpt2_gguf_generation_t* generation,
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t token, uint32_t position,
+                                      uint32_t head_count, float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      gpt2_gguf_generation_workspace_t* workspace,
+                                      gpt2_sample_top_k_state_t* top_k) {
+    return gpt2_gguf_generation_token_impl(generation, cache, token, position, head_count,
+                                            epsilon, volume, filename, workspace, 0, 0U, top_k);
 }
 
 int gpt2_gguf_block_attention_forward_fat16(
