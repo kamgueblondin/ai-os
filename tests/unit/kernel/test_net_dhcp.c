@@ -34,6 +34,13 @@ void test_build_and_parse_dhcp_offer(void) {
       net_dhcp_lease_t ack = {0}, preserved;
       TEST_ASSERT_EQUAL(255, net_dhcp_build_request(request, sizeof(request), 0x12345678U, mac, requested, server));
       TEST_ASSERT_EQUAL(NET_DHCP_REQUEST, request[242]);
+      TEST_ASSERT_EQUAL(249, net_dhcp_build_renew(request, sizeof(request), 0x87654321U, mac, requested));
+      TEST_ASSERT_EQUAL(10U, request[12]); TEST_ASSERT_EQUAL(15U, request[15]);
+      TEST_ASSERT_EQUAL(NET_DHCP_REQUEST, request[242]);
+      TEST_ASSERT_EQUAL(NET_DHCP_OPTION_PARAMETER_REQUEST_LIST, request[243]);
+      TEST_ASSERT_EQUAL(NET_DHCP_OPTION_SUBNET_MASK, request[245]); TEST_ASSERT_EQUAL(NET_DHCP_OPTION_ROUTER, request[246]); TEST_ASSERT_EQUAL(NET_DHCP_OPTION_DNS, request[247]);
+      TEST_ASSERT_NOT_EQUAL(0, net_dhcp_build_renew(request, 248U, 0x87654321U, mac, requested));
+      TEST_ASSERT_EQUAL(255, net_dhcp_build_request(request, sizeof(request), 0x12345678U, mac, requested, server));
       request[0] = 2; request[16] = 10; request[17] = 0; request[18] = 2; request[19] = 15;
       request[242] = NET_DHCP_ACK;
       request[255] = NET_DHCP_OPTION_SUBNET_MASK; request[256] = 4; request[257] = 255; request[258] = 255; request[259] = 255; request[260] = 0;

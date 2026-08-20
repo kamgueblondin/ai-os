@@ -433,6 +433,43 @@ int ne2k_dhcp_poll_ack(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* frame,
 
 int ne2k_dhcp_acquire(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* tx_frame,uint16_t tx_capacity,uint8_t* rx_frame,uint16_t rx_capacity,uint32_t xid,uint16_t poll_attempts,net_dhcp_lease_t* lease){net_dhcp_offer_t offer;net_dhcp_lease_t next_lease;int status;if(!device||!io||!tx_frame||!rx_frame||!lease||poll_attempts==0U)return -1;status=ne2k_dhcp_discover(device,io,tx_frame,tx_capacity,xid);if(status!=0)return -2;status=ne2k_dhcp_poll_offer(device,io,rx_frame,rx_capacity,xid,poll_attempts,&offer);if(status!=0)return -3;status=ne2k_dhcp_request(device,io,tx_frame,tx_capacity,xid,offer.offered_ip,offer.server_ip);if(status!=0)return -4;status=ne2k_dhcp_poll_ack(device,io,rx_frame,rx_capacity,xid,poll_attempts,&next_lease);if(status!=0)return -5;*lease=next_lease;return 0;}
 
+int ne2k_dhcp_renew(ne2k_device_t* device, const ne2k_io_t* io,
+                    uint8_t* frame, uint16_t frame_capacity,
+                    uint32_t xid, const net_dhcp_lease_t* lease) {
+    static const uint8_t broadcast_mac[6] = {0xffU,0xffU,0xffU,0xffU,0xffU,0xffU};
+    static const uint8_t broadcast_ip[4] = {255U,255U,255U,255U};
+    int payload_length;
+    if (!device || !io || !frame || !lease || !lease->valid ||
+        frame_capacity < NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE + 249U) return -1;
+    payload_length = net_dhcp_build_renew(frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+                                          frame_capacity - NET_ETHERNET_HEADER_SIZE - NET_IPV4_HEADER_SIZE - NET_UDP_HEADER_SIZE,
+                                          xid, device->mac, lease->ipv4);
+    if (payload_length < 0) return -2;
+    return ne2k_tx_udp(device, io, frame, frame_capacity, broadcast_mac, lease->ipv4, broadcast_ip,
+                       68U, 67U, frame + NET_ETHERNET_HEADER_SIZE + NET_IPV4_HEADER_SIZE + NET_UDP_HEADER_SIZE,
+                       (uint16_t)payload_length);
+}
+
+int ne2k_dhcp_renew_if_due(ne2k_device_t* device, const ne2k_io_t* io,
+                            uint8_t* tx_frame, uint16_t tx_capacity,
+                            uint8_t* rx_frame, uint16_t rx_capacity,
+                            uint32_t xid, uint16_t poll_attempts,
+                            uint32_t now, net_dhcp_lease_t* lease) {
+    net_dhcp_lease_t next_lease;
+    int status;
+    if (!device || !io || !tx_frame || !rx_frame || !lease || poll_attempts == 0U) return -1;
+    if (!net_dhcp_lease_is_valid_at(lease, now)) return -2;
+    if (!net_dhcp_lease_renewal_due(lease, now)) return 0;
+    next_lease = *lease;
+    status = ne2k_dhcp_renew(device, io, tx_frame, tx_capacity, xid, &next_lease);
+    if (status != 0) return -3;
+    status = ne2k_dhcp_poll_ack(device, io, rx_frame, rx_capacity, xid, poll_attempts, &next_lease);
+    if (status != 0) return -4;
+    if (net_dhcp_lease_mark_acquired(&next_lease, now) != 0) return -5;
+    *lease = next_lease;
+    return 1;
+}
+
 int ne2k_irq_attach(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;

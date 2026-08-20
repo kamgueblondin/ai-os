@@ -45,6 +45,10 @@ int net_dhcp_build_discover(uint8_t* packet, uint32_t capacity,
 int net_dhcp_build_request(uint8_t* packet, uint32_t capacity,
                            uint32_t xid, const uint8_t mac[6],
                            const uint8_t requested_ip[4], const uint8_t server_ip[4]);
+/* Construit un DHCP REQUEST de renouvellement avec l’adresse actuelle dans ciaddr. */
+int net_dhcp_build_renew(uint8_t* packet, uint32_t capacity,
+                         uint32_t xid, const uint8_t mac[6],
+                         const uint8_t client_ip[4]);
 int net_dhcp_parse_offer(const uint8_t* packet, uint32_t length,
                          uint32_t expected_xid, net_dhcp_offer_t* out);
 int net_dhcp_lease_apply(net_dhcp_lease_t* lease, const net_dhcp_offer_t* offer);

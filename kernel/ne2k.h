@@ -166,6 +166,16 @@ int ne2k_dhcp_acquire(ne2k_device_t* device, const ne2k_io_t* io,
                       uint8_t* rx_frame, uint16_t rx_capacity,
                       uint32_t xid, uint16_t poll_attempts,
                       net_dhcp_lease_t* lease);
+/* Émet un DHCP REQUEST de renouvellement depuis le bail live caller-owned. */
+int ne2k_dhcp_renew(ne2k_device_t* device, const ne2k_io_t* io,
+                    uint8_t* frame, uint16_t frame_capacity,
+                    uint32_t xid, const net_dhcp_lease_t* lease);
+/* Retourne 0 si le renouvellement n’est pas dû, 1 si un ACK renouvelle le bail. */
+int ne2k_dhcp_renew_if_due(ne2k_device_t* device, const ne2k_io_t* io,
+                            uint8_t* tx_frame, uint16_t tx_capacity,
+                            uint8_t* rx_frame, uint16_t rx_capacity,
+                            uint32_t xid, uint16_t poll_attempts,
+                            uint32_t now, net_dhcp_lease_t* lease);
 int ne2k_dns_query(ne2k_device_t* device, const ne2k_io_t* io,
                    net_arp_cache_t* cache, uint8_t* arp_request, uint16_t arp_request_capacity,
                    uint8_t* arp_rx, uint16_t arp_rx_capacity, uint8_t* frame, uint16_t frame_capacity,

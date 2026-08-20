@@ -43,6 +43,22 @@ int net_dhcp_build_request(uint8_t* packet, uint32_t capacity,
     return 255;
 }
 
+int net_dhcp_build_renew(uint8_t* packet, uint32_t capacity,
+                         uint32_t xid, const uint8_t mac[6],
+                         const uint8_t client_ip[4]) {
+    uint32_t i;
+    if (!packet || !mac || !client_ip || capacity < 249U) return -1;
+    for (i = 0U; i < 249U; i++) packet[i] = 0U;
+    packet[0] = 1U; packet[1] = 1U; packet[2] = 6U; put_be32(packet + 4, xid);
+    copy_bytes(packet + 12, client_ip, 4U); copy_bytes(packet + 28, mac, 6U);
+    put_be32(packet + 236, NET_DHCP_MAGIC_COOKIE);
+    packet[240] = NET_DHCP_OPTION_MESSAGE_TYPE; packet[241] = 1U; packet[242] = NET_DHCP_REQUEST;
+    packet[243] = NET_DHCP_OPTION_PARAMETER_REQUEST_LIST; packet[244] = 3U;
+    packet[245] = NET_DHCP_OPTION_SUBNET_MASK; packet[246] = NET_DHCP_OPTION_ROUTER;
+    packet[247] = NET_DHCP_OPTION_DNS; packet[248] = NET_DHCP_OPTION_END;
+    return 249;
+}
+
 int net_dhcp_parse_offer(const uint8_t* packet, uint32_t length,
                          uint32_t expected_xid, net_dhcp_offer_t* out) {
     uint32_t pos;
