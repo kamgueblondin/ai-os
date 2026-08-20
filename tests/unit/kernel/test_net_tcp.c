@@ -11,6 +11,8 @@ static void build_stream_signed_exchange(uint8_t exchange[108]){uint16_t i;excha
 
 void setUp(void) {}
 void tearDown(void) {}
+void test_passive_listen_syn_ack(void);
+void test_passive_listen_rejects_ack_syn(void);
 
 void test_build_and_parse_syn_ack(void) {
     uint8_t segment[32] = {0}; net_tcp_view_t view;
@@ -292,6 +294,30 @@ void test_tcp_tls_ecdhe_ecdsa_postflight_and_application(void) {
 void test_tcp_rto_bounded_timer(void){net_tcp_rto_timer_t timer;net_tcp_connection_t connection;static const uint8_t payload[]={'x'};connection=(net_tcp_connection_t){0};connection.state=NET_TCP_STATE_ESTABLISHED;connection.pending_payload=payload;connection.pending_length=1U;connection.retransmit_limit=3U;TEST_ASSERT_EQUAL(0,net_tcp_rto_init(&timer,10U));TEST_ASSERT_EQUAL(0,net_tcp_rto_arm(&timer,100U,40U));TEST_ASSERT_EQUAL(0,net_tcp_rto_ready(&timer,109U));TEST_ASSERT_EQUAL(1,net_tcp_rto_ready(&timer,110U));TEST_ASSERT_EQUAL(0,net_tcp_rto_consume(&timer,&connection,109U,40U));TEST_ASSERT_EQUAL(1,net_tcp_rto_consume(&timer,&connection,110U,40U));TEST_ASSERT_EQUAL(1U,connection.retransmit_count);TEST_ASSERT_EQUAL(20U,timer.delay);TEST_ASSERT_EQUAL(0,net_tcp_rto_ready(&timer,129U));TEST_ASSERT_EQUAL(1,net_tcp_rto_ready(&timer,130U));TEST_ASSERT_EQUAL(1,net_tcp_rto_consume(&timer,&connection,130U,40U));TEST_ASSERT_EQUAL(2U,connection.retransmit_count);TEST_ASSERT_EQUAL(40U,timer.delay);TEST_ASSERT_EQUAL(-1,net_tcp_rto_init(&timer,0U));TEST_ASSERT_EQUAL(-1,net_tcp_rto_arm(&timer,0U,5U));}
 int main(void) {
     unity_init(); RUN_TEST(test_build_and_parse_syn_ack); RUN_TEST(test_connection_builds_first_ack); RUN_TEST(test_build_and_parse_ack_payload); RUN_TEST(test_connection_advances_sequences_and_accepts_data); RUN_TEST(test_tls_record_is_composed_into_tcp); RUN_TEST(test_accept_tls_record_on_tcp_view); RUN_TEST(test_accept_tls_handshake_transactional); RUN_TEST(test_accept_tls_postflight_transactional); RUN_TEST(test_tcp_tls_aes_gcm_transport); RUN_TEST(test_tcp_tls_x25519_flight_postflight_and_application);
-    RUN_TEST(test_tcp_tls_ecdhe_ecdsa_postflight_and_application); RUN_TEST(test_tcp_tls_authenticated_fragment_stream); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); RUN_TEST(test_connection_retry_reopens_bounded_syn); RUN_TEST(test_tcp_rto_bounded_timer); unity_print_results(); unity_cleanup();
+    RUN_TEST(test_tcp_tls_ecdhe_ecdsa_postflight_and_application); RUN_TEST(test_tcp_tls_authenticated_fragment_stream); RUN_TEST(test_receive_window_is_bounded); RUN_TEST(test_build_data_tracks_until_commit); RUN_TEST(test_ack_confirms_pending_payload); RUN_TEST(test_fin_close_transitions); RUN_TEST(test_bounded_retransmission_metadata); RUN_TEST(test_connection_retry_reopens_bounded_syn); RUN_TEST(test_tcp_rto_bounded_timer); RUN_TEST(test_passive_listen_syn_ack); RUN_TEST(test_passive_listen_rejects_ack_syn); unity_print_results(); unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
+}
+
+void test_passive_listen_syn_ack(void) {
+    net_tcp_connection_t connection = {0};
+    net_tcp_view_t syn = {40000U, 8080U, 900U, 0U, NET_TCP_FLAG_SYN, 0, 0};
+    net_tcp_view_t ack = {40000U, 8080U, 901U, 1235U, NET_TCP_FLAG_ACK, 0, 0};
+    uint8_t segment[NET_TCP_HEADER_SIZE] = {0};
+    net_tcp_view_t parsed;
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_listen(&connection, 8080U, 1234U));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_LISTEN, connection.state);
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_syn(&connection, &syn));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_SYN_RECEIVED, connection.state);
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, net_tcp_connection_build_syn_ack(&connection, segment, sizeof(segment)));
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, sizeof(segment), &parsed));
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, parsed.flags);
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_accept_ack(&connection, &ack));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_ESTABLISHED, connection.state);
+}
+
+void test_passive_listen_rejects_ack_syn(void) {
+    net_tcp_connection_t connection = {0};
+    TEST_ASSERT_EQUAL(0, net_tcp_connection_listen(&connection, 8080U, 1234U));
+    TEST_ASSERT_NOT_EQUAL(0, net_tcp_connection_accept_syn(&connection,
+        &(net_tcp_view_t){40000U, 8080U, 900U, 1U, NET_TCP_FLAG_SYN | NET_TCP_FLAG_ACK, 0, 0}));
 }

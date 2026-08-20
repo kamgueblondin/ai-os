@@ -18,6 +18,8 @@
 #define NET_TCP_STATE_FIN_WAIT_2 4U
 #define NET_TCP_STATE_CLOSE_WAIT 5U
 #define NET_TCP_STATE_LAST_ACK 6U
+#define NET_TCP_STATE_LISTEN 7U
+#define NET_TCP_STATE_SYN_RECEIVED 8U
 
 typedef struct { uint16_t source_port; uint16_t destination_port; uint32_t sequence; uint32_t acknowledgment; uint8_t flags; const uint8_t* payload; uint16_t payload_length; } net_tcp_view_t;
 typedef struct { net_tls_record_accumulator_t record_accumulator; net_tls_handshake_accumulator_t handshake_accumulator; } net_tcp_tls_stream_t;
@@ -41,6 +43,9 @@ typedef struct {
 int net_tcp_build_syn(uint8_t* segment, uint32_t capacity,
                       uint16_t source_port, uint16_t destination_port,
                       uint32_t sequence);
+int net_tcp_build_syn_ack(uint8_t* segment, uint32_t capacity,
+                          uint16_t source_port, uint16_t destination_port,
+                          uint32_t sequence, uint32_t acknowledgment);
 int net_tcp_build_ack(uint8_t* segment, uint32_t capacity,
                       uint16_t source_port, uint16_t destination_port,
                       uint32_t sequence, uint32_t acknowledgment);
@@ -63,6 +68,12 @@ int net_tcp_is_syn_ack_for(const net_tcp_view_t* view, uint16_t local_port,
 int net_tcp_connection_open(net_tcp_connection_t* connection,
                             uint16_t local_port, uint16_t remote_port,
                             uint32_t local_sequence);
+int net_tcp_connection_listen(net_tcp_connection_t* connection, uint16_t local_port,
+                              uint32_t local_sequence);
+int net_tcp_connection_accept_syn(net_tcp_connection_t* connection,
+                                  const net_tcp_view_t* view);
+int net_tcp_connection_build_syn_ack(const net_tcp_connection_t* connection,
+                                     uint8_t* segment, uint32_t capacity);
 /* Initialise un budget de reprises appartenant à l’appelant. */
 int net_tcp_connection_retry_init(net_tcp_connection_retry_t* retry,uint8_t retry_limit);
 /* Consomme une reprise ; retourne 1 si une nouvelle tentative est autorisée, 0 si le budget est épuisé. */
