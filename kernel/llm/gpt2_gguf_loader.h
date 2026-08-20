@@ -52,6 +52,20 @@ typedef struct {
     uint8_t* row_buffer; uint32_t row_capacity;
 } gpt2_gguf_block_workspace_t;
 
+/* Contexte préparé pour une génération GPT-2 GGUF. Les descripteurs de couche
+ * et le buffer de noms restent détenus par l’appelant. */
+typedef struct {
+    gpt2_gguf_runtime_t runtime;
+    gpt2_gguf_tensor_t token_embedding;
+    gpt2_gguf_tensor_t position_embedding;
+    gpt2_gguf_tensor_t output_norm_weight;
+    gpt2_gguf_tensor_t output_norm_bias;
+    gpt2_gguf_tensor_t output_weight;
+    uint32_t vocabulary;
+    uint32_t max_positions;
+    uint8_t ready;
+} gpt2_gguf_generation_t;
+
 /* Construit et valide une table de couches persistante caller-owned. */
 int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
                               uint32_t layer_count, uint32_t channels,
@@ -62,6 +76,12 @@ int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
 /* Retourne une vue bornée d’une couche déjà préparée. */
 int gpt2_gguf_runtime_get_layer(const gpt2_gguf_runtime_t* runtime,
                                 uint32_t layer_index, gpt2_gguf_layer_t* out);
+/* Résout les rôles globaux, déduit C/V/T des formes et prépare toutes les couches
+ * contiguës à partir de `blk.0`, sans allocation dynamique. */
+int gpt2_gguf_generation_prepare(const gpt2_gguf_loaded_model_t* model,
+                                 char* name, uint32_t name_capacity,
+                                 gpt2_gguf_layer_t* layers, uint32_t layer_capacity,
+                                 gpt2_gguf_generation_t* out);
 
 /* Prépare une couche pour le futur forward sans prendre possession des buffers. */
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,

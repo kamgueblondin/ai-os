@@ -245,6 +245,105 @@ int gpt2_gguf_runtime_get_layer(const gpt2_gguf_runtime_t* runtime,
 }
 
 
+int gpt2_gguf_generation_prepare(const gpt2_gguf_loaded_model_t* model,
+                                 char* name, uint32_t name_capacity,
+                                 gpt2_gguf_layer_t* layers, uint32_t layer_capacity,
+                                 gpt2_gguf_generation_t* out) {
+    gpt2_gguf_generation_t prepared;
+    gpt2_gguf_tensor_t probe;
+    uint32_t layer_count = 0U;
+    uint32_t channels;
+    int status;
+    if (!model || !name || !layers || !out || name_capacity == 0U || layer_capacity == 0U ||
+        !model->index.info.is_valid) return -1;
+    status = gpt2_gguf_map_role(&model->index, GPT2_GGUF_ROLE_TOKEN_EMBEDDING,
+                                &prepared.token_embedding);
+    if (status != 0) return status;
+    status = gpt2_gguf_map_role(&model->index, GPT2_GGUF_ROLE_POSITION_EMBEDDING,
+                                &prepared.position_embedding);
+    if (status != 0) return status;
+    status = gpt2_gguf_map_role(&model->index, GPT2_GGUF_ROLE_OUTPUT_NORM_WEIGHT,
+                                &prepared.output_norm_weight);
+    if (status != 0) return status;
+    status = gpt2_gguf_map_role(&model->index, GPT2_GGUF_ROLE_OUTPUT_NORM_BIAS,
+                                &prepared.output_norm_bias);
+    if (status != 0) return status;
+    status = gpt2_gguf_map_role(&model->index, GPT2_GGUF_ROLE_OUTPUT_WEIGHT,
+                                &prepared.output_weight);
+    if (status != 0) return status;
+    if (prepared.token_embedding.dimensions != 2U ||
+        prepared.position_embedding.dimensions != 2U ||
+        prepared.output_norm_weight.dimensions != 1U ||
+        prepared.output_norm_bias.dimensions != 1U ||
+        prepared.output_weight.dimensions != 2U) return -9;
+    if (prepared.token_embedding.shape[0] > 0xFFFFFFFFULL ||
+        prepared.token_embedding.shape[1] > 0xFFFFFFFFULL ||
+        prepared.position_embedding.shape[0] > 0xFFFFFFFFULL ||
+        prepared.position_embedding.shape[1] > 0xFFFFFFFFULL ||
+        prepared.output_norm_weight.shape[0] > 0xFFFFFFFFULL ||
+        prepared.output_norm_bias.shape[0] > 0xFFFFFFFFULL ||
+        prepared.output_weight.shape[0] > 0xFFFFFFFFULL ||
+        prepared.output_weight.shape[1] > 0xFFFFFFFFULL) return -9;
+    channels = (uint32_t)prepared.token_embedding.shape[0];
+    if (channels == 0U || channels > 0xFFFFFFFFU / (uint32_t)sizeof(float) ||
+        prepared.token_embedding.shape[1] == 0U ||
+        prepared.position_embedding.shape[0] != channels ||
+        prepared.position_embedding.shape[1] == 0U ||
+        prepared.output_norm_weight.shape[0] != channels ||
+        prepared.output_norm_bias.shape[0] != channels ||
+        prepared.output_weight.shape[0] != channels ||
+        prepared.output_weight.shape[1] != prepared.token_embedding.shape[1]) return -9;
+    if ((prepared.token_embedding.type != GPT2_GGUF_TENSOR_F32 &&
+         prepared.token_embedding.type != GPT2_GGUF_TENSOR_F16) ||
+        (prepared.position_embedding.type != GPT2_GGUF_TENSOR_F32 &&
+         prepared.position_embedding.type != GPT2_GGUF_TENSOR_F16) ||
+        (prepared.output_norm_weight.type != GPT2_GGUF_TENSOR_F32 &&
+         prepared.output_norm_weight.type != GPT2_GGUF_TENSOR_F16) ||
+        (prepared.output_norm_bias.type != GPT2_GGUF_TENSOR_F32 &&
+         prepared.output_norm_bias.type != GPT2_GGUF_TENSOR_F16) ||
+        (prepared.output_weight.type != GPT2_GGUF_TENSOR_Q3_K &&
+         prepared.output_weight.type != GPT2_GGUF_TENSOR_Q4_K &&
+         prepared.output_weight.type != GPT2_GGUF_TENSOR_Q6_K)) return -9;
+    status = gpt2_gguf_validate_tensor_size(&prepared.token_embedding);
+    if (status != 0) return status;
+    status = gpt2_gguf_validate_tensor_size(&prepared.position_embedding);
+    if (status != 0) return status;
+    status = gpt2_gguf_validate_tensor_size(&prepared.output_norm_weight);
+    if (status != 0) return status;
+    status = gpt2_gguf_validate_tensor_size(&prepared.output_norm_bias);
+    if (status != 0) return status;
+    status = gpt2_gguf_validate_tensor_size(&prepared.output_weight);
+    if (status != 0) return status;
+    while (layer_count < layer_capacity) {
+        status = gpt2_gguf_map_layer_role(&model->index, layer_count,
+                                          GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT,
+                                          name, name_capacity, &probe);
+        if (status == -8) break;
+        if (status != 0) return status;
+        status = gpt2_gguf_map_layer(&model->index, layer_count, name, name_capacity,
+                                     &layers[layer_count]);
+        if (status != 0) return status;
+        status = gpt2_gguf_validate_gpt2_layer_storage(&layers[layer_count], channels);
+        if (status != 0) return status;
+        layer_count++;
+    }
+    if (layer_count == 0U) return -8;
+    if (layer_count == layer_capacity &&
+        gpt2_gguf_map_layer_role(&model->index, layer_count,
+                                 GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT,
+                                 name, name_capacity, &probe) == 0) return -6;
+    prepared.runtime.model = model;
+    prepared.runtime.layers = layers;
+    prepared.runtime.layer_count = layer_count;
+    prepared.runtime.channels = channels;
+    prepared.runtime.ready = 1U;
+    prepared.vocabulary = (uint32_t)prepared.token_embedding.shape[1];
+    prepared.max_positions = (uint32_t)prepared.position_embedding.shape[1];
+    prepared.ready = 1U;
+    *out = prepared;
+    return 0;
+}
+
 int gpt2_gguf_forward_context_init(const gpt2_gguf_loaded_model_t* model,
                                    uint32_t layer_index, uint32_t channels,
                                    uint32_t position, char* name, uint32_t name_capacity,
