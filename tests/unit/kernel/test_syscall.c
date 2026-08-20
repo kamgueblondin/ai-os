@@ -486,6 +486,17 @@ void test_sys_getpid_and_ticks(void) {
     test_destroy_task(task);
 }
 
+void test_sys_gpt2_gguf_continue_requires_session(void) {
+    cpu_state_t cpu = {0};
+    char output[8] = {0};
+    cpu.eax = SYS_GPT2_GGUF_CONTINUE;
+    cpu.ecx = (uint32_t)output;
+    cpu.edx = sizeof(output);
+    syscall_handler(&cpu);
+    TEST_ASSERT_EQUAL(-6, (int)cpu.eax);
+    TEST_ASSERT_EQUAL(0, output[0]);
+}
+
 void test_sys_readfile_and_listdir(void) {
     char buf[64];
     os_dirent_t ents[8];
@@ -2260,6 +2271,7 @@ int main(void) {
     RUN_TEST(test_syscall_ring_isolation);
     RUN_TEST(test_syscall_privilege_escalation_prevention);
     RUN_TEST(test_sys_getpid_and_ticks);
+    RUN_TEST(test_sys_gpt2_gguf_continue_requires_session);
     RUN_TEST(test_sys_readfile_and_listdir);
     RUN_TEST(test_sys_kill_protects_kernel);
     RUN_TEST(test_sys_meminfo);

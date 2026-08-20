@@ -409,6 +409,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_GPT2_GGUF_GENERATE:
             cpu->eax = (uint32_t)sys_gpt2_gguf_generate((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_GPT2_GGUF_CONTINUE:
+            cpu->eax = (uint32_t)sys_gpt2_gguf_continue((char*)cpu->ecx, cpu->edx);
+            break;
         case SYS_IPC_SEND:
             cpu->eax = (uint32_t)sys_ipc_send((int)cpu->ebx,
                                                (const os_ipc_payload_t*)cpu->ecx);
@@ -948,6 +951,45 @@ int sys_vfs_overlay_rmdir(const char* path) {
  * modele s'execute dans le noyau freestanding et ne doit jamais consommer un
  * buffer utilisateur non borne.
  */
+static uint32_t gguf_session_tokens[64];
+static uint32_t gguf_session_token_count;
+static uint32_t gguf_session_prompt_tokens;
+static uint32_t gguf_session_rng;
+static uint8_t gguf_session_active;
+
+static int sys_gpt2_gguf_session_step(char* out, uint32_t max) {
+    const char* piece;
+    uint32_t next_token = 0U;
+    uint32_t written = 0U;
+    uint32_t generated_count;
+    int rc;
+    if (!out || max < 2U) return -1;
+    if (!gguf_session_active) return -6;
+    if (gguf_session_token_count == 0U || gguf_session_token_count >= 64U) {
+        gguf_session_active = 0U;
+        out[0] = '\0';
+        return 0;
+    }
+    generated_count = gguf_session_token_count - gguf_session_prompt_tokens;
+    rc = gpt2_gguf_generate_next_sampled(gguf_session_tokens, gguf_session_token_count,
+                                         generated_count, &next_token, &gguf_session_rng);
+    if (rc != 0) return -30 + rc;
+    if (next_token == gpt2_tokenizer_eot()) {
+        gguf_session_active = 0U;
+        out[0] = '\0';
+        return 0;
+    }
+    gguf_session_tokens[gguf_session_token_count++] = next_token;
+    piece = gpt2_tokenizer_decode(next_token);
+    if (!piece) return -4;
+    for (uint32_t i = 0U; piece[i] != '\0'; i++) {
+        if (written + 1U >= max) break;
+        out[written++] = piece[i];
+    }
+    out[written] = '\0';
+    return (int)written;
+}
+
 static int sys_gpt2_generate_impl(const char* prompt, char* out, uint32_t max,
                                   uint8_t use_gguf) {
     char prompt_copy[128];
@@ -962,6 +1004,7 @@ static int sys_gpt2_generate_impl(const char* prompt, char* out, uint32_t max,
     int rc;
 
     if (!prompt || !out || max < 2) return -1;
+    if (use_gguf) gguf_session_active = 0U;
     /* Conserve punctuation, apostrophes, espaces simples et UTF-8. */
     uint32_t input_pos = 0;
     uint32_t output_pos = 0;
@@ -988,6 +1031,14 @@ static int sys_gpt2_generate_impl(const char* prompt, char* out, uint32_t max,
         rng_state = rng_state * 16777619U + (uint8_t)prompt_copy[i];
     }
     if (rng_state == 0U) rng_state = 1U;
+    if (use_gguf) {
+        for (uint32_t i = 0U; i < token_count; i++) gguf_session_tokens[i] = tokens[i];
+        gguf_session_token_count = token_count;
+        gguf_session_prompt_tokens = prompt_tokens;
+        gguf_session_rng = rng_state;
+        gguf_session_active = 1U;
+        return sys_gpt2_gguf_session_step(out, max);
+    }
 
     for (uint32_t step = 0; step < generation_steps && token_count < 64 &&
          (use_gguf || token_count < model->config.max_seq_len); step++) {
@@ -1030,12 +1081,20 @@ int sys_gpt2_gguf_generate(const char* prompt, char* out, uint32_t max) {
     return sys_gpt2_generate_impl(prompt, out, max, 1U);
 }
 
+int sys_gpt2_gguf_continue(char* out, uint32_t max) {
+    return sys_gpt2_gguf_session_step(out, max);
+}
+
 // Cette fonction est maintenant obsolète pour l'entrée clavier
 void syscall_add_input_char(char c) {
     (void)c;
 }
 
 void syscall_init() {
+    gguf_session_active = 0U;
+    gguf_session_token_count = 0U;
+    gguf_session_prompt_tokens = 0U;
+    gguf_session_rng = 0U;
     // Enregistre notre handler pour l'interruption 0x80
     register_interrupt_handler(0x80, (interrupt_handler_t)syscall_handler);
 }

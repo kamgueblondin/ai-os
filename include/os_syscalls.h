@@ -204,7 +204,9 @@
 #define SYS_SOCKET_ACCEPT_ACK 108
 /* prompt (EBX), buffer de réponse (ECX), taille du buffer (EDX), backend GGUF FAT16. */
 #define SYS_GPT2_GGUF_GENERATE 109
-#define MAX_SYSCALLS 110
+/* buffer de réponse (ECX), taille du buffer (EDX) ; poursuit la session GGUF locale. */
+#define SYS_GPT2_GGUF_CONTINUE 110
+#define MAX_SYSCALLS 111
 
 typedef struct {
     uint16_t source_port;
