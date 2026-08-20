@@ -223,6 +223,15 @@ int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
     return ne2k_tx_submit(device, io, frame, (uint16_t)(NET_ETHERNET_HEADER_SIZE + 40U));
 }
 
+int ne2k_socket_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                    const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                    const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id) {
+    uint8_t segment[NET_TCP_HEADER_SIZE]; uint16_t segment_length;
+    if (net_socket_build_ack(socket_id, segment, sizeof(segment), &segment_length) != 0) return -1;
+    return ne2k_tcp_segment(device, io, cache, frame, frame_capacity, local_ip, remote_ip,
+                            segment, segment_length);
+}
+
 int ne2k_tcp_fin(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
@@ -943,6 +952,89 @@ static int ne2k_tls_client_poll_internal(ne2k_device_t* device,const ne2k_io_t* 
 rollback:
     *client=previous_client;*connection=previous_connection;*consumed=0U;*flight_records_length=0U;return -2;
 }
+int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                         uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                         const uint8_t local_ip[4],const uint8_t remote_ip[4],int socket_id,
+                         ne2k_tls_client_t* client,const uint8_t client_random[32],
+                         const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                         const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
+                         uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                         uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                         uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                         uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                         uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                         uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed) {
+    ne2k_tls_client_t previous_client; net_tcp_connection_t previous_connection; net_tcp_view_t view;
+    uint16_t frame_length = 0U; uint32_t local_flight_length = 0U; int status;
+    if (!device || !io || !cache || !rx_frame || !tx_frame || !local_ip || !remote_ip || !client ||
+        !client_random || !client_private || !trust_anchor || !hostname || !utc_time || !rsa_workspace ||
+        !x25519_workspace || !prf_workspace || !tcp_segment || !flight_records || !flight_records_length ||
+        !plaintext || !consumed) return -1;
+    *consumed = 0U; *flight_records_length = 0U;
+    status = ne2k_rx_poll_tcp(device, io, rx_frame, rx_capacity, &frame_length, &view);
+    if (status != 0) return status;
+    if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
+    previous_client = *client;
+    if (client->handshake.state == NET_TLS_HANDSHAKE_FINISHED_SENT ||
+        client->handshake.state == NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED) {
+        status = net_socket_accept_tls_x25519_postflight(socket_id, &client->handshake,
+                                                          &client->transcript, client->master_secret,
+                                                          &client->session, &view, plaintext,
+                                                          plaintext_capacity, prf_workspace,
+                                                          prf_workspace_capacity, consumed);
+        if (status != 0 || ne2k_socket_ack(device, io, cache, tx_frame, tx_capacity,
+                                            local_ip, remote_ip, socket_id) != 0) goto rollback_socket;
+        if (net_tls_handshake_is_complete(&client->handshake)) client->complete = 1U;
+        return 0;
+    }
+    status = net_socket_accept_tls_authenticated_fragment(socket_id, &view, &client->stream,
+                                                           &client->handshake, client_random,
+                                                           &client->transcript, rsa_workspace,
+                                                           rsa_workspace_length, consumed);
+    if (status < 0 || ne2k_socket_ack(device, io, cache, tx_frame, tx_capacity,
+                                      local_ip, remote_ip, socket_id) != 0) goto rollback_socket;
+    if (status == 1) return 1;
+    if (client->handshake.state == NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED) {
+        if (client->handshake.server_intermediate_two) {
+            if (!client->handshake.server_intermediate_x509_valid ||
+                !client->handshake.server_intermediate_two_x509_valid ||
+                x509_certificate_tls_identity_validate_three(&client->handshake.server_x509,
+                                                              &client->handshake.server_intermediate_x509,
+                                                              &client->handshake.server_intermediate_two_x509,
+                                                              trust_anchor, hostname, utc_time,
+                                                              rsa_workspace, rsa_workspace_length) != 0) goto rollback_socket;
+        } else if (client->handshake.server_intermediate) {
+            if (!client->handshake.server_intermediate_x509_valid ||
+                x509_certificate_tls_identity_validate_two(&client->handshake.server_x509,
+                                                           &client->handshake.server_intermediate_x509,
+                                                           trust_anchor, hostname, utc_time, rsa_workspace,
+                                                           rsa_workspace_length) != 0) goto rollback_socket;
+        } else if (x509_certificate_tls_identity_validate(&client->handshake.server_x509, trust_anchor,
+                                                           hostname, utc_time, rsa_workspace,
+                                                           rsa_workspace_length) != 0) goto rollback_socket;
+        client->peer_identity_validated = 1U;
+    }
+    if (client->handshake.state != NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED ||
+        !client->peer_identity_validated || client->handshake.certificate_requested) return 0;
+    status = net_socket_build_tls_x25519_flight(socket_id, &client->handshake, &client->x25519,
+                                                 client_private, client_random, &client->transcript,
+                                                 client->master_secret, client->key_block, &client->session,
+                                                 tcp_segment, (uint16_t)tcp_segment_capacity, flight_records,
+                                                 flight_records_capacity, &local_flight_length,
+                                                 x25519_workspace, x25519_workspace_length, prf_workspace,
+                                                 prf_workspace_capacity, retransmit_limit);
+    if (status < 0 || local_flight_length == 0U || status > (int)tcp_segment_capacity ||
+        ne2k_tcp_segment(device, io, cache, tx_frame, tx_capacity, local_ip, remote_ip,
+                         tcp_segment, (uint16_t)status) != 0 ||
+        net_socket_commit_send(socket_id, (uint16_t)local_flight_length) != 0) goto rollback_socket;
+    *flight_records_length = local_flight_length;
+    return 0;
+rollback_socket:
+    (void)net_socket_connection_restore(socket_id, &previous_connection);
+    *client = previous_client; *consumed = 0U; *flight_records_length = 0U;
+    return -3;
+}
+
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint32_t* x25519_workspace,uint16_t x25519_workspace_length,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,uint8_t* tcp_segment,uint32_t tcp_segment_capacity,uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed){return ne2k_tls_client_poll_internal(device,io,cache,rx_frame,rx_capacity,tx_frame,tx_capacity,local_ip,remote_ip,connection,client,client_random,client_private,0,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length,x25519_workspace,x25519_workspace_length,prf_workspace,prf_workspace_capacity,tcp_segment,tcp_segment_capacity,flight_records,flight_records_capacity,flight_records_length,plaintext,plaintext_capacity,retransmit_limit,consumed);}
 int ne2k_tls_client_poll_chain_two(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],const x509_certificate_view_t* intermediate,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint32_t* x25519_workspace,uint16_t x25519_workspace_length,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,uint8_t* tcp_segment,uint32_t tcp_segment_capacity,uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed){if(!intermediate)return -1;return ne2k_tls_client_poll_internal(device,io,cache,rx_frame,rx_capacity,tx_frame,tx_capacity,local_ip,remote_ip,connection,client,client_random,client_private,intermediate,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length,x25519_workspace,x25519_workspace_length,prf_workspace,prf_workspace_capacity,tcp_segment,tcp_segment_capacity,flight_records,flight_records_capacity,flight_records_length,plaintext,plaintext_capacity,retransmit_limit,consumed);}
 int ne2k_tls_client_poll_received_chain(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,ne2k_tls_client_t* client,const uint8_t client_random[32],const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint32_t* x25519_workspace,uint16_t x25519_workspace_length,uint8_t* prf_workspace,uint32_t prf_workspace_capacity,uint8_t* tcp_segment,uint32_t tcp_segment_capacity,uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed){if(!client)return -1;return ne2k_tls_client_poll_chain_two(device,io,cache,rx_frame,rx_capacity,tx_frame,tx_capacity,local_ip,remote_ip,connection,client,client_random,client_private,&client->handshake.server_intermediate_x509,trust_anchor,hostname,utc_time,rsa_workspace,rsa_workspace_length,x25519_workspace,x25519_workspace_length,prf_workspace,prf_workspace_capacity,tcp_segment,tcp_segment_capacity,flight_records,flight_records_capacity,flight_records_length,plaintext,plaintext_capacity,retransmit_limit,consumed);}

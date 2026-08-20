@@ -254,6 +254,24 @@ void test_ne2k_tcp_syn_ack_via_gateway(void){fake_ne2k_t fake={0x12,NE2K_ISR_RES
 
 void test_ne2k_socket_poll_tcp_guards(void){uint8_t frame[64]={0};TEST_ASSERT_EQUAL(-1,ne2k_socket_poll_tcp(0,0,frame,sizeof(frame),0));}
 
+void test_ne2k_socket_tls_poll_empty_is_nonblocking_and_transactional(void){
+    fake_ne2k_t fake={0x12,NE2K_ISR_RESET|NE2K_ISR_RDC,0,0};ne2k_io_t io={&fake,fake_inb,fake_outb};ne2k_device_t device;
+    net_arp_cache_t cache;ne2k_tls_client_t client;net_tcp_connection_t before,after;x509_certificate_view_t anchor={0};
+    uint8_t local_mac[6]={2,0,0,0,0,1},remote_mac[6]={0x52,0x54,0,0,0,2},local_ip[4]={10,0,2,15},remote_ip[4]={10,0,2,2};
+    uint8_t record_buffer[256]={0},handshake_buffer[256]={0},transcript_buffer[512]={0},rx_frame[256]={0},tx_frame[512]={0},tcp_segment[256]={0},flight_records[128]={0},plaintext[128]={0},client_random[32]={0},client_private[32]={0},prf_workspace[256]={0};
+    uint32_t rsa_workspace[224]={0},x25519_workspace[136]={0},flight_length=99U;uint16_t consumed=99U;int socket_id;
+    net_socket_reset_all();socket_id=net_socket_open(49152U,443U,100U);TEST_ASSERT_TRUE(socket_id>=0);
+    {net_tcp_view_t syn_ack={443U,49152U,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0};TEST_ASSERT_EQUAL(0,net_socket_accept_syn_ack(socket_id,&syn_ack));}
+    TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300U,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));TEST_ASSERT_EQUAL(0,net_arp_cache_put(&cache,remote_ip,remote_mac));
+    TEST_ASSERT_EQUAL(0,ne2k_tls_client_init(&client,record_buffer,sizeof(record_buffer),handshake_buffer,sizeof(handshake_buffer),transcript_buffer,sizeof(transcript_buffer)));
+    TEST_ASSERT_EQUAL(0,ne2k_socket_ack(&device,&io,&cache,tx_frame,sizeof(tx_frame),local_ip,remote_ip,socket_id));TEST_ASSERT_EQUAL(49152U,((uint16_t)tx_frame[34]<<8)|tx_frame[35]);TEST_ASSERT_EQUAL(NET_TCP_FLAG_ACK,tx_frame[47]);
+    TEST_ASSERT_EQUAL(0,net_socket_connection_snapshot(socket_id,&before));fake.isr=NE2K_ISR_RESET;
+    TEST_ASSERT_EQUAL(1,ne2k_socket_tls_poll(&device,&io,&cache,rx_frame,sizeof(rx_frame),tx_frame,sizeof(tx_frame),local_ip,remote_ip,socket_id,&client,client_random,client_private,&anchor,"api.example.test","20260818000000Z",rsa_workspace,224U,x25519_workspace,136U,prf_workspace,sizeof(prf_workspace),tcp_segment,sizeof(tcp_segment),flight_records,sizeof(flight_records),&flight_length,plaintext,sizeof(plaintext),1U,&consumed));
+    TEST_ASSERT_EQUAL(0U,consumed);TEST_ASSERT_EQUAL(0U,flight_length);TEST_ASSERT_EQUAL(0,net_socket_connection_snapshot(socket_id,&after));TEST_ASSERT_EQUAL(before.local_sequence,after.local_sequence);TEST_ASSERT_EQUAL(before.remote_sequence,after.remote_sequence);TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_IDLE,client.handshake.state);
+    TEST_ASSERT_NOT_EQUAL(0,ne2k_socket_tls_poll(&device,&io,&cache,rx_frame,sizeof(rx_frame),tx_frame,sizeof(tx_frame),local_ip,remote_ip,socket_id,0,client_random,client_private,&anchor,"api.example.test","20260818000000Z",rsa_workspace,224U,x25519_workspace,136U,prf_workspace,sizeof(prf_workspace),tcp_segment,sizeof(tcp_segment),flight_records,sizeof(flight_records),&flight_length,plaintext,sizeof(plaintext),1U,&consumed));
+    TEST_ASSERT_EQUAL(0,net_socket_close(socket_id));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);    RUN_TEST(test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination); RUN_TEST(test_ne2k_tcp_segment_bridge); RUN_TEST(test_ne2k_tcp_syn_ack_via_gateway);RUN_TEST(test_ne2k_socket_syn_bridge);
@@ -263,7 +281,7 @@ RUN_TEST(test_ne2k_llm_network_context_lifecycle);RUN_TEST(test_ne2k_socket_poll
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
-    RUN_TEST(test_ne2k_tls_client_start_and_empty_poll);RUN_TEST(test_ne2k_llm_dns_syn_bootstrap_failure_is_transactional);RUN_TEST(test_ne2k_dhcp_acquire_guard_is_transactional);RUN_TEST(test_ne2k_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_llm_connection_state_phase_guards);RUN_TEST(test_ne2k_llm_connection_tls_phase_guard);RUN_TEST(test_ne2k_llm_connection_response_phase_guard);RUN_TEST(test_ne2k_llm_connection_reset_for_request);RUN_TEST(test_ne2k_llm_connection_sse_phase_guard_and_nonblocking_progress);RUN_TEST(test_ne2k_https_llm_request_composes_provider_json_and_bearer);RUN_TEST(test_ne2k_sse_resume_request_guards);RUN_TEST(test_ne2k_sse_retry_scheduler_adapter);RUN_TEST(test_ne2k_sse_terminal_classification);RUN_TEST(test_ne2k_provider_rotation_budget);
+    RUN_TEST(test_ne2k_tls_client_start_and_empty_poll);RUN_TEST(test_ne2k_llm_dns_syn_bootstrap_failure_is_transactional);RUN_TEST(test_ne2k_dhcp_acquire_guard_is_transactional);RUN_TEST(test_ne2k_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_tls_poll_empty_is_nonblocking_and_transactional);RUN_TEST(test_ne2k_llm_connection_state_phase_guards);RUN_TEST(test_ne2k_llm_connection_tls_phase_guard);RUN_TEST(test_ne2k_llm_connection_response_phase_guard);RUN_TEST(test_ne2k_llm_connection_reset_for_request);RUN_TEST(test_ne2k_llm_connection_sse_phase_guard_and_nonblocking_progress);RUN_TEST(test_ne2k_https_llm_request_composes_provider_json_and_bearer);RUN_TEST(test_ne2k_sse_resume_request_guards);RUN_TEST(test_ne2k_sse_retry_scheduler_adapter);RUN_TEST(test_ne2k_sse_terminal_classification);RUN_TEST(test_ne2k_provider_rotation_budget);
     unity_print_results();
     unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;

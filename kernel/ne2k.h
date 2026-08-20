@@ -263,6 +263,10 @@ int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                  const uint8_t local_ip[4], const uint8_t remote_ip[4],
                  const net_tcp_connection_t* connection);
+/* Construit et transmet un ACK depuis le slot socket statique. */
+int ne2k_socket_ack(ne2k_device_t* device, const ne2k_io_t* io,
+                    const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                    const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id);
 /* Construit et émet le FIN+ACK caller-owned de fermeture. */
 int ne2k_tcp_fin(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
@@ -403,6 +407,20 @@ int ne2k_llm_connection_poll_sse(ne2k_device_t* device,const ne2k_io_t* io,const
                                  uint8_t* plaintext,uint16_t plaintext_capacity,net_llm_sse_response_t* response,
                                  uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
 /* Polling NE2000 : authentifie les messages serveur, valide l’ancre/hostname, émet le flight X25519 puis traite le post-flight. */
+/* Polling TLS authentifié au-dessus d’un socket : fragments serveur, ACK, X25519 et post-flight. */
+int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                         uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                         const uint8_t local_ip[4],const uint8_t remote_ip[4],int socket_id,
+                         ne2k_tls_client_t* client,const uint8_t client_random[32],
+                         const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                         const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
+                         uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                         uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                         uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                         uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                         uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                         uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
+
 int ne2k_tls_client_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
                          const uint8_t local_ip[4],const uint8_t remote_ip[4],net_tcp_connection_t* connection,

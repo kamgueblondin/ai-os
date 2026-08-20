@@ -81,6 +81,44 @@ void test_socket_build_syn_active(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(id));
 }
 
+void test_socket_tls_poll_primitives_are_bounded(void) {
+    int id; uint8_t segment[128] = {0}, records[128] = {0}, plaintext[32] = {0};
+    uint8_t client_random[32] = {0}, client_private[NET_TLS_X25519_KEY_LENGTH] = {0};
+    uint8_t master_secret[48] = {0}, key_block[NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH] = {0};
+    uint8_t prf_workspace[128] = {0}; uint32_t rsa_workspace[64] = {0}, x25519_workspace[64] = {0};
+    uint16_t segment_length = 0U, consumed = 0U; uint32_t records_length = 0U;
+    net_tcp_view_t syn_ack = {443U,49152U,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0};
+    net_tcp_view_t empty_ack = {443U,49152U,701U,101U,NET_TCP_FLAG_ACK,0,0};
+    net_tcp_view_t parsed; net_tcp_connection_t before, after;
+    net_tcp_tls_stream_t stream = {0}; net_tls_handshake_t handshake = {0};
+    net_tls_transcript_t transcript = {0}; net_tls_x25519_context_t x25519 = {0};
+    net_tls_aes_gcm_session_t session = {0};
+
+    net_socket_reset_all(); id = net_socket_open(49152U, 443U, 100U); TEST_ASSERT_TRUE(id >= 0);
+    TEST_ASSERT_EQUAL(0, net_socket_accept_syn_ack(id, &syn_ack));
+    TEST_ASSERT_EQUAL(0, net_socket_build_ack(id, segment, sizeof(segment), &segment_length));
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, segment_length);
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, segment_length, &parsed));
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_ACK, parsed.flags); TEST_ASSERT_EQUAL(101U, parsed.sequence);
+    TEST_ASSERT_EQUAL(701U, parsed.acknowledgment);
+    TEST_ASSERT_EQUAL(NET_SOCKET_PROTOCOL, net_socket_commit_send(id, 0U));
+    TEST_ASSERT_EQUAL(NET_SOCKET_BAD_ARGUMENT, net_socket_build_ack(-1, segment, sizeof(segment), &segment_length));
+
+    TEST_ASSERT_EQUAL(0, net_socket_connection_snapshot(id, &before));
+    TEST_ASSERT_EQUAL(NET_SOCKET_PROTOCOL, net_socket_accept_tls_authenticated_fragment(id, &empty_ack, &stream,
+                      &handshake, client_random, &transcript, rsa_workspace, 64U, &consumed));
+    TEST_ASSERT_EQUAL(0, net_socket_connection_snapshot(id, &after));
+    TEST_ASSERT_EQUAL(before.remote_sequence, after.remote_sequence);
+    TEST_ASSERT_EQUAL(NET_SOCKET_PROTOCOL, net_socket_build_tls_x25519_flight(id, &handshake, &x25519,
+                      client_private, client_random, &transcript, master_secret, key_block, &session,
+                      segment, sizeof(segment), records, sizeof(records), &records_length, x25519_workspace,
+                      64U, prf_workspace, sizeof(prf_workspace), 1U));
+    TEST_ASSERT_EQUAL(NET_SOCKET_PROTOCOL, net_socket_accept_tls_x25519_postflight(id, &handshake, &transcript,
+                      master_secret, &session, &empty_ack, plaintext, sizeof(plaintext), prf_workspace,
+                      sizeof(prf_workspace), &consumed));
+    TEST_ASSERT_EQUAL(0, net_socket_close(id));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_socket_lifecycle_send_receive);
@@ -88,6 +126,7 @@ int main(void) {
     RUN_TEST(test_socket_tls_send_wrapper);
     RUN_TEST(test_socket_passive_lifecycle);
     RUN_TEST(test_socket_feed_routes_passive_segments);
+    RUN_TEST(test_socket_tls_poll_primitives_are_bounded);
     unity_print_results();
     unity_cleanup();
     return 0;
