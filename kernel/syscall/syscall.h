@@ -70,6 +70,10 @@ int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_
 int sys_fat16_read(const char* name, char* buffer, uint32_t max);
 int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity);
 int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence);
+int sys_socket_listen(uint16_t local_port, uint32_t local_sequence);
+int sys_socket_accept_syn(int socket_id, const os_socket_passive_view_t* view);
+int sys_socket_build_syn_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length);
+int sys_socket_accept_ack(int socket_id, const os_socket_passive_view_t* view);
 int sys_socket_accept_syn_ack(int socket_id, const os_socket_syn_ack_t* view);
 int sys_socket_send(const os_socket_send_request_t* request);
 int sys_socket_feed(const os_socket_feed_request_t* request);

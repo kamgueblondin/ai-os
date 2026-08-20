@@ -853,6 +853,6 @@ Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
 Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).
 
 ### AOS-1333 à AOS-1344 — fondation TCP d’écoute passive
-`net_tcp_connection_listen`, `net_tcp_connection_accept_syn`, `net_tcp_connection_build_syn_ack` et l’extension de `net_tcp_connection_accept_ack` livrent les transitions bornées `LISTEN → SYN_RECEIVED → ESTABLISHED` sans allocation dynamique. Le registre `net_socket` expose désormais `listen`, l’acceptation SYN, la construction caller-owned du SYN-ACK et l’ACK final. Les ports, drapeaux, séquences et acquittements sont validés. Validation locale : **35/35 tests noyau**, **425/425 tests complets**. L’émission/réception NE2000 et l’exposition de ces opérations par syscalls restent le prochain incrément.
+`net_tcp_connection_listen`, `net_tcp_connection_accept_syn`, `net_tcp_connection_build_syn_ack` et l’extension de `net_tcp_connection_accept_ack` livrent les transitions bornées `LISTEN → SYN_RECEIVED → ESTABLISHED` sans allocation dynamique. Le registre `net_socket` et les syscalls 105–108 exposent désormais `listen`, l’acceptation SYN, la construction caller-owned du SYN-ACK et l’ACK final, avec validation VMM page-par-page. Les ports, drapeaux, séquences et acquittements sont validés. Validation locale : **35/35 tests noyau**, **425/425 tests complets**. L’émission/réception NE2000 automatique reste le prochain incrément.
 
 Voir [aos1333_1344_tcp_passive_foundation.md](aos1333_1344_tcp_passive_foundation.md).

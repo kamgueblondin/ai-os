@@ -315,6 +315,21 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_SOCKET_OPEN:
             cpu->eax = (uint32_t)sys_socket_open((uint16_t)cpu->ebx, (uint16_t)cpu->ecx, cpu->edx);
             break;
+        case SYS_SOCKET_LISTEN:
+            cpu->eax = (uint32_t)sys_socket_listen((uint16_t)cpu->ebx, cpu->ecx);
+            break;
+        case SYS_SOCKET_ACCEPT_SYN:
+            cpu->eax = (uint32_t)sys_socket_accept_syn((int)cpu->ebx,
+                (const os_socket_passive_view_t*)cpu->ecx);
+            break;
+        case SYS_SOCKET_BUILD_SYN_ACK:
+            cpu->eax = (uint32_t)sys_socket_build_syn_ack((int)cpu->ebx,
+                (uint8_t*)cpu->ecx, (uint16_t)cpu->edx, (uint16_t*)cpu->esi);
+            break;
+        case SYS_SOCKET_ACCEPT_ACK:
+            cpu->eax = (uint32_t)sys_socket_accept_ack((int)cpu->ebx,
+                (const os_socket_passive_view_t*)cpu->ecx);
+            break;
         case SYS_SOCKET_ACCEPT_SYN_ACK:
             cpu->eax = (uint32_t)sys_socket_accept_syn_ack((int)cpu->ebx,
                 (const os_socket_syn_ack_t*)cpu->ecx);
@@ -619,6 +634,36 @@ static int syscall_user_range(const void* pointer, uint32_t length, int write) {
 int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SOCKET_BAD_ARGUMENT;
     return net_socket_open(local_port, remote_port, local_sequence);
+}
+
+int sys_socket_listen(uint16_t local_port, uint32_t local_sequence) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_listen(local_port, local_sequence);
+}
+
+static int sys_socket_passive_view_copy(const os_socket_passive_view_t* source, net_tcp_view_t* target) {
+    if (!syscall_user_range(source, sizeof(*source), 0) || !target) return OS_SOCKET_BAD_ARGUMENT;
+    target->source_port = source->source_port; target->destination_port = source->destination_port;
+    target->sequence = source->sequence; target->acknowledgment = source->acknowledgment;
+    target->flags = source->flags; target->payload = 0; target->payload_length = 0U;
+    return 0;
+}
+
+int sys_socket_accept_syn(int socket_id, const os_socket_passive_view_t* view) {
+    net_tcp_view_t tcp_view;
+    if (sys_socket_passive_view_copy(view, &tcp_view) != 0) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_accept_syn(socket_id, &tcp_view);
+}
+
+int sys_socket_build_syn_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+    if (!syscall_user_range(segment, capacity, 1) || !syscall_user_range(out_length, sizeof(*out_length), 1)) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_build_syn_ack(socket_id, segment, capacity, out_length);
+}
+
+int sys_socket_accept_ack(int socket_id, const os_socket_passive_view_t* view) {
+    net_tcp_view_t tcp_view;
+    if (sys_socket_passive_view_copy(view, &tcp_view) != 0) return OS_SOCKET_BAD_ARGUMENT;
+    return net_socket_accept_ack(socket_id, &tcp_view);
 }
 
 int sys_socket_accept_syn_ack(int socket_id, const os_socket_syn_ack_t* view) {
