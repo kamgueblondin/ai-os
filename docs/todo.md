@@ -61,7 +61,7 @@
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [ ] Délais/backoff de réacquisition DHCP et de session, conservation opérationnelle des identifiants fournisseur, puis client OpenAI effectif
+- [ ] Conservation opérationnelle des identifiants fournisseur lors d’une reprise automatique, backoff de session applicative, puis client OpenAI effectif
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
@@ -76,6 +76,7 @@
 - [x] AOS-1461…1472 : orchestrateur noyau DHCP→socket→TLS→HTTP/SSE, extraction LLM et FIN+ACK transactionnel — [aos1461_1472_kernel_socket_orchestrator.md](aos1461_1472_kernel_socket_orchestrator.md)
 - [x] AOS-1473…1480 : maintenance DHCP différée hors IRQ0 et renouvellement transactionnel à l’entrée syscall — [aos1473_1480_dhcp_deferred_maintenance.md](aos1473_1480_dhcp_deferred_maintenance.md)
 - [x] AOS-1481…1488 : réacquisition DHCP après expiration, fermeture socket et bootstrap transactionnel relancé hors IRQ0 — [aos1481_1488_dhcp_reacquisition.md](aos1481_1488_dhcp_reacquisition.md)
+- [x] AOS-1489…1496 : backoff exponentiel borné de réacquisition DHCP, plafond de tentatives et remise à zéro transactionnelle — [aos1489_1496_dhcp_reacquire_backoff.md](aos1489_1496_dhcp_reacquire_backoff.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
