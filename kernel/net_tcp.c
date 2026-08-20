@@ -76,6 +76,21 @@ int net_tcp_build_syn_ipv4(uint8_t* packet, uint32_t capacity, const uint8_t sou
     put16(packet+10U,(uint16_t)~sum); return 40;
 }
 
+int net_tcp_build_syn_ack_ipv4(uint8_t* packet, uint32_t capacity, const uint8_t source_ip[4],
+                               const uint8_t destination_ip[4], uint16_t source_port,
+                               uint16_t destination_port, uint32_t sequence, uint32_t acknowledgment) {
+    uint16_t i, checksum; uint32_t sum=0U;
+    if (!packet || !source_ip || !destination_ip || capacity < 40U) return -1;
+    for (i=0U;i<40U;++i) packet[i]=0U;
+    packet[0]=0x45U; put16(packet+2,40U); packet[8]=64U; packet[9]=NET_TCP_PROTOCOL;
+    for (i=0U;i<4U;++i) { packet[12U+i]=source_ip[i]; packet[16U+i]=destination_ip[i]; }
+    if (net_tcp_build_syn_ack(packet+20U, capacity-20U, source_port, destination_port,
+                              sequence, acknowledgment) < 0) return -2;
+    checksum=net_tcp_checksum_ipv4(source_ip, destination_ip, packet+20U, 20U); put16(packet+36U, checksum);
+    for (i=0U;i<20U;i+=2U) { sum+=get16(packet+i); while (sum>>16) sum=(sum&0xffffU)+(sum>>16); }
+    put16(packet+10U, (uint16_t)~sum); return 40;
+}
+
 int net_tcp_is_syn_ack_for(const net_tcp_view_t* view,uint16_t local_port,uint16_t remote_port,
                            uint32_t local_sequence,uint32_t* remote_sequence) {
     if (!view || !remote_sequence || local_port==0U || remote_port==0U) return -1;
