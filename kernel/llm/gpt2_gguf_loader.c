@@ -1005,6 +1005,7 @@ int gpt2_gguf_block_forward_fat16(
                                       const float* attention_gamma,
                                       const float* attention_beta,
                                       const gpt2_gguf_tensor_t* qkv_tensor,
+                                      const float* qkv_bias,
                                       const gpt2_gguf_tensor_t* attention_output_tensor,
                                       const float* attention_output_bias,
                                       const float* ffn_gamma,
@@ -1019,6 +1020,7 @@ int gpt2_gguf_block_forward_fat16(
                                       gpt2_gguf_block_workspace_t* workspace) {
     uint32_t position_count;
     uint32_t attention_count = 0U;
+    uint32_t i;
     int status;
     if (!cache || !residual || !attention_gamma || !attention_beta || !qkv_tensor ||
         !attention_output_tensor || !ffn_gamma || !ffn_beta || !ffn_up_tensor ||
@@ -1057,6 +1059,13 @@ int gpt2_gguf_block_forward_fat16(
                                           workspace->key, workspace->key_capacity * (uint32_t)sizeof(float),
                                           workspace->value, workspace->value_capacity * (uint32_t)sizeof(float));
     if (status != 0) return status;
+    if (qkv_bias) {
+        for (i = 0U; i < channels; i++) {
+            workspace->query[i] += qkv_bias[i];
+            workspace->key[i] += qkv_bias[channels + i];
+            workspace->value[i] += qkv_bias[2U * channels + i];
+        }
+    }
     status = gpt2_gguf_kv_cache_put(cache, layer, position, workspace->key, workspace->value);
     if (status != 0) return status;
     position_count = position + 1U;
@@ -1083,6 +1092,135 @@ int gpt2_gguf_block_forward_fat16(
         workspace->mlp_output, workspace->mlp_output_capacity);
     if (status != 0) return status;
     return gpt2_gguf_add_residual(residual, residual_capacity, workspace->mlp_output, channels);
+}
+
+int gpt2_gguf_generation_token_fat16(
+                                      const gpt2_gguf_generation_t* generation,
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t token, uint32_t position,
+                                      uint32_t head_count, float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      gpt2_gguf_generation_workspace_t* workspace,
+                                      float* logits, uint32_t logits_capacity) {
+    gpt2_gguf_layer_t layer;
+    gpt2_gguf_tensor_t attention_gamma, attention_beta, qkv, qkv_bias;
+    gpt2_gguf_tensor_t attention_output, attention_output_bias;
+    gpt2_gguf_tensor_t ffn_gamma, ffn_beta, ffn_up, ffn_down;
+    uint32_t channels;
+    uint32_t hidden_channels;
+    uint32_t layer_index;
+    uint32_t i;
+    int status;
+    if (!generation || !generation->ready || !generation->runtime.ready || !cache ||
+        !volume || !filename || !workspace || !logits || !workspace->dense_scratch ||
+        !workspace->position_embedding || !workspace->attention_gamma ||
+        !workspace->attention_beta || !workspace->qkv_bias ||
+        !workspace->attention_output_bias || !workspace->ffn_gamma ||
+        !workspace->ffn_beta || !workspace->final_gamma || !workspace->final_beta ||
+        !workspace->final_hidden) return -1;
+    channels = generation->runtime.channels;
+    if (channels == 0U || channels > 0x3FFFFFFFU || head_count == 0U ||
+        channels % head_count != 0U || epsilon <= 0.0f ||
+        token >= generation->vocabulary || position >= generation->max_positions ||
+        cache->layers != generation->runtime.layer_count || cache->channels != channels ||
+        cache->max_positions < generation->max_positions || position != cache->count) return -9;
+    if (workspace->position_embedding_capacity < channels ||
+        workspace->attention_gamma_capacity < channels ||
+        workspace->attention_beta_capacity < channels ||
+        workspace->qkv_bias_capacity < 3U * channels ||
+        workspace->attention_output_bias_capacity < channels ||
+        workspace->ffn_gamma_capacity < channels || workspace->ffn_beta_capacity < channels ||
+        workspace->final_gamma_capacity < channels || workspace->final_beta_capacity < channels ||
+        workspace->final_hidden_capacity < channels ||
+        logits_capacity < generation->vocabulary * (uint32_t)sizeof(float)) return -6;
+    status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                             &generation->token_embedding, token, channels,
+                                             workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                             workspace->final_hidden, workspace->final_hidden_capacity * (uint32_t)sizeof(float));
+    if (status != 0) return status;
+    status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                             &generation->position_embedding, position, channels,
+                                             workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                             workspace->position_embedding,
+                                             workspace->position_embedding_capacity * (uint32_t)sizeof(float));
+    if (status != 0) return status;
+    for (i = 0U; i < channels; i++) workspace->final_hidden[i] += workspace->position_embedding[i];
+    for (layer_index = 0U; layer_index < generation->runtime.layer_count; layer_index++) {
+        status = gpt2_gguf_runtime_get_layer(&generation->runtime, layer_index, &layer);
+        if (status != 0) return status;
+        if (gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_NORM_WEIGHT, &attention_gamma) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_NORM_BIAS, &attention_beta) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_WEIGHT, &qkv) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_QKV_BIAS, &qkv_bias) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_OUTPUT_WEIGHT, &attention_output) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_ATTN_OUTPUT_BIAS, &attention_output_bias) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_NORM_WEIGHT, &ffn_gamma) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_NORM_BIAS, &ffn_beta) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_UP_WEIGHT, &ffn_up) != 0 ||
+            gpt2_gguf_layer_get(&layer, GPT2_GGUF_ROLE_LAYER_FFN_DOWN_WEIGHT, &ffn_down) != 0) return -8;
+        hidden_channels = (uint32_t)ffn_up.shape[1];
+        if (hidden_channels == 0U || hidden_channels > 0xFFFFFFFFU / (uint32_t)sizeof(float)) return -9;
+        if (workspace->block.hidden_capacity < hidden_channels) return -6;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &attention_gamma, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->attention_gamma,
+                                                 workspace->attention_gamma_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &attention_beta, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->attention_beta,
+                                                 workspace->attention_beta_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &qkv_bias, 0U, 3U * channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->qkv_bias, workspace->qkv_bias_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &attention_output_bias, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->attention_output_bias,
+                                                 workspace->attention_output_bias_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &ffn_gamma, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->ffn_gamma, workspace->ffn_gamma_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                                 &ffn_beta, 0U, channels,
+                                                 workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                                 workspace->ffn_beta, workspace->ffn_beta_capacity * (uint32_t)sizeof(float));
+        if (status != 0) return status;
+        status = gpt2_gguf_block_forward_fat16(
+            cache, layer_index, position, workspace->final_hidden, workspace->final_hidden_capacity,
+            channels, head_count, hidden_channels, workspace->attention_gamma,
+            workspace->attention_beta, &qkv, workspace->qkv_bias, &attention_output,
+            workspace->attention_output_bias, workspace->ffn_gamma, workspace->ffn_beta,
+            &ffn_up, &ffn_down, 0, 0, epsilon, volume, filename,
+            generation->runtime.model, &workspace->block);
+        if (status != 0) return status;
+    }
+    status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                             &generation->output_norm_weight, 0U, channels,
+                                             workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                             workspace->final_gamma, workspace->final_gamma_capacity * (uint32_t)sizeof(float));
+    if (status != 0) return status;
+    status = gpt2_gguf_read_dense_row_fat16(volume, filename, generation->runtime.model,
+                                             &generation->output_norm_bias, 0U, channels,
+                                             workspace->dense_scratch, workspace->dense_scratch_capacity,
+                                             workspace->final_beta, workspace->final_beta_capacity * (uint32_t)sizeof(float));
+    if (status != 0) return status;
+    status = gpt2_gguf_layernorm(workspace->final_hidden, channels, workspace->final_gamma,
+                                  workspace->final_beta, epsilon, workspace->block.norm,
+                                  workspace->block.norm_capacity);
+    if (status != 0) return status;
+    return gpt2_gguf_forward_output_logits_fat16(
+        volume, filename, generation->runtime.model, &generation->output_weight,
+        channels, generation->vocabulary, workspace->block.norm,
+        workspace->block.row_buffer, workspace->block.row_capacity, logits, logits_capacity);
 }
 
 int gpt2_gguf_block_attention_forward_fat16(

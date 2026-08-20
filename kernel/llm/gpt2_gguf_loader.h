@@ -66,6 +66,25 @@ typedef struct {
     uint8_t ready;
 } gpt2_gguf_generation_t;
 
+/* Espace de travail caller-owned pour un token GPT-2 GGUF complet. Les
+ * capacités de vecteurs sont en éléments float, sauf les scratchs en octets. */
+typedef struct {
+    gpt2_gguf_block_workspace_t block;
+    uint8_t* dense_scratch; uint32_t dense_scratch_capacity;
+    float* position_embedding; uint32_t position_embedding_capacity;
+    float* attention_gamma; uint32_t attention_gamma_capacity;
+    float* attention_beta; uint32_t attention_beta_capacity;
+    float* qkv_bias; uint32_t qkv_bias_capacity;
+    float* attention_output_bias; uint32_t attention_output_bias_capacity;
+    float* ffn_gamma; uint32_t ffn_gamma_capacity;
+    float* ffn_beta; uint32_t ffn_beta_capacity;
+    float* ffn_up_bias; uint32_t ffn_up_bias_capacity;
+    float* ffn_down_bias; uint32_t ffn_down_bias_capacity;
+    float* final_gamma; uint32_t final_gamma_capacity;
+    float* final_beta; uint32_t final_beta_capacity;
+    float* final_hidden; uint32_t final_hidden_capacity;
+} gpt2_gguf_generation_workspace_t;
+
 /* Construit et valide une table de couches persistante caller-owned. */
 int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
                               uint32_t layer_count, uint32_t channels,
@@ -214,6 +233,7 @@ int gpt2_gguf_block_forward_fat16(
                                       const float* attention_gamma,
                                       const float* attention_beta,
                                       const gpt2_gguf_tensor_t* qkv_tensor,
+                                      const float* qkv_bias,
                                       const gpt2_gguf_tensor_t* attention_output_tensor,
                                       const float* attention_output_bias,
                                       const float* ffn_gamma,
@@ -228,6 +248,17 @@ int gpt2_gguf_block_forward_fat16(
                                       gpt2_gguf_block_workspace_t* workspace);
 
 /* Exécute LayerNorm -> attention multi-têtes -> projection -> résiduel. */
+/* Exécute un token complet : embeddings token/position, toutes les couches,
+ * normalisation finale et logits quantifiés. */
+int gpt2_gguf_generation_token_fat16(
+                                      const gpt2_gguf_generation_t* generation,
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t token, uint32_t position,
+                                      uint32_t head_count, float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      gpt2_gguf_generation_workspace_t* workspace,
+                                      float* logits, uint32_t logits_capacity);
+
 int gpt2_gguf_block_attention_forward_fat16(
                                       const gpt2_gguf_kv_cache_t* cache,
                                       uint32_t layer, uint32_t start_position,
