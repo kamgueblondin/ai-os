@@ -506,6 +506,12 @@ int sys_gpt2_gguf_generate(const char* prompt, char* out, int max) {
     return result;
 }
 
+int sys_gpt2_gguf_continue(char* out, int max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_GPT2_GGUF_CONTINUE), "c"(out), "d"(max));
+    return result;
+}
+
 int sys_ipc_send(int target_pid, const os_ipc_payload_t* payload) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_IPC_SEND), "b"(target_pid), "c"(payload));
@@ -1000,6 +1006,7 @@ void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("  ai-provider [nom]  - Choisir local ou openai\n");
     print_string("  ai-model [action]  - Lister ou choisir le modele local\n");
     print_string("  ai-runtime         - Etat du moteur IA et des prerequis\n");
+    print_string("  ai-continue        - Poursuivre un token de la session GGUF locale\n");
     print_string("  ai-acquire <hote> [port] - Demarrer DHCP, DNS et TCP LLM sans secret\n");
     print_string("  ai-tls-poll         - Piloter SYN-ACK/TLS avec les materiaux noyau\n");
     print_string("  ai-request <f> <m> <p> <q> - Emettre POST LLM apres TLS authentifie\n");
@@ -2497,7 +2504,7 @@ static int is_builtin(const char* cmd) {
     static const char* names[] = {
         "help", "ls", "dir", "ps", "task-metrics", "task-priority", "task-name", "task-capacity", "task-suspend", "task-resume", "kill-children", "children", "wait-any-result", "child-exit-count", "task-delegate", "task-events", "task-events-observe", "task-events-clear", "task-event", "task-events-forget", "task-summary", "task-events-notify", "task-events-filter", "task-events-notify-status", "task-events-watch", "task-events-unwatch", "task-events-watch-clear", "task-events-watch-status", "task-events-notify-stats", "task-events-notify-stats-clear", "task-event-replay", "task-priority-child", "task-priority-child-status", "task-events-budget", "task-events-budget-status", "fat16-list", "fat16-cat", "child-result", "child-result-any", "child-results", "child-results-clear", "child-results-observe", "child-results-forget", "wait", "wait-result", "sysinfo", "info", "mem", "memory",
         "history", "env", "echo", "write", "append", "touch", "clear", "cls", "exit", "quit",
-        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "net-status",
+        "ai", "ai-mode", "ai-help", "ai-test", "ai-stats", "ai-provider", "ai-model", "ai-runtime", "ai-continue", "net-status",
         "cd", "pwd", "cat", "stat", "test", "[", "mkdir", "rmdir", "cp", "mv", "rm",
         "kill", "spawn", "yield", "ipc-send", "ipc-recv", "service-publish", "service-grant", "service-find", "service-status", "service-watch", "vfs-backend-probe", "vfs-backend-write-probe", "vfs-backend-remove-probe", "vfs-backend-rename-probe", "vfs-grant", "vfs-read", "vfs-stat", "vfs-stats", "vfs-mount-add", "vfs-mount-remove", "vfs-write", "vfs-remove", "vfs-rename", "vfs-mkdir", "vfs-rmdir", "jobs", "top", "getpid", "uptime", "date", "whoami",
         "alias", "unalias", "export", "which", "rc",
@@ -4878,6 +4885,31 @@ void cmd_ai(shell_context_t* ctx, char args[][128], int arg_count) {
     call_ai_assistant(ctx, full_query);
 }
 
+void cmd_ai_continue(shell_context_t* ctx, char args[][128], int arg_count) {
+    char generated[384];
+    int generated_len;
+    (void)args;
+    if (arg_count != 0) {
+        print_error("Usage: ai-continue");
+        return;
+    }
+    if (ctx->ai_provider != AI_PROVIDER_LOCAL || strstr(ai_model_name(ctx), ".gguf") == 0) {
+        print_error("ai-continue: selectionnez d'abord ai-model use gpt2.gguf");
+        return;
+    }
+    generated_len = sys_gpt2_gguf_continue(generated, sizeof(generated));
+    if (generated_len < 0) {
+        print_colored("[GPT-2 GGUF local] session indisponible (lancez d'abord ai <question>) code ", COLOR_YELLOW);
+        print_int(generated_len);
+        print_string("\n");
+        return;
+    }
+    print_colored("[GPT-2 GGUF local suite] ", COLOR_GREEN);
+    if (generated_len == 0) print_string("(fin de sequence)");
+    else print_string(generated);
+    print_string("\n");
+}
+
 void cmd_ai_mode(shell_context_t* ctx, char args[][128], int arg_count) {
     if (arg_count == 0) {
         print_string("aimode ok ");
@@ -5321,6 +5353,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "ai-runtime") == 0) {
         cmd_ai_runtime(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "ai-continue") == 0) {
+        cmd_ai_continue(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "ai-credential") == 0) {
         cmd_ai_credential(ctx, args, arg_count);

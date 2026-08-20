@@ -1705,6 +1705,9 @@ void syscall_handler(cpu_state_t* state) {
         case SYS_APPEND:
             state->eax = (uint32_t)sys_append((const char*)state->ebx, (const char*)state->ecx, state->edx);
             break;
+        case SYS_GPT2_GGUF_CONTINUE:
+            state->eax = (uint32_t)-6;
+            break;
         default:
             break;
     }

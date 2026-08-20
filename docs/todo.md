@@ -57,7 +57,7 @@
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
-- [ ] Réduire la latence locale GGUF ; le forward bout-en-bout, le cache KV et les lectures séquentielles FAT16 sont désormais livrés
+- [ ] Réduire la latence locale GGUF ; le forward bout-en-bout, le cache KV, les lectures séquentielles FAT16 et la session locale coopérative sont désormais livrés
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
@@ -89,10 +89,11 @@
 - [x] AOS-1569…1576 : runtime GPT-2 GGUF local, disque FAT16 de déploiement, shell, top-k et lectures séquentielles — [aos1569_1576_gguf_local_shell.md](aos1569_1576_gguf_local_shell.md)
 - [x] AOS-1577…1584 : cache de curseur FAT16, pré-calcul Q4_K/Q6_K et smoke local chronométré — [aos1577_1584_gguf_fat16_latency.md](aos1577_1584_gguf_fat16_latency.md)
 - [x] AOS-1585…1592 : projection GGUF top-k en flux, suppression du buffer de logits et équivalence RNG — [aos1585_1592_gguf_stream_topk.md](aos1585_1592_gguf_stream_topk.md)
+- [x] AOS-1593…1600 : session GPT-2 GGUF locale persistante, continuation coopérative `ai-continue`, ABI 110 et refus sans session — [aos1593_1600_gguf_local_session.md](aos1593_1600_gguf_local_session.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 454 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 455 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
