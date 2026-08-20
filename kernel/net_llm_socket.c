@@ -43,6 +43,26 @@ int net_llm_socket_build_request(int socket_id, net_tls_aes_gcm_session_t* sessi
     return (int)segment_length;
 }
 
+int net_llm_socket_build_sse_resume(int socket_id, net_tls_aes_gcm_session_t* session,
+                                    uint8_t* request, uint16_t request_capacity,
+                                    const char* host, const char* path,
+                                    const net_llm_sse_response_t* response,
+                                    uint8_t* tls_record, uint32_t tls_capacity,
+                                    uint8_t* tcp_segment, uint16_t tcp_capacity,
+                                    uint8_t retransmit_limit) {
+    int request_length;
+    uint16_t segment_length = 0U;
+
+    if (!session || !request || !host || !path || !response || !tls_record || !tcp_segment) return -1;
+    request_length = net_llm_sse_build_resume_get(request, request_capacity, host, path, response);
+    if (request_length < 0) return -2;
+    if (net_socket_send_tls(socket_id, session, NET_TLS_CONTENT_APPLICATION_DATA,
+                            request, (uint16_t)request_length, tls_record, tls_capacity,
+                            tcp_segment, tcp_capacity, &segment_length,
+                            retransmit_limit) != 0) return -3;
+    return (int)segment_length;
+}
+
 int net_llm_socket_open_response(int socket_id, net_tls_aes_gcm_session_t* session,
                                  const net_tcp_view_t* view, uint8_t* plaintext,
                                  uint16_t plaintext_capacity,

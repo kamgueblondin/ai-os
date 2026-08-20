@@ -64,6 +64,38 @@ void test_llm_socket_rejects_missing_openai_bearer(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(socket_id));
 }
 
+void test_llm_socket_builds_sse_resume_request(void) {
+    int socket_id;
+    net_tls_aes_gcm_session_t session;
+    net_llm_sse_response_t response;
+    uint8_t key_material[40], request[256] = {0}, record[320] = {0}, segment[380] = {0};
+    uint8_t http_buffer[64] = {0}, sse_buffer[64] = {0};
+    net_tcp_view_t view;
+    int built;
+
+    init_socket_session(&socket_id, &session, key_material);
+    TEST_ASSERT_EQUAL(0, net_llm_sse_response_init(&response, http_buffer, sizeof(http_buffer),
+                                                   sse_buffer, sizeof(sse_buffer)));
+    memcpy(response.sse.event_id, "evt-42", 6U);
+    response.sse.event_id_length = 6U;
+    response.sse.event_id_valid = 1U;
+    built = net_llm_socket_build_sse_resume(socket_id, &session, request, sizeof(request),
+                                             "api.example.test", "/v1/chat", &response,
+                                             record, sizeof(record), segment, sizeof(segment), 2U);
+    TEST_ASSERT_GREATER_THAN(20U, built);
+    TEST_ASSERT_NOT_NULL(strstr((const char*)request, "GET /v1/chat HTTP/1.1\r\n"));
+    TEST_ASSERT_NOT_NULL(strstr((const char*)request, "Last-Event-ID: evt-42\r\n"));
+    TEST_ASSERT_EQUAL(1U, session.write_sequence);
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, (uint16_t)built, &view));
+    TEST_ASSERT_GREATER_THAN(7U, view.payload_length);
+    response.sse.event_id_valid = 0U;
+    TEST_ASSERT_EQUAL(-2, net_llm_socket_build_sse_resume(socket_id, &session, request, sizeof(request),
+                                                           "api.example.test", "/v1/chat", &response,
+                                                           record, sizeof(record), segment, sizeof(segment), 2U));
+    TEST_ASSERT_EQUAL(1U, session.write_sequence);
+    TEST_ASSERT_EQUAL(0, net_socket_close(socket_id));
+}
+
 void test_llm_socket_opens_http_response(void) {
     int socket_id, record_length, segment_length; net_tls_aes_gcm_session_t client, server;
     net_tls_aes128_gcm_key_block_t block; net_tcp_view_t view; net_http_response_accumulator_t accumulator;
@@ -108,6 +140,7 @@ int main(void) {
     unity_init();
     RUN_TEST(test_llm_socket_builds_openai_stream_request);
     RUN_TEST(test_llm_socket_rejects_missing_openai_bearer);
+    RUN_TEST(test_llm_socket_builds_sse_resume_request);
     RUN_TEST(test_llm_socket_opens_http_response);
     RUN_TEST(test_llm_socket_opens_openai_sse);
     unity_print_results();
