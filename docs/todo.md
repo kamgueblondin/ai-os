@@ -58,13 +58,14 @@
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index et mapping ; génération shell encore FP32
 - [ ] Inférence GGUF bout-en-bout et latence locale &lt; 1 s
-- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 bornées — [aos_fat_volume.md](aos_fat_volume.md) ; publication multi-entrée LFN, reconstruction et intégration VFS restent à faire ; pas ext2
+- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
-- [ ] Validation pointeurs socket utilisateur, bail DHCP live, écoute passive complète, handshake TLS HTTP et client OpenAI effectif
+- [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
+- [ ] Bail DHCP live, écoute passive complète, handshake TLS HTTP, raccordement du client LLM à l’API socket et client OpenAI effectif
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 421 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 422 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
@@ -847,6 +848,6 @@ Le répertoire racine FAT32 peut être étendu de façon caller-owned : le derni
 Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
 
 ### AOS-1321 à AOS-1332 — fondations LFN FAT32 bornées
-`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. `fat32_create_lfn_file` publie désormais une séquence multi-entrée dans la chaîne racine, et `fat32_list_root` reconstruit le nom après validation des ordinals et du checksum dans un buffer caller-owned. Le contrat accepte au plus 13 caractères par entrée et 20 entrées par fichier, refuse les caractères non ASCII et conserve l’alias 8.3 en repli si la séquence est invalide. Validation actuelle : **4/4 tests FAT32** et **421 tests exécutés avec succès** ; l’intégration complète au VFS, Unicode hors ASCII et suppression/renommage LFN restent à réaliser.
+`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. `fat32_create_lfn_file` publie désormais une séquence multi-entrée dans la chaîne racine, et `fat32_list_root` reconstruit le nom après validation des ordinals et du checksum dans un buffer caller-owned. Le contrat accepte au plus 13 caractères par entrée et 20 entrées par fichier, refuse les caractères non ASCII et conserve l’alias 8.3 en repli si la séquence est invalide. Validation actuelle : **4/4 tests FAT32** et **422 tests exécutés avec succès** ; l’intégration complète au VFS, Unicode hors ASCII et suppression/renommage LFN restent à réaliser.
 
 Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).

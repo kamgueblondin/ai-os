@@ -598,6 +598,24 @@ int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
     return fat16_list_root(fat16_root(), out, capacity);
 }
 
+static int syscall_user_range(const void* pointer, uint32_t length, int write) {
+    uint32_t start, end, address;
+    page_t* page;
+    if (!current_task || current_task->type != TASK_TYPE_USER || !current_task->vmm_dir || !pointer) return 0;
+    start = (uint32_t)pointer;
+    if (length == 0U) return 1;
+    if (start > 0xffffffffU - (length - 1U)) return 0;
+    end = start + length - 1U;
+    if (start >= 0xc0000000U || end >= 0xc0000000U) return 0;
+    for (address = start & ~(PAGE_SIZE - 1U); ; address += PAGE_SIZE) {
+        page = vmm_get_page(address, 0, current_task->vmm_dir);
+        if (!page || !page->present || !page->user || (write && !page->rw)) return 0;
+        if (address > end - (end % PAGE_SIZE)) break;
+        if (address > 0xffffffffU - PAGE_SIZE) return 0;
+    }
+    return 1;
+}
+
 int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SOCKET_BAD_ARGUMENT;
     return net_socket_open(local_port, remote_port, local_sequence);
@@ -605,7 +623,7 @@ int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_se
 
 int sys_socket_accept_syn_ack(int socket_id, const os_socket_syn_ack_t* view) {
     net_tcp_view_t tcp_view;
-    if (!current_task || current_task->type != TASK_TYPE_USER || !view) return OS_SOCKET_BAD_ARGUMENT;
+    if (!syscall_user_range(view, sizeof(*view), 0)) return OS_SOCKET_BAD_ARGUMENT;
     tcp_view.source_port = view->source_port; tcp_view.destination_port = view->destination_port;
     tcp_view.sequence = view->sequence; tcp_view.acknowledgment = view->acknowledgment;
     tcp_view.flags = view->flags; tcp_view.payload = 0; tcp_view.payload_length = 0U;
@@ -613,17 +631,17 @@ int sys_socket_accept_syn_ack(int socket_id, const os_socket_syn_ack_t* view) {
 }
 
 int sys_socket_send(const os_socket_send_request_t* request) {
-    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->payload || !request->segment || !request->out_length) return OS_SOCKET_BAD_ARGUMENT;
+    if (!syscall_user_range(request, sizeof(*request), 0) || !syscall_user_range(request->payload, request->length, 0) || !syscall_user_range(request->segment, request->capacity, 1) || !syscall_user_range(request->out_length, sizeof(*request->out_length), 1)) return OS_SOCKET_BAD_ARGUMENT;
     return net_socket_send(request->socket_id, request->payload, request->length, request->segment, request->capacity, request->out_length);
 }
 
 int sys_socket_feed(const os_socket_feed_request_t* request) {
-    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->segment) return OS_SOCKET_BAD_ARGUMENT;
+    if (!syscall_user_range(request, sizeof(*request), 0) || !syscall_user_range(request->segment, request->length, 0)) return OS_SOCKET_BAD_ARGUMENT;
     return net_socket_feed(request->socket_id, request->segment, request->length);
 }
 
 int sys_socket_receive(const os_socket_receive_request_t* request) {
-    if (!current_task || current_task->type != TASK_TYPE_USER || !request || !request->buffer || !request->out_length) return OS_SOCKET_BAD_ARGUMENT;
+    if (!syscall_user_range(request, sizeof(*request), 0) || !syscall_user_range(request->buffer, request->capacity, 1) || !syscall_user_range(request->out_length, sizeof(*request->out_length), 1)) return OS_SOCKET_BAD_ARGUMENT;
     return net_socket_receive(request->socket_id, request->buffer, request->capacity, request->out_length);
 }
 
