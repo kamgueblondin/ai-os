@@ -305,6 +305,16 @@ void test_ne2k_llm_socket_session_phases_are_transactional(void){
     socket_session.state.phase=NE2K_LLM_CONNECTION_RESPONSE_READY;TEST_ASSERT_EQUAL(0,ne2k_llm_socket_session_reset_for_request(&socket_session));TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_TLS_COMPLETE,socket_session.state.phase);TEST_ASSERT_EQUAL(0,net_socket_close(socket_id));
 }
 
+void test_ne2k_llm_socket_bootstrap_failure_releases_slot(void){
+    fake_ne2k_t fake={0x12,NE2K_ISR_RESET|NE2K_ISR_RDC,0,0};ne2k_io_t io={&fake,fake_inb,fake_outb};ne2k_device_t device;net_arp_cache_t cache;ne2k_llm_socket_session_t session;net_dhcp_lease_t lease={0};
+    uint8_t local_mac[6]={2,0,0,0,0,1},local_ip[4]={10,0,2,15},dns_ip[4]={10,0,2,3},arp_request[256]={0},arp_rx[256]={0},frame[1024]={0};int slots[4],i;
+    TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300U,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));net_socket_reset_all();
+    TEST_ASSERT_EQUAL(0,ne2k_llm_socket_session_init(&session));TEST_ASSERT_NOT_EQUAL(0,ne2k_llm_socket_session_start(&device,&io,&cache,arp_request,sizeof(arp_request),arp_rx,sizeof(arp_rx),frame,sizeof(frame),local_ip,dns_ip,0x1234U,"api.example.test",1U,1U,49152U,443U,100U,&session));TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_IDLE,session.state.phase);TEST_ASSERT_EQUAL(-1,session.socket_id);
+    for(i=0;i<4;i++){slots[i]=net_socket_open((uint16_t)(49152U+i),443U,(uint32_t)(100U+i));TEST_ASSERT_TRUE(slots[i]>=0);}for(i=0;i<4;i++)TEST_ASSERT_EQUAL(0,net_socket_close(slots[i]));
+    TEST_ASSERT_NOT_EQUAL(0,ne2k_llm_socket_session_start_dhcp(&device,&io,&cache,arp_request,sizeof(arp_request),arp_rx,sizeof(arp_rx),frame,sizeof(frame),&lease,0x1234U,"api.example.test",1U,1U,49152U,443U,100U,&session));TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_IDLE,session.state.phase);TEST_ASSERT_EQUAL(-1,session.socket_id);
+    for(i=0;i<4;i++){slots[i]=net_socket_open((uint16_t)(49200U+i),443U,(uint32_t)(200U+i));TEST_ASSERT_TRUE(slots[i]>=0);}for(i=0;i<4;i++)TEST_ASSERT_EQUAL(0,net_socket_close(slots[i]));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);    RUN_TEST(test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination); RUN_TEST(test_ne2k_tcp_segment_bridge); RUN_TEST(test_ne2k_tcp_syn_ack_via_gateway);RUN_TEST(test_ne2k_socket_syn_bridge);
@@ -314,7 +324,7 @@ RUN_TEST(test_ne2k_llm_network_context_lifecycle);RUN_TEST(test_ne2k_socket_poll
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);
     RUN_TEST(test_rx_extract_publishes_bounded_frame);
     RUN_TEST(test_probe_rejects_missing_reset_ack);
-    RUN_TEST(test_ne2k_tls_client_start_and_empty_poll);RUN_TEST(test_ne2k_llm_dns_syn_bootstrap_failure_is_transactional);RUN_TEST(test_ne2k_dhcp_acquire_guard_is_transactional);RUN_TEST(test_ne2k_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_tls_poll_empty_is_nonblocking_and_transactional);RUN_TEST(test_ne2k_socket_llm_orchestrator_is_transactional);RUN_TEST(test_ne2k_llm_socket_session_phases_are_transactional);RUN_TEST(test_ne2k_llm_connection_state_phase_guards);RUN_TEST(test_ne2k_llm_connection_tls_phase_guard);RUN_TEST(test_ne2k_llm_connection_response_phase_guard);RUN_TEST(test_ne2k_llm_connection_reset_for_request);RUN_TEST(test_ne2k_llm_connection_sse_phase_guard_and_nonblocking_progress);RUN_TEST(test_ne2k_https_llm_request_composes_provider_json_and_bearer);RUN_TEST(test_ne2k_sse_resume_request_guards);RUN_TEST(test_ne2k_sse_retry_scheduler_adapter);RUN_TEST(test_ne2k_sse_terminal_classification);RUN_TEST(test_ne2k_provider_rotation_budget);
+    RUN_TEST(test_ne2k_tls_client_start_and_empty_poll);RUN_TEST(test_ne2k_llm_dns_syn_bootstrap_failure_is_transactional);RUN_TEST(test_ne2k_dhcp_acquire_guard_is_transactional);RUN_TEST(test_ne2k_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_syn_ack_tls_start_is_transactional);RUN_TEST(test_ne2k_socket_tls_poll_empty_is_nonblocking_and_transactional);RUN_TEST(test_ne2k_socket_llm_orchestrator_is_transactional);RUN_TEST(test_ne2k_llm_socket_session_phases_are_transactional);RUN_TEST(test_ne2k_llm_socket_bootstrap_failure_releases_slot);RUN_TEST(test_ne2k_llm_connection_state_phase_guards);RUN_TEST(test_ne2k_llm_connection_tls_phase_guard);RUN_TEST(test_ne2k_llm_connection_response_phase_guard);RUN_TEST(test_ne2k_llm_connection_reset_for_request);RUN_TEST(test_ne2k_llm_connection_sse_phase_guard_and_nonblocking_progress);RUN_TEST(test_ne2k_https_llm_request_composes_provider_json_and_bearer);RUN_TEST(test_ne2k_sse_resume_request_guards);RUN_TEST(test_ne2k_sse_retry_scheduler_adapter);RUN_TEST(test_ne2k_sse_terminal_classification);RUN_TEST(test_ne2k_provider_rotation_budget);
     unity_print_results();
     unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;

@@ -189,6 +189,69 @@ int ne2k_llm_socket_session_init(ne2k_llm_socket_session_t* session) {
     return 0;
 }
 
+int ne2k_llm_socket_session_start(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                  uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                  uint8_t* frame,uint16_t frame_capacity,const uint8_t local_ip[4],const uint8_t dns_ip[4],
+                                  uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                  uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                  ne2k_llm_socket_session_t* session) {
+    net_tcp_connection_t scratch_connection; uint8_t remote_ip[4]; int socket_id, status;
+    if (!session || session->state.phase != NE2K_LLM_CONNECTION_IDLE || session->socket_id >= 0) return -1;
+    socket_id = net_socket_open(local_port, remote_port, local_sequence);
+    if (socket_id < 0) return -2;
+    status = ne2k_llm_dns_syn_bootstrap(device, io, cache, arp_request, arp_request_capacity, arp_rx,
+                                        arp_rx_capacity, frame, frame_capacity, local_ip, dns_ip, dns_id,
+                                        hostname, dns_attempts, arp_attempts, local_port, remote_port,
+                                        local_sequence, remote_ip, &scratch_connection);
+    if (status != 0) { (void)net_socket_close(socket_id); return -3; }
+    if (ne2k_llm_socket_session_attach(session, socket_id, remote_ip) != 0) {
+        (void)net_socket_close(socket_id); return -4;
+    }
+    return 0;
+}
+
+int ne2k_llm_socket_session_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                       uint8_t* arp_request,uint16_t arp_request_capacity,uint8_t* arp_rx,uint16_t arp_rx_capacity,
+                                       uint8_t* frame,uint16_t frame_capacity,const net_dhcp_lease_t* lease,
+                                       uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                       uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                       ne2k_llm_socket_session_t* session) {
+    net_tcp_connection_t scratch_connection; uint8_t remote_ip[4]; int socket_id, status;
+    if (!session || session->state.phase != NE2K_LLM_CONNECTION_IDLE || session->socket_id >= 0) return -1;
+    socket_id = net_socket_open(local_port, remote_port, local_sequence);
+    if (socket_id < 0) return -2;
+    status = ne2k_llm_dns_syn_bootstrap_dhcp(device, io, cache, arp_request, arp_request_capacity, arp_rx,
+                                             arp_rx_capacity, frame, frame_capacity, lease, dns_id, hostname,
+                                             dns_attempts, arp_attempts, local_port, remote_port, local_sequence,
+                                             remote_ip, &scratch_connection);
+    if (status != 0) { (void)net_socket_close(socket_id); return -3; }
+    if (ne2k_llm_socket_session_attach(session, socket_id, remote_ip) != 0) {
+        (void)net_socket_close(socket_id); return -4;
+    }
+    return 0;
+}
+
+int ne2k_llm_socket_session_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
+                                               uint8_t* dhcp_tx,uint16_t dhcp_tx_capacity,uint8_t* dhcp_rx,uint16_t dhcp_rx_capacity,
+                                               uint32_t xid,uint16_t dhcp_attempts,uint8_t* arp_request,uint16_t arp_request_capacity,
+                                               uint8_t* arp_rx,uint16_t arp_rx_capacity,uint8_t* frame,uint16_t frame_capacity,
+                                               uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
+                                               uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
+                                               net_dhcp_lease_t* lease,ne2k_llm_socket_session_t* session) {
+    net_dhcp_lease_t next_lease; int status;
+    if (!lease || !session || session->state.phase != NE2K_LLM_CONNECTION_IDLE || session->socket_id >= 0) return -1;
+    status = ne2k_dhcp_acquire(device, io, dhcp_tx, dhcp_tx_capacity, dhcp_rx, dhcp_rx_capacity,
+                               xid, dhcp_attempts, &next_lease);
+    if (status != 0) return -2;
+    status = ne2k_llm_socket_session_start_dhcp(device, io, cache, arp_request, arp_request_capacity,
+                                                 arp_rx, arp_rx_capacity, frame, frame_capacity, &next_lease,
+                                                 dns_id, hostname, dns_attempts, arp_attempts, local_port,
+                                                 remote_port, local_sequence, session);
+    if (status != 0) return -3;
+    *lease = next_lease;
+    return 0;
+}
+
 int ne2k_llm_socket_session_attach(ne2k_llm_socket_session_t* session, int socket_id,
                                    const uint8_t remote_ip[4]) {
     uint8_t socket_state; uint8_t i;
