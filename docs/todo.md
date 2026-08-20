@@ -61,7 +61,7 @@
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [ ] Reprise SSE fine avec `Last-Event-ID`, campagne d’intégration OpenAI réelle, puis client OpenAI effectif
+- [x] Reprise SSE fine avec `Last-Event-ID` ; campagne d’intégration OpenAI réelle, puis client OpenAI effectif restent ouverts
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
@@ -79,10 +79,11 @@
 - [x] AOS-1489…1496 : backoff exponentiel borné de réacquisition DHCP, plafond de tentatives et remise à zéro transactionnelle — [aos1489_1496_dhcp_reacquire_backoff.md](aos1489_1496_dhcp_reacquire_backoff.md)
 - [x] AOS-1497…1504 : conservation contrôlée de la configuration fournisseur lors d’une réacquisition automatique — [aos1497_1504_provider_recovery.md](aos1497_1504_provider_recovery.md)
 - [x] AOS-1505…1512 : reprise applicative HTTP/SSE après réacquisition réseau et TLS complet — [aos1505_1512_application_recovery.md](aos1505_1512_application_recovery.md)
+- [x] AOS-1513…1520 : reprise SSE fine sur `Last-Event-ID` après réacquisition réseau, TLS complet et rollback TCP/TLS — [aos1513_1520_sse_fine_resume.md](aos1513_1520_sse_fine_resume.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 444 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 445 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

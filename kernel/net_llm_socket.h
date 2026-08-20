@@ -23,6 +23,15 @@ int net_llm_socket_build_request(int socket_id, net_tls_aes_gcm_session_t* sessi
                                  uint8_t* tls_record, uint32_t tls_capacity,
                                  uint8_t* tcp_segment, uint16_t tcp_capacity,
                                  uint8_t retransmit_limit);
+/* Construit un GET SSE `Last-Event-ID` dans request puis l’envoie sur TLS.
+ * Tous les buffers et l’identifiant restent caller-owned. */
+int net_llm_socket_build_sse_resume(int socket_id, net_tls_aes_gcm_session_t* session,
+                                    uint8_t* request, uint16_t request_capacity,
+                                    const char* host, const char* path,
+                                    const net_llm_sse_response_t* response,
+                                    uint8_t* tls_record, uint32_t tls_capacity,
+                                    uint8_t* tcp_segment, uint16_t tcp_capacity,
+                                    uint8_t retransmit_limit);
 /* Ouvre un record TLS socket et alimente l’accumulateur HTTP caller-owned. */
 int net_llm_socket_open_response(int socket_id, net_tls_aes_gcm_session_t* session,
                                  const net_tcp_view_t* view, uint8_t* plaintext,

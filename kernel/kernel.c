@@ -101,6 +101,9 @@ static uint8_t boot_llm_http_provider;
 static uint8_t boot_llm_http_streaming;
 typedef struct {
     uint8_t pending;
+    uint8_t is_sse_resume;
+    uint8_t event_id_length;
+    uint8_t event_id[NET_LLM_SSE_EVENT_ID_MAX];
     os_llm_request_t request;
 } kernel_llm_application_recovery_t;
 static kernel_llm_application_recovery_t boot_llm_application_recovery;
@@ -303,6 +306,16 @@ int kernel_llm_dhcp_maintenance(uint32_t now) {
                                         boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
                                         now, &boot_llm_lease);
         if (status != -2) return status;
+        boot_llm_application_recovery.is_sse_resume = 0U;
+        boot_llm_application_recovery.event_id_length = 0U;
+        if (boot_llm_application_recovery.pending && boot_llm_application_recovery.request.streaming &&
+            boot_llm_sse_response.sse.event_id_valid &&
+            boot_llm_sse_response.sse.event_id_length <= NET_LLM_SSE_EVENT_ID_MAX) {
+            for (attempt = 0U; attempt < boot_llm_sse_response.sse.event_id_length; ++attempt)
+                boot_llm_application_recovery.event_id[attempt] = boot_llm_sse_response.sse.event_id[attempt];
+            boot_llm_application_recovery.event_id_length = boot_llm_sse_response.sse.event_id_length;
+            boot_llm_application_recovery.is_sse_resume = 1U;
+        }
         (void)kernel_llm_close_internal(1U);
         net_dhcp_lease_clear(&boot_llm_lease);
     }
@@ -374,6 +387,10 @@ int kernel_llm_request(const os_llm_request_t* request) {
     boot_llm_http_streaming = request->streaming;
     boot_llm_application_recovery.request = *request;
     boot_llm_application_recovery.pending = 1U;
+    boot_llm_application_recovery.is_sse_resume = 0U;
+    boot_llm_application_recovery.event_id_length = 0U;
+    kernel_llm_clear_bytes(boot_llm_application_recovery.event_id,
+                           sizeof(boot_llm_application_recovery.event_id));
     return 0;
 }
 
@@ -573,8 +590,28 @@ int kernel_llm_poll_tls(void) {
     if (status < 0) return OS_LLM_TLS_FAILED;
     if (status == 0 && boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_TLS_COMPLETE &&
         boot_llm_application_recovery.pending) {
-        status = kernel_llm_request(&boot_llm_application_recovery.request);
-        return status == 0 ? 2 : OS_LLM_REQUEST_FAILED;
+        if (!boot_llm_application_recovery.is_sse_resume) {
+            status = kernel_llm_request(&boot_llm_application_recovery.request);
+            return status == 0 ? 2 : OS_LLM_REQUEST_FAILED;
+        }
+        if (net_llm_sse_response_init(&boot_llm_sse_response, boot_llm_sse_http_buffer,
+                                      sizeof(boot_llm_sse_http_buffer), boot_llm_sse_event_buffer,
+                                      sizeof(boot_llm_sse_event_buffer)) != 0)
+            return OS_LLM_REQUEST_FAILED;
+        boot_llm_sse_response.sse.event_id_length = boot_llm_application_recovery.event_id_length;
+        boot_llm_sse_response.sse.event_id_valid = 1U;
+        for (consumed = 0U; consumed < boot_llm_application_recovery.event_id_length; ++consumed)
+            boot_llm_sse_response.sse.event_id[consumed] = boot_llm_application_recovery.event_id[consumed];
+        status = ne2k_llm_socket_session_resume_sse(
+            &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache, boot_llm_frame, sizeof(boot_llm_frame),
+            boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client.session,
+            boot_llm_http_request, sizeof(boot_llm_http_request), boot_llm_hostname,
+            boot_llm_application_recovery.request.path, &boot_llm_sse_response, boot_llm_http_tls_record,
+            sizeof(boot_llm_http_tls_record), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment), 2U);
+        if (status < 0) return OS_LLM_REQUEST_FAILED;
+        boot_llm_http_provider = boot_llm_application_recovery.request.provider;
+        boot_llm_http_streaming = 1U;
+        return 2;
     }
     return status;
 }

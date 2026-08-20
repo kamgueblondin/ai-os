@@ -289,6 +289,13 @@ int ne2k_llm_socket_session_request(ne2k_device_t* device,const ne2k_io_t* io,co
                                     const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
                                     uint8_t* tls_record,uint32_t tls_capacity,uint8_t* tcp_segment,
                                     uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
+/* Réémet un GET SSE avec Last-Event-ID après un nouveau handshake TLS complet. */
+int ne2k_llm_socket_session_resume_sse(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                       uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
+                                       ne2k_llm_socket_session_t* session,net_tls_aes_gcm_session_t* tls_session,
+                                       uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                                       const net_llm_sse_response_t* response,uint8_t* tls_record,uint32_t tls_capacity,
+                                       uint8_t* tcp_segment,uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
 int ne2k_llm_socket_session_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                           uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
                                           const uint8_t local_ip[4],ne2k_llm_socket_session_t* session,
@@ -499,6 +506,13 @@ int ne2k_socket_llm_request(ne2k_device_t* device,const ne2k_io_t* io,const net_
                             const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
                             uint8_t* tls_record,uint32_t tls_capacity,uint8_t* tcp_segment,
                             uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
+/* Transmet un GET SSE de reprise préconstruit, avec rollback socket/TLS si TX échoue. */
+int ne2k_socket_llm_resume_sse(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                               uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
+                               const uint8_t remote_ip[4],int socket_id,net_tls_aes_gcm_session_t* session,
+                               uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                               const net_llm_sse_response_t* response,uint8_t* tls_record,uint32_t tls_capacity,
+                               uint8_t* tcp_segment,uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
 /* Polling HTTP socket : ouvre le record, alimente l’accumulateur et acquitte atomiquement. */
 int ne2k_socket_llm_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                   uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
