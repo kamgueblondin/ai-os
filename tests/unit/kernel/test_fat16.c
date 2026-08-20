@@ -20,6 +20,7 @@
 #define BLOCK_MODEL_BUFFER_BYTES 500000U
 static uint8_t disk[TEST_SECTORS * 512U];
 static uint8_t block_model_buffer[BLOCK_MODEL_BUFFER_BYTES];
+static uint32_t read_sector_calls;
 
 static uint16_t le16(uint32_t off) {
     return (uint16_t)disk[off] | ((uint16_t)disk[off + 1U] << 8);
@@ -38,6 +39,7 @@ static void put32(uint32_t off, uint32_t value) {
 static int read_sector(uint32_t lba, void* out) {
     uint32_t i;
     if (!out || lba >= TEST_SECTORS) return -1;
+    read_sector_calls++;
     for (i = 0U; i < 512U; i++) ((uint8_t*)out)[i] = disk[lba * 512U + i];
     return 0;
 }
@@ -53,6 +55,7 @@ static void make_volume(void) {
     uint32_t root = (1U + 2U * 17U) * 512U;
     uint32_t data = (root / 512U + 2U) * 512U;
     uint32_t i;
+    read_sector_calls = 0U;
     for (i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
     put16(11U, 512U);
     disk[13] = 1U;
@@ -881,6 +884,23 @@ static void test_cursor_reads_successive_windows(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_file_seek(&file, 6U));
 }
 
+static void test_cursor_caches_shared_sector(void) {
+    fat16_volume_t volume;
+    fat16_file_t file;
+    uint8_t buffer[3] = {0U, 0U, 0U};
+    uint32_t read = 0U;
+    uint32_t after_first;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_open_file(&volume, "fatok.txt", &file));
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, buffer, 3U, &read));
+    TEST_ASSERT_EQUAL(3, (int)read);
+    after_first = read_sector_calls;
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, buffer, 2U, &read));
+    TEST_ASSERT_EQUAL(2, (int)read);
+    TEST_ASSERT_EQUAL((int)after_first, (int)read_sector_calls);
+}
+
 static void test_rejects_bad_bpb(void) {
     fat16_volume_t volume;
     make_volume();
@@ -1009,6 +1029,7 @@ int main(void) {
     RUN_TEST(test_generates_gguf_token_logits_from_fat16);
     RUN_TEST(test_reads_bounded_file_range);
     RUN_TEST(test_cursor_reads_successive_windows);
+    RUN_TEST(test_cursor_caches_shared_sector);
     RUN_TEST(test_rejects_bad_bpb);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);
