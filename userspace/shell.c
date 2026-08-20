@@ -170,6 +170,11 @@ int sys_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_ACQUIRE_START), "b"(request));
     return result;
 }
+int sys_llm_configure_openai(const os_llm_openai_credential_request_t* request) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_LLM_OPENAI_CREDENTIAL), "b"(request));
+    return result;
+}
 
 int sys_llm_poll_tls(void) {
     int result;
@@ -4539,6 +4544,25 @@ static int ai_copy_field(char* destination, uint16_t capacity, const char* sourc
     return -1;
 }
 
+static void cmd_ai_credential(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_llm_openai_credential_request_t request = {0};
+    uint16_t index;
+    int status;
+    (void)ctx;
+    if (arg_count != 1 || ai_copy_field(request.bearer, OS_LLM_BEARER_MAX, args[0]) != 0) {
+        print_error("Usage: ai-credential <bearer OpenAI borne>");
+        return;
+    }
+    status = sys_llm_configure_openai(&request);
+    for (index = 0U; index < OS_LLM_BEARER_MAX; ++index) request.bearer[index] = '\0';
+    if (status == 0) {
+        print_success("ai-credential: bearer OpenAI provisionne dans le noyau");
+        return;
+    }
+    if (status == OS_LLM_CREDENTIAL_BAD_ARGUMENT) print_error("ai-credential: bearer invalide");
+    else if (status == OS_LLM_CREDENTIAL_BAD_PHASE) print_error("ai-credential: session LLM active; fermez-la avant modification");
+    else print_error("ai-credential: provisionnement refuse");
+}
 static void cmd_ai_request(shell_context_t* ctx, char args[][128], int arg_count, uint8_t streaming) {
     os_llm_request_t request = {0};
     uint16_t index = 0U;
@@ -4736,16 +4760,16 @@ static void cmd_net_status(shell_context_t* ctx, char args[][128], int arg_count
     (void)ctx;
     if (arg_count > 0 && strcmp(args[0], "json") == 0) {
         unsigned int status = sys_net_status();
-        print_string(status & 1U ? "{\"nic\":\"detected\",\"ethernet\":\"configured\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n" : "{\"nic\":\"absent\",\"ethernet\":\"absent\",\"arp\":\"absent\",\"ipv4\":\"absent\",\"dhcp\":\"absent\",\"dns\":\"absent\",\"tcp\":\"absent\",\"tls\":\"absent\",\"openai\":\"blocked\"}\n");
+        print_string(status & 1U ? "{\"nic\":\"detected\",\"ethernet\":\"configured\",\"arp\":\"on-demand\",\"ipv4\":\"dhcp\",\"dns\":\"on-demand\",\"tcp\":\"socket\",\"tls\":\"authenticated\",\"openai\":\"credential-required\"}\n" : "{\"nic\":\"absent\",\"ethernet\":\"unavailable\",\"arp\":\"unavailable\",\"ipv4\":\"unavailable\",\"dhcp\":\"unavailable\",\"dns\":\"unavailable\",\"tcp\":\"unavailable\",\"tls\":\"unavailable\",\"openai\":\"unavailable\"}\n");
         return;
     }
     (void)args;
     print_colored("\n=== Reseau bare-metal ===\n", COLOR_CYAN);
     print_string(sys_net_status() & 1U ? "Carte Ethernet : detectee (NE2000 initialise)\n" : "Carte Ethernet : absente (aucun pilote NIC initialise)\n");
-    print_string("ARP / IPv4 / DHCP : absents\n");
-    print_string("DNS / TCP / TLS   : absents\n");
-    print_string("OpenAI en ligne   : bloque, aucune requete n'est emise\n");
-    print_string("net-status ok stub AOS-025\n");
+    print_string("ARP / IPv4 / DHCP : acquisition et renouvellement caller-owned\n");
+    print_string("DNS / TCP / TLS   : socket, X.509 et TLS authentifie disponibles par phase\n");
+    print_string("OpenAI en ligne   : bearer, POST Chat Completions et SSE disponibles apres acquisition/TLS\n");
+    print_string("net-status ok AOS-1521\n");
 }
 
 static void cmd_reboot(shell_context_t* ctx, char args[][128], int arg_count) {
@@ -4785,7 +4809,7 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
 
 void call_ai_assistant(shell_context_t* ctx, const char* query) {
     if (ctx->ai_provider == AI_PROVIDER_OPENAI) {
-        print_colored("[IA] OpenAI configure mais indisponible : reseau/TLS bare-metal non integres\n", COLOR_YELLOW);
+        print_colored("[IA] OpenAI selectionne : utilisez ai-acquire, ai-tls-poll, puis ai-request ou ai-stream-request\n", COLOR_YELLOW);
         return;
     }
     print_colored("[IA] profil local : ", COLOR_CYAN);
@@ -5287,6 +5311,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
     } else if (strcmp(command, "ai-runtime") == 0) {
         cmd_ai_runtime(ctx, args, arg_count);
         return 1;
+    } else if (strcmp(command, "ai-credential") == 0) {
+        cmd_ai_credential(ctx, args, arg_count);
+        return 1;
     } else if (strcmp(command, "ai-acquire") == 0) {
         cmd_ai_acquire(ctx, args, arg_count);
         return 1;
@@ -5379,8 +5406,11 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
         return;
     }
     
-    // Ajouter à l'historique
-    add_to_history(ctx, input_buffer);
+    // Ne jamais conserver un bearer OpenAI dans l'historique du shell.
+    if (strncmp(input_buffer, "ai-credential ", 14U) == 0)
+        add_to_history(ctx, "ai-credential [masque]");
+    else
+        add_to_history(ctx, input_buffer);
 
     // Vérifier si c'est une question en mode IA
     if (ctx->ai_mode && is_question(input_buffer)) {
