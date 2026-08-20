@@ -83,10 +83,11 @@
 - [x] AOS-1521…1528 : activation contrôlée OpenAI depuis le shell, bearer masqué dans l’historique et diagnostics réseau réalignés — [aos1521_1528_openai_shell_activation.md](aos1521_1528_openai_shell_activation.md)
 - [x] AOS-1529…1536 : workspace GPT-2 statique, bornes 124M, suppression de `kmalloc` et test de capacité — [aos1529_1536_static_gpt2_workspace.md](aos1529_1536_static_gpt2_workspace.md)
 - [x] AOS-1537…1544 : lecture GGUF dense F32/F16 et tête de logits Q3_K/Q4_K/Q6_K sur FAT16 caller-owned — [aos1537_1544_gguf_output_path.md](aos1537_1544_gguf_output_path.md)
+- [x] AOS-1545…1552 : forward de bloc transformeur GPT-2 Q4_K sur FAT16, cache KV et workspace caller-owned — [aos1545_1552_gguf_transformer_block.md](aos1545_1552_gguf_transformer_block.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 447 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 448 tests exécutés avec succès ; `make qemu-smoke` et `make integration-qemu`)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

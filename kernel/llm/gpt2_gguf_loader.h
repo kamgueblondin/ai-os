@@ -35,6 +35,23 @@ typedef struct {
     uint8_t ready;
 } gpt2_gguf_runtime_t;
 
+/* Espace de travail d’un bloc GPT-2 GGUF, entièrement fourni par l’appelant.
+ * Les capacités des vecteurs float sont exprimées en nombre d’éléments. */
+typedef struct {
+    float* norm; uint32_t norm_capacity;
+    float* query; uint32_t query_capacity;
+    float* key; uint32_t key_capacity;
+    float* value; uint32_t value_capacity;
+    float* head_outputs; uint32_t head_output_capacity;
+    float* key_scratch; uint32_t key_scratch_capacity;
+    float* scores; uint32_t score_capacity;
+    float* attention; uint32_t attention_capacity;
+    float* projected; uint32_t projected_capacity;
+    float* hidden; uint32_t hidden_capacity;
+    float* mlp_output; uint32_t mlp_output_capacity;
+    uint8_t* row_buffer; uint32_t row_capacity;
+} gpt2_gguf_block_workspace_t;
+
 /* Construit et valide une table de couches persistante caller-owned. */
 int gpt2_gguf_runtime_prepare(const gpt2_gguf_loaded_model_t* model,
                               uint32_t layer_count, uint32_t channels,
@@ -166,6 +183,30 @@ int gpt2_gguf_attention_output_add_residual_fat16(
                                       float* projected, uint32_t projected_capacity,
                                       const float* bias, float* residual,
                                       uint32_t residual_capacity);
+/* Exécute un bloc GPT-2 complet : LN, QKV, cache KV, attention, projection,
+ * résiduel, LN, MLP et résiduel. Les tenseurs et tous les buffers sont caller-owned. */
+int gpt2_gguf_block_forward_fat16(
+                                      gpt2_gguf_kv_cache_t* cache,
+                                      uint32_t layer, uint32_t position,
+                                      float* residual, uint32_t residual_capacity,
+                                      uint32_t channels, uint32_t head_count,
+                                      uint32_t hidden_channels,
+                                      const float* attention_gamma,
+                                      const float* attention_beta,
+                                      const gpt2_gguf_tensor_t* qkv_tensor,
+                                      const gpt2_gguf_tensor_t* attention_output_tensor,
+                                      const float* attention_output_bias,
+                                      const float* ffn_gamma,
+                                      const float* ffn_beta,
+                                      const gpt2_gguf_tensor_t* ffn_up_tensor,
+                                      const gpt2_gguf_tensor_t* ffn_down_tensor,
+                                      const float* ffn_up_bias,
+                                      const float* ffn_down_bias,
+                                      float epsilon,
+                                      const fat16_volume_t* volume, const char* filename,
+                                      const gpt2_gguf_loaded_model_t* model,
+                                      gpt2_gguf_block_workspace_t* workspace);
+
 /* Exécute LayerNorm -> attention multi-têtes -> projection -> résiduel. */
 int gpt2_gguf_block_attention_forward_fat16(
                                       const gpt2_gguf_kv_cache_t* cache,
