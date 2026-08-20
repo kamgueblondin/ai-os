@@ -325,6 +325,19 @@ int ne2k_tls_client_start(ne2k_device_t* device,const ne2k_io_t* io,const net_ar
                           net_tcp_connection_t* connection,ne2k_tls_client_t* client,
                           const uint8_t client_random[32],uint8_t* client_hello_record,uint32_t client_hello_capacity,
                           uint8_t retransmit_limit);
+/* Construit, transmet et publie ClientHello via un socket TCP établi, de façon transactionnelle. */
+int ne2k_socket_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                          int socket_id,ne2k_tls_client_t* client,const uint8_t client_random[32],
+                          uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                          uint8_t* tcp_segment,uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
+/* Accepte un SYN-ACK et transmet ClientHello ; socket et TLS sont restaurés si une étape échoue. */
+int ne2k_socket_tls_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                         uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
+                                         int socket_id,const net_tcp_view_t* syn_ack,ne2k_tls_client_t* client,
+                                         const uint8_t client_random[32],uint8_t* client_hello_record,
+                                         uint32_t client_hello_capacity,uint8_t* tcp_segment,
+                                         uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
 /* Accepte un SYN-ACK validé et émet ClientHello ; la connexion et le client ne sont publiés qu’après succès complet. */
 int ne2k_tls_client_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
