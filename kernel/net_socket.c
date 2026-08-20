@@ -83,6 +83,37 @@ int net_socket_receive(int socket_id, uint8_t* buffer, uint16_t capacity, uint16
     return 0;
 }
 
+int net_socket_send_tls(int socket_id, net_tls_aes_gcm_session_t* session, uint8_t content_type,
+                        const uint8_t* plaintext, uint16_t plaintext_length,
+                        uint8_t* record, uint32_t record_capacity, uint8_t* segment,
+                        uint16_t segment_capacity, uint16_t* out_segment_length,
+                        uint8_t retransmit_limit) {
+    int built;
+    uint16_t record_length;
+    if (!valid_id(socket_id) || !session || !plaintext || !record || !segment || !out_segment_length) return NET_SOCKET_BAD_ARGUMENT;
+    if (sockets[socket_id].connection.state != NET_TCP_STATE_ESTABLISHED) return NET_SOCKET_NOT_CONNECTED;
+    if (plaintext_length == 0U || plaintext_length > NET_SOCKET_TX_CAPACITY) return NET_SOCKET_BUFFER_SMALL;
+    built = net_tcp_connection_build_tls_aes_gcm(&sockets[socket_id].connection, session, segment, segment_capacity,
+                                                  record, record_capacity, content_type, plaintext, plaintext_length,
+                                                  retransmit_limit);
+    if (built < 0) return NET_SOCKET_PROTOCOL;
+    record_length = sockets[socket_id].connection.pending_length;
+    if (record_length == 0U || net_tcp_connection_commit_send(&sockets[socket_id].connection, record_length) != 0) return NET_SOCKET_PROTOCOL;
+    *out_segment_length = (uint16_t)built;
+    return 0;
+}
+
+int net_socket_receive_tls(int socket_id, net_tls_aes_gcm_session_t* session,
+                           const net_tcp_view_t* view, uint8_t* plaintext,
+                           uint16_t plaintext_capacity, net_tls_record_view_t* out_record,
+                           uint16_t* consumed) {
+    if (!valid_id(socket_id) || !session || !view || !plaintext || !out_record || !consumed) return NET_SOCKET_BAD_ARGUMENT;
+    if (sockets[socket_id].connection.state != NET_TCP_STATE_ESTABLISHED) return NET_SOCKET_NOT_CONNECTED;
+    return net_tcp_connection_accept_tls_aes_gcm(&sockets[socket_id].connection, session, view,
+                                                  plaintext, plaintext_capacity, out_record, consumed) == 0
+           ? 0 : NET_SOCKET_PROTOCOL;
+}
+
 int net_socket_get_state(int socket_id, uint8_t* out_state) {
     if (!valid_id(socket_id)) return NET_SOCKET_NOT_OPEN;
     if (!out_state) return NET_SOCKET_BAD_ARGUMENT;

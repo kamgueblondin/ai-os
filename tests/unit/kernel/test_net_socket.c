@@ -54,9 +54,26 @@ void test_socket_lifecycle_send_receive(void) {
     TEST_ASSERT_EQUAL(NET_SOCKET_NOT_OPEN, net_socket_get_state(id, &state));
 }
 
+void test_socket_tls_send_wrapper(void) {
+    int id; uint8_t segment[128] = {0}, record[128] = {0}, payload[3] = {'A','I','!' };
+    uint16_t segment_length = 0U; uint8_t key_material[40]; uint8_t i;
+    net_tls_aes128_gcm_key_block_t block; net_tls_aes_gcm_session_t session; net_tcp_view_t view;
+    for (i = 0U; i < sizeof(key_material); i++) key_material[i] = (uint8_t)(i + 1U);
+    block = (net_tls_aes128_gcm_key_block_t){key_material, key_material + 16U, key_material + 32U, key_material + 36U};
+    TEST_ASSERT_EQUAL(0, net_tls_aes_gcm_session_init(&session, &block, 1U));
+    net_socket_reset_all(); id = net_socket_open(49152U, 443U, 100U); TEST_ASSERT_TRUE(id >= 0);
+    view = (net_tcp_view_t){443U,49152U,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0};
+    TEST_ASSERT_EQUAL(0, net_socket_accept_syn_ack(id, &view));
+    TEST_ASSERT_EQUAL(0, net_socket_send_tls(id, &session, NET_TLS_CONTENT_APPLICATION_DATA, payload, sizeof(payload), record, sizeof(record), segment, sizeof(segment), &segment_length, 2U));
+    TEST_ASSERT_EQUAL(1U, session.write_sequence); TEST_ASSERT_GREATER_THAN(24U, segment_length);
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, segment_length, &view)); TEST_ASSERT_GREATER_THAN(3U, view.payload_length);
+    TEST_ASSERT_EQUAL(0, net_socket_close(id));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_socket_lifecycle_send_receive);
+    RUN_TEST(test_socket_tls_send_wrapper);
     RUN_TEST(test_socket_passive_lifecycle);
     RUN_TEST(test_socket_feed_routes_passive_segments);
     unity_print_results();
