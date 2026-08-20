@@ -96,6 +96,7 @@ static uint8_t boot_llm_http_streaming;
 static uint8_t boot_ne2k_present;
 static void kernel_llm_clear_bytes(uint8_t* buffer, uint32_t length);
 static int kernel_llm_rdrand_supported(void);
+int kernel_llm_close(void);
 void ne2k_irq_handler(void) { ne2k_irq_service(); }
 
 static void ne2k_boot_probe(void) {
@@ -282,7 +283,17 @@ int kernel_llm_dhcp_maintenance(uint32_t now) {
                                     boot_llm_dhcp_maintenance.acquire.xid,
                                     boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
                                     now, &boot_llm_lease);
-    return status;
+    if (status != -2) return status;
+    /* Bail expiré : la session est fermée puis le bootstrap entier est rejoué hors IRQ0. */
+    {
+        os_llm_acquire_start_request_t retry = boot_llm_dhcp_maintenance.acquire;
+        (void)kernel_llm_close();
+        net_dhcp_lease_clear(&boot_llm_lease);
+        retry.xid++;
+        status = kernel_llm_acquire_start(&retry);
+        if (status != 0) return -2;
+        return 2;
+    }
 }
 
 static int kernel_llm_text_field_is_valid(const char* field, uint16_t capacity) {
