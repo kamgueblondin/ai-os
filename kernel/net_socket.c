@@ -163,6 +163,15 @@ int net_socket_build_ack(int socket_id, uint8_t* segment, uint16_t capacity, uin
     return 0;
 }
 
+int net_socket_begin_close(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+    int built;
+    if (!valid_id(socket_id) || !segment || !out_length) return NET_SOCKET_BAD_ARGUMENT;
+    built = net_tcp_connection_begin_close(&sockets[socket_id].connection, segment, capacity);
+    if (built < 0) return NET_SOCKET_PROTOCOL;
+    *out_length = (uint16_t)built;
+    return 0;
+}
+
 int net_socket_commit_send(int socket_id, uint16_t payload_length) {
     if (!valid_id(socket_id)) return NET_SOCKET_BAD_ARGUMENT;
     return net_tcp_connection_commit_send(&sockets[socket_id].connection, payload_length) == 0 ? 0 : NET_SOCKET_PROTOCOL;

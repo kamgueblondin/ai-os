@@ -81,6 +81,19 @@ void test_socket_build_syn_active(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(id));
 }
 
+void test_socket_begin_close_is_bounded(void) {
+    int id; uint8_t segment[NET_TCP_HEADER_SIZE] = {0}, state = 0U; uint16_t length = 0U; net_tcp_view_t view;
+    net_socket_reset_all(); id = net_socket_open(49152U, 443U, 100U); TEST_ASSERT_TRUE(id >= 0);
+    TEST_ASSERT_EQUAL(NET_SOCKET_PROTOCOL, net_socket_begin_close(id, segment, sizeof(segment), &length));
+    view = (net_tcp_view_t){443U,49152U,700U,101U,NET_TCP_FLAG_SYN|NET_TCP_FLAG_ACK,0,0};
+    TEST_ASSERT_EQUAL(0, net_socket_accept_syn_ack(id, &view));
+    TEST_ASSERT_EQUAL(0, net_socket_begin_close(id, segment, sizeof(segment), &length));
+    TEST_ASSERT_EQUAL(NET_TCP_HEADER_SIZE, length); TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, length, &view));
+    TEST_ASSERT_EQUAL(NET_TCP_FLAG_FIN|NET_TCP_FLAG_ACK, view.flags);
+    TEST_ASSERT_EQUAL(0, net_socket_get_state(id, &state)); TEST_ASSERT_EQUAL(NET_TCP_STATE_FIN_WAIT_1, state);
+    TEST_ASSERT_EQUAL(0, net_socket_close(id));
+}
+
 void test_socket_tls_poll_primitives_are_bounded(void) {
     int id; uint8_t segment[128] = {0}, records[128] = {0}, plaintext[32] = {0};
     uint8_t client_random[32] = {0}, client_private[NET_TLS_X25519_KEY_LENGTH] = {0};
@@ -127,6 +140,7 @@ int main(void) {
     RUN_TEST(test_socket_passive_lifecycle);
     RUN_TEST(test_socket_feed_routes_passive_segments);
     RUN_TEST(test_socket_tls_poll_primitives_are_bounded);
+    RUN_TEST(test_socket_begin_close_is_bounded);
     unity_print_results();
     unity_cleanup();
     return 0;

@@ -333,6 +333,10 @@ int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
 int ne2k_socket_ack(ne2k_device_t* device, const ne2k_io_t* io,
                     const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
                     const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id);
+/* Émet FIN+ACK depuis le slot socket et restaure le slot si l’encapsulation ou TX échoue. */
+int ne2k_socket_fin(ne2k_device_t* device, const ne2k_io_t* io,
+                    const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
+                    const uint8_t local_ip[4], const uint8_t remote_ip[4], int socket_id);
 /* Construit et émet le FIN+ACK caller-owned de fermeture. */
 int ne2k_tcp_fin(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
