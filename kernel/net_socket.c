@@ -88,3 +88,34 @@ void net_socket_reset_all(void) {
     uint32_t i;
     for (i = 0U; i < NET_SOCKET_CAPACITY; i++) sockets[i].used = 0U;
 }
+
+int net_socket_listen(uint16_t local_port, uint32_t local_sequence) {
+    uint32_t i;
+    for (i = 0U; i < NET_SOCKET_CAPACITY; i++) if (!sockets[i].used) {
+        sockets[i].used = 1U; sockets[i].receive_length = 0U; sockets[i].receive_offset = 0U;
+        if (net_tcp_connection_listen(&sockets[i].connection, local_port, local_sequence) != 0) {
+            sockets[i].used = 0U; return NET_SOCKET_BAD_ARGUMENT;
+        }
+        return (int)i;
+    }
+    return NET_SOCKET_NO_SLOT;
+}
+
+int net_socket_accept_syn(int socket_id, const net_tcp_view_t* view) {
+    if (!valid_id(socket_id) || !view) return NET_SOCKET_BAD_ARGUMENT;
+    return net_tcp_connection_accept_syn(&sockets[socket_id].connection, view) == 0 ? 0 : NET_SOCKET_PROTOCOL;
+}
+
+int net_socket_build_syn_ack(int socket_id, uint8_t* segment, uint16_t capacity, uint16_t* out_length) {
+    int built;
+    if (!valid_id(socket_id) || !segment || !out_length) return NET_SOCKET_BAD_ARGUMENT;
+    built = net_tcp_connection_build_syn_ack(&sockets[socket_id].connection, segment, capacity);
+    if (built < 0) return NET_SOCKET_PROTOCOL;
+    *out_length = (uint16_t)built;
+    return 0;
+}
+
+int net_socket_accept_ack(int socket_id, const net_tcp_view_t* view) {
+    if (!valid_id(socket_id) || !view) return NET_SOCKET_BAD_ARGUMENT;
+    return net_tcp_connection_accept_ack(&sockets[socket_id].connection, view) == 0 ? 0 : NET_SOCKET_PROTOCOL;
+}
