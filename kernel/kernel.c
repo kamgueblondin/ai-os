@@ -46,8 +46,14 @@ static net_dhcp_lease_t boot_llm_lease;
 static ne2k_llm_socket_session_t boot_llm_socket_session;
 typedef struct {
     uint8_t armed;
+    uint8_t retries_used;
+    uint8_t retry_limit;
+    uint32_t next_retry_tick;
     os_llm_acquire_start_request_t acquire;
 } kernel_llm_dhcp_maintenance_t;
+#define KERNEL_LLM_DHCP_RETRY_BASE_TICKS 100U
+#define KERNEL_LLM_DHCP_RETRY_MAX_TICKS 10000U
+#define KERNEL_LLM_DHCP_RETRY_LIMIT 5U
 static kernel_llm_dhcp_maintenance_t boot_llm_dhcp_maintenance;
 /* Espaces de travail noyau fixes : aucun buffer du chemin DHCP→LLM n’est alloué. */
 static net_arp_cache_t boot_llm_arp_cache;
@@ -113,6 +119,9 @@ static void ne2k_boot_probe(void) {
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
     boot_llm_http_streaming = 0U;
     boot_llm_dhcp_maintenance.armed = 0U;
+    boot_llm_dhcp_maintenance.retries_used = 0U;
+    boot_llm_dhcp_maintenance.retry_limit = KERNEL_LLM_DHCP_RETRY_LIMIT;
+    boot_llm_dhcp_maintenance.next_retry_tick = 0U;
     boot_ne2k_present = 0U;
     if (ne2k_i386_io(&boot_ne2k_io) != 0) return;
     if (ne2k_probe(&boot_ne2k_device, 0x300U, &boot_ne2k_io) != 0) {
@@ -268,32 +277,41 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
     }
     boot_llm_dhcp_maintenance.acquire = *request;
     boot_llm_dhcp_maintenance.armed = 1U;
+    boot_llm_dhcp_maintenance.retries_used = 0U;
+    boot_llm_dhcp_maintenance.retry_limit = KERNEL_LLM_DHCP_RETRY_LIMIT;
+    boot_llm_dhcp_maintenance.next_retry_tick = 0U;
     kernel_llm_copy_hostname(request->hostname);
     return 0;
 }
 
 /* Appelé depuis un contexte noyau sûr ; jamais depuis le gestionnaire IRQ0. */
 int kernel_llm_dhcp_maintenance(uint32_t now) {
-    int status;
+    int status; uint32_t delay; uint8_t attempt; os_llm_acquire_start_request_t retry;
     if (!boot_llm_dhcp_maintenance.armed || !boot_ne2k_present) return 0;
-    if (!boot_llm_lease.valid) return -1;
-    status = ne2k_dhcp_renew_if_due(&boot_ne2k_device, &boot_ne2k_io,
-                                    boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx),
-                                    boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
-                                    boot_llm_dhcp_maintenance.acquire.xid,
-                                    boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
-                                    now, &boot_llm_lease);
-    if (status != -2) return status;
-    /* Bail expiré : la session est fermée puis le bootstrap entier est rejoué hors IRQ0. */
-    {
-        os_llm_acquire_start_request_t retry = boot_llm_dhcp_maintenance.acquire;
+    if (boot_llm_lease.valid) {
+        status = ne2k_dhcp_renew_if_due(&boot_ne2k_device, &boot_ne2k_io,
+                                        boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx),
+                                        boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
+                                        boot_llm_dhcp_maintenance.acquire.xid,
+                                        boot_llm_dhcp_maintenance.acquire.dhcp_attempts,
+                                        now, &boot_llm_lease);
+        if (status != -2) return status;
         (void)kernel_llm_close();
         net_dhcp_lease_clear(&boot_llm_lease);
-        retry.xid++;
-        status = kernel_llm_acquire_start(&retry);
-        if (status != 0) return -2;
-        return 2;
     }
+    if (now < boot_llm_dhcp_maintenance.next_retry_tick) return 0;
+    if (boot_llm_dhcp_maintenance.retries_used >= boot_llm_dhcp_maintenance.retry_limit) return -3;
+    retry = boot_llm_dhcp_maintenance.acquire;
+    retry.xid += (uint32_t)boot_llm_dhcp_maintenance.retries_used + 1U;
+    status = kernel_llm_acquire_start(&retry);
+    if (status == 0) return 2;
+    delay = KERNEL_LLM_DHCP_RETRY_BASE_TICKS;
+    for (attempt = 0U; attempt < boot_llm_dhcp_maintenance.retries_used &&
+         delay < KERNEL_LLM_DHCP_RETRY_MAX_TICKS / 2U; ++attempt) delay <<= 1U;
+    boot_llm_dhcp_maintenance.retries_used++;
+    if (delay > KERNEL_LLM_DHCP_RETRY_MAX_TICKS) delay = KERNEL_LLM_DHCP_RETRY_MAX_TICKS;
+    boot_llm_dhcp_maintenance.next_retry_tick = now + delay;
+    return -2;
 }
 
 static int kernel_llm_text_field_is_valid(const char* field, uint16_t capacity) {
