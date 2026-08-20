@@ -163,11 +163,14 @@ run_test() {
     if [ "$(basename "$test_file")" = "test_rtc.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/rtc.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_socket.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_socket.c" ] || [ "$(basename "$test_file")" = "test_net_llm_socket.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_socket.c"
         extra_src="$extra_src $BASE_DIR/kernel/x25519.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_socket.c" ] || [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_llm_socket.c" ]; then
+        extra_src="$extra_src $BASE_DIR/kernel/net_llm_socket.c"
+    fi
+    if [ "$(basename "$test_file")" = "test_net_socket.c" ] || [ "$(basename "$test_file")" = "test_net_llm_socket.c" ] || [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_tcp.c"
         extra_src="$extra_src $BASE_DIR/kernel/net_tls_record.c"
         extra_src="$extra_src $BASE_DIR/kernel/sha256.c"
@@ -175,7 +178,7 @@ run_test() {
         extra_src="$extra_src $BASE_DIR/kernel/x509_der.c"
         extra_src="$extra_src $BASE_DIR/kernel/rsa_verify.c $BASE_DIR/kernel/bigint.c $BASE_DIR/kernel/ecdsa_p256.c"
     fi
-    if [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
+    if [ "$(basename "$test_file")" = "test_net_llm_socket.c" ] || [ "$(basename "$test_file")" = "test_net_tcp.c" ] || [ "$(basename "$test_file")" = "test_net_http_tls.c" ]; then
         extra_src="$extra_src $BASE_DIR/kernel/net_http_tls.c"
     fi
     if [ "$(basename "$test_file")" = "test_net_dns.c" ]; then
