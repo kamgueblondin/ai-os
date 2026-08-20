@@ -75,6 +75,8 @@ typedef struct {
 #define NE2K_LLM_CONNECTION_RESPONSE_READY 5U
 #define NE2K_LLM_CONNECTION_STREAMING 6U
 typedef struct { uint8_t remote_ip[4]; uint8_t phase; } ne2k_llm_connection_state_t;
+/* Session LLM socket caller-owned : aucun buffer, secret ou état TCP privé n’est retenu. */
+typedef struct { ne2k_llm_connection_state_t state; int socket_id; } ne2k_llm_socket_session_t;
 /* Contexte réseau LLM caller-owned : aucun buffer, secret ou endpoint n’est retenu. */
 typedef struct {
     net_dhcp_lease_t lease;
@@ -258,6 +260,49 @@ int ne2k_llm_network_context_acquire_start_dhcp(ne2k_device_t* device,const ne2k
                                                 uint16_t dns_id,const char* hostname,uint16_t dns_attempts,uint16_t arp_attempts,
                                                 uint16_t local_port,uint16_t remote_port,uint32_t local_sequence,
                                                 ne2k_llm_network_context_t* context);
+/* Session socket : attache un SYN déjà émis à la phase LLM sans conserver de connexion privée. */
+int ne2k_llm_socket_session_init(ne2k_llm_socket_session_t* session);
+int ne2k_llm_socket_session_attach(ne2k_llm_socket_session_t* session,int socket_id,const uint8_t remote_ip[4]);
+int ne2k_llm_socket_session_poll_tls_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                            uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                            const uint8_t local_ip[4],ne2k_llm_socket_session_t* session,
+                                            ne2k_tls_client_t* client,const uint8_t client_random[32],
+                                            uint8_t* client_hello_record,uint32_t client_hello_capacity,
+                                            uint8_t* tcp_segment,uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
+int ne2k_llm_socket_session_poll_tls(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                      uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                      const uint8_t local_ip[4],ne2k_llm_socket_session_t* session,
+                                      ne2k_tls_client_t* client,const uint8_t client_random[32],
+                                      const uint8_t client_private[NET_TLS_X25519_KEY_LENGTH],
+                                      const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,
+                                      uint32_t* rsa_workspace,uint16_t rsa_workspace_length,
+                                      uint32_t* x25519_workspace,uint16_t x25519_workspace_length,
+                                      uint8_t* prf_workspace,uint32_t prf_workspace_capacity,
+                                      uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
+                                      uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
+                                      uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed);
+int ne2k_llm_socket_session_request(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                    uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
+                                    ne2k_llm_socket_session_t* session,net_tls_aes_gcm_session_t* tls_session,
+                                    uint8_t provider,uint8_t stream,uint8_t* json,uint16_t json_capacity,
+                                    uint8_t* request,uint16_t request_capacity,const char* host,const char* path,
+                                    const char* bearer_token,const char* model,const uint8_t* prompt,uint16_t prompt_length,
+                                    uint8_t* tls_record,uint32_t tls_capacity,uint8_t* tcp_segment,
+                                    uint16_t tcp_segment_capacity,uint8_t retransmit_limit);
+int ne2k_llm_socket_session_poll_response(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                          uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                          const uint8_t local_ip[4],ne2k_llm_socket_session_t* session,
+                                          net_tls_aes_gcm_session_t* tls_session,uint8_t* plaintext,
+                                          uint16_t plaintext_capacity,net_http_response_accumulator_t* accumulator,
+                                          net_http_response_view_t* response,uint16_t* consumed);
+int ne2k_llm_socket_session_poll_sse(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                     uint8_t* rx_frame,uint16_t rx_capacity,uint8_t* tx_frame,uint16_t tx_capacity,
+                                     const uint8_t local_ip[4],ne2k_llm_socket_session_t* session,
+                                     net_tls_aes_gcm_session_t* tls_session,uint8_t* plaintext,
+                                     uint16_t plaintext_capacity,net_llm_sse_response_t* response,uint8_t provider,
+                                     uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed);
+int ne2k_llm_socket_session_reset_for_request(ne2k_llm_socket_session_t* session);
+
 /* Construit et émet le premier ACK TCP depuis une connexion caller-owned. */
 int ne2k_tcp_ack(ne2k_device_t* device, const ne2k_io_t* io,
                  const net_arp_cache_t* cache, uint8_t* frame, uint16_t frame_capacity,
