@@ -135,6 +135,7 @@
 - [x] AOS-1941…1948 : réconciliation des limites historiques, renvoi vers les macro-lots successeurs et index documentaire cohérent — [aos1941_1948_backlog_documentation_reconciliation.md](aos1941_1948_backlog_documentation_reconciliation.md)
 - [x] AOS-1949…1956 : captures QEMU GUI portables, saisie contrôlée avec reprise et validation shell/IA/NE2000 reproductible — [aos1949_1956_portable_gui_captures.md](aos1949_1956_portable_gui_captures.md)
 - [x] AOS-1957…1964 : réconciliation GGUF, validation `C/V/T` et axes de couches branchés aux kernels quantifiés caller-owned — [aos1957_1964_gguf_dimension_reconciliation.md](aos1957_1964_gguf_dimension_reconciliation.md)
+- [x] AOS-1965…1972 : rollback ELF transactionnel après restauration du VMM actif et restitution PMM des mappings partiels — [aos1965_1972_elf_transactional_rollback.md](aos1965_1972_elf_transactional_rollback.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

@@ -64,7 +64,9 @@ uint32_t elf_load(uint8_t* file_data, vmm_directory_t* vmm_dir) {
                 void* phys_page = pmm_alloc_page();
                 if (!phys_page) {
                     print_string_serial("ERROR: pmm_alloc_page failed for ELF segment.\n");
-                    // TODO: Here we should unmap all previously mapped pages
+                    /* Le chargeur rend l’échec à l’appelant. Après restauration du
+                     * répertoire actif, task_destroy_user_vmm() détruit le VMM partiel,
+                     * restitue les pages utilisateur et les tables privées au PMM. */
                     return 0;
                 }
                 if (vmm_map_page_in_directory(vmm_dir, phys_page, (void*)page_addr, page_flags) != 0) {
