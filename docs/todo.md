@@ -91,6 +91,7 @@
 - [x] AOS-1585…1592 : projection GGUF top-k en flux, suppression du buffer de logits et équivalence RNG — [aos1585_1592_gguf_stream_topk.md](aos1585_1592_gguf_stream_topk.md)
 - [x] AOS-1593…1600 : session GPT-2 GGUF locale persistante, continuation coopérative `ai-continue`, ABI 110 et refus sans session — [aos1593_1600_gguf_local_session.md](aos1593_1600_gguf_local_session.md)
 - [x] AOS-1601…1608 : forward GGUF Q3_K réel, buffer MLP 4C, garde FAT16 profonde corrigée et smoke `ai`/`ai-continue` sans repli — [aos1601_1608_gguf_real_runtime.md](aos1601_1608_gguf_real_runtime.md)
+- [x] AOS-1609…1616 : transferts ATA PIO `rep insw`/`rep outsw`, gain mesuré du premier token Q3_K et smoke QEMU sans régression — [aos1609_1616_ata_pio_streaming.md](aos1609_1616_ata_pio_streaming.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

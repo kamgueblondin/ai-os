@@ -33,8 +33,14 @@ static unsigned short ata_inw(unsigned short port) {
     return ret;
 }
 
-static void ata_outw(unsigned short port, unsigned short data) {
-    asm volatile ("outw %0, %1" : : "a"(data), "dN"(port));
+/* Les transferts PIO d’un secteur sont contigus : rep insw/outsw évite une
+ * boucle C de 256 accès port et ne requiert aucun buffer intermédiaire. */
+static void ata_insw(void* out, uint32_t words) {
+    asm volatile ("cld; rep insw" : "+D"(out), "+c"(words) : "d"(ATA_DATA) : "memory");
+}
+
+static void ata_outsw(const void* in, uint32_t words) {
+    asm volatile ("cld; rep outsw" : "+S"(in), "+c"(words) : "d"(ATA_DATA) : "memory");
 }
 
 static void ata_io_delay(void) {
@@ -113,7 +119,6 @@ int ata_init(void) {
 int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
     uint8_t* out = (uint8_t*)buf;
     uint32_t s;
-    uint32_t w;
 
     if (!g_ata_present || !buf || count == 0 || count > 256) return -1;
     if (lba + count < lba) return -1;
@@ -123,12 +128,8 @@ int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
 
     for (s = 0; s < count; s++) {
         if (ata_wait_drq() < 0) return -1;
-        for (w = 0; w < 256; w++) {
-            uint16_t word = ata_inw(ATA_DATA);
-            out[0] = (uint8_t)word;
-            out[1] = (uint8_t)(word >> 8);
-            out += 2;
-        }
+        ata_insw(out, 256U);
+        out += 512U;
         if (ata_wait_not_busy() < 0) return -1;
     }
     return 0;
@@ -137,7 +138,6 @@ int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
 int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
     const uint8_t* in = (const uint8_t*)buf;
     uint32_t s;
-    uint32_t w;
 
     if (!g_ata_present || !buf || count == 0 || count > 256) return -1;
     if (lba + count < lba) return -1;
@@ -147,11 +147,8 @@ int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
 
     for (s = 0; s < count; s++) {
         if (ata_wait_drq() < 0) return -1;
-        for (w = 0; w < 256; w++) {
-            uint16_t word = (uint16_t)in[0] | ((uint16_t)in[1] << 8);
-            ata_outw(ATA_DATA, word);
-            in += 2;
-        }
+        ata_outsw(in, 256U);
+        in += 512U;
         if (ata_wait_not_busy() < 0) return -1;
     }
     return 0;
