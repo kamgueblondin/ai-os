@@ -38,6 +38,8 @@ typedef struct {
     page_table_t** tables;
     page_directory_t* physical_dir;
     uint32_t physical_addr;
+    /* Le conteneur est fourni par un pool statique et ne doit pas passer par kfree(). */
+    uint8_t static_storage;
     /* Bitmap des tables clonées pour un espace utilisateur ; les tables noyau restent partagées. */
     uint32_t private_table_mask[ENTRIES_PER_TABLE / 32U];
 } vmm_directory_t;

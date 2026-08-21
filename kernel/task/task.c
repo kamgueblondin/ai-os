@@ -18,6 +18,81 @@ volatile int g_reschedule_needed = 0;
 /* Tâche détachée à libérer lors d’un passage ultérieur, hors de sa pile et de son VMM. */
 static task_t* deferred_reap_task = NULL;
 
+#define TASK_STATIC_KERNEL_STACK_SIZE 4096U
+static task_t task_static_pool[OS_TASK_GLOBAL_CAPACITY];
+static uint8_t task_static_used[OS_TASK_GLOBAL_CAPACITY];
+static uint8_t task_static_kernel_stacks[OS_TASK_GLOBAL_CAPACITY][TASK_STATIC_KERNEL_STACK_SIZE] __attribute__((aligned(16)));
+static vmm_directory_t task_static_vmm_pool[OS_TASK_GLOBAL_CAPACITY];
+static uint8_t task_static_vmm_used[OS_TASK_GLOBAL_CAPACITY];
+static page_table_t* task_static_vmm_tables[OS_TASK_GLOBAL_CAPACITY][ENTRIES_PER_TABLE];
+static page_directory_t task_static_vmm_physical_dirs[OS_TASK_GLOBAL_CAPACITY] __attribute__((aligned(PAGE_SIZE)));
+
+static vmm_directory_t* task_static_vmm_acquire(void) {
+    uint32_t index, table_index;
+    vmm_directory_t* dir;
+    for (index = 0U; index < OS_TASK_GLOBAL_CAPACITY; index++) {
+        if (task_static_vmm_used[index]) continue;
+        task_static_vmm_used[index] = 1U;
+        dir = &task_static_vmm_pool[index];
+        memset(dir, 0, sizeof(vmm_directory_t));
+        memset(task_static_vmm_tables[index], 0, sizeof(task_static_vmm_tables[index]));
+        memset(&task_static_vmm_physical_dirs[index], 0, sizeof(page_directory_t));
+        dir->tables = task_static_vmm_tables[index];
+        dir->physical_dir = &task_static_vmm_physical_dirs[index];
+        dir->physical_addr = (uint32_t)dir->physical_dir;
+        dir->static_storage = 1U;
+        for (table_index = 0U; table_index < ENTRIES_PER_TABLE; table_index++) {
+            if (kernel_directory->tables[table_index]) {
+                dir->tables[table_index] = kernel_directory->tables[table_index];
+                dir->physical_dir->tablesPhysical[table_index] = kernel_directory->physical_dir->tablesPhysical[table_index];
+            }
+        }
+        return dir;
+    }
+    return NULL;
+}
+
+static void task_static_vmm_release(vmm_directory_t* dir) {
+    uint32_t index;
+    for (index = 0U; index < OS_TASK_GLOBAL_CAPACITY; index++) {
+        if (dir == &task_static_vmm_pool[index]) {
+            task_static_vmm_used[index] = 0U;
+            return;
+        }
+    }
+}
+
+static task_t* task_static_acquire(void) {
+    uint32_t index;
+    for (index = 0U; index < OS_TASK_GLOBAL_CAPACITY; index++) {
+        if (!task_static_used[index]) {
+            task_static_used[index] = 1U;
+            memset(&task_static_pool[index], 0, sizeof(task_t));
+            return &task_static_pool[index];
+        }
+    }
+    return NULL;
+}
+
+static void task_static_release(task_t* task) {
+    uint32_t index;
+    for (index = 0U; index < OS_TASK_GLOBAL_CAPACITY; index++) {
+        if (task == &task_static_pool[index]) {
+            memset(&task_static_pool[index], 0, sizeof(task_t));
+            task_static_used[index] = 0U;
+            return;
+        }
+    }
+}
+
+static uint32_t task_static_kernel_stack_top(const task_t* task) {
+    uint32_t index;
+    for (index = 0U; index < OS_TASK_GLOBAL_CAPACITY; index++) {
+        if (task == &task_static_pool[index]) return (uint32_t)&task_static_kernel_stacks[index][TASK_STATIC_KERNEL_STACK_SIZE];
+    }
+    return 0U;
+}
+
 // Externes
 extern vmm_directory_t* kernel_directory;
 extern vmm_directory_t* current_directory;
@@ -31,7 +106,10 @@ void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t sta
 
 void tasking_init() {
     deferred_reap_task = NULL;
-    current_task = (task_t*)kmalloc(sizeof(task_t));
+    memset(task_static_used, 0, sizeof(task_static_used));
+    memset(task_static_vmm_used, 0, sizeof(task_static_vmm_used));
+    current_task = task_static_acquire();
+    if (!current_task) return;
     current_task->id = next_task_id++;
     current_task->state = TASK_RUNNING;
     current_task->type = TASK_TYPE_KERNEL;
@@ -98,11 +176,19 @@ void add_task_to_queue(task_t* task) {
 extern void jump_to_task(cpu_state_t* next_state);
 static void unlink_task(task_t* task);
 
+static int task_destroy_user_vmm(vmm_directory_t* dir) {
+    if (!dir) return 0;
+    if (vmm_destroy_user_directory(dir) != 0) return -1;
+    task_static_vmm_release(dir);
+    return 0;
+}
+
 static void task_release_detached(task_t* task) {
     if (!task || task->type != TASK_TYPE_USER || !task->kernel_stack_p) return;
-    if (task->vmm_dir && vmm_destroy_user_directory(task->vmm_dir) == 0) task->vmm_dir = NULL;
-    kfree((void*)(task->kernel_stack_p - 4096U));
-    kfree(task);
+    if (task_destroy_user_vmm(task->vmm_dir) != 0) return;
+    task->vmm_dir = NULL;
+    task->kernel_stack_p = 0U;
+    task_static_release(task);
 }
 
 static void task_reap_deferred(void) {
@@ -310,13 +396,13 @@ task_t* create_task_from_initrd_file(const char* filename) {
 
     if (entry_point == 0 || user_stack_top == 0) {
         print_string_serial("ERREUR: Chargement ELF ou allocation de pile a echoue\n");
-        (void)vmm_destroy_user_directory(vmm_dir);
+        (void)task_destroy_user_vmm(vmm_dir);
         return NULL;
     }
 
-    task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
+    task_t* new_task = task_static_acquire();
     if (!new_task) {
-        (void)vmm_destroy_user_directory(vmm_dir);
+        (void)task_destroy_user_vmm(vmm_dir);
         return NULL;
     }
     new_task->id = next_task_id++;
@@ -370,14 +456,13 @@ task_t* create_task_from_initrd_file(const char* filename) {
         new_task->name[i] = '\0';
     }
 
-    // Allouer une pile noyau pour cette tâche
-    new_task->kernel_stack_p = (uint32_t)kmalloc(4096);
+    /* Pile noyau dédiée issue du pool statique, sans allocation de tas. */
+    new_task->kernel_stack_p = task_static_kernel_stack_top(new_task);
     if (!new_task->kernel_stack_p) {
-        kfree(new_task);
-        (void)vmm_destroy_user_directory(vmm_dir);
+        task_static_release(new_task);
+        (void)task_destroy_user_vmm(vmm_dir);
         return NULL;
     }
-    new_task->kernel_stack_p += 4096U;
 
     setup_initial_user_context(new_task, entry_point, user_stack_top);
     add_task_to_queue(new_task);
@@ -419,39 +504,10 @@ void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t sta
 }
 
 vmm_directory_t* create_user_vmm_directory() {
-    print_string_serial("create_user_vmm_directory: start\n");
-    vmm_directory_t* dir = (vmm_directory_t*)kmalloc(sizeof(vmm_directory_t));
-    if (!dir) {
-        print_string_serial("create_user_vmm_directory: kmalloc for dir failed\n");
-        return NULL;
-    }
-    memset(dir, 0, sizeof(vmm_directory_t));
-
-    dir->tables = (page_table_t**)kmalloc(sizeof(page_table_t*) * 1024);
-    if (!dir->tables) {
-        print_string_serial("create_user_vmm_directory: kmalloc for tables failed\n");
-        kfree(dir);
-        return NULL;
-    }
-    memset(dir->tables, 0, sizeof(page_table_t*) * 1024);
-
-    dir->physical_dir = (page_directory_t*)kmalloc_aligned(sizeof(page_directory_t));
-    if (!dir->physical_dir) {
-        print_string_serial("create_user_vmm_directory: kmalloc_aligned for physical_dir failed\n");
-        kfree(dir->tables);
-        kfree(dir);
-        return NULL;
-    }
-    memset(dir->physical_dir, 0, sizeof(page_directory_t));
-    dir->physical_addr = (uint32_t)dir->physical_dir;
-
-    // Clone kernel space
-    for (int i = 0; i < 1024; i++) {
-         if (kernel_directory->tables[i]) {
-            dir->tables[i] = kernel_directory->tables[i];
-            dir->physical_dir->tablesPhysical[i] = kernel_directory->physical_dir->tablesPhysical[i];
-        }
-    }
+    vmm_directory_t* dir;
+    print_string_serial("create_user_vmm_directory: static pool\n");
+    dir = task_static_vmm_acquire();
+    if (!dir) print_string_serial("create_user_vmm_directory: static pool exhausted\n");
     return dir;
 }
 

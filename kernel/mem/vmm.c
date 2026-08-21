@@ -155,6 +155,7 @@ int vmm_destroy_user_directory(vmm_directory_t *dir) {
         }
         pmm_free_page(table);
     }
+    if (dir->static_storage) return 0;
     kfree(dir->physical_dir);
     kfree(dir->tables);
     kfree(dir);
