@@ -439,6 +439,26 @@ int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t r
     length=net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello));return length;
 }
 
-int net_tls_handshake_validate_server_identity(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){if(!handshake||!trust_anchor||!hostname||!utc_time||!workspace)return -1;if(!handshake->server_x509_valid)return -2;return x509_certificate_tls_identity_validate(&handshake->server_x509,trust_anchor,hostname,utc_time,workspace,workspace_length);}
+int net_tls_handshake_chain_select(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length,net_tls_certificate_chain_selection_t* out){
+    net_tls_certificate_chain_selection_t selected;
+    if(!handshake||!trust_anchor||!workspace||!out||!handshake->server_x509_valid)return -1;
+    selected.intermediate_one=0;selected.intermediate_two=0;selected.depth=0U;
+    if(x509_certificate_chain_validate_one(&handshake->server_x509,trust_anchor,workspace,workspace_length)==0){*out=selected;return 0;}
+    if(handshake->server_intermediate_x509_valid&&x509_certificate_chain_validate_two(&handshake->server_x509,&handshake->server_intermediate_x509,trust_anchor,workspace,workspace_length)==0){selected.intermediate_one=&handshake->server_intermediate_x509;selected.depth=1U;*out=selected;return 0;}
+    if(handshake->server_intermediate_x509_valid&&handshake->server_intermediate_two_x509_valid){
+        if(x509_certificate_chain_validate_three(&handshake->server_x509,&handshake->server_intermediate_x509,&handshake->server_intermediate_two_x509,trust_anchor,workspace,workspace_length)==0){selected.intermediate_one=&handshake->server_intermediate_x509;selected.intermediate_two=&handshake->server_intermediate_two_x509;selected.depth=2U;*out=selected;return 0;}
+        if(x509_certificate_chain_validate_three(&handshake->server_x509,&handshake->server_intermediate_two_x509,&handshake->server_intermediate_x509,trust_anchor,workspace,workspace_length)==0){selected.intermediate_one=&handshake->server_intermediate_two_x509;selected.intermediate_two=&handshake->server_intermediate_x509;selected.depth=2U;*out=selected;return 0;}
+    }
+    return -2;
+}
+
+int net_tls_handshake_validate_server_identity(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length){
+    net_tls_certificate_chain_selection_t selected;
+    if(!handshake||!trust_anchor||!hostname||!utc_time||!workspace)return -1;
+    if(net_tls_handshake_chain_select(handshake,trust_anchor,workspace,workspace_length,&selected)!=0)return -2;
+    if(selected.depth==0U)return x509_certificate_tls_identity_validate(&handshake->server_x509,trust_anchor,hostname,utc_time,workspace,workspace_length);
+    if(selected.depth==1U)return x509_certificate_tls_identity_validate_two(&handshake->server_x509,selected.intermediate_one,trust_anchor,hostname,utc_time,workspace,workspace_length);
+    return x509_certificate_tls_identity_validate_three(&handshake->server_x509,selected.intermediate_one,selected.intermediate_two,trust_anchor,hostname,utc_time,workspace,workspace_length);
+}
 
 int net_tls_handshake_accept_server_postflight(net_tls_handshake_t* handshake,const uint8_t* change_cipher_spec,uint16_t change_cipher_spec_length,const uint8_t* finished,uint16_t finished_length,const uint8_t expected_verify_data[12]){net_tls_handshake_t previous;int status;if(!handshake||!change_cipher_spec||!finished||!expected_verify_data)return -1;previous=*handshake;status=net_tls_handshake_accept_server_change_cipher_spec(handshake,change_cipher_spec,change_cipher_spec_length);if(status!=0){*handshake=previous;return -2;}status=net_tls_handshake_accept_server_finished(handshake,finished,finished_length,expected_verify_data);if(status!=0){*handshake=previous;return -3;}return 0;}
