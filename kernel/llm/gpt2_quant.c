@@ -81,10 +81,10 @@ float gpt2_q3_k_dot_f32(const float* input, const uint8_t* q3_blocks, uint32_t c
                 float d0 = d * (float)(scales[2U * j] - 32);
                 float d1 = d * (float)(scales[2U * j + 1U] - 32);
                 for (l = 0U; l < 16U; l++) {
-                    int q0 = (int)((raw[qbase + l] >> shift) & 3U);
-                    int q1 = (int)((raw[qbase + l + 16U] >> shift) & 3U);
-                    if ((raw[l] & mask) == 0U) q0 -= 4;
-                    if ((raw[l + 16U] & mask) == 0U) q1 -= 4;
+                    int q0 = (int)((raw[qbase + l] >> shift) & 3U) -
+                             (((raw[l] & mask) == 0U) ? 4 : 0);
+                    int q1 = (int)((raw[qbase + l + 16U] >> shift) & 3U) -
+                             (((raw[l + 16U] & mask) == 0U) ? 4 : 0);
                     result += d0 * (float)q0 * input[base + l];
                     result += d1 * (float)q1 * input[base + 16U + l];
                 }
