@@ -146,6 +146,7 @@ int vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtua
 int vmm_destroy_user_directory(vmm_directory_t *dir) {
     uint32_t table_index, page_index;
     if (!dir || dir == kernel_directory || dir == current_directory) return -1;
+    if (!dir->static_storage) return -2;
     for (table_index = 0U; table_index < ENTRIES_PER_TABLE; table_index++) {
         page_table_t* table = dir->tables[table_index];
         if (!vmm_table_is_private(dir, table_index) || !table) continue;
@@ -155,9 +156,5 @@ int vmm_destroy_user_directory(vmm_directory_t *dir) {
         }
         pmm_free_page(table);
     }
-    if (dir->static_storage) return 0;
-    kfree(dir->physical_dir);
-    kfree(dir->tables);
-    kfree(dir);
     return 0;
 }
