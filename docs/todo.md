@@ -124,6 +124,7 @@
 - [x] AOS-1849…1856 : annulation LLM avec `close_notify` avant FIN best-effort, snapshot socket/TLS et purge locale conservée sans allocation dynamique — [aos1849_1856_llm_cancel_tls_close.md](aos1849_1856_llm_cancel_tls_close.md)
 - [x] AOS-1857…1864 : parsing strict de `close_notify` TLS distant, validation sans mutation et zéro allocation dynamique — [aos1857_1864_tls_peer_close_notify.md](aos1857_1864_tls_peer_close_notify.md)
 - [x] AOS-1865…1872 : détection de `close_notify` TLS distant dans les pollers HTTP/SSE, ACK cohérent, transition LLM vers `RESPONSE_READY` et zéro allocation dynamique — [aos1865_1872_tls_peer_close_poller.md](aos1865_1872_tls_peer_close_poller.md)
+- [x] AOS-1873…1880 : réponse TLS `close_notify` best-effort après fermeture distante, transition SSE terminale et zéro allocation dynamique — [aos1873_1880_tls_peer_close_reply.md](aos1873_1880_tls_peer_close_reply.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
