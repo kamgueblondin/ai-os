@@ -77,7 +77,12 @@ void test_fat32_lfn_file_and_list(void) {
     { int rc = fat32_create_lfn_file(&volume, "Persistent-LLM-Session", "SESSION.BIN", 0x20U, data, sizeof(data), &first); TEST_ASSERT_EQUAL(0, rc); }
     TEST_ASSERT_EQUAL(3U, first); TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 4U));
     TEST_ASSERT_EQUAL_STRING("Persistent-LLM-Session", entries[0].name); TEST_ASSERT_EQUAL(sizeof(data), entries[0].size);
-    TEST_ASSERT_EQUAL(0, fat32_unlink_file(&volume, "persistent-llm-session"));
+    TEST_ASSERT_EQUAL(0, fat32_rename_lfn_file(&volume, "persistent-llm-session",
+                                                "Persistent-LLM-Record", "RECORD.BIN"));
+    TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("Persistent-LLM-Record", entries[0].name);
+    TEST_ASSERT_EQUAL(sizeof(data), entries[0].size);
+    TEST_ASSERT_EQUAL(0, fat32_unlink_file(&volume, "persistent-llm-record"));
     TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U]);
     TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U + 32U]);
     TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U + 64U]);

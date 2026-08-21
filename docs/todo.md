@@ -99,6 +99,7 @@
 - [x] AOS-1649…1656 : recherche FAT16 par LFN ASCII validé pour lecture totale, lecture à offset et curseur, sans allocation dynamique — [aos1649_1656_fat16_lfn_read_lookup.md](aos1649_1656_fat16_lfn_read_lookup.md)
 - [x] AOS-1657…1664 : suppression FAT32 par alias 8.3 ou LFN ASCII validé, marquage de séquence et libération de chaîne bornée — [aos1657_1664_fat32_lfn_unlink.md](aos1657_1664_fat32_lfn_unlink.md)
 - [x] AOS-1665…1672 : montage VFS protégé `fat16/` en lecture/stat/listage, sans mutation ni allocation dynamique — [aos1665_1672_vfs_fat16_readonly_mount.md](aos1665_1672_vfs_fat16_readonly_mount.md)
+- [x] AOS-1673…1680 : renommage FAT32 LFN validé sans déplacement de chaîne, borné à une cardinalité de séquence identique — [aos1673_1680_fat32_lfn_rename.md](aos1673_1680_fat32_lfn_rename.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
