@@ -3477,11 +3477,13 @@ static void cmd_vfs_mount_add(shell_context_t* ctx, char args[][128], int arg_co
     int pid;
     int rc;
     if (arg_count != 2) {
-        print_error("Usage: vfs-mount-add <prefixe/> <initrd|overlay>");
+        print_error("Usage: vfs-mount-add <prefixe/> <initrd|overlay|fat16|fat32>");
         return;
     }
     if (strcmp(args[1], "initrd") == 0) source = OS_VFS_MOUNT_SOURCE_INITRD;
     else if (strcmp(args[1], "overlay") == 0) source = OS_VFS_MOUNT_SOURCE_OVERLAY;
+    else if (strcmp(args[1], "fat16") == 0) source = OS_VFS_MOUNT_SOURCE_FAT16;
+    else if (strcmp(args[1], "fat32") == 0) source = OS_VFS_MOUNT_SOURCE_FAT32;
     else {
         print_error("vfs-mount-add: source invalide");
         ctx->last_rc = OS_VFS_STATUS_INVALID;

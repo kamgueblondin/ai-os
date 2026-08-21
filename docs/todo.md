@@ -138,6 +138,7 @@
 - [x] AOS-1965…1972 : rollback ELF transactionnel après restauration du VMM actif et restitution PMM des mappings partiels — [aos1965_1972_elf_transactional_rollback.md](aos1965_1972_elf_transactional_rollback.md)
 - [x] AOS-1973…1980 : réconciliation FAT32 LFN UTF-8 et runtime GGUF quantifié avec les capacités déjà couvertes par le code et les tests ; intégration FAT32 au VFS explicitement distincte — [aos1973_1980_fat32_gguf_reconciliation.md](aos1973_1980_fat32_gguf_reconciliation.md)
 - [x] AOS-1981…1988 : smoke QEMU Ring 3 des builtins `sort`, `head` et `tail`, fixture multi-ligne, assertions d’ordre et rattachement au gate CI — [aos1981_1988_qemu_shell_file_builtins.md](aos1981_1988_qemu_shell_file_builtins.md)
+- [x] AOS-1989…1996 : alias VFS dynamiques FAT16/FAT32, table statique préservant trois alias, lecture seule et contrat QEMU sur fixture FAT16 — [aos1989_1996_vfs_fat_dynamic_mounts.md](aos1989_1996_vfs_fat_dynamic_mounts.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
