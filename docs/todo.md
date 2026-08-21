@@ -106,6 +106,7 @@
 - [x] AOS-1705…1712 : image FAT32 ATA esclave reproductible et smoke QEMU multi-disque de montage réel — [aos1705_1712_fat32_secondary_image_smoke.md](aos1705_1712_fat32_secondary_image_smoke.md)
 - [x] AOS-1713…1720 : syscalls FAT32 Ring 3 de lecture et listage de racine, sans mutation ni allocation dynamique — [aos1713_1720_fat32_read_syscalls.md](aos1713_1720_fat32_read_syscalls.md)
 - [x] AOS-1721…1728 : montage VFS protégé `fat32/` en lecture/stat/listage, sans mutation ni allocation dynamique — [aos1721_1728_vfs_fat32_readonly_mount.md](aos1721_1728_vfs_fat32_readonly_mount.md)
+- [x] AOS-1729…1736 : lecture FAT32 par alias ou LFN ASCII validé, ordinaux/checksum contrôlés et parcours de chaîne borné — [aos1729_1736_fat32_lfn_read.md](aos1729_1736_fat32_lfn_read.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
