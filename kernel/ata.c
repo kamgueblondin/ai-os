@@ -26,6 +26,7 @@ extern void outb(unsigned short port, unsigned char data);
 #define ATA_TIMEOUT 500000u
 
 static int g_ata_present;
+static uint8_t g_ata_drive_present[2];
 
 static unsigned short ata_inw(unsigned short port) {
     unsigned short ret;
@@ -71,8 +72,8 @@ static int ata_wait_drq(void) {
     return -1;
 }
 
-static void ata_select_lba(uint32_t lba, uint8_t count) {
-    outb(ATA_DRIVE, (uint8_t)(0xE0 | ((lba >> 24) & 0x0F)));
+static void ata_select_lba(uint8_t drive, uint32_t lba, uint8_t count) {
+    outb(ATA_DRIVE, (uint8_t)(0xE0 | (drive ? 0x10U : 0U) | ((lba >> 24) & 0x0F)));
     ata_io_delay();
     outb(ATA_SECCOUNT, count);
     outb(ATA_LBA0, (uint8_t)lba);
@@ -80,8 +81,10 @@ static void ata_select_lba(uint32_t lba, uint8_t count) {
     outb(ATA_LBA2, (uint8_t)(lba >> 16));
 }
 
-int ata_present(void) {
-    return g_ata_present;
+int ata_present(void) { return g_ata_present; }
+
+int ata_present_drive(uint8_t drive) {
+    return drive < 2U && g_ata_drive_present[drive];
 }
 
 int ata_init(void) {
@@ -89,6 +92,7 @@ int ata_init(void) {
     uint32_t i;
 
     g_ata_present = 0;
+    g_ata_drive_present[0] = 0U; g_ata_drive_present[1] = 0U;
 
     outb(ATA_DRIVE, 0xA0);
     ata_io_delay();
@@ -113,17 +117,21 @@ int ata_init(void) {
     }
 
     g_ata_present = 1;
+    g_ata_drive_present[0] = 1U;
+    outb(ATA_DRIVE, 0xB0); ata_io_delay();
+    st = inb(ATA_STATUS);
+    if (st != 0x00 && st != 0xFF) g_ata_drive_present[1] = 1U;
     return 0;
 }
 
-int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
+int ata_read_sectors_drive(uint8_t drive, uint32_t lba, uint32_t count, void* buf) {
     uint8_t* out = (uint8_t*)buf;
     uint32_t s;
 
-    if (!g_ata_present || !buf || count == 0 || count > 256) return -1;
+    if (drive > ATA_DRIVE_SLAVE || !g_ata_drive_present[drive] || !buf || count == 0 || count > 256) return -1;
     if (lba + count < lba) return -1;
 
-    ata_select_lba(lba, (uint8_t)count);
+    ata_select_lba(drive, lba, (uint8_t)count);
     outb(ATA_CMD, ATA_CMD_READ_PIO);
 
     for (s = 0; s < count; s++) {
@@ -135,14 +143,14 @@ int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
     return 0;
 }
 
-int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
+int ata_write_sectors_drive(uint8_t drive, uint32_t lba, uint32_t count, const void* buf) {
     const uint8_t* in = (const uint8_t*)buf;
     uint32_t s;
 
-    if (!g_ata_present || !buf || count == 0 || count > 256) return -1;
+    if (drive > ATA_DRIVE_SLAVE || !g_ata_drive_present[drive] || !buf || count == 0 || count > 256) return -1;
     if (lba + count < lba) return -1;
 
-    ata_select_lba(lba, (uint8_t)count);
+    ata_select_lba(drive, lba, (uint8_t)count);
     outb(ATA_CMD, ATA_CMD_WRITE_PIO);
 
     for (s = 0; s < count; s++) {
@@ -152,4 +160,12 @@ int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
         if (ata_wait_not_busy() < 0) return -1;
     }
     return 0;
+}
+
+int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
+    return ata_read_sectors_drive(ATA_DRIVE_MASTER, lba, count, buf);
+}
+
+int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
+    return ata_write_sectors_drive(ATA_DRIVE_MASTER, lba, count, buf);
 }
