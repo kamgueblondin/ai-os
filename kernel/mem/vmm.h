@@ -38,13 +38,18 @@ typedef struct {
     page_table_t** tables;
     page_directory_t* physical_dir;
     uint32_t physical_addr;
+    /* Bitmap des tables clonées pour un espace utilisateur ; les tables noyau restent partagées. */
+    uint32_t private_table_mask[ENTRIES_PER_TABLE / 32U];
 } vmm_directory_t;
 
 // Fonctions publiques
 void vmm_init();
 void vmm_switch_page_directory(uint32_t physical_addr);
 page_t *vmm_get_page(uint32_t address, int make, vmm_directory_t *dir);
-void vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags);
+/* Retourne 0 après mapping ; négatif si une table privée ne peut pas être obtenue. */
+int vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags);
+/* Libère uniquement un répertoire utilisateur inactif et ses pages marquées utilisateur. */
+int vmm_destroy_user_directory(vmm_directory_t *dir);
 
 // Variables globales
 extern vmm_directory_t *kernel_directory;
