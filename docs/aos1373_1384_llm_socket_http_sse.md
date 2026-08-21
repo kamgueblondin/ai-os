@@ -23,7 +23,7 @@ Le test `test_llm_socket_opens_http_response` produit un record TLS côté serve
 
 ## Limites restantes
 
-Les adaptateurs de construction, transmission NE2000, réception TLS, HTTP et SSE sont désormais composables sur socket. Il reste à les appeler depuis un orchestrateur unique pilotant DNS, SYN, handshake TLS, émission, polling et retry, puis à raccorder ce chemin à la commande `ai` avec une configuration de fournisseur sûre. La planification périodique DHCP est également distincte et reste ouverte.
+> **Note historique réconciliée.** L’orchestration de contexte réseau LLM, le polling périodique, le retry SSE, la reprise inter-session et le renouvellement DHCP ont depuis été raccordés par [AOS-649…664](aos649_656_llm_network_context.md), [AOS-1017…1032](aos1017_1024_pit_sse_polling.md), [AOS-1769…1824](aos1769_1776_sse_session_context.md) et les macro-lots de fermeture TLS AOS-1833…1880. Cette note décrit donc uniquement le périmètre initial de l’adaptateur socket.
 
 ## Références
 

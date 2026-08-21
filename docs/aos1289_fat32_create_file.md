@@ -17,6 +17,6 @@ En cas d’échec d’allocation, d’écriture, de chaînage ou de publication,
 | Tests noyau | 35/35 |
 | Validation au moment du lot | 419 tests verts |
 
-La création de fichier reste volontairement limitée à un alias 8.3 et séparée de la recherche par nom long. Depuis ce lot, l’extension de la racine et les primitives LFN FAT32 bornées ont été livrées ; la publication multi-entrée, la reconstruction LFN et l’intégration VFS restent à réaliser.
+> **Note historique réconciliée.** Les capacités FAT32 LFN bornées de publication, reconstruction, lecture, suppression et renommage ont depuis été livrées par [AOS-1321](aos1321_fat32_lfn.md), [AOS-1657…1664](aos1657_1664_fat32_lfn_unlink.md), [AOS-1673…1680](aos1673_1680_fat32_lfn_rename.md), [AOS-1729…1736](aos1729_1736_fat32_lfn_read.md) et [AOS-1737…1752](aos1737_1744_fat_lfn_utf8.md). Cette page conserve le contrat historique de création 8.3 de ce lot initial.
 
 **Auteur :** Manus AI

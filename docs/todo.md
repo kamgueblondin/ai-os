@@ -132,6 +132,7 @@
 - [x] AOS-1913…1924 : pools statiques bornés de tâches Ring 3, piles noyau et conteneurs VMM, rollback et zéro allocation de tas dans `task.c` — [aos1913_1924_static_task_vmm_pools.md](aos1913_1924_static_task_vmm_pools.md)
 - [x] AOS-1925…1932 : tables VMM créées par le PMM, alignement matériel cohérent et zéro allocation de tas dans `vmm.c` — [aos1925_1932_vmm_pmm_tables.md](aos1925_1932_vmm_pmm_tables.md)
 - [x] AOS-1933…1940 : contrat VMM sans tas, répertoires utilisateur statiques et restitution PMM des pages privées — [aos1933_1940_vmm_static_contract.md](aos1933_1940_vmm_static_contract.md)
+- [x] AOS-1941…1948 : réconciliation des limites historiques, renvoi vers les macro-lots successeurs et index documentaire cohérent — [aos1941_1948_backlog_documentation_reconciliation.md](aos1941_1948_backlog_documentation_reconciliation.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

@@ -46,7 +46,7 @@ Le test vérifie aussi le rejet d’un workspace inférieur aux quatre limbs req
 
 ## Limites connues
 
-ECDSA P-256 reste à implémenter : arithmétique de courbe, validation de point, parsing ASN.1 `r,s`, clé publique X.509 `id-ecPublicKey`, signatures de certificats ECDSA, signature `ServerKeyExchange`, extension ClientHello et suite `ECDHE_ECDSA`. La révocation, les chaînes de confiance multiples, les credentials OpenAI, la fermeture/annulation, timeout/retry, outils, multimodal et Unicode complet restent également hors périmètre.
+> **Note historique réconciliée.** Les capacités ECDSA P-256, X.509 `id-ecPublicKey`, validation de signatures, `ServerKeyExchange` et vol TLS `ECDHE_ECDSA` ont depuis été livrées dans les macro-lots [AOS-745…752](aos745_752_ecdsa_p256_verify.md), [AOS-753…760](aos753_760_x509_ecdsa_p256.md), [AOS-761…768](aos761_768_tls_ecdhe_ecdsa.md) et [AOS-785…808](aos785_808_https_ecdhe_ecdsa_end_to_end.md). Les sujets qui demeurent hors de ce lot historique sont notamment la révocation et les chaînes de confiance non bornées.
 
 ## Références
 
