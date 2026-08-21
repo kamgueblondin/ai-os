@@ -2,8 +2,8 @@
 # ci_qemu_smoke.sh - Boot QEMU headless, type ls/cat/ps/uptime, require serial markers.
 # Keyboard is PS/2: HMP sendkey injects scancodes (host TTY would not reach SYS_GETS).
 # Hard timeout: QEMU stderr must not be a PIPE (deadlock on GitHub Actions).
-# Core smoke and shell extras are separate boots so extra sendkeys do not ghost the shell.
-# Overlay disk is zeroed before core, extras and spawn; persist uses its own image.
+# Core, shell extras et syscalls sont isolés par boot afin que les frappes ne se propagent pas d’un scénario à l’autre.
+# Overlay disk is zeroed before core, extras, syscalls and spawn; persist uses its own image.
 
 set -euo pipefail
 
@@ -17,6 +17,7 @@ EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-150}"
 PERSIST_TIMEOUT="${PERSIST_TIMEOUT:-180}"
 SPAWN_TIMEOUT="${SPAWN_TIMEOUT:-240}"
 EXEC_TIMEOUT="${EXEC_TIMEOUT:-90}"
+SYSCALL_TIMEOUT="${SYSCALL_TIMEOUT:-300}"
 OVERLAY_DISK="${OVERLAY_DISK:-$ROOT/build/overlay.img}"
 PERSIST_DISK="${PERSIST_DISK:-$ROOT/build/overlay-persist.img}"
 export OVERLAY_DISK PERSIST_DISK
@@ -73,5 +74,7 @@ run_python extras "$EXTRAS_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_shell_extras.py
 run_python persist "$PERSIST_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_persist.py"
 reset_overlay_disk "$OVERLAY_DISK"
 run_python spawn "$SPAWN_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_spawn.py"
+reset_overlay_disk "$OVERLAY_DISK"
+run_python syscall "$SYSCALL_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_syscalls.py"
 reset_overlay_disk "$OVERLAY_DISK"
 run_python exec "$EXEC_TIMEOUT" "$ROOT/tests/scripts/ci_qemu_exec.py"
