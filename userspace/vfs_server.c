@@ -94,6 +94,30 @@ static int backend_overlay_read(const char* path, char* buffer, uint32_t max) {
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_READ), "b"(path), "c"(buffer), "d"(max));
     return result;
 }
+static int backend_fat16_read(const char* path, char* buffer, uint32_t max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_READ), "b"(path), "c"(buffer), "d"(max));
+    return result;
+}
+static int backend_fat16_listdir(const char* path, os_dirent_t* out, int max_n) {
+    int result;
+    if (!path || path[0] != '/' || path[1] != '\0') return -1;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST), "b"(out), "c"(max_n));
+    return result;
+}
+static int backend_fat16_stat(const char* path, os_dirent_t* out) {
+    os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
+    int count, i;
+    if (!path || !out || path[0] == '\0' || path[0] == '/') return -1;
+    count = backend_fat16_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
+    if (count < 0) return count;
+    for (i = 0; i < count; i++) {
+        uint32_t j = 0U;
+        while (entries[i].name[j] && path[j] && entries[i].name[j] == path[j]) j++;
+        if (entries[i].name[j] == '\0' && path[j] == '\0') { *out = entries[i]; return 0; }
+    }
+    return -1;
+}
 
 static int backend_initrd_stat(const char* path, os_dirent_t* out) {
     int result;
@@ -182,7 +206,7 @@ static int string_equal(const char* left, const char* right) {
  * alias dynamiques restent possibles. Les noms dynamiques sont bornés pour
  * que la source virtuelle `vfs-mounts` tienne toujours dans 80 octets. */
 #define VFS_MOUNT_MAX 5U
-#define VFS_BOOT_MOUNT_COUNT 2U
+#define VFS_BOOT_MOUNT_COUNT 3U
 #define VFS_DYNAMIC_MOUNT_MAX 13U
 typedef struct {
     char prefix[OS_VFS_PATH_MAX];
@@ -192,6 +216,7 @@ typedef struct {
 static vfs_mount_t vfs_mounts[VFS_MOUNT_MAX] = {
     { "initrd/", OS_VFS_MOUNT_SOURCE_INITRD, 1U },
     { "overlay/", OS_VFS_MOUNT_SOURCE_OVERLAY, 1U },
+    { "fat16/", OS_VFS_MOUNT_SOURCE_FAT16, 1U },
 };
 static uint32_t vfs_mount_count = VFS_BOOT_MOUNT_COUNT;
 
@@ -313,7 +338,9 @@ static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size)
         if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
             int read = vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
                 ? backend_initrd_read(relative, (char*)data, OS_VFS_READ_MAX)
-                : backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX);
+                : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT16
+                    ? backend_fat16_read(relative, (char*)data, OS_VFS_READ_MAX)
+                    : backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX));
             if (read < 0) return read;
             *size = (uint32_t)read;
             return OS_VFS_STATUS_OK;
@@ -330,7 +357,9 @@ static int stat_mounted_backend(const char* path, os_dirent_t* out) {
         if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
             return vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
                 ? backend_initrd_stat(relative, out)
-                : backend_overlay_stat(relative, out);
+                : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT16
+                    ? backend_fat16_stat(relative, out)
+                    : backend_overlay_stat(relative, out));
         }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
@@ -370,7 +399,9 @@ static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
         if (list_path_matches_mount(path, vfs_mounts[mount_index].prefix, &relative)) {
             listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
                 ? backend_initrd_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
-                : backend_overlay_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
+                : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT16
+                    ? backend_fat16_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+                    : backend_overlay_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U)));
             if (listed < 0) return listed;
             for (uint32_t entry_index = 0U;
                  entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
