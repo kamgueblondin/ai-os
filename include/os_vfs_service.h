@@ -85,6 +85,7 @@
 #define OS_VFS_MOUNT_SOURCE_INITRD 1U
 #define OS_VFS_MOUNT_SOURCE_OVERLAY 2U
 #define OS_VFS_MOUNT_SOURCE_FAT16 3U
+#define OS_VFS_MOUNT_SOURCE_FAT32 4U
 
 #define OS_VFS_STATUS_OK          0
 #define OS_VFS_STATUS_INVALID    (-60)
@@ -181,7 +182,7 @@ static inline int os_vfs_mount_prefix_is_valid(const char* mount) {
 
 static inline int os_vfs_mount_source_is_valid(uint32_t source) {
     return source == OS_VFS_MOUNT_SOURCE_INITRD || source == OS_VFS_MOUNT_SOURCE_OVERLAY ||
-           source == OS_VFS_MOUNT_SOURCE_FAT16;
+           source == OS_VFS_MOUNT_SOURCE_FAT16 || source == OS_VFS_MOUNT_SOURCE_FAT32;
 }
 
 /* Le listage cible un répertoire : il accepte la racine du montage ou un
