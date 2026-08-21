@@ -127,6 +127,7 @@
 - [x] AOS-1873…1880 : réponse TLS `close_notify` best-effort après fermeture distante, transition SSE terminale et zéro allocation dynamique — [aos1873_1880_tls_peer_close_reply.md](aos1873_1880_tls_peer_close_reply.md)
 - [x] AOS-1881…1888 : isolation des tables VMM utilisateur, rollback de création Ring 3 et restitution PMM sans destruction des mappings noyau partagés — [aos1881_1888_user_vmm_isolation.md](aos1881_1888_user_vmm_isolation.md)
 - [x] AOS-1889…1896 : réclamation différée des tâches Ring 3 terminées, destruction VMM hors pile active et libération de pile noyau sans allocation dynamique — [aos1889_1896_task_deferred_reaper.md](aos1889_1896_task_deferred_reaper.md)
+- [x] AOS-1897…1904 : réclamation forcée des tâches Ring 3 détachées par `kill`, destruction VMM hors contexte actif et zéro allocation dynamique — [aos1897_1904_task_forced_reap.md](aos1897_1904_task_forced_reap.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
