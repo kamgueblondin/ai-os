@@ -41,29 +41,29 @@
 - [x] Détection des interruptions clavier (IRQ1)
 - [x] Conversion scancode vers ASCII
 - [x] Buffer circulaire fonctionnel
-- [ ] Test interactif en mode GUI (nécessite QEMU graphique)
+- [x] Test GUI automatisé QEMU GTK : shell, FAT16, overlay, IA et NE2000 validés par captures reproductibles
 
 ## Commandes de Test
 ```bash
 # Test de compilation
 make clean && make
 
-# Test d'exécution (mode GUI requis pour test clavier)
-make run-gui
+# Test GUI reproductible : pilote QEMU GTK, injecte les commandes et produit des captures locales
+make gui-captures
 
-# Vérification des logs série
-make run-gui 2>&1 | tee test_log.txt
+# Les captures PNG sont écrites dans test_logs/gui-captures/ par défaut.
+# Le répertoire peut être redéfini avec AIOS_GUI_SHOT_DIR.
 ```
 
 ## Statut Final
 ✅ **SYSTÈME READY** - Le système hybride clavier est implémenté et compilé avec succès.
 
-⚠️ **NOTE**: Le test interactif final nécessite l'exécution avec `make run-gui` dans un environnement graphique.
+✅ **Validation GUI automatisée :** `make gui-captures` a été exécuté avec succès. Le scénario a généré 22 captures QEMU GTK, incluant le shell prêt, les opérations FAT16 et overlay, l’état IA/OpenAI et `net-status json` avec NE2000 détectée.
 
 ## Prochaines Étapes
-1. Push vers GitHub repository
-2. Test utilisateur final avec QEMU GUI
-3. Validation complète du système hybride
+1. Maintenir `make gui-captures` comme contrôle visuel reproductible.
+2. Conserver `make run-gui` pour les explorations manuelles ponctuelles.
+3. Poursuivre les validations fonctionnelles complètes du système.
 
 ---
 **Auteur**: MiniMax Agent  
