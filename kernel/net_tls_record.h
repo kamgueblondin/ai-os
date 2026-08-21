@@ -16,6 +16,7 @@
 #define NET_TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE 16U
 #define NET_TLS_HANDSHAKE_FINISHED 20U
 #define NET_TLS_CONTENT_CHANGE_CIPHER_SPEC 20U
+#define NET_TLS_CONTENT_ALERT 21U
 #define NET_TLS_AES_128_GCM_KEY_BLOCK_LENGTH 40U
 #define NET_TLS_CIPHER_ECDHE_RSA_WITH_AES_128_GCM_SHA256 0xc02fU
 #define NET_TLS_CIPHER_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 0xc02bU
@@ -58,6 +59,8 @@ int net_tls_aes_gcm_session_build(net_tls_aes_gcm_session_t* session, uint8_t* r
 int net_tls_aes_gcm_session_open(net_tls_aes_gcm_session_t* session, const uint8_t* record,
                                  uint32_t length, uint8_t* plaintext, uint16_t plaintext_capacity,
                                  net_tls_record_view_t* out);
+/* Construit un record TLS 1.2 chiffré `warning/close_notify` et avance la séquence seulement si le record est prêt. */
+int net_tls_close_notify_build(net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity);
 /* Parse le premier record d’un flux TCP et publie les octets consommés. */
 int net_tls_record_parse_stream(const uint8_t* stream, uint32_t length,
                                 net_tls_record_view_t* out, uint16_t* consumed);
