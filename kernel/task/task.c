@@ -96,6 +96,7 @@ void add_task_to_queue(task_t* task) {
 
 // Déclaration de la fonction assembleur pour le changement de contexte
 extern void jump_to_task(cpu_state_t* next_state);
+static void unlink_task(task_t* task);
 
 static void task_release_detached(task_t* task) {
     if (!task || task->type != TASK_TYPE_USER || !task->kernel_stack_p) return;
@@ -107,6 +108,20 @@ static void task_release_detached(task_t* task) {
 static void task_reap_deferred(void) {
     task_t* task = deferred_reap_task;
     deferred_reap_task = NULL;
+    task_release_detached(task);
+}
+
+void remove_task(task_t* task) {
+    task_t* cursor;
+    int found = 0;
+    if (!task || task == current_task || !task_queue) return;
+    cursor = task_queue;
+    do {
+        if (cursor == task) { found = 1; break; }
+        cursor = cursor->next;
+    } while (cursor && cursor != task_queue);
+    if (!found) return;
+    unlink_task(task);
     task_release_detached(task);
 }
 
