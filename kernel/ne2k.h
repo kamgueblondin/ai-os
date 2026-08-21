@@ -688,6 +688,10 @@ int ne2k_llm_network_context_sse_event_tick(ne2k_llm_network_context_t* context,
                                            net_llm_sse_reconnect_t* reconnect,uint32_t now,uint8_t* request,
                                            uint16_t request_capacity,const char* host,const char* path,uint8_t* tls_record,
                                            uint32_t tls_capacity,uint8_t retransmit_limit,uint32_t base_delay,uint32_t max_delay);
+/* Bascule de fournisseur après épuisement du budget SSE et réarme un scheduler caller-owned. */
+int ne2k_llm_network_context_sse_rotate_provider(ne2k_llm_network_context_t* context,uint8_t* provider,
+                                                  net_llm_sse_reconnect_t* reconnect,
+                                                  const net_llm_sse_response_t* response);
 enum { NE2K_LLM_SSE_RESULT_PROGRESS=0, NE2K_LLM_SSE_RESULT_COMPLETED=1, NE2K_LLM_SSE_RESULT_RETRYABLE=2, NE2K_LLM_SSE_RESULT_TERMINAL=3, NE2K_LLM_SSE_RESULT_TRANSPORT=4 };
 int ne2k_llm_connection_classify_sse_result(int poll_status,uint16_t status_code);
 int ne2k_llm_connection_handle_sse_terminal(ne2k_llm_connection_state_t* state,net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,int poll_status,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now);
