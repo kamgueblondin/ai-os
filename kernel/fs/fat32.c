@@ -1,5 +1,9 @@
 #include "fat32.h"
 
+static fat32_volume_t fat32_root_volume;
+
+fat32_volume_t* fat32_root(void) { return &fat32_root_volume; }
+
 static uint8_t fat32_sector[512];
 
 static uint16_t le16(const uint8_t* p) { return (uint16_t)p[0] | ((uint16_t)p[1] << 8U); }

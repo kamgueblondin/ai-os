@@ -12,6 +12,7 @@
 #include "../fs/overlay.h"
 #include "ata.h"
 #include "fs/fat16.h"
+#include "fs/fat32.h"
 #include "llm/gpt2_model.h"
 #include "llm/gpt2_gguf.h"
 #include "llm/gpt2_gguf_infer.h"
@@ -628,6 +629,10 @@ static int fat16_ata_read_sectors(uint32_t lba, uint32_t count, void* buffer) {
     return ata_read_sectors(lba, count, buffer);
 }
 
+static int fat32_ata_slave_read_sector(uint32_t lba, void* buffer) {
+    return ata_read_sectors_drive(ATA_DRIVE_SLAVE, lba, 1U, buffer);
+}
+
 void serial_init() {
     // Disable all interrupts
     outb(0x3F8 + 1, 0x00);
@@ -1147,6 +1152,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
             print_string("Overlay FS charge depuis le disque IDE.\n");
         } else {
             print_string("Overlay FS initialise (disque IDE vide).\n");
+        }
+        if (ata_present_drive(ATA_DRIVE_SLAVE) &&
+            fat32_mount(fat32_root(), fat32_ata_slave_read_sector, 0U) == 0) {
+            print_string("FAT32 secondaire monte.\n");
         }
         if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {
             if (fat16_attach_read_window(fat16_root(), fat16_ata_read_sectors,

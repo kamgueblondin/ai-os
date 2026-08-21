@@ -24,6 +24,7 @@ typedef struct {
     uint8_t mounted;
 } fat32_volume_t;
 
+fat32_volume_t* fat32_root(void);
 int fat32_mount(fat32_volume_t* volume, fat16_read_sector_fn read_sector, uint32_t base_lba);
 int fat32_is_mounted(const fat32_volume_t* volume);
 int fat32_attach_writer(fat32_volume_t* volume, fat16_write_sector_fn write_sector);
