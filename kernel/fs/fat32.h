@@ -41,6 +41,8 @@ int fat32_encode_lfn_entry(const char* name, uint8_t ordinal, uint8_t checksum, 
 int fat32_create_file(const fat32_volume_t* volume, const char* name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster);
 int fat32_create_lfn_file(const fat32_volume_t* volume, const char* long_name, const char* short_name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster);
 int fat32_list_root(const fat32_volume_t* volume, os_fat16_dirent_t* out, uint32_t capacity);
+/* Lit un fichier FAT32 8.3 dans un buffer caller-owned, sans allocation dynamique. */
+int fat32_read_file(const fat32_volume_t* volume, const char* name, uint8_t* buffer, uint32_t max);
 /* Supprime un alias 8.3 ou une séquence LFN ASCII validée et libère sa chaîne. */
 int fat32_unlink_file(const fat32_volume_t* volume, const char* name);
 /* Renomme une séquence LFN validée sans déplacer ni recopier sa chaîne de données. */

@@ -397,6 +397,41 @@ int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
     return OS_FAT16_NOT_FOUND;
 }
 
+int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, uint32_t max) {
+    uint8_t entry[32], short_name[11];
+    uint32_t i, j, limit, size, copied = 0U, cluster_bytes, guard = 0U;
+    uint32_t cluster, next;
+    if (!v || !name || !buffer || max == 0U || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
+    if (fat32_short_name(name, short_name) != 0) return OS_FAT16_BAD_PATH;
+    limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
+    for (i = 0U; i < limit; i++) {
+        int match = 1;
+        if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break;
+        if (entry[0] == 0xe5U || entry[11] == 0x0fU || (entry[11] & 0x18U)) continue;
+        for (j = 0U; j < 11U; j++) if (entry[j] != short_name[j]) match = 0;
+        if (!match) continue;
+        size = le32(entry + 28U);
+        if (size > max) return OS_FAT16_BUFFER_SMALL;
+        cluster = ((uint32_t)entry[20] << 24U) | ((uint32_t)entry[21] << 16U) | le16(entry + 26U);
+        cluster_bytes = (uint32_t)v->sectors_per_cluster * 512U;
+        if (cluster_bytes == 0U || cluster_bytes > sizeof(fat32_file_cluster)) return OS_FAT16_CORRUPT;
+        while (copied < size) {
+            uint32_t take = size - copied;
+            if (cluster < 2U || cluster > v->cluster_count + 1U || cluster == FAT32_BAD_CLUSTER || guard++ > v->cluster_count) return OS_FAT16_CORRUPT;
+            if (fat32_read_cluster(v, cluster, fat32_file_cluster) != 0) return OS_FAT16_CORRUPT;
+            if (take > cluster_bytes) take = cluster_bytes;
+            for (j = 0U; j < take; j++) buffer[copied + j] = fat32_file_cluster[j];
+            copied += take;
+            if (copied < size) {
+                if (fat32_read_fat_entry(v, cluster, &next) != 0 || next < 2U || next >= FAT32_EOC_MIN || next == FAT32_BAD_CLUSTER) return OS_FAT16_CORRUPT;
+                cluster = next;
+            }
+        }
+        return (int)copied;
+    }
+    return OS_FAT16_NOT_FOUND;
+}
+
 int fat32_list_root(const fat32_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
     uint8_t entry[32], lfn_sum = 0U, expected = 0U, valid = 0U; char lfn[OS_NAME_MAX]; uint32_t count = 0U;
     if (!v || !out || capacity == 0U || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
