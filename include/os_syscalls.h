@@ -206,6 +206,10 @@
 #define SYS_GPT2_GGUF_GENERATE 109
 /* buffer de réponse (ECX), taille du buffer (EDX) ; poursuit la session GGUF locale. */
 #define SYS_GPT2_GGUF_CONTINUE 110
+/* EBX = chemin FAT32 8.3, ECX = buffer, EDX = taille maximale ; lecture esclave. */
+#define SYS_FAT32_READ 111
+/* EBX = tableau os_dirent_t, ECX = capacité ; liste de la racine FAT32 esclave. */
+#define SYS_FAT32_LIST 112
 #define MAX_SYSCALLS 111
 
 typedef struct {
