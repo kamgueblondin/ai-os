@@ -113,6 +113,7 @@
 - [x] AOS-1761…1768 : ClientHello TLS 1.2 avec extensions SNI/ALPN ASCII bornées, compatibilité historique et zéro allocation dynamique — [aos1761_1768_tls_sni_alpn.md](aos1761_1768_tls_sni_alpn.md)
 - [x] AOS-1769…1776 : contexte NE2000 de reprise SSE inter-session, checkpoint intègre, restauration transactionnelle et effacement explicite sans allocation dynamique — [aos1769_1776_sse_session_context.md](aos1769_1776_sse_session_context.md)
 - [x] AOS-1777…1784 : tick SSE NE2000, programmation automatique de retry, attente non bloquante et reprise déléguée sans allocation dynamique — [aos1777_1784_ne2k_sse_event_tick.md](aos1777_1784_ne2k_sse_event_tick.md)
+- [x] AOS-1785…1792 : tick SSE actif raccordé au contexte LLM, checkpoint automatique, publication transactionnelle et reprise persistante sans allocation dynamique — [aos1785_1792_sse_context_event_tick.md](aos1785_1792_sse_context_event_tick.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
