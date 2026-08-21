@@ -119,6 +119,7 @@
 - [x] AOS-1809…1816 : renouvellement DHCP transactionnel attaché au contexte LLM, conservation du bail sur erreur et zéro allocation dynamique — [aos1809_1816_dhcp_context_renewal.md](aos1809_1816_dhcp_context_renewal.md)
 - [x] AOS-1817…1824 : réconciliation DHCP du contexte LLM, purge transactionnelle du transport après changement IPv4 et conservation du checkpoint SSE — [aos1817_1824_dhcp_context_reconcile.md](aos1817_1824_dhcp_context_reconcile.md)
 - [x] AOS-1825…1832 : décision SSE de reprise ou flux neuf dans le contexte LLM, avec gardes de phase et zéro allocation dynamique — [aos1825_1832_sse_resume_decision.md](aos1825_1832_sse_resume_decision.md)
+- [x] AOS-1833…1840 : alerte TLS `close_notify` AES-GCM, type Alert et avancement transactionnel de séquence sans allocation dynamique — [aos1833_1840_tls_close_notify.md](aos1833_1840_tls_close_notify.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

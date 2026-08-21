@@ -41,6 +41,7 @@ int net_tls_aes_gcm_session_build(net_tls_aes_gcm_session_t* session,uint8_t* re
 int net_tls_aes_gcm_session_open(net_tls_aes_gcm_session_t* session,const uint8_t* record,uint32_t length,uint8_t* plaintext,uint16_t plaintext_capacity,net_tls_record_view_t* out){
     int status;if(!session)return -1;status=net_tls_aes_gcm_record_open(record,length,session->read_sequence,session->read_key,session->read_fixed_iv,plaintext,plaintext_capacity,out);if(status!=0)return status;session->read_sequence++;return 0;
 }
+int net_tls_close_notify_build(net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity){const uint8_t alert[2]={1U,0U};return net_tls_aes_gcm_session_build(session,record,capacity,NET_TLS_CONTENT_ALERT,alert,sizeof(alert));}
 
 int net_tls_record_parse_stream(const uint8_t* stream,uint32_t length,net_tls_record_view_t* out,uint16_t* consumed){
     uint16_t payload_length, total;
