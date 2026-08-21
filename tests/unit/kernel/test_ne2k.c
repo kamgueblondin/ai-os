@@ -105,6 +105,38 @@ void test_ne2k_udp_via_gateway_preserves_ipv4_destination(void){fake_ne2k_t fake
 void test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination(void){fake_ne2k_t fake={0x12,NE2K_ISR_RESET|NE2K_ISR_RDC,0,0};ne2k_io_t io={&fake,fake_inb,fake_outb};ne2k_device_t device;net_arp_cache_t cache;uint8_t local_mac[6]={2,0,0,0,0,1},gateway_ip[4]={10,0,2,2},gateway_mac[6]={0x52,0x54,0,0,0,2},local_ip[4]={10,0,2,15},remote_ip[4]={1,1,1,1},request[128]={0},rx[128]={0},frame[128]={0};TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300U,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));TEST_ASSERT_EQUAL(0,net_arp_cache_put(&cache,gateway_ip,gateway_mac));TEST_ASSERT_EQUAL(0,ne2k_tcp_syn_via(&device,&io,&cache,request,sizeof(request),rx,sizeof(rx),frame,sizeof(frame),local_ip,remote_ip,gateway_ip,49152U,443U,100U,1U));TEST_ASSERT_EQUAL(0x52,frame[0]);TEST_ASSERT_EQUAL(0x54,frame[1]);TEST_ASSERT_EQUAL(1,frame[30]);TEST_ASSERT_EQUAL(1,frame[31]);TEST_ASSERT_EQUAL(1,frame[32]);TEST_ASSERT_EQUAL(1,frame[33]);}
 
 void test_ne2k_llm_network_context_lifecycle(void){ne2k_llm_network_context_t context;TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_init(&context));TEST_ASSERT_EQUAL(0U,context.lease.valid);TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_IDLE,context.session.phase);TEST_ASSERT_EQUAL(0,net_tcp_connection_open(&context.connection,49152U,443U,100U));context.lease.valid=1U;context.lease.ipv4[0]=10U;context.session.phase=NE2K_LLM_CONNECTION_RESPONSE_READY;TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_reset_for_request(&context));TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_TLS_COMPLETE,context.session.phase);TEST_ASSERT_EQUAL(1U,context.lease.valid);TEST_ASSERT_EQUAL(10U,context.lease.ipv4[0]);TEST_ASSERT_EQUAL(101U,context.connection.local_sequence);TEST_ASSERT_NOT_EQUAL(0,ne2k_llm_network_context_init(0));}
+void test_ne2k_llm_network_context_sse_resume_lifecycle(void){
+    ne2k_llm_network_context_t context;
+    net_llm_sse_response_t source={0},restored={0},before={0};
+    uint8_t source_http[32]={0},source_sse[32]={0},restored_http[32]={0},restored_sse[32]={0};
+    uint8_t provider=NE2K_LLM_PROVIDER_OLLAMA,retries=0U;
+    TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_init(&context));
+    TEST_ASSERT_EQUAL(0,net_llm_sse_response_init(&source,source_http,sizeof(source_http),source_sse,sizeof(source_sse)));
+    TEST_ASSERT_EQUAL(0,net_llm_sse_response_init(&restored,restored_http,sizeof(restored_http),restored_sse,sizeof(restored_sse)));
+    source.sse.event_id[0]='e'; source.sse.event_id[1]='v'; source.sse.event_id[2]='t';
+    source.sse.event_id_length=3U; source.sse.event_id_valid=1U;
+    TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_sse_checkpoint(&context,NE2K_LLM_PROVIDER_OPENAI,2U,&source));
+    TEST_ASSERT_EQUAL(1U,context.sse_resume_valid);
+    context.session.phase=NE2K_LLM_CONNECTION_RESPONSE_READY;
+    TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_reset_for_request(&context));
+    TEST_ASSERT_EQUAL(1U,context.sse_resume_valid);
+    TEST_ASSERT_EQUAL(0,ne2k_llm_network_context_sse_resume_load(&context,&provider,&retries,&restored));
+    TEST_ASSERT_EQUAL(NE2K_LLM_PROVIDER_OPENAI,provider);
+    TEST_ASSERT_EQUAL(2U,retries);
+    TEST_ASSERT_EQUAL(1U,restored.sse.event_id_valid);
+    TEST_ASSERT_EQUAL(3U,restored.sse.event_id_length);
+    TEST_ASSERT_EQUAL_MEMORY("evt",restored.sse.event_id,3U);
+    before=restored; context.sse_resume.checksum^=1U;
+    provider=NE2K_LLM_PROVIDER_OLLAMA; retries=7U;
+    TEST_ASSERT_NOT_EQUAL(0,ne2k_llm_network_context_sse_resume_load(&context,&provider,&retries,&restored));
+    TEST_ASSERT_EQUAL(NE2K_LLM_PROVIDER_OLLAMA,provider);
+    TEST_ASSERT_EQUAL(7U,retries);
+    TEST_ASSERT_EQUAL_MEMORY(&before,&restored,sizeof(restored));
+    ne2k_llm_network_context_sse_resume_clear(&context);
+    TEST_ASSERT_EQUAL(0U,context.sse_resume_valid);
+    TEST_ASSERT_EQUAL(0U,context.sse_resume.magic);
+    TEST_ASSERT_EQUAL(-2,ne2k_llm_network_context_sse_resume_load(&context,&provider,&retries,&restored));
+}
 
 void test_ne2k_llm_connection_acquire_start_dhcp_guard_is_transactional(void){net_dhcp_lease_t lease={1U,1U,1U,1U,{10U,0U,2U,15U},{10U,0U,2U,2U},{255U,255U,255U,0U},{10U,0U,2U,2U},{1U,1U,1U,1U},0x12345678U};ne2k_llm_connection_state_t state;net_tcp_connection_t connection;TEST_ASSERT_EQUAL(0,ne2k_llm_connection_state_init(&state));state.phase=NE2K_LLM_CONNECTION_SYN_SENT;TEST_ASSERT_EQUAL(0,net_tcp_connection_open(&connection,49152U,443U,100U));TEST_ASSERT_NOT_EQUAL(0,ne2k_llm_connection_acquire_start_dhcp(0,0,0,0,0U,0,0U,0U,0U,0,0U,0,0U,0,0U,0U,0,0U,0U,0U,0U,0U,&lease,&state,&connection));TEST_ASSERT_EQUAL(1U,lease.valid);TEST_ASSERT_EQUAL(NE2K_LLM_CONNECTION_SYN_SENT,state.phase);TEST_ASSERT_EQUAL(101U,connection.local_sequence);}
 
@@ -318,7 +350,7 @@ void test_ne2k_llm_socket_bootstrap_failure_releases_slot(void){
 int main(void) {
     unity_init();
     RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);    RUN_TEST(test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination); RUN_TEST(test_ne2k_tcp_segment_bridge); RUN_TEST(test_ne2k_tcp_syn_ack_via_gateway);RUN_TEST(test_ne2k_socket_syn_bridge);
-RUN_TEST(test_ne2k_llm_network_context_lifecycle);RUN_TEST(test_ne2k_socket_poll_tcp_guards);RUN_TEST(test_ne2k_dhcp_renew_if_due_guards_transactionally);RUN_TEST(test_ne2k_llm_connection_acquire_start_dhcp_guard_is_transactional);RUN_TEST(test_ne2k_llm_connection_start_dhcp_guard_is_transactional);
+RUN_TEST(test_ne2k_llm_network_context_lifecycle);RUN_TEST(test_ne2k_llm_network_context_sse_resume_lifecycle);RUN_TEST(test_ne2k_socket_poll_tcp_guards);RUN_TEST(test_ne2k_dhcp_renew_if_due_guards_transactionally);RUN_TEST(test_ne2k_llm_connection_acquire_start_dhcp_guard_is_transactional);RUN_TEST(test_ne2k_llm_connection_start_dhcp_guard_is_transactional);
     RUN_TEST(test_tcp_receive_copies_bounded_payload);
     RUN_TEST(test_tcp_poll_is_bounded_when_rx_empty);
     RUN_TEST(test_tcp_ack_is_emitted_from_connection_state);

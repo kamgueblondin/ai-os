@@ -82,6 +82,8 @@ typedef struct {
     net_dhcp_lease_t lease;
     ne2k_llm_connection_state_t session;
     net_tcp_connection_t connection;
+    net_llm_sse_persisted_state_t sse_resume;
+    uint8_t sse_resume_valid;
 } ne2k_llm_network_context_t;
 
 typedef struct {
@@ -252,6 +254,14 @@ int ne2k_llm_connection_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t
 /* Initialisation/réarmement d’un contexte agrégé sans allouer ni conserver de buffers. */
 int ne2k_llm_network_context_init(ne2k_llm_network_context_t* context);
 int ne2k_llm_network_context_reset_for_request(ne2k_llm_network_context_t* context);
+/* Sauvegarde le fournisseur, budget utilisé et Last-Event-ID SSE dans le contexte caller-owned. */
+int ne2k_llm_network_context_sse_checkpoint(ne2k_llm_network_context_t* context,uint8_t provider,
+                                            uint8_t retries_used,const net_llm_sse_response_t* response);
+/* Restaure atomiquement un checkpoint SSE intègre, sans modifier les sorties en cas d’échec. */
+int ne2k_llm_network_context_sse_resume_load(const ne2k_llm_network_context_t* context,uint8_t* provider,
+                                             uint8_t* retries_used,net_llm_sse_response_t* response);
+/* Invalide explicitement le checkpoint SSE sans modifier le bail, la connexion ni la phase. */
+void ne2k_llm_network_context_sse_resume_clear(ne2k_llm_network_context_t* context);
 /* Façade équivalente à acquire_start_dhcp opérant directement sur le contexte agrégé caller-owned. */
 int ne2k_llm_network_context_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t* io,net_arp_cache_t* cache,
                                                 uint8_t* dhcp_tx,uint16_t dhcp_tx_capacity,uint8_t* dhcp_rx,uint16_t dhcp_rx_capacity,
