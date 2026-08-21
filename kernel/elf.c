@@ -67,7 +67,11 @@ uint32_t elf_load(uint8_t* file_data, vmm_directory_t* vmm_dir) {
                     // TODO: Here we should unmap all previously mapped pages
                     return 0;
                 }
-                vmm_map_page_in_directory(vmm_dir, phys_page, (void*)page_addr, page_flags);
+                if (vmm_map_page_in_directory(vmm_dir, phys_page, (void*)page_addr, page_flags) != 0) {
+                    pmm_free_page(phys_page);
+                    print_string_serial("ERROR: Could not map ELF segment page.\n");
+                    return 0;
+                }
             }
 
             // Copy data from file (filesz)

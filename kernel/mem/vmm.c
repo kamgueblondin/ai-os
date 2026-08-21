@@ -105,15 +105,58 @@ page_t *vmm_get_page(uint32_t address, int make, vmm_directory_t *dir) {
     }
 }
 
-// Mappe une page physique à une adresse virtuelle dans un répertoire spécifique
-void vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags) {
-    page_t *page = vmm_get_page((uint32_t)virtualaddr, 1, dir);
-    if (!page) return;
+static uint8_t vmm_table_is_private(const vmm_directory_t* dir, uint32_t table_index) {
+    return (uint8_t)((dir->private_table_mask[table_index / 32U] >> (table_index % 32U)) & 1U);
+}
 
+static void vmm_table_mark_private(vmm_directory_t* dir, uint32_t table_index) {
+    dir->private_table_mask[table_index / 32U] |= (uint32_t)1U << (table_index % 32U);
+}
+
+static int vmm_ensure_private_user_table(vmm_directory_t *dir, uint32_t table_index) {
+    page_table_t* private_table;
+    if (!dir || table_index >= ENTRIES_PER_TABLE) return -1;
+    if (vmm_table_is_private(dir, table_index)) return 0;
+    private_table = (page_table_t*)pmm_alloc_page();
+    if (!private_table) return -2;
+    if (dir->tables[table_index]) memcpy(private_table, dir->tables[table_index], sizeof(page_table_t));
+    else memset(private_table, 0, sizeof(page_table_t));
+    dir->tables[table_index] = private_table;
+    dir->physical_dir->tablesPhysical[table_index] = (uint32_t)private_table | 0x7U;
+    vmm_table_mark_private(dir, table_index);
+    return 0;
+}
+
+/* Mappe une page physique à une adresse virtuelle dans un répertoire spécifique. */
+int vmm_map_page_in_directory(vmm_directory_t *dir, void *physaddr, void *virtualaddr, uint32_t flags) {
+    uint32_t table_index; page_t *page;
+    if (!dir || !physaddr || !virtualaddr) return -1;
+    table_index = ((uint32_t)virtualaddr / PAGE_SIZE) / ENTRIES_PER_TABLE;
+    if ((flags & PAGE_USER) && dir != kernel_directory && vmm_ensure_private_user_table(dir, table_index) != 0) return -2;
+    page = vmm_get_page((uint32_t)virtualaddr, 1, dir);
+    if (!page) return -3;
     page->present = (flags & PAGE_PRESENT) ? 1 : 0;
     page->rw = (flags & PAGE_WRITE) ? 1 : 0;
     page->user = (flags & PAGE_USER) ? 1 : 0;
-    page->frame = (uint32_t)physaddr / 0x1000;
-
+    page->frame = (uint32_t)physaddr / PAGE_SIZE;
     asm volatile ("invlpg (%0)" :: "r" (virtualaddr) : "memory");
+    return 0;
+}
+
+int vmm_destroy_user_directory(vmm_directory_t *dir) {
+    uint32_t table_index, page_index;
+    if (!dir || dir == kernel_directory || dir == current_directory) return -1;
+    for (table_index = 0U; table_index < ENTRIES_PER_TABLE; table_index++) {
+        page_table_t* table = dir->tables[table_index];
+        if (!vmm_table_is_private(dir, table_index) || !table) continue;
+        for (page_index = 0U; page_index < ENTRIES_PER_TABLE; page_index++) {
+            page_t* page = &table->pages[page_index];
+            if (page->present && page->user) pmm_free_page((void*)(page->frame * PAGE_SIZE));
+        }
+        pmm_free_page(table);
+    }
+    kfree(dir->physical_dir);
+    kfree(dir->tables);
+    kfree(dir);
+    return 0;
 }

@@ -276,11 +276,15 @@ task_t* create_task_from_initrd_file(const char* filename) {
 
     if (entry_point == 0 || user_stack_top == 0) {
         print_string_serial("ERREUR: Chargement ELF ou allocation de pile a echoue\n");
-        // TODO: Liberer vmm_dir et toutes les pages allouées
+        (void)vmm_destroy_user_directory(vmm_dir);
         return NULL;
     }
 
     task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
+    if (!new_task) {
+        (void)vmm_destroy_user_directory(vmm_dir);
+        return NULL;
+    }
     new_task->id = next_task_id++;
     new_task->state = TASK_READY;
     new_task->type = TASK_TYPE_USER;
@@ -333,7 +337,13 @@ task_t* create_task_from_initrd_file(const char* filename) {
     }
 
     // Allouer une pile noyau pour cette tâche
-    new_task->kernel_stack_p = (uint32_t)kmalloc(4096) + 4096;
+    new_task->kernel_stack_p = (uint32_t)kmalloc(4096);
+    if (!new_task->kernel_stack_p) {
+        kfree(new_task);
+        (void)vmm_destroy_user_directory(vmm_dir);
+        return NULL;
+    }
+    new_task->kernel_stack_p += 4096U;
 
     setup_initial_user_context(new_task, entry_point, user_stack_top);
     add_task_to_queue(new_task);
@@ -425,7 +435,10 @@ uint32_t allocate_user_stack(vmm_directory_t* vmm_dir) {
             // In a real scenario, we should free previously allocated pages
             return 0;
         }
-        vmm_map_page_in_directory(vmm_dir, stack_phys_page, (void*)addr, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
+        if (vmm_map_page_in_directory(vmm_dir, stack_phys_page, (void*)addr, PAGE_PRESENT | PAGE_WRITE | PAGE_USER) != 0) {
+            pmm_free_page(stack_phys_page);
+            return 0;
+        }
     }
 
     print_string_serial("User stack allocated at 0x");
