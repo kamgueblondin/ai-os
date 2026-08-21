@@ -57,7 +57,7 @@
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
-- [ ] Réduire la latence locale GGUF ; le forward Q3_K réel sans branche, le cache KV, les lectures FAT16 inter-clusters et la session locale coopérative sont validés ; la projection de vocabulaire/top-k demeure le prochain axe de performance
+- [x] Réduire la latence locale GGUF ; le forward Q3_K réel sans branche, le cache KV, les lectures FAT16 inter-clusters et la session locale coopérative sont validés. Les essais supplémentaires de cache paresseux de constantes et de spécialisation Q3_K top-k n’ayant pas dépassé la variabilité QEMU TCG, l’axe est clôturé avec mesures et critères dans [aos1641_1648_gguf_latency_closure.md](aos1641_1648_gguf_latency_closure.md).
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
@@ -95,6 +95,8 @@
 - [x] AOS-1617…1624 : fenêtre FAT16 caller-owned de 4 Kio, lecture ATA multi-secteurs et accélération QEMU du forward/continuation GGUF — [aos1617_1624_fat16_read_window.md](aos1617_1624_fat16_read_window.md)
 - [x] AOS-1625…1632 : fenêtre FAT16 inter-clusters de 8 Kio, cache FAT isolé, invalidation après écriture et gain QEMU supplémentaire — [aos1625_1632_fat16_intercluster_window.md](aos1625_1632_fat16_intercluster_window.md)
 - [x] AOS-1633…1640 : décodage Q3_K sans branche, équivalence quantifiée et gain QEMU de projection — [aos1633_1640_q3k_branchless_decode.md](aos1633_1640_q3k_branchless_decode.md)
+- [x] AOS-1641…1648 : clôture mesurée de l’axe de latence GGUF, essais non concluants retirés et bascule vers les fonctionnalités FAT16/LFN — [aos1641_1648_gguf_latency_closure.md](aos1641_1648_gguf_latency_closure.md)
+- [x] AOS-1649…1656 : recherche FAT16 par LFN ASCII validé pour lecture totale, lecture à offset et curseur, sans allocation dynamique — [aos1649_1656_fat16_lfn_read_lookup.md](aos1649_1656_fat16_lfn_read_lookup.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

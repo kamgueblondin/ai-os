@@ -1022,6 +1022,10 @@ static void test_creates_lfn_file(void) {
     uint8_t data[3] = {'L', 'F', 'N'};
     uint16_t first = 0U;
     os_fat16_dirent_t entries[4];
+    char readback[4] = {0};
+    uint8_t range[2] = {0};
+    uint32_t read = 0U;
+    fat16_file_t file;
     uint32_t root = 35U * 512U;
     make_volume();
     TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
@@ -1049,6 +1053,19 @@ static void test_creates_lfn_file(void) {
     TEST_ASSERT_EQUAL('o', entries[1].name[5]);
     TEST_ASSERT_EQUAL('n', entries[1].name[6]);
     TEST_ASSERT_EQUAL('-', entries[1].name[7]);
+    TEST_ASSERT_EQUAL(3, fat16_read_file(&volume, "session-2026-a", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_STRING("LFN", readback);
+    TEST_ASSERT_EQUAL(0, fat16_read_file_range(&volume, "SESSION-2026-A", 1U, range,
+                                               sizeof(range), &read));
+    TEST_ASSERT_EQUAL(2U, read);
+    TEST_ASSERT_EQUAL('F', range[0]);
+    TEST_ASSERT_EQUAL('N', range[1]);
+    TEST_ASSERT_EQUAL(0, fat16_open_file(&volume, "Session-2026-A", &file));
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, range, sizeof(range), &read));
+    TEST_ASSERT_EQUAL(2U, read);
+    TEST_ASSERT_EQUAL('L', range[0]);
+    TEST_ASSERT_EQUAL('F', range[1]);
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat16_open_file(&volume, "Unknown-long-name", &file));
     TEST_ASSERT_EQUAL('2', entries[1].name[8]);
     TEST_ASSERT_EQUAL('0', entries[1].name[9]);
     TEST_ASSERT_EQUAL('2', entries[1].name[10]);
