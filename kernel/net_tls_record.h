@@ -187,6 +187,8 @@ int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake);
 /* Construit un ClientHello TLS 1.2 minimal dans un record caller-owned. */
 int net_tls_client_hello_build(uint8_t* record, uint32_t capacity,
                                const uint8_t random[32]);
+/* Ajoute optionnellement SNI et un protocole ALPN ASCII bornés ; les deux chaînes peuvent être nulles. */
+int net_tls_client_hello_sni_alpn_build(uint8_t* record,uint32_t capacity,const uint8_t random[32],const char* hostname,const char* alpn);
 /* Choisit une chaîne directe, à un ou à deux intermédiaires ; aucune allocation ni mutation de handshake. */
 int net_tls_handshake_chain_select(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length,net_tls_certificate_chain_selection_t* out);
 int net_tls_handshake_validate_server_identity(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,const char* hostname,const char* utc_time,uint32_t* workspace,uint16_t workspace_length);
