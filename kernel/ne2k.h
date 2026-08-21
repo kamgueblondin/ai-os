@@ -254,6 +254,12 @@ int ne2k_llm_connection_acquire_start_dhcp(ne2k_device_t* device,const ne2k_io_t
 /* Initialisation/réarmement d’un contexte agrégé sans allouer ni conserver de buffers. */
 int ne2k_llm_network_context_init(ne2k_llm_network_context_t* context);
 int ne2k_llm_network_context_reset_for_request(ne2k_llm_network_context_t* context);
+/* Renouvelle le bail attaché au contexte lorsque son échéance est atteinte, sans publier de demi-état. */
+int ne2k_llm_network_context_dhcp_renew_if_due(ne2k_llm_network_context_t* context,
+                                                ne2k_device_t* device,const ne2k_io_t* io,
+                                                uint8_t* tx_frame,uint16_t tx_capacity,
+                                                uint8_t* rx_frame,uint16_t rx_capacity,
+                                                uint32_t xid,uint16_t poll_attempts,uint32_t now);
 /* Sauvegarde le fournisseur, budget utilisé et Last-Event-ID SSE dans le contexte caller-owned. */
 int ne2k_llm_network_context_sse_checkpoint(ne2k_llm_network_context_t* context,uint8_t provider,
                                             uint8_t retries_used,const net_llm_sse_response_t* response);
