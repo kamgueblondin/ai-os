@@ -2441,7 +2441,7 @@ void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\n");
 }
 
-// === Builtins manquants / stubs ===
+// === Builtins de navigation et de lecture de fichiers ===
 static void cmd_pwd(shell_context_t* ctx) {
     print_string(ctx->current_dir);
     print_string("\n");
