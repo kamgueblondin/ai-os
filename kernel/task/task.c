@@ -15,6 +15,8 @@ task_t* current_task = NULL;
 task_t* task_queue = NULL;
 int next_task_id = 0;
 volatile int g_reschedule_needed = 0;
+/* Tâche détachée à libérer lors d’un passage ultérieur, hors de sa pile et de son VMM. */
+static task_t* deferred_reap_task = NULL;
 
 // Externes
 extern vmm_directory_t* kernel_directory;
@@ -28,6 +30,7 @@ void setup_initial_user_context(task_t* task, uint32_t entry_point, uint32_t sta
 
 
 void tasking_init() {
+    deferred_reap_task = NULL;
     current_task = (task_t*)kmalloc(sizeof(task_t));
     current_task->id = next_task_id++;
     current_task->state = TASK_RUNNING;
@@ -94,6 +97,15 @@ void add_task_to_queue(task_t* task) {
 // Déclaration de la fonction assembleur pour le changement de contexte
 extern void jump_to_task(cpu_state_t* next_state);
 
+static void task_reap_deferred(void) {
+    task_t* task = deferred_reap_task;
+    deferred_reap_task = NULL;
+    if (!task || task->type != TASK_TYPE_USER) return;
+    if (task->vmm_dir && vmm_destroy_user_directory(task->vmm_dir) == 0) task->vmm_dir = NULL;
+    if (task->kernel_stack_p) kfree((void*)(task->kernel_stack_p - 4096U));
+    kfree(task);
+}
+
 static void unlink_task(task_t* task) {
     if (!task_queue || !task) return;
     if (task->next == task) {
@@ -111,6 +123,7 @@ static void unlink_task(task_t* task) {
 void schedule(cpu_state_t* cpu) {
     uint32_t now = timer_get_ticks();
     asm volatile("cli"); // Désactiver les interruptions pour la planification
+    task_reap_deferred();
     if (!current_task) {
         asm volatile("sti");
         return;
@@ -122,8 +135,10 @@ void schedule(cpu_state_t* cpu) {
         if (now >= current_task->last_scheduled_ticks) current_task->run_ticks += now - current_task->last_scheduled_ticks;
         memcpy(&current_task->cpu_state, cpu, sizeof(cpu_state_t));
     } else {
+        task_t* terminated_task = current_task;
         print_string_serial("[SCHED] removing terminated task\n");
-        unlink_task(current_task);
+        unlink_task(terminated_task);
+        deferred_reap_task = terminated_task;
         if (!task_queue) {
             asm volatile("sti");
             while(1) asm volatile("hlt");
