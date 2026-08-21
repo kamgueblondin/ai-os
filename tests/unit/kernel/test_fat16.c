@@ -1096,6 +1096,29 @@ static void test_creates_utf8_lfn_file(void) {
     TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9-2026.txt", entries[1].name);
 }
 
+static void test_creates_non_bmp_lfn_file(void) {
+    fat16_volume_t volume;
+    uint8_t data[5] = {'A', 'S', 'T', 'R', 'A'};
+    char readback[5] = {0};
+    os_fat16_dirent_t entries[4];
+    uint16_t first = 0U;
+    uint32_t root = 35U * 512U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_lfn_file(&volume, "rocket-\xF0\x9F\x98\x80.txt", "ROCKT1.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0x3DU, disk[root + 64U + 18U]);
+    TEST_ASSERT_EQUAL(0xD8U, disk[root + 64U + 19U]);
+    TEST_ASSERT_EQUAL(0x00U, disk[root + 64U + 20U]);
+    TEST_ASSERT_EQUAL(0xDEU, disk[root + 64U + 21U]);
+    TEST_ASSERT_EQUAL(5, fat16_read_file(&volume, "rocket-\xF0\x9F\x98\x80.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+    TEST_ASSERT_EQUAL(2, fat16_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("rocket-\xF0\x9F\x98\x80.txt", entries[1].name);
+}
+
 static void test_cursor_uses_attached_multisector_window(void) {
     fat16_volume_t volume;
     fat16_file_t file;
@@ -1192,6 +1215,7 @@ int main(void) {
     RUN_TEST(test_creates_persistent_file);
     RUN_TEST(test_creates_lfn_file);
     RUN_TEST(test_creates_utf8_lfn_file);
+    RUN_TEST(test_creates_non_bmp_lfn_file);
     unity_print_results();
     unity_cleanup();
     return 0;
