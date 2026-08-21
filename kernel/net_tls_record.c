@@ -427,17 +427,24 @@ int net_tls_handshake_accept_server_finished(net_tls_handshake_t* handshake,cons
 }
 int net_tls_handshake_is_complete(const net_tls_handshake_t* handshake){return handshake&&handshake->state==NET_TLS_HANDSHAKE_SERVER_FINISHED_RECEIVED;}
 
-int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t random[32]){
-    uint8_t hello[65]; uint8_t i; int length;
-    if(!record||!random||capacity<NET_TLS_RECORD_HEADER+sizeof(hello))return -1;
-    hello[0]=1U; hello[1]=0U; hello[2]=0U; hello[3]=61U; hello[4]=NET_TLS_VERSION_1_2_MAJOR; hello[5]=NET_TLS_VERSION_1_2_MINOR;
-    for(i=0U;i<32U;i++)hello[6U+i]=random[i];
-    hello[38]=0U;hello[39]=0U;hello[40]=4U;hello[41]=0xc0U;hello[42]=0x2bU;hello[43]=0xc0U;hello[44]=0x2fU;hello[45]=1U;hello[46]=0U;
-    hello[47]=0U;hello[48]=16U;
-    hello[49]=0U;hello[50]=10U;hello[51]=0U;hello[52]=4U;hello[53]=0U;hello[54]=2U;hello[55]=0U;hello[56]=29U;
-    hello[57]=0U;hello[58]=13U;hello[59]=0U;hello[60]=4U;hello[61]=0U;hello[62]=2U;hello[63]=4U;hello[64]=1U;
-    length=net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,sizeof(hello));return length;
+static int net_tls_client_hello_ascii_length(const char* value,uint16_t maximum,uint16_t* out,uint8_t hostname){uint16_t length=0U;if(!value||!out)return -1;while(value[length]!='\0'){uint8_t c=(uint8_t)value[length];if(length>=maximum||c<0x21U||c>0x7eU)return -2;if(hostname&&!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='.'||c=='-'))return -3;length++;}if(length==0U)return -4;*out=length;return 0;}
+
+int net_tls_client_hello_sni_alpn_build(uint8_t* record,uint32_t capacity,const uint8_t random[32],const char* hostname,const char* alpn){
+    uint8_t hello[384];uint16_t host_length=0U,alpn_length=0U,extensions_length=16U,position=65U,index;int status;
+    if(!record||!random)return -1;
+    if(hostname){status=net_tls_client_hello_ascii_length(hostname,253U,&host_length,1U);if(status!=0)return -2;extensions_length=(uint16_t)(extensions_length+9U+host_length);}
+    if(alpn){status=net_tls_client_hello_ascii_length(alpn,32U,&alpn_length,0U);if(status!=0)return -3;extensions_length=(uint16_t)(extensions_length+7U+alpn_length);}
+    if((uint32_t)65U+(uint32_t)(extensions_length-16U)>sizeof(hello)||capacity<(uint32_t)NET_TLS_RECORD_HEADER+65U+(uint32_t)(extensions_length-16U))return -4;
+    hello[0]=1U;hello[1]=0U;hello[2]=(uint8_t)((61U+(extensions_length-16U))>>8U);hello[3]=(uint8_t)(61U+(extensions_length-16U));hello[4]=NET_TLS_VERSION_1_2_MAJOR;hello[5]=NET_TLS_VERSION_1_2_MINOR;
+    for(index=0U;index<32U;index++)hello[6U+index]=random[index];
+    hello[38]=0U;hello[39]=0U;hello[40]=4U;hello[41]=0xc0U;hello[42]=0x2bU;hello[43]=0xc0U;hello[44]=0x2fU;hello[45]=1U;hello[46]=0U;hello[47]=(uint8_t)(extensions_length>>8U);hello[48]=(uint8_t)extensions_length;
+    hello[49]=0U;hello[50]=10U;hello[51]=0U;hello[52]=4U;hello[53]=0U;hello[54]=2U;hello[55]=0U;hello[56]=29U;hello[57]=0U;hello[58]=13U;hello[59]=0U;hello[60]=4U;hello[61]=0U;hello[62]=2U;hello[63]=4U;hello[64]=1U;
+    if(hostname){hello[position++]=0U;hello[position++]=0U;hello[position++]=0U;hello[position++]=(uint8_t)(5U+host_length);hello[position++]=0U;hello[position++]=(uint8_t)(3U+host_length);hello[position++]=0U;hello[position++]=(uint8_t)(host_length>>8U);hello[position++]=(uint8_t)host_length;for(index=0U;index<host_length;index++)hello[position++]=(uint8_t)hostname[index];}
+    if(alpn){hello[position++]=0U;hello[position++]=16U;hello[position++]=0U;hello[position++]=(uint8_t)(3U+alpn_length);hello[position++]=0U;hello[position++]=(uint8_t)(1U+alpn_length);hello[position++]=(uint8_t)alpn_length;for(index=0U;index<alpn_length;index++)hello[position++]=(uint8_t)alpn[index];}
+    return net_tls_record_build(record,capacity,NET_TLS_CONTENT_HANDSHAKE,hello,position);
 }
+
+int net_tls_client_hello_build(uint8_t* record,uint32_t capacity,const uint8_t random[32]){return net_tls_client_hello_sni_alpn_build(record,capacity,random,0,0);}
 
 int net_tls_handshake_chain_select(const net_tls_handshake_t* handshake,const x509_certificate_view_t* trust_anchor,uint32_t* workspace,uint16_t workspace_length,net_tls_certificate_chain_selection_t* out){
     net_tls_certificate_chain_selection_t selected;
