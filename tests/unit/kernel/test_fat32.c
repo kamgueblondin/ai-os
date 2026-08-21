@@ -64,6 +64,12 @@ void test_lfn_utf8_bmp_conversion(void) {
     TEST_ASSERT_EQUAL(4U, count); TEST_ASSERT_EQUAL(0x00E9U, units[3]);
     TEST_ASSERT_EQUAL(5, lfn_utf16_bmp_to_utf8(units, count, output, sizeof(output)));
     TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9", output);
+    TEST_ASSERT_EQUAL(0, lfn_utf8_to_utf16_bmp("A\xF0\x9F\x98\x80", units, 8U, &count));
+    TEST_ASSERT_EQUAL(3U, count); TEST_ASSERT_EQUAL(0xD83DU, units[1]); TEST_ASSERT_EQUAL(0xDE00U, units[2]);
+    TEST_ASSERT_EQUAL(5, lfn_utf16_bmp_to_utf8(units, count, output, sizeof(output)));
+    TEST_ASSERT_EQUAL_STRING("A\xF0\x9F\x98\x80", output);
+    units[0] = 0xD83DU; units[1] = 0U;
+    TEST_ASSERT_TRUE(lfn_utf16_bmp_to_utf8(units, 2U, output, sizeof(output)) < 0);
     TEST_ASSERT_TRUE(lfn_utf8_to_utf16_bmp("\xC0\x80", units, 8U, &count) < 0);
 }
 
@@ -130,4 +136,30 @@ void test_fat32_utf8_lfn_file_roundtrip(void) {
     TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9-2026.txt", entries[0].name);
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); unity_print_results(); unity_cleanup(); return 0; }
+void test_fat32_utf8_lfn_non_bmp_roundtrip(void) {
+    fat32_volume_t volume;
+    os_fat16_dirent_t entries[2];
+    uint8_t data[5] = {'A', 'S', 'T', 'R', 'A'};
+    uint8_t readback[5] = {0U};
+    uint32_t first = 0U;
+    for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
+    disk[13] = 2U; put16(disk + 11U, 512U); put16(disk + 14U, 32U); disk[16] = 2U;
+    put32(disk + 32U, 200000U); put32(disk + 36U, 1000U); put32(disk + 44U, 2U); put16(disk + 510U, 0xaa55U);
+    disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU;
+    disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_create_lfn_file(&volume, "rocket-\xF0\x9F\x98\x80.txt", "ROCKT1.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0x3DU, disk[2032U * 512U + 32U + 18U]);
+    TEST_ASSERT_EQUAL(0xD8U, disk[2032U * 512U + 32U + 19U]);
+    TEST_ASSERT_EQUAL(0x00U, disk[2032U * 512U + 32U + 20U]);
+    TEST_ASSERT_EQUAL(0xDEU, disk[2032U * 512U + 32U + 21U]);
+    TEST_ASSERT_EQUAL(5, fat32_read_file(&volume, "rocket-\xF0\x9F\x98\x80.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+    TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 2U));
+    TEST_ASSERT_EQUAL_STRING("rocket-\xF0\x9F\x98\x80.txt", entries[0].name);
+}
+
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); RUN_TEST(test_fat32_utf8_lfn_non_bmp_roundtrip); unity_print_results(); unity_cleanup(); return 0; }
