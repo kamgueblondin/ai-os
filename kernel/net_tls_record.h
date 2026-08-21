@@ -61,6 +61,8 @@ int net_tls_aes_gcm_session_open(net_tls_aes_gcm_session_t* session, const uint8
                                  net_tls_record_view_t* out);
 /* Construit un record TLS 1.2 chiffré `warning/close_notify` et avance la séquence seulement si le record est prêt. */
 int net_tls_close_notify_build(net_tls_aes_gcm_session_t* session,uint8_t* record,uint32_t capacity);
+/* Valide l’alerte TLS `warning/close_notify` déjà déchiffrée, sans mutation de session. */
+int net_tls_close_notify_parse(const net_tls_record_view_t* record);
 /* Parse le premier record d’un flux TCP et publie les octets consommés. */
 int net_tls_record_parse_stream(const uint8_t* stream, uint32_t length,
                                 net_tls_record_view_t* out, uint16_t* consumed);
