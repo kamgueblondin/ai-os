@@ -15,6 +15,8 @@ typedef struct {
 #define NET_LLM_HTTP_STATUS_AUTH 2
 #define NET_LLM_HTTP_STATUS_PERMANENT 3
 #define NET_LLM_HTTP_STATUS_PROTOCOL 4
+/* Retour de polling : le pair a envoyé une alerte TLS warning/close_notify valide. */
+#define NET_HTTP_TLS_STATUS_CLOSE_NOTIFY 2
 typedef struct {
     uint8_t* buffer;
     uint16_t capacity;
