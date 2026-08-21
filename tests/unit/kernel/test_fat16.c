@@ -1075,6 +1075,27 @@ static void test_creates_lfn_file(void) {
     TEST_ASSERT_EQUAL('\0', entries[1].name[14]);
     TEST_ASSERT_EQUAL(3U, entries[1].size);
 }
+static void test_creates_utf8_lfn_file(void) {
+    fat16_volume_t volume;
+    uint8_t data[4] = {'U', 'T', 'F', '8'};
+    char readback[4] = {0};
+    os_fat16_dirent_t entries[4];
+    uint16_t first = 0U;
+    uint32_t root = 35U * 512U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_lfn_file(&volume, "caf\xC3\xA9-2026.txt", "CAFE26.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0xE9U, disk[root + 64U + 7U]);
+    TEST_ASSERT_EQUAL(0x00U, disk[root + 64U + 8U]);
+    TEST_ASSERT_EQUAL(4, fat16_read_file(&volume, "caf\xC3\xA9-2026.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+    TEST_ASSERT_EQUAL(2, fat16_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9-2026.txt", entries[1].name);
+}
+
 static void test_cursor_uses_attached_multisector_window(void) {
     fat16_volume_t volume;
     fat16_file_t file;
@@ -1170,6 +1191,7 @@ int main(void) {
     RUN_TEST(test_writes_only_with_explicit_writer);
     RUN_TEST(test_creates_persistent_file);
     RUN_TEST(test_creates_lfn_file);
+    RUN_TEST(test_creates_utf8_lfn_file);
     unity_print_results();
     unity_cleanup();
     return 0;

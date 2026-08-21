@@ -1,4 +1,5 @@
 #include "fat32.h"
+#include "lfn_utf8.h"
 
 static fat32_volume_t fat32_root_volume;
 
@@ -220,15 +221,16 @@ uint8_t fat32_lfn_checksum(const uint8_t short_name[11]) {
 }
 
 int fat32_encode_lfn_entry(const char* name, uint8_t ordinal, uint8_t checksum, uint8_t entry[32]) {
+    uint16_t units[13];
     uint32_t length = 0U, i, pos;
     static const uint8_t offsets[13] = {1U,3U,5U,7U,9U,14U,16U,18U,20U,22U,24U,28U,30U};
     if (!name || !entry || ordinal == 0U || (ordinal & 0x1fU) == 0U) return OS_FAT16_BAD_PATH;
-    while (name[length]) { if ((uint8_t)name[length] > 0x7fU || name[length] == '/' || length >= 13U) return OS_FAT16_BAD_PATH; length++; }
+    if (lfn_utf8_to_utf16_bmp(name, units, 13U, &length) != 0) return OS_FAT16_BAD_PATH;
     for (i = 0U; i < 32U; i++) entry[i] = 0xffU;
     entry[0] = ordinal; entry[11] = 0x0fU; entry[12] = 0U; entry[13] = checksum; entry[26] = 0U; entry[27] = 0U;
     for (i = 0U; i < 13U; i++) {
         pos = (uint32_t)(ordinal & 0x1fU) * 13U - 13U + i;
-        if (pos < length) { entry[offsets[i]] = (uint8_t)name[pos]; entry[offsets[i] + 1U] = 0U; }
+        if (pos < length) { entry[offsets[i]] = (uint8_t)units[pos]; entry[offsets[i] + 1U] = (uint8_t)(units[pos] >> 8U); }
         else if (pos == length) { entry[offsets[i]] = 0U; entry[offsets[i] + 1U] = 0U; }
     }
     return 0;
@@ -254,37 +256,51 @@ static int fat32_dir_slot(const fat32_volume_t* v, uint32_t index, uint8_t entry
     return 0;
 }
 
-static void fat32_lfn_get(const uint8_t entry[32], uint32_t offset, uint32_t pos, char* out, uint32_t max) {
+static void fat32_lfn_get(const uint8_t entry[32], uint32_t offset, uint32_t pos,
+                            uint16_t* units, uint32_t max) {
     uint32_t limit = offset == 1U ? 5U : (offset == 14U ? 6U : 2U);
-    for (uint32_t i = 0U; i < limit; i++) { uint32_t at = pos + i; uint16_t value = (uint16_t)entry[offset + i * 2U] | ((uint16_t)entry[offset + i * 2U + 1U] << 8U); if (at >= max - 1U || value == 0U || value == 0xffffU) continue; out[at] = value < 0x80U ? (char)value : '?'; }
+    for (uint32_t i = 0U; i < limit; i++) {
+        uint32_t at = pos + i;
+        uint16_t value = (uint16_t)entry[offset + i * 2U] |
+                         ((uint16_t)entry[offset + i * 2U + 1U] << 8U);
+        if (at >= max || value == 0U || value == 0xffffU) continue;
+        units[at] = value;
+    }
 }
 
-static int fat32_lfn_segment(const char* name, uint32_t length, uint32_t count, uint32_t ordinal, uint8_t checksum, uint8_t entry[32]) {
+static int fat32_lfn_segment(const uint16_t* units, uint32_t length, uint32_t count,
+                             uint32_t ordinal, uint8_t checksum, uint8_t entry[32]) {
     static const uint8_t offsets[13] = {1U,3U,5U,7U,9U,14U,16U,18U,20U,22U,24U,28U,30U};
     uint32_t start = (ordinal - 1U) * 13U;
-    if (!name || !entry || ordinal == 0U || ordinal > count) return OS_FAT16_BAD_PATH;
+    if (!units || !entry || ordinal == 0U || ordinal > count) return OS_FAT16_BAD_PATH;
     for (uint32_t i = 0U; i < 32U; i++) entry[i] = 0xffU;
     entry[0] = (uint8_t)ordinal | (ordinal == count ? 0x40U : 0U);
     entry[11] = 0x0fU; entry[12] = 0U; entry[13] = checksum; entry[26] = 0U; entry[27] = 0U;
     for (uint32_t i = 0U; i < 13U; i++) {
         uint32_t at = start + i;
-        uint16_t value = at < length ? (uint8_t)name[at] : (at == length ? 0U : 0xffffU);
-        entry[offsets[i]] = (uint8_t)value; entry[offsets[i] + 1U] = (uint8_t)(value >> 8U);
+        uint16_t value = at < length ? units[at] : (at == length ? 0U : 0xffffU);
+        entry[offsets[i]] = (uint8_t)value;
+        entry[offsets[i] + 1U] = (uint8_t)(value >> 8U);
     }
     return 0;
 }
 
 int fat32_create_lfn_file(const fat32_volume_t* v, const char* long_name, const char* short_name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster) {
-    uint8_t alias[11], entry[32]; uint32_t length = 0U, count, alias_index = 0xffffffffU, first = 0U, i; int rc;
+    uint8_t alias[11], entry[32];
+    uint16_t units[OS_NAME_MAX];
+    uint32_t length = 0U, count, alias_index = 0xffffffffU, first = 0U, i;
+    int rc;
     if (!v || !long_name || !short_name || !out_first_cluster) return OS_FAT16_BAD_PATH;
-    while (long_name[length]) { if (length >= OS_NAME_MAX - 1U || (uint8_t)long_name[length] < 0x20U || (uint8_t)long_name[length] > 0x7fU || long_name[length] == '/' || long_name[length] == '\\') return OS_FAT16_BAD_PATH; length++; }
-    if (length == 0U || length > 13U * 20U || fat32_short_name(short_name, alias) != 0) return OS_FAT16_BAD_PATH;
-    count = (length + 12U) / 13U; rc = fat32_create_file(v, short_name, attributes, data, size, &first); if (rc != 0) return rc;
+    if (lfn_utf8_to_utf16_bmp(long_name, units, OS_NAME_MAX, &length) != 0 ||
+        length > 13U * 20U || fat32_short_name(short_name, alias) != 0) return OS_FAT16_BAD_PATH;
+    count = (length + 12U) / 13U;
+    rc = fat32_create_file(v, short_name, attributes, data, size, &first);
+    if (rc != 0) return rc;
     for (i = 0U; i < v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U; i++) { if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break; int match = 1; for (uint32_t j = 0U; j < 11U; j++) if (entry[j] != alias[j]) { match = 0; break; } if (match) { alias_index = i; break; } }
     if (alias_index == 0xffffffffU) return OS_FAT16_CORRUPT;
     for (i = 0U; i < count + 1U; i++) if (fat32_dir_slot(v, alias_index + 1U + i, entry, 0, 1) != 0 || (entry[0] != 0U && entry[0] != 0xe5U)) return OS_FAT16_NOT_FOUND;
     entry[0] = 0xe5U; rc = fat32_dir_slot(v, alias_index, entry, 1, 0); if (rc != 0) return rc;
-    for (i = 0U; i < count; i++) { rc = fat32_lfn_segment(long_name, length, count, count - i, fat32_lfn_checksum(alias), entry); if (rc != 0) return rc; rc = fat32_dir_slot(v, alias_index + 1U + i, entry, 1, 1); if (rc != 0) return rc; }
+    for (i = 0U; i < count; i++) { rc = fat32_lfn_segment(units, length, count, count - i, fat32_lfn_checksum(alias), entry); if (rc != 0) return rc; rc = fat32_dir_slot(v, alias_index + 1U + i, entry, 1, 1); if (rc != 0) return rc; }
     for (i = 0U; i < 32U; i++) entry[i] = 0U;
     for (i = 0U; i < 11U; i++) entry[i] = alias[i];
     entry[11] = attributes; entry[20] = (uint8_t)(first >> 24U); entry[21] = (uint8_t)(first >> 16U);
@@ -306,17 +322,27 @@ static int fat32_name_equal_folded(const char* left, const char* right) {
     return 0;
 }
 
+static int fat32_lfn_name_equal_folded(const uint16_t* units, const char* name) {
+    char decoded[OS_NAME_MAX];
+    return lfn_utf16_bmp_to_utf8(units, OS_NAME_MAX, decoded, OS_NAME_MAX) >= 0 &&
+           fat32_name_equal_folded(name, decoded);
+}
+
+static int fat32_lfn_query_valid(const char* name) {
+    uint16_t units[OS_NAME_MAX];
+    uint32_t length;
+    return lfn_utf8_to_utf16_bmp(name, units, OS_NAME_MAX, &length) == 0;
+}
+
 int fat32_unlink_file(const fat32_volume_t* v, const char* name) {
     uint8_t entry[32], short_name[11], lfn_sum = 0U, expected = 0U, valid = 0U;
-    char lfn[OS_NAME_MAX];
+    uint16_t lfn_units[OS_NAME_MAX];
     uint32_t lfn_start = 0U, i, j, limit;
     uint32_t first;
     int short_valid;
     if (!v || !name || !fat32_is_mounted(v) || !v->write_sector) return OS_FAT16_NOT_MOUNTED;
     short_valid = fat32_short_name(name, short_name) == 0;
-    for (i = 0U; i < OS_NAME_MAX && name[i]; i++)
-        if ((uint8_t)name[i] < 0x20U || (uint8_t)name[i] > 0x7fU || name[i] == '/' || name[i] == '\\') return OS_FAT16_BAD_PATH;
-    if (i == 0U || i == OS_NAME_MAX) return OS_FAT16_BAD_PATH;
+    if (!fat32_lfn_query_valid(name)) return OS_FAT16_BAD_PATH;
     limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
     for (i = 0U; i < limit; i++) {
         uint8_t ord;
@@ -326,19 +352,19 @@ int fat32_unlink_file(const fat32_volume_t* v, const char* name) {
             ord = entry[0] & 0x1fU;
             if (entry[0] & 0x40U) {
                 if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
-                for (j = 0U; j < OS_NAME_MAX; j++) lfn[j] = 0;
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
                 lfn_sum = entry[13]; expected = ord; lfn_start = i; valid = 1U;
             }
             if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; }
-            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn, OS_NAME_MAX);
+            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
             expected--; continue;
         }
         if (entry[11] & 0x08U) { valid = 0U; continue; }
         { int same = short_valid; for (j = 0U; j < 11U && same; j++) if (entry[j] != short_name[j]) same = 0;
         if ((!same) &&
-            !(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum && fat32_name_equal_folded(name, lfn))) { valid = 0U; continue; }
+            !(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum && fat32_lfn_name_equal_folded(lfn_units, name))) { valid = 0U; continue; }
         }
         first = ((uint32_t)entry[20] << 24U) | ((uint32_t)entry[21] << 16U) | le16(entry + 26U);
         for (j = valid && expected == 0U ? lfn_start : i; j <= i; j++) {
@@ -356,18 +382,13 @@ int fat32_unlink_file(const fat32_volume_t* v, const char* name) {
 int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
                           const char* new_long_name, const char* new_short_name) {
     uint8_t entry[32], old_short[11], new_short[11], sum = 0U, expected = 0U, valid = 0U;
-    char lfn[OS_NAME_MAX];
+    uint16_t lfn_units[OS_NAME_MAX], units[OS_NAME_MAX];
     uint32_t start = 0U, i, j, limit, old_count = 0U, length = 0U, new_count;
     int old_short_valid;
     if (!v || !old_name || !new_long_name || !new_short_name || !fat32_is_mounted(v) || !v->write_sector) return OS_FAT16_NOT_MOUNTED;
     old_short_valid = fat32_short_name(old_name, old_short) == 0;
     if (fat32_short_name(new_short_name, new_short) != 0) return OS_FAT16_BAD_PATH;
-    while (new_long_name[length]) {
-        if (length >= OS_NAME_MAX - 1U || (uint8_t)new_long_name[length] < 0x20U ||
-            (uint8_t)new_long_name[length] > 0x7fU || new_long_name[length] == '/' || new_long_name[length] == '\\') return OS_FAT16_BAD_PATH;
-        length++;
-    }
-    if (length == 0U) return OS_FAT16_BAD_PATH;
+    if (lfn_utf8_to_utf16_bmp(new_long_name, units, OS_NAME_MAX, &length) != 0) return OS_FAT16_BAD_PATH;
     new_count = (length + 12U) / 13U;
     limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
     for (i = 0U; i < limit; i++) {
@@ -377,20 +398,20 @@ int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
         if (entry[11] == 0x0fU) {
             ord = entry[0] & 0x1fU;
             if (entry[0] & 0x40U) { if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
-                for (j = 0U; j < OS_NAME_MAX; j++) lfn[j] = 0;
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
                 sum = entry[13]; expected = ord; start = i; old_count = ord; valid = 1U; }
             if (!valid || ord == 0U || ord != expected || entry[13] != sum) { valid = 0U; continue; }
-            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn, OS_NAME_MAX);
+            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
             expected--; continue;
         }
         if (entry[11] & 0x08U) { valid = 0U; continue; }
         { int same = old_short_valid; for (j = 0U; j < 11U && same; j++) if (entry[j] != old_short[j]) same = 0;
-          if (!same && !(valid && expected == 0U && fat32_lfn_checksum(entry) == sum && fat32_name_equal_folded(old_name, lfn))) { valid = 0U; continue; } }
+          if (!same && !(valid && expected == 0U && fat32_lfn_checksum(entry) == sum && fat32_lfn_name_equal_folded(lfn_units, old_name))) { valid = 0U; continue; } }
         if (!valid || expected != 0U || old_count != new_count) return OS_FAT16_BAD_PATH;
         for (j = 0U; j < new_count; j++) {
-            if (fat32_lfn_segment(new_long_name, length, new_count, new_count - j, fat32_lfn_checksum(new_short), entry) != 0 ||
+            if (fat32_lfn_segment(units, length, new_count, new_count - j, fat32_lfn_checksum(new_short), entry) != 0 ||
                 fat32_dir_slot(v, start + j, entry, 1, 0) != 0) return OS_FAT16_CORRUPT;
         }
         if (fat32_dir_slot(v, i, entry, 0, 0) != 0) return OS_FAT16_CORRUPT;
@@ -403,15 +424,13 @@ int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
 
 int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, uint32_t max) {
     uint8_t entry[32], short_name[11], lfn_sum = 0U, expected = 0U, valid = 0U;
-    char lfn[OS_NAME_MAX];
+    uint16_t lfn_units[OS_NAME_MAX];
     uint32_t i, j, limit, size, copied = 0U, cluster_bytes, guard = 0U;
     uint32_t cluster, next;
     int short_valid;
     if (!v || !name || !buffer || max == 0U || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
     short_valid = fat32_short_name(name, short_name) == 0;
-    for (i = 0U; i < OS_NAME_MAX && name[i]; i++)
-        if ((uint8_t)name[i] < 0x20U || (uint8_t)name[i] > 0x7fU || name[i] == '/' || name[i] == '\\') return OS_FAT16_BAD_PATH;
-    if (i == 0U || i == OS_NAME_MAX) return OS_FAT16_BAD_PATH;
+    if (!fat32_lfn_query_valid(name)) return OS_FAT16_BAD_PATH;
     limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
     for (i = 0U; i < limit; i++) {
         uint8_t ord;
@@ -421,18 +440,18 @@ int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, 
             ord = entry[0] & 0x1fU;
             if (entry[0] & 0x40U) {
                 if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
-                for (j = 0U; j < OS_NAME_MAX; j++) lfn[j] = 0;
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
                 lfn_sum = entry[13]; expected = ord; valid = 1U;
             }
             if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; }
-            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn, OS_NAME_MAX);
-            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn, OS_NAME_MAX);
+            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
             expected--; continue;
         }
         if (entry[11] & 0x18U) { valid = 0U; continue; }
         { int match = short_valid; for (j = 0U; j < 11U && match; j++) if (entry[j] != short_name[j]) match = 0;
-          if (!match && !(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum && fat32_name_equal_folded(name, lfn))) { valid = 0U; continue; } }
+          if (!match && !(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum && fat32_lfn_name_equal_folded(lfn_units, name))) { valid = 0U; continue; } }
         size = le32(entry + 28U);
         if (size > max) return OS_FAT16_BUFFER_SMALL;
         cluster = ((uint32_t)entry[20] << 24U) | ((uint32_t)entry[21] << 16U) | le16(entry + 26U);
@@ -456,15 +475,26 @@ int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, 
 }
 
 int fat32_list_root(const fat32_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
-    uint8_t entry[32], lfn_sum = 0U, expected = 0U, valid = 0U; char lfn[OS_NAME_MAX]; uint32_t count = 0U;
+    uint8_t entry[32], lfn_sum = 0U, expected = 0U, valid = 0U;
+    uint16_t lfn_units[OS_NAME_MAX];
+    uint32_t count = 0U;
     if (!v || !out || capacity == 0U || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
     for (uint32_t i = 0U; i < v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U; i++) {
         if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break;
         if (entry[0] == 0xe5U) { valid = 0U; continue; }
-        if (entry[11] == 0x0fU) { uint8_t ord = entry[0] & 0x1fU; if (entry[0] & 0x40U) { if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; } for (uint32_t j = 0U; j < OS_NAME_MAX; j++) lfn[j] = 0; lfn_sum = entry[13]; expected = ord; valid = 1U; } if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; } fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn, OS_NAME_MAX); fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn, OS_NAME_MAX); fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn, OS_NAME_MAX); expected--; continue; }
+        if (entry[11] == 0x0fU) { uint8_t ord = entry[0] & 0x1fU; if (entry[0] & 0x40U) { if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; } for (uint32_t j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U; lfn_sum = entry[13]; expected = ord; valid = 1U; } if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; } fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX); fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX); fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX); expected--; continue; }
         if (entry[11] & 0x08U) { valid = 0U; continue; }
         if (count >= capacity) return (int)count;
-        if (valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum) { for (uint32_t j = 0U; j < OS_NAME_MAX; j++) out[count].name[j] = lfn[j]; } else { uint32_t p = 0U; for (uint32_t j = 0U; j < 8U; j++) if (entry[j] != ' ') out[count].name[p++] = (char)entry[j]; if (entry[8] != ' ') { out[count].name[p++] = '.'; for (uint32_t j = 8U; j < 11U; j++) if (entry[j] != ' ') out[count].name[p++] = (char)entry[j]; } out[count].name[p] = 0; }
+        if (!(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum &&
+              lfn_utf16_bmp_to_utf8(lfn_units, OS_NAME_MAX, out[count].name, OS_NAME_MAX) >= 0)) {
+            uint32_t p = 0U;
+            for (uint32_t j = 0U; j < 8U; j++) if (entry[j] != ' ') out[count].name[p++] = (char)entry[j];
+            if (entry[8] != ' ') {
+                out[count].name[p++] = '.';
+                for (uint32_t j = 8U; j < 11U; j++) if (entry[j] != ' ') out[count].name[p++] = (char)entry[j];
+            }
+            out[count].name[p] = 0;
+        }
         out[count].size = le32(entry + 28U); out[count].flags = (entry[11] & 0x10U) ? OS_DIRENT_DIR : OS_DIRENT_FILE; count++; valid = 0U;
     }
     return (int)count;

@@ -1,5 +1,6 @@
 #include "../../framework/unity.h"
 #include "../../../kernel/fs/fat32.h"
+#include "../../../kernel/fs/lfn_utf8.h"
 
 static uint8_t disk[2048U * 512U];
 static int read_sector(uint32_t lba, void* buffer) {
@@ -57,6 +58,15 @@ void test_fat32_extend_full_root(void) {
     TEST_ASSERT_EQUAL(3U, disk[32U * 512U + 8U]); TEST_ASSERT_EQUAL(0U, disk[2034U * 512U]);
 }
 
+void test_lfn_utf8_bmp_conversion(void) {
+    uint16_t units[8]; char output[16]; uint32_t count = 0U;
+    TEST_ASSERT_EQUAL(0, lfn_utf8_to_utf16_bmp("caf\xC3\xA9", units, 8U, &count));
+    TEST_ASSERT_EQUAL(4U, count); TEST_ASSERT_EQUAL(0x00E9U, units[3]);
+    TEST_ASSERT_EQUAL(5, lfn_utf16_bmp_to_utf8(units, count, output, sizeof(output)));
+    TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9", output);
+    TEST_ASSERT_TRUE(lfn_utf8_to_utf16_bmp("\xC0\x80", units, 8U, &count) < 0);
+}
+
 void test_fat32_lfn_encoding(void) {
     uint8_t alias[11] = {'C','H','A','T',' ',' ',' ',' ','B','I','N'}, entry[32];
     TEST_ASSERT_EQUAL(0, fat32_encode_lfn_entry("Session-2026", 0x41U, fat32_lfn_checksum(alias), entry));
@@ -64,6 +74,8 @@ void test_fat32_lfn_encoding(void) {
     TEST_ASSERT_EQUAL('S', entry[1]); TEST_ASSERT_EQUAL(0U, entry[2]); TEST_ASSERT_EQUAL('n', entry[16]); TEST_ASSERT_EQUAL(0U, entry[17]);
     TEST_ASSERT_EQUAL(0, fat32_encode_lfn_entry("abcdefghijklm", 1U, 0U, entry));
     TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat32_encode_lfn_entry("abcdefghijklmn", 2U, 0U, entry));
+    TEST_ASSERT_EQUAL(0, fat32_encode_lfn_entry("caf\xC3\xA9", 0x41U, 0U, entry));
+    TEST_ASSERT_EQUAL(0xE9U, entry[7]); TEST_ASSERT_EQUAL(0x00U, entry[8]);
 }
 
 void test_fat32_lfn_file_and_list(void) {
@@ -94,4 +106,28 @@ void test_fat32_lfn_file_and_list(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat32_unlink_file(&volume, "Persistent-LLM-Session"));
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); unity_print_results(); unity_cleanup(); return 0; }
+void test_fat32_utf8_lfn_file_roundtrip(void) {
+    fat32_volume_t volume;
+    os_fat16_dirent_t entries[2];
+    uint8_t data[4] = {'U', 'T', 'F', '8'};
+    uint8_t readback[4] = {0U};
+    uint32_t first = 0U;
+    for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
+    disk[13] = 2U; put16(disk + 11U, 512U); put16(disk + 14U, 32U); disk[16] = 2U;
+    put32(disk + 32U, 200000U); put32(disk + 36U, 1000U); put32(disk + 44U, 2U); put16(disk + 510U, 0xaa55U);
+    disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU;
+    disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_create_lfn_file(&volume, "caf\xC3\xA9-2026.txt", "CAFE26.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0xE9U, disk[2032U * 512U + 32U + 7U]);
+    TEST_ASSERT_EQUAL(0x00U, disk[2032U * 512U + 32U + 8U]);
+    TEST_ASSERT_EQUAL(4, fat32_read_file(&volume, "caf\xC3\xA9-2026.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+    TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 2U));
+    TEST_ASSERT_EQUAL_STRING("caf\xC3\xA9-2026.txt", entries[0].name);
+}
+
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); unity_print_results(); unity_cleanup(); return 0; }
