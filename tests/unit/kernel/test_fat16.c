@@ -1061,8 +1061,8 @@ static void test_creates_lfn_file(void) {
 static void test_cursor_uses_attached_multisector_window(void) {
     fat16_volume_t volume;
     fat16_file_t file;
-    uint8_t window[8U * 512U];
-    uint8_t out[1024];
+    uint8_t window[32U * 512U];
+    uint8_t out[9U * 512U];
     uint32_t root = (1U + 2U * 17U) * 512U;
     uint32_t data = (root / 512U + 2U) * 512U;
     uint32_t file_data = data + 8U * 8U * 512U;
@@ -1073,7 +1073,8 @@ static void test_cursor_uses_attached_multisector_window(void) {
     disk[13] = 8U;
     for (fat = 1U; fat <= 2U; fat++) {
         uint32_t base = (1U + (fat - 1U) * 17U) * 512U;
-        put16(base + 20U, 0xFFF8U);
+        put16(base + 20U, 11U);
+        put16(base + 22U, 0xFFF8U);
     }
     put16(root + 26U, 10U);
     put32(root + 28U, sizeof(out));
