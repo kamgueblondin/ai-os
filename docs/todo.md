@@ -115,6 +115,7 @@
 - [x] AOS-1777…1784 : tick SSE NE2000, programmation automatique de retry, attente non bloquante et reprise déléguée sans allocation dynamique — [aos1777_1784_ne2k_sse_event_tick.md](aos1777_1784_ne2k_sse_event_tick.md)
 - [x] AOS-1785…1792 : tick SSE actif raccordé au contexte LLM, checkpoint automatique, publication transactionnelle et reprise persistante sans allocation dynamique — [aos1785_1792_sse_context_event_tick.md](aos1785_1792_sse_context_event_tick.md)
 - [x] AOS-1793…1800 : rotation SSE Ollama/OpenAI après budget atteint, reset du scheduler, checkpoint sans reprise inter-fournisseur et zéro allocation dynamique — [aos1793_1800_sse_provider_rotation_context.md](aos1793_1800_sse_provider_rotation_context.md)
+- [x] AOS-1801…1808 : jitter SSE borné dans le contexte LLM, publication transactionnelle de la graine et checkpoint persistant sans allocation dynamique — [aos1801_1808_sse_context_jitter.md](aos1801_1808_sse_context_jitter.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

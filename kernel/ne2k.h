@@ -692,6 +692,12 @@ int ne2k_llm_network_context_sse_event_tick(ne2k_llm_network_context_t* context,
 int ne2k_llm_network_context_sse_rotate_provider(ne2k_llm_network_context_t* context,uint8_t* provider,
                                                   net_llm_sse_reconnect_t* reconnect,
                                                   const net_llm_sse_response_t* response);
+/* Programme un retry SSE jitteré et publie contexte, checkpoint et graine ensemble. */
+int ne2k_llm_network_context_sse_schedule_jittered(ne2k_llm_network_context_t* context,uint8_t provider,
+                                                    net_llm_sse_reconnect_t* reconnect,
+                                                    net_llm_sse_response_t* response,uint16_t status_code,
+                                                    uint32_t base_delay,uint32_t max_delay,uint32_t now,
+                                                    uint32_t jitter_window,uint32_t* jitter_seed);
 enum { NE2K_LLM_SSE_RESULT_PROGRESS=0, NE2K_LLM_SSE_RESULT_COMPLETED=1, NE2K_LLM_SSE_RESULT_RETRYABLE=2, NE2K_LLM_SSE_RESULT_TERMINAL=3, NE2K_LLM_SSE_RESULT_TRANSPORT=4 };
 int ne2k_llm_connection_classify_sse_result(int poll_status,uint16_t status_code);
 int ne2k_llm_connection_handle_sse_terminal(ne2k_llm_connection_state_t* state,net_llm_sse_reconnect_t* reconnect,net_llm_sse_response_t* response,int poll_status,uint16_t status_code,uint32_t base_delay,uint32_t max_delay,uint32_t now);
