@@ -58,7 +58,7 @@
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
 - [x] Réduire la latence locale GGUF ; le forward Q3_K réel sans branche, le cache KV, les lectures FAT16 inter-clusters et la session locale coopérative sont validés. Les essais supplémentaires de cache paresseux de constantes et de spécialisation Q3_K top-k n’ayant pas dépassé la variabilité QEMU TCG, l’axe est clôturé avec mesures et critères dans [aos1641_1648_gguf_latency_closure.md](aos1641_1648_gguf_latency_closure.md).
-- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
+- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et LFN FAT32 UTF-8 avec lecture, renommage et suppression — [aos_fat_volume.md](aos_fat_volume.md) ; l’intégration FAT32 au VFS reste distincte ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
 - [x] Reprise SSE fine avec `Last-Event-ID` et client OpenAI Chat Completions activable dans le shell ; campagne d’intégration réelle suspendue jusqu’à une clé API valide hors CI
@@ -136,6 +136,7 @@
 - [x] AOS-1949…1956 : captures QEMU GUI portables, saisie contrôlée avec reprise et validation shell/IA/NE2000 reproductible — [aos1949_1956_portable_gui_captures.md](aos1949_1956_portable_gui_captures.md)
 - [x] AOS-1957…1964 : réconciliation GGUF, validation `C/V/T` et axes de couches branchés aux kernels quantifiés caller-owned — [aos1957_1964_gguf_dimension_reconciliation.md](aos1957_1964_gguf_dimension_reconciliation.md)
 - [x] AOS-1965…1972 : rollback ELF transactionnel après restauration du VMM actif et restitution PMM des mappings partiels — [aos1965_1972_elf_transactional_rollback.md](aos1965_1972_elf_transactional_rollback.md)
+- [x] AOS-1973…1980 : réconciliation FAT32 LFN UTF-8 et runtime GGUF quantifié avec les capacités déjà couvertes par le code et les tests ; intégration FAT32 au VFS explicitement distincte — [aos1973_1980_fat32_gguf_reconciliation.md](aos1973_1980_fat32_gguf_reconciliation.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
@@ -907,12 +908,12 @@ Le writer FAT32 caller-owned réalise une lecture-modification-écriture 28 bits
 Voir [aos1257_fat32_write_chain.md](aos1257_fat32_write_chain.md).
 
 ### AOS-1273 à AOS-1288 — données et entrée racine FAT32
-Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation historique du lot : **419 tests verts**. L’extension de la racine, la création transactionnelle et les primitives LFN bornées ont ensuite été livrées ; la publication multi-entrée LFN reste à faire.
+Le système écrit un cluster FAT32 caller-owned et publie une entrée racine 8.3 après validation du nom, de l’attribut, du cluster initial et de la taille. La recherche parcourt la chaîne racine sans allocation implicite. Validation historique du lot : **419 tests verts**. L’extension de la racine, la création transactionnelle et les primitives LFN bornées ont ensuite été livrées, y compris la publication multi-entrée, la lecture, le renommage et la suppression par nom long UTF-8.
 
 Voir [aos1273_fat32_data_root.md](aos1273_fat32_data_root.md).
 
 ### AOS-1289 à AOS-1304 — création transactionnelle de fichier FAT32
-`fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation historique du lot : **419 tests verts**. L’extension automatique de la racine et les primitives LFN bornées ont ensuite été livrées ; la publication de séquences LFN reste à faire.
+`fat32_create_file` réserve, écrit et chaîne une ou plusieurs unités FAT32, puis publie l’entrée racine 8.3. Toute erreur libère la chaîne partielle dans toutes les FAT ; le buffer de données reste caller-owned. Validation historique du lot : **419 tests verts**. L’extension automatique de la racine et les primitives LFN bornées ont ensuite été livrées, suivies par la publication de séquences multi-entrée, la lecture, le renommage et la suppression par nom long UTF-8.
 
 Voir [aos1289_fat32_create_file.md](aos1289_fat32_create_file.md).
 
@@ -922,7 +923,7 @@ Le répertoire racine FAT32 peut être étendu de façon caller-owned : le derni
 Voir [aos1305_fat32_root_extension.md](aos1305_fat32_root_extension.md).
 
 ### AOS-1321 à AOS-1332 — fondations LFN FAT32 bornées
-`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE ASCII borné, sans allocation dynamique. `fat32_create_lfn_file` publie désormais une séquence multi-entrée dans la chaîne racine, et `fat32_list_root` reconstruit le nom après validation des ordinals et du checksum dans un buffer caller-owned. Le contrat accepte au plus 13 caractères par entrée et 20 entrées par fichier, refuse les caractères non ASCII et conserve l’alias 8.3 en repli si la séquence est invalide. Validation actuelle : **4/4 tests FAT32** et **422 tests exécutés avec succès** ; l’intégration complète au VFS, Unicode hors ASCII et suppression/renommage LFN restent à réaliser.
+`fat32_lfn_checksum` calcule le checksum de l’alias 8.3 et `fat32_encode_lfn_entry` encode une entrée LFN de 32 octets en UTF-16LE sans allocation dynamique. `fat32_create_lfn_file` publie une séquence multi-entrée dans la chaîne racine, `fat32_list_root` reconstruit le nom dans un buffer caller-owned après validation des ordinals et du checksum, et la lecture, le renommage ainsi que la suppression reconnaissent les noms longs. Le contrat accepte au plus 13 unités UTF-16 par entrée et 20 entrées LFN par fichier, convertit les noms UTF-8 avec paires substituts et conserve l’alias 8.3 en repli si la séquence est invalide. Les tests couvrent la création, la lecture, le listage, le renommage, la suppression et les noms BMP/non-BMP ; seule l’intégration FAT32 au VFS reste distincte.
 
 Voir [aos1321_fat32_lfn.md](aos1321_fat32_lfn.md).
 

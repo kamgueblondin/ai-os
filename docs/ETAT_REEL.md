@@ -10,8 +10,8 @@
 
 | Domaine | État au 20 août 2026 |
 |---|---|
-| FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et encode une entrée LFN ASCII UTF-16LE bornée. |
-| LFN FAT32 | Le checksum 8.3, la publication multi-entrée et la reconstruction au listage sont livrés ; l’intégration VFS complète, Unicode hors ASCII et suppression/renommage restent à réaliser. |
+| FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et gère les LFN UTF-8/UTF-16LE bornés. |
+| LFN FAT32 | Le checksum 8.3, la publication multi-entrée, la reconstruction et la lecture par nom long, le renommage et la suppression sont livrés. La conversion UTF-8/UTF-16LE couvre les caractères BMP et les paires substituts ; l’intégration FAT32 au VFS reste un axe séparé. |
 | Réseau utilisateur | Le registre TCP statique expose le cycle actif et passif ; les syscalls 99–108 valident les requêtes et buffers page-par-page dans l’espace utilisateur VMM. Les opérations passives `listen`, SYN entrant, SYN-ACK et ACK final sont disponibles. L’émission/réception NE2000 automatique reste à intégrer. |
 | Validation | Le runner noyau passe **35/35** tests et la suite complète passe **425/425** avec le registre et les syscalls passifs. La CI et le smoke QEMU de la PR suivante restent à valider. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
@@ -21,8 +21,8 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 | Périmètre | État vérifié |
 |---|---|
 | Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3, curseur bloc et historique d’écran (Page Up/Down) |
-| IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; kernels GGML Q3_K/Q4_K/Q6_K vérifiés au niveau mathématique |
-| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63, volume FAT16 et primitives FAT32 d’écriture/chaînage hors intégration VFS complète |
+| IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; le runtime GGUF prépare et exécute la génération quantifiée Q3_K/Q4_K/Q6_K sur buffers statiques ou caller-owned |
+| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63, volume FAT16 et primitives FAT32 avec LFN UTF-8, renommage et suppression ; le branchement FAT32 au VFS reste distinct |
 | Ordonnancement et télémétrie | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur ; instantané de ticks, sélections, priorité CPU, parent et enfants directs ; terminaison, réattribution, attente et capacité de création limitées à la filiation directe |
 | IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; capacité de deux messages clients et état borné pour un propriétaire de service, médiateur VFS, métadonnées et listage de racine ou de sous-répertoire source-spécifiques, sources virtuelles, compteurs volatils et alias initrd/overlay dynamiques |
 | Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS, abonnements de service best-effort et nettoyage à la terminaison |
@@ -242,7 +242,7 @@ La commande `ai-provider openai` ne réalise **aucun** appel réseau. Elle ne fa
 
 | Jalons AOS | Livraison réellement vérifiée |
 |---|---|
-| AOS-020 | Sonde GGUF v3, kernels Q3_K/Q4_K/Q6_K, index et mapping ; génération quantifiée non livrée |
+| AOS-020 | Sonde GGUF v3, kernels Q3_K/Q4_K/Q6_K, index et mapping ; la génération quantifiée est désormais préparée puis exécutée par le runtime GGUF avec cache KV et top-k caller-owned. |
 | AOS-021 | BPE UTF-8 avec catégories de lettres Unicode ciblées |
 | AOS-022 | Contrat QEMU versionné : boot, runtime IA, overlay, append et retour au shell |
 | AOS-023 | Snapshot ATA overlay V2 avec restauration V1/V2 |
