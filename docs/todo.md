@@ -107,6 +107,7 @@
 - [x] AOS-1713…1720 : syscalls FAT32 Ring 3 de lecture et listage de racine, sans mutation ni allocation dynamique — [aos1713_1720_fat32_read_syscalls.md](aos1713_1720_fat32_read_syscalls.md)
 - [x] AOS-1721…1728 : montage VFS protégé `fat32/` en lecture/stat/listage, sans mutation ni allocation dynamique — [aos1721_1728_vfs_fat32_readonly_mount.md](aos1721_1728_vfs_fat32_readonly_mount.md)
 - [x] AOS-1729…1736 : lecture FAT32 par alias ou LFN ASCII validé, ordinaux/checksum contrôlés et parcours de chaîne borné — [aos1729_1736_fat32_lfn_read.md](aos1729_1736_fat32_lfn_read.md)
+- [x] AOS-1737…1744 : LFN FAT16/FAT32 UTF-8 BMP, sérialisation UTF-16LE, recherche/lecture/listage Unicode et zéro allocation dynamique — [aos1737_1744_fat_lfn_utf8.md](aos1737_1744_fat_lfn_utf8.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
