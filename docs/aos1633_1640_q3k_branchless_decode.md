@@ -38,7 +38,7 @@ La comparaison utilise le modèle GPT-2 Q3_K réel, le disque FAT16 de déploiem
 | Premier token Q3_K réel | 48,89 s | 45,43 s | −3,46 s (−7,07 %) |
 | Continuation `ai-continue` | 21,73 s | 20,83 s | −0,90 s (−4,14 %) |
 
-Ces chronométrages sont propres à QEMU TCG et ne constituent pas une prédiction de performance sur matériel physique. Ils montrent néanmoins un gain reproductible dans le chemin de projection dominant, sans relâcher les garanties fonctionnelles.
+Ces chronométrages sont propres à QEMU TCG et ne constituent pas une prédiction de performance sur matériel physique. Une répétition ultérieure de la référence a produit 49,04 s puis 22,48 s, ce qui confirme une variabilité de plusieurs secondes dans l’émulation. Le changement est conservé pour son équivalence fonctionnelle et l’élimination déterministe de branches, mais la différence de latence QEMU doit être lue comme une observation de comparaison, non comme une garantie reproductible.
 
 ## Limites et suite
 
