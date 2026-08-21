@@ -103,6 +103,7 @@
 - [x] AOS-1681…1688 : lecture FAT32 bornée par alias 8.3, parcours de chaîne contrôlé et prérequis VFS — [aos1681_1688_fat32_alias_read.md](aos1681_1688_fat32_alias_read.md)
 - [x] AOS-1689…1696 : sélection ATA primaire maître/esclave, prérequis d’un volume FAT32 IDE distinct — [aos1689_1696_ata_multidrive.md](aos1689_1696_ata_multidrive.md)
 - [x] AOS-1697…1704 : volume FAT32 secondaire statique au noyau, montage ATA esclave non bloquant — [aos1697_1704_fat32_secondary_kernel_mount.md](aos1697_1704_fat32_secondary_kernel_mount.md)
+- [x] AOS-1705…1712 : image FAT32 ATA esclave reproductible et smoke QEMU multi-disque de montage réel — [aos1705_1712_fat32_secondary_image_smoke.md](aos1705_1712_fat32_secondary_image_smoke.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
