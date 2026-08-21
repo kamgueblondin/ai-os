@@ -17,6 +17,7 @@ ISO_IMAGE = build/ai_os.iso
 INITRD_IMAGE = my_initrd.tar
 DISK_IMAGE ?= build/overlay.img
 GGUF_DISK_IMAGE ?= build/gpt2_gguf_fat16.img
+FAT32_SECONDARY_IMAGE ?= build/fat32_secondary.img
 GPT2_GGUF_DEPLOY_MODEL ?= models/gpt2-Q3_K_M.gguf
 DISK_SECTORS ?= 4224
 FAT_BASE_LBA ?= 64
@@ -696,6 +697,9 @@ help:
 
 gguf-disk:
 	@python3 scripts/make_gguf_fat16_image.py --model $(GPT2_GGUF_DEPLOY_MODEL) --image $(GGUF_DISK_IMAGE)
+
+fat32-secondary-disk:
+	@python3 scripts/make_fat32_secondary_image.py --image $(FAT32_SECONDARY_IMAGE)
 
 .PHONY: qemu-gguf-smoke
 qemu-gguf-smoke: $(OS_IMAGE) pack-initrd gguf-disk
