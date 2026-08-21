@@ -97,6 +97,7 @@
 - [x] AOS-1633…1640 : décodage Q3_K sans branche, équivalence quantifiée et gain QEMU de projection — [aos1633_1640_q3k_branchless_decode.md](aos1633_1640_q3k_branchless_decode.md)
 - [x] AOS-1641…1648 : clôture mesurée de l’axe de latence GGUF, essais non concluants retirés et bascule vers les fonctionnalités FAT16/LFN — [aos1641_1648_gguf_latency_closure.md](aos1641_1648_gguf_latency_closure.md)
 - [x] AOS-1649…1656 : recherche FAT16 par LFN ASCII validé pour lecture totale, lecture à offset et curseur, sans allocation dynamique — [aos1649_1656_fat16_lfn_read_lookup.md](aos1649_1656_fat16_lfn_read_lookup.md)
+- [x] AOS-1657…1664 : suppression FAT32 par alias 8.3 ou LFN ASCII validé, marquage de séquence et libération de chaîne bornée — [aos1657_1664_fat32_lfn_unlink.md](aos1657_1664_fat32_lfn_unlink.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

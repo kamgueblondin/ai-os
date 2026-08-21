@@ -77,6 +77,14 @@ void test_fat32_lfn_file_and_list(void) {
     { int rc = fat32_create_lfn_file(&volume, "Persistent-LLM-Session", "SESSION.BIN", 0x20U, data, sizeof(data), &first); TEST_ASSERT_EQUAL(0, rc); }
     TEST_ASSERT_EQUAL(3U, first); TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 4U));
     TEST_ASSERT_EQUAL_STRING("Persistent-LLM-Session", entries[0].name); TEST_ASSERT_EQUAL(sizeof(data), entries[0].size);
+    TEST_ASSERT_EQUAL(0, fat32_unlink_file(&volume, "persistent-llm-session"));
+    TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U]);
+    TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U + 32U]);
+    TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U + 64U]);
+    TEST_ASSERT_EQUAL(0xe5U, disk[2032U * 512U + 96U]);
+    TEST_ASSERT_EQUAL(0U, disk[32U * 512U + 12U]);
+    TEST_ASSERT_EQUAL(0, fat32_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat32_unlink_file(&volume, "Persistent-LLM-Session"));
 }
 
 int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); unity_print_results(); unity_cleanup(); return 0; }
