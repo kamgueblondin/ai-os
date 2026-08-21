@@ -260,6 +260,9 @@ int ne2k_llm_network_context_dhcp_renew_if_due(ne2k_llm_network_context_t* conte
                                                 uint8_t* tx_frame,uint16_t tx_capacity,
                                                 uint8_t* rx_frame,uint16_t rx_capacity,
                                                 uint32_t xid,uint16_t poll_attempts,uint32_t now);
+/* Publie un nouveau bail et réinitialise session/connexion si ses paramètres IPv4 changent. */
+int ne2k_llm_network_context_reconcile_lease(ne2k_llm_network_context_t* context,
+                                             const net_dhcp_lease_t* lease);
 /* Sauvegarde le fournisseur, budget utilisé et Last-Event-ID SSE dans le contexte caller-owned. */
 int ne2k_llm_network_context_sse_checkpoint(ne2k_llm_network_context_t* context,uint8_t provider,
                                             uint8_t retries_used,const net_llm_sse_response_t* response);

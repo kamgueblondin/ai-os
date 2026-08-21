@@ -117,6 +117,7 @@
 - [x] AOS-1793…1800 : rotation SSE Ollama/OpenAI après budget atteint, reset du scheduler, checkpoint sans reprise inter-fournisseur et zéro allocation dynamique — [aos1793_1800_sse_provider_rotation_context.md](aos1793_1800_sse_provider_rotation_context.md)
 - [x] AOS-1801…1808 : jitter SSE borné dans le contexte LLM, publication transactionnelle de la graine et checkpoint persistant sans allocation dynamique — [aos1801_1808_sse_context_jitter.md](aos1801_1808_sse_context_jitter.md)
 - [x] AOS-1809…1816 : renouvellement DHCP transactionnel attaché au contexte LLM, conservation du bail sur erreur et zéro allocation dynamique — [aos1809_1816_dhcp_context_renewal.md](aos1809_1816_dhcp_context_renewal.md)
+- [x] AOS-1817…1824 : réconciliation DHCP du contexte LLM, purge transactionnelle du transport après changement IPv4 et conservation du checkpoint SSE — [aos1817_1824_dhcp_context_reconcile.md](aos1817_1824_dhcp_context_reconcile.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
