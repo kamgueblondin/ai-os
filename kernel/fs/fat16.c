@@ -459,7 +459,7 @@ int fat16_read_file_range(const fat16_volume_t* v, const char* name,
             uint32_t lba;
             uint32_t take = FAT16_SECTOR_SIZE - sector_offset;
             if (cluster < 2U || cluster >= FAT16_EOC_MIN ||
-                cluster - 2U >= v->cluster_count || guard++ > v->cluster_count) return OS_FAT16_CORRUPT;
+                cluster - 2U >= v->cluster_count || guard > v->cluster_count) return OS_FAT16_CORRUPT;
             lba = v->data_lba + (uint32_t)(cluster - 2U) * v->sectors_per_cluster + sector_in_cluster;
             if (read_at(v, lba, sector2) != 0) return OS_FAT16_CORRUPT;
             if (take > max - copied) take = max - copied;
@@ -468,7 +468,8 @@ int fat16_read_file_range(const fat16_volume_t* v, const char* name,
             copied += take;
             intra += take;
             if (intra >= cluster_bytes && copied < max && offset + copied < size) {
-                if (read_fat_entry(v, cluster, &cluster) != 0) return OS_FAT16_CORRUPT;
+                if (guard++ >= v->cluster_count ||
+                    read_fat_entry(v, cluster, &cluster) != 0) return OS_FAT16_CORRUPT;
                 intra = 0U;
             }
         }
@@ -556,7 +557,7 @@ int fat16_file_read(fat16_file_t* file, uint8_t* buffer, uint32_t max,
         uint32_t take = FAT16_SECTOR_SIZE - sector_offset;
         uint32_t lba;
         if (file->cluster < 2U || file->cluster >= FAT16_EOC_MIN ||
-            file->cluster - 2U >= v->cluster_count || file->guard++ > v->cluster_count) return OS_FAT16_CORRUPT;
+            file->cluster - 2U >= v->cluster_count || file->guard > v->cluster_count) return OS_FAT16_CORRUPT;
         lba = v->data_lba + (uint32_t)(file->cluster - 2U) * v->sectors_per_cluster + sector_in_cluster;
         if (!file->cache_valid || file->cached_lba != lba) {
             if (read_at(v, lba, file->sector_cache) != 0) return OS_FAT16_CORRUPT;
@@ -570,7 +571,8 @@ int fat16_file_read(fat16_file_t* file, uint8_t* buffer, uint32_t max,
         file->position += take;
         file->cluster_offset += take;
         if (file->cluster_offset >= cluster_bytes && file->position < file->size) {
-            if (read_fat_entry(v, file->cluster, &file->cluster) != 0) return OS_FAT16_CORRUPT;
+            if (file->guard++ >= v->cluster_count ||
+                read_fat_entry(v, file->cluster, &file->cluster) != 0) return OS_FAT16_CORRUPT;
             file->cluster_offset = 0U;
         }
     }

@@ -3,7 +3,7 @@
 #include "../../../kernel/llm/gpt2_gguf_loader.h"
 #include "../../../kernel/llm/gpt2_quant.h"
 
-#define TEST_SECTORS 4224U
+#define TEST_SECTORS 32768U
 #define BLOCK_CHANNELS GPT2_QK_K
 #define BLOCK_HIDDEN (4U * GPT2_QK_K)
 #define BLOCK_QKV_BYTES (3U * BLOCK_CHANNELS * GPT2_Q4_K_BLOCK_BYTES)
@@ -1044,6 +1044,43 @@ static void test_creates_lfn_file(void) {
     TEST_ASSERT_EQUAL('\0', entries[1].name[14]);
     TEST_ASSERT_EQUAL(3U, entries[1].size);
 }
+static void test_reads_deep_multisector_cluster_without_false_corruption(void) {
+    fat16_volume_t volume;
+    fat16_file_t file;
+    uint8_t range[3000];
+    uint8_t cursor[3000];
+    uint32_t root = (1U + 2U * 17U) * 512U;
+    uint32_t data = (root / 512U + 2U) * 512U;
+    uint32_t clusters = (TEST_SECTORS - (data / 512U)) / 8U;
+    uint32_t offset = (clusters - 3U) * 8U * 512U + 100U;
+    uint32_t read = 0U;
+    uint32_t i;
+    uint32_t fat;
+    make_volume();
+    disk[13] = 8U;
+    for (fat = 1U; fat <= 2U; fat++) {
+        uint32_t base = (1U + (fat - 1U) * 17U) * 512U;
+        for (i = 2U; i < clusters + 1U; i++) put16(base + i * 2U, (uint16_t)(i + 1U));
+        put16(base + clusters * 2U, 0xFFF8U);
+    }
+    disk[root + 32U] = 'D'; disk[root + 33U] = 'E'; disk[root + 34U] = 'E'; disk[root + 35U] = 'P';
+    disk[root + 36U] = ' '; disk[root + 37U] = ' '; disk[root + 38U] = ' '; disk[root + 39U] = ' ';
+    disk[root + 40U] = 'B'; disk[root + 41U] = 'I'; disk[root + 42U] = 'N'; disk[root + 43U] = 0x20U;
+    put16(root + 32U + 26U, 2U);
+    put32(root + 32U + 28U, clusters * 8U * 512U);
+    for (i = 0U; i < sizeof(range); i++) disk[data + offset + i] = (uint8_t)(i ^ 0x5AU);
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_read_file_range(&volume, "deep.bin", offset,
+                                                range, sizeof(range), &read));
+    TEST_ASSERT_EQUAL(sizeof(range), read);
+    for (i = 0U; i < sizeof(range); i++) TEST_ASSERT_EQUAL((uint8_t)(i ^ 0x5AU), range[i]);
+    TEST_ASSERT_EQUAL(0, fat16_open_file(&volume, "deep.bin", &file));
+    TEST_ASSERT_EQUAL(0, fat16_file_seek(&file, offset));
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, cursor, sizeof(cursor), &read));
+    TEST_ASSERT_EQUAL(sizeof(cursor), read);
+    for (i = 0U; i < sizeof(cursor); i++) TEST_ASSERT_EQUAL((uint8_t)(i ^ 0x5AU), cursor[i]);
+}
+
 static void test_rejects_bad_name_and_small_buffer(void) {
     fat16_volume_t volume;
     char content[4];
@@ -1065,6 +1102,7 @@ int main(void) {
     RUN_TEST(test_cursor_reads_successive_windows);
     RUN_TEST(test_cursor_caches_shared_sector);
     RUN_TEST(test_rejects_bad_bpb);
+    RUN_TEST(test_reads_deep_multisector_cluster_without_false_corruption);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);
     RUN_TEST(test_creates_persistent_file);

@@ -4,7 +4,9 @@
 
 #define GPT2_GGUF_INFER_HIDDEN (4U * GPT2_GGUF_INFER_MAX_CHANNELS)
 #define GPT2_GGUF_INFER_DENSE_BYTES (GPT2_GGUF_INFER_HIDDEN * (uint32_t)sizeof(float))
-#define GPT2_GGUF_INFER_ROW_BYTES (3U * GPT2_Q6_K_BLOCK_BYTES)
+/* ffn_down lit une ligne de largeur 4C : dimensionner pour le pire cas Q6_K. */
+#define GPT2_GGUF_INFER_ROW_BYTES \
+    ((GPT2_GGUF_INFER_HIDDEN / GPT2_QK_K) * GPT2_Q6_K_BLOCK_BYTES)
 #define GPT2_GGUF_INFER_FILENAME_MAX 13U
 
 static uint8_t gguf_header[GPT2_GGUF_INFER_HEADER_BYTES];

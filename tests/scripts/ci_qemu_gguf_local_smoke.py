@@ -16,7 +16,7 @@ LOG = os.environ.get("LOG", os.path.join(ROOT, "test_logs", "ci-qemu-gguf-local.
 ERR = os.environ.get("QEMU_ERR", os.path.join(ROOT, "test_logs", "ci-qemu-gguf-local.err"))
 MON = os.environ.get("QEMU_MON_SOCK", os.path.join(ROOT, "test_logs", "qemu-gguf-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "90"))
-GENERATION_TIMEOUT = float(os.environ.get("GGUF_GENERATION_TIMEOUT", "180"))
+GENERATION_TIMEOUT = float(os.environ.get("GGUF_GENERATION_TIMEOUT", "600"))
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.65"))
 
 
@@ -98,7 +98,18 @@ def main():
             started = time.monotonic()
             send(client, "ai bonjour")
             wait_for(proc, "[GPT-2 GGUF local]", GENERATION_TIMEOUT, start)
-        print("QEMU GGUF local smoke passed in %.2fs." % (time.monotonic() - started))
+            if "[GPT-2 GGUF local] indisponible" in text()[start:]:
+                raise RuntimeError("GGUF local rejected generation: %s" % text()[start:][-1000:])
+            first_token_elapsed = time.monotonic() - started
+            start = len(text())
+            continued = time.monotonic()
+            send(client, "ai-continue")
+            wait_for(proc, "[GPT-2 GGUF local suite]", GENERATION_TIMEOUT, start)
+            if "session indisponible" in text()[start:]:
+                raise RuntimeError("GGUF continuation rejected: %s" % text()[start:][-1000:])
+            continue_elapsed = time.monotonic() - continued
+        print("QEMU GGUF local smoke passed: premier token %.2fs, continuation %.2fs." %
+              (first_token_elapsed, continue_elapsed))
         return 0
     finally:
         if client is not None:
