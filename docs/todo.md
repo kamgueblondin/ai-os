@@ -134,6 +134,7 @@
 - [x] AOS-1933…1940 : contrat VMM sans tas, répertoires utilisateur statiques et restitution PMM des pages privées — [aos1933_1940_vmm_static_contract.md](aos1933_1940_vmm_static_contract.md)
 - [x] AOS-1941…1948 : réconciliation des limites historiques, renvoi vers les macro-lots successeurs et index documentaire cohérent — [aos1941_1948_backlog_documentation_reconciliation.md](aos1941_1948_backlog_documentation_reconciliation.md)
 - [x] AOS-1949…1956 : captures QEMU GUI portables, saisie contrôlée avec reprise et validation shell/IA/NE2000 reproductible — [aos1949_1956_portable_gui_captures.md](aos1949_1956_portable_gui_captures.md)
+- [x] AOS-1957…1964 : réconciliation GGUF, validation `C/V/T` et axes de couches branchés aux kernels quantifiés caller-owned — [aos1957_1964_gguf_dimension_reconciliation.md](aos1957_1964_gguf_dimension_reconciliation.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
