@@ -97,13 +97,17 @@ void add_task_to_queue(task_t* task) {
 // Déclaration de la fonction assembleur pour le changement de contexte
 extern void jump_to_task(cpu_state_t* next_state);
 
+static void task_release_detached(task_t* task) {
+    if (!task || task->type != TASK_TYPE_USER || !task->kernel_stack_p) return;
+    if (task->vmm_dir && vmm_destroy_user_directory(task->vmm_dir) == 0) task->vmm_dir = NULL;
+    kfree((void*)(task->kernel_stack_p - 4096U));
+    kfree(task);
+}
+
 static void task_reap_deferred(void) {
     task_t* task = deferred_reap_task;
     deferred_reap_task = NULL;
-    if (!task || task->type != TASK_TYPE_USER) return;
-    if (task->vmm_dir && vmm_destroy_user_directory(task->vmm_dir) == 0) task->vmm_dir = NULL;
-    if (task->kernel_stack_p) kfree((void*)(task->kernel_stack_p - 4096U));
-    kfree(task);
+    task_release_detached(task);
 }
 
 static void unlink_task(task_t* task) {
@@ -600,6 +604,7 @@ int task_kill(int requester_pid, int pid) {
     task_reparent_children(t);
     t->state = TASK_TERMINATED;
     unlink_task(t);
+    task_release_detached(t);
     return 0;
 }
 
@@ -624,6 +629,7 @@ int task_kill_direct_children(int requester_pid) {
         task_reparent_children(child);
         child->state = TASK_TERMINATED;
         unlink_task(child);
+        task_release_detached(child);
     }
     return (int)count;
 }
