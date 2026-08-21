@@ -21,6 +21,7 @@
 static uint8_t disk[TEST_SECTORS * 512U];
 static uint8_t block_model_buffer[BLOCK_MODEL_BUFFER_BYTES];
 static uint32_t read_sector_calls;
+static uint32_t read_sectors_calls;
 
 static uint16_t le16(uint32_t off) {
     return (uint16_t)disk[off] | ((uint16_t)disk[off + 1U] << 8);
@@ -43,6 +44,19 @@ static int read_sector(uint32_t lba, void* out) {
     for (i = 0U; i < 512U; i++) ((uint8_t*)out)[i] = disk[lba * 512U + i];
     return 0;
 }
+static int read_sectors(uint32_t lba, uint32_t count, void* out) {
+    uint32_t sector_index;
+    uint32_t i;
+    if (!out || count == 0U || lba >= TEST_SECTORS || count > TEST_SECTORS - lba) return -1;
+    read_sectors_calls++;
+    for (sector_index = 0U; sector_index < count; sector_index++) {
+        for (i = 0U; i < 512U; i++) {
+            ((uint8_t*)out)[sector_index * 512U + i] = disk[(lba + sector_index) * 512U + i];
+        }
+    }
+    return 0;
+}
+
 static int write_sector(uint32_t lba, const void* in) {
     uint32_t i;
     if (!in || lba >= TEST_SECTORS) return -1;
@@ -1044,6 +1058,36 @@ static void test_creates_lfn_file(void) {
     TEST_ASSERT_EQUAL('\0', entries[1].name[14]);
     TEST_ASSERT_EQUAL(3U, entries[1].size);
 }
+static void test_cursor_uses_attached_multisector_window(void) {
+    fat16_volume_t volume;
+    fat16_file_t file;
+    uint8_t window[8U * 512U];
+    uint8_t out[1024];
+    uint32_t root = (1U + 2U * 17U) * 512U;
+    uint32_t data = (root / 512U + 2U) * 512U;
+    uint32_t file_data = data + 8U * 8U * 512U;
+    uint32_t read = 0U;
+    uint32_t i;
+    uint32_t fat;
+    make_volume();
+    disk[13] = 8U;
+    for (fat = 1U; fat <= 2U; fat++) {
+        uint32_t base = (1U + (fat - 1U) * 17U) * 512U;
+        put16(base + 20U, 0xFFF8U);
+    }
+    put16(root + 26U, 10U);
+    put32(root + 28U, sizeof(out));
+    for (i = 0U; i < sizeof(out); i++) disk[file_data + i] = (uint8_t)(i ^ 0xA5U);
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_read_window(&volume, read_sectors, window, sizeof(window)));
+    TEST_ASSERT_EQUAL(0, fat16_open_file(&volume, "fatok.txt", &file));
+    read_sectors_calls = 0U;
+    TEST_ASSERT_EQUAL(0, fat16_file_read(&file, out, sizeof(out), &read));
+    TEST_ASSERT_EQUAL(sizeof(out), read);
+    TEST_ASSERT_EQUAL(1U, read_sectors_calls);
+    for (i = 0U; i < sizeof(out); i++) TEST_ASSERT_EQUAL((uint8_t)(i ^ 0xA5U), out[i]);
+}
+
 static void test_reads_deep_multisector_cluster_without_false_corruption(void) {
     fat16_volume_t volume;
     fat16_file_t file;
@@ -1102,6 +1146,7 @@ int main(void) {
     RUN_TEST(test_cursor_reads_successive_windows);
     RUN_TEST(test_cursor_caches_shared_sector);
     RUN_TEST(test_rejects_bad_bpb);
+    RUN_TEST(test_cursor_uses_attached_multisector_window);
     RUN_TEST(test_reads_deep_multisector_cluster_without_false_corruption);
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);

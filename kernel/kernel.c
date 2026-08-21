@@ -617,8 +617,15 @@ int kernel_llm_poll_tls(void) {
     return status;
 }
 
+#define FAT16_ATA_READ_WINDOW_SECTORS 8U
+static uint8_t fat16_ata_read_window[FAT16_ATA_READ_WINDOW_SECTORS * 512U];
+
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {
     return ata_read_sectors(lba, 1U, buffer);
+}
+
+static int fat16_ata_read_sectors(uint32_t lba, uint32_t count, void* buffer) {
+    return ata_read_sectors(lba, count, buffer);
 }
 
 void serial_init() {
@@ -1142,6 +1149,11 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
             print_string("Overlay FS initialise (disque IDE vide).\n");
         }
         if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {
+            if (fat16_attach_read_window(fat16_root(), fat16_ata_read_sectors,
+                                         fat16_ata_read_window,
+                                         sizeof(fat16_ata_read_window)) != 0) {
+                print_string("FAT16: cache multi-secteurs indisponible; repli secteur.\n");
+            }
             print_string(fat16_status());
             print_string("\n");
             if (gpt2_gguf_infer_init_fat16(fat16_root(), "GPT2.GGU") == 0) {

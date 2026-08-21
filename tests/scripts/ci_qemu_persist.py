@@ -107,7 +107,7 @@ def qemu_cmd():
     ]
 
 
-def boot_and_type(command, marker):
+def boot_and_type(command, marker, verify_command=None, verify_marker=None):
     proc = None
     monitor = None
     try:
@@ -132,6 +132,11 @@ def boot_and_type(command, marker):
                 send_command(monitor, command)
                 try:
                     wait_for(proc, marker, CMD_TIMEOUT, start)
+                    if verify_command is not None:
+                        say("verifying %s (attempt %d/3) ..." % (verify_command, attempt))
+                        start = len(log_text())
+                        send_command(monitor, verify_command)
+                        wait_for(proc, verify_marker, CMD_TIMEOUT, start)
                     return
                 except RuntimeError as error:
                     last_error = error
@@ -164,7 +169,7 @@ def main():
             pass
 
     say("=== QEMU overlay persist boot 1 (write) ===")
-    boot_and_type("write k.txt v7ok", "write ok k.txt")
+    boot_and_type("write k.txt v7ok", "write ok k.txt", "cat k.txt", "v7ok")
     say("=== QEMU overlay persist boot 2 (cat after reboot) ===")
     boot_and_type("cat k.txt", "v7ok")
     say("QEMU overlay persist smoke passed.")

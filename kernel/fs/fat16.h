@@ -5,11 +5,18 @@
 #include "../../include/os_syscalls.h"
 
 typedef int (*fat16_read_sector_fn)(uint32_t lba, void* buffer);
+typedef int (*fat16_read_sectors_fn)(uint32_t lba, uint32_t count, void* buffer);
 typedef int (*fat16_write_sector_fn)(uint32_t lba, const void* buffer);
 
 typedef struct {
     fat16_read_sector_fn read_sector;
+    fat16_read_sectors_fn read_sectors;
     fat16_write_sector_fn write_sector;
+    uint8_t* read_window;
+    uint32_t read_window_capacity;
+    uint32_t read_window_lba;
+    uint8_t read_window_sectors;
+    uint8_t read_window_valid;
     uint32_t base_lba;
     uint32_t total_sectors;
     uint32_t fat_lba;
@@ -43,6 +50,9 @@ fat16_volume_t* fat16_root(void);
 int fat16_mount(fat16_volume_t* volume, fat16_read_sector_fn read_sector,
                 uint32_t base_lba);
 int fat16_is_mounted(const fat16_volume_t* volume);
+/* Attache un lecteur multi-secteurs et sa fenêtre caller-owned, sans cache implicite. */
+int fat16_attach_read_window(fat16_volume_t* volume, fat16_read_sectors_fn read_sectors,
+                             uint8_t* window, uint32_t window_capacity);
 /* Attache explicitement un writer caller-owned ; aucun writer implicite n’est créé au montage. */
 int fat16_attach_writer(fat16_volume_t* volume, fat16_write_sector_fn write_sector);
 int fat16_write_sector(const fat16_volume_t* volume, uint32_t lba, const uint8_t* buffer);
