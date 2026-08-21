@@ -491,11 +491,20 @@ static int kernel_llm_close_internal(uint8_t preserve_provider) {
     if (boot_llm_socket_session.socket_id >= 0 &&
         net_socket_get_state(boot_llm_socket_session.socket_id, &socket_state) == 0 &&
         socket_state == NET_TCP_STATE_ESTABLISHED) {
-        if (!boot_ne2k_present || !boot_llm_lease.valid ||
-            ne2k_socket_fin(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
-                            boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4,
-                            boot_llm_socket_session.state.remote_ip,
-                            boot_llm_socket_session.socket_id) != 0) fin_failed = 1U;
+        if (!boot_ne2k_present || !boot_llm_lease.valid) fin_failed = 1U;
+        else {
+            if (boot_llm_tls_client.complete && net_tls_handshake_is_complete(&boot_llm_tls_client.handshake) &&
+                ne2k_socket_tls_close_notify(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+                                             boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4,
+                                             boot_llm_socket_session.state.remote_ip,
+                                             boot_llm_socket_session.socket_id, &boot_llm_tls_client,
+                                             boot_llm_http_tls_record, sizeof(boot_llm_http_tls_record), 2U) < 0)
+                fin_failed = 1U;
+            if (ne2k_socket_fin(&boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
+                                boot_llm_frame, sizeof(boot_llm_frame), boot_llm_lease.ipv4,
+                                boot_llm_socket_session.state.remote_ip,
+                                boot_llm_socket_session.socket_id) != 0) fin_failed = 1U;
+        }
     }
     if (boot_llm_socket_session.socket_id >= 0)
         (void)net_socket_close(boot_llm_socket_session.socket_id);
