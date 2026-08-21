@@ -13,7 +13,7 @@ KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(ROOT, "test_logs", "gui-capture-overlay.img")
 LOG_DIR = os.path.join(ROOT, "test_logs")
-SHOT_DIR = "/opt/cursor/artifacts/screenshots"
+SHOT_DIR = os.environ.get("AIOS_GUI_SHOT_DIR", os.path.join(LOG_DIR, "gui-captures"))
 KEY_DELAY = 0.65
 BOOT_TIMEOUT = 90.0
 
@@ -109,6 +109,30 @@ def ppm_to_png(path):
         handle.write(png)
 
 
+def send_command_checked(client, proc, log_path, command, needle, timeout, attempts=3):
+    for attempt in range(attempts):
+        start = len(log_text(log_path))
+        send_command(client, command)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError("QEMU stopped; tail:\n%s" % log_text(log_path)[-2000:])
+            delta = log_text(log_path)[start:]
+            if needle in delta:
+                return
+            marker = "SYS_GETS: ligne lue: "
+            marker_at = delta.rfind(marker)
+            if marker_at >= 0:
+                actual = delta[marker_at + len(marker):].split("\n", 1)[0].strip()
+                if actual and actual != command:
+                    break
+            time.sleep(0.15)
+        if attempt + 1 < attempts:
+            time.sleep(1.0)
+    raise RuntimeError("command %r did not reach %r; tail:\n%s" %
+                       (command, needle, log_text(log_path)[-2000:]))
+
+
 def screendump(client, name):
     path = os.path.join(SHOT_DIR, name)
     mon(client, "screendump %s" % path)
@@ -173,8 +197,8 @@ def run_session(name, extra_qemu, steps):
                 if kind == "dump":
                     screendump(monitor, step[1])
                 elif kind == "cmd":
-                    send_command(monitor, step[1])
-                    wait_for(proc, log_path, step[2], step[3] if len(step) > 3 else 25)
+                    send_command_checked(monitor, proc, log_path, step[1], step[2],
+                                         step[3] if len(step) > 3 else 25)
                     time.sleep(0.7)
                 elif kind == "key":
                     mon(monitor, "sendkey %s" % step[1])
@@ -230,7 +254,7 @@ def main():
         ("dump", "17-ai-runtime.png"),
         ("cmd", "ai-provider openai", "OpenAI selectionne", 25),
         ("dump", "18-ai-provider-openai.png"),
-        ("cmd", "ai hello", "OpenAI configure mais indisponible", 30),
+        ("cmd", "ai hello", "OpenAI selectionne : utilisez ai-acquire", 30),
         ("dump", "19-ai-hello-openai.png"),
     ]
     run_session("core", [], core_steps)
