@@ -92,7 +92,7 @@ page_t *vmm_get_page(uint32_t address, int make, vmm_directory_t *dir) {
     if (dir->tables[table_idx]) {
         return &dir->tables[table_idx]->pages[address % 1024];
     } else if (make) {
-        page_table_t* new_table = (page_table_t*)kmalloc_aligned(sizeof(page_table_t));
+        page_table_t* new_table = (page_table_t*)pmm_alloc_page();
         if (!new_table) return 0;
         memset(new_table, 0, sizeof(page_table_t));
         
