@@ -141,14 +141,16 @@ int net_http_tls_open_response_stream(net_tcp_connection_t* connection,net_tls_a
     if(!connection||!session||!view||!plaintext||!accumulator||!response||!consumed)return -1;
     previous_connection=*connection;previous_session=*session;previous_accumulator=*accumulator;
     status=net_tcp_connection_accept_tls_aes_gcm(connection,session,view,plaintext,plaintext_capacity,&record,consumed);
-    if(status!=0||record.content_type!=NET_TLS_CONTENT_APPLICATION_DATA)goto rollback;
+    if(status!=0)goto rollback;
+    if(record.content_type==NET_TLS_CONTENT_ALERT){if(net_tls_close_notify_parse(&record)==0)return NET_HTTP_TLS_STATUS_CLOSE_NOTIFY;goto rollback;}
+    if(record.content_type!=NET_TLS_CONTENT_APPLICATION_DATA)goto rollback;
     status=net_http_response_accumulator_feed(accumulator,record.payload,record.payload_length,response);
     if(status>=0)return status;
 rollback:
     *connection=previous_connection;*session=previous_session;*accumulator=previous_accumulator;*consumed=0U;return -2;
 }
 
-int net_http_tls_open_sse_stream(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,net_llm_sse_response_t* response,uint8_t provider,uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed){net_tcp_connection_t previous_connection;net_tls_aes_gcm_session_t previous_session;net_llm_sse_response_t previous_response;net_tls_record_view_t record;int status;if(!connection||!session||!view||!plaintext||!response||!text||!text_length||!consumed)return -1;previous_connection=*connection;previous_session=*session;previous_response=*response;status=net_tcp_connection_accept_tls_aes_gcm(connection,session,view,plaintext,plaintext_capacity,&record,consumed);if(status!=0||record.content_type!=NET_TLS_CONTENT_APPLICATION_DATA)goto rollback;status=net_llm_sse_response_feed(response,provider,record.payload,record.payload_length,text,text_capacity,text_length);if(status>=0)return status;rollback:*connection=previous_connection;*session=previous_session;*response=previous_response;*consumed=0U;return -2;}
+int net_http_tls_open_sse_stream(net_tcp_connection_t* connection,net_tls_aes_gcm_session_t* session,const net_tcp_view_t* view,uint8_t* plaintext,uint16_t plaintext_capacity,net_llm_sse_response_t* response,uint8_t provider,uint8_t* text,uint16_t text_capacity,uint16_t* text_length,uint16_t* consumed){net_tcp_connection_t previous_connection;net_tls_aes_gcm_session_t previous_session;net_llm_sse_response_t previous_response;net_tls_record_view_t record;int status;if(!connection||!session||!view||!plaintext||!response||!text||!text_length||!consumed)return -1;previous_connection=*connection;previous_session=*session;previous_response=*response;status=net_tcp_connection_accept_tls_aes_gcm(connection,session,view,plaintext,plaintext_capacity,&record,consumed);if(status!=0)goto rollback;if(record.content_type==NET_TLS_CONTENT_ALERT){if(net_tls_close_notify_parse(&record)==0)return NET_HTTP_TLS_STATUS_CLOSE_NOTIFY;goto rollback;}if(record.content_type!=NET_TLS_CONTENT_APPLICATION_DATA)goto rollback;status=net_llm_sse_response_feed(response,provider,record.payload,record.payload_length,text,text_capacity,text_length);if(status>=0)return status;rollback:*connection=previous_connection;*session=previous_session;*response=previous_response;*consumed=0U;return -2;}
 
 int net_http_chunked_accumulator_init(net_http_chunked_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity){
     uint8_t index;
