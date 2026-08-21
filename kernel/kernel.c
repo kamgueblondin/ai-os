@@ -617,7 +617,7 @@ int kernel_llm_poll_tls(void) {
     return status;
 }
 
-#define FAT16_ATA_READ_WINDOW_SECTORS 8U
+#define FAT16_ATA_READ_WINDOW_SECTORS 16U
 static uint8_t fat16_ata_read_window[FAT16_ATA_READ_WINDOW_SECTORS * 512U];
 
 static int fat16_ata_read_sector(uint32_t lba, void* buffer) {

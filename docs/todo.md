@@ -57,7 +57,7 @@
 - [x] `exec` bloquant : parent `TASK_WAITING`, enfant reveille via `SYS_EXIT` (plus de `int $0x30` noyau)
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
-- [ ] Réduire la latence locale GGUF ; le forward Q3_K réel, le cache KV, les lectures FAT16 multi-secteurs et la session locale coopérative sont validés ; la projection de vocabulaire/top-k demeure le prochain axe de performance
+- [ ] Réduire la latence locale GGUF ; le forward Q3_K réel, le cache KV, les lectures FAT16 inter-clusters et la session locale coopérative sont validés ; la projection de vocabulaire/top-k demeure le prochain axe de performance
 - [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et primitives LFN FAT32 — [aos_fat_volume.md](aos_fat_volume.md) ; intégration VFS complète, Unicode hors ASCII et suppression/renommage LFN restent à faire ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
@@ -93,6 +93,7 @@
 - [x] AOS-1601…1608 : forward GGUF Q3_K réel, buffer MLP 4C, garde FAT16 profonde corrigée et smoke `ai`/`ai-continue` sans repli — [aos1601_1608_gguf_real_runtime.md](aos1601_1608_gguf_real_runtime.md)
 - [x] AOS-1609…1616 : transferts ATA PIO `rep insw`/`rep outsw`, gain mesuré du premier token Q3_K et smoke QEMU sans régression — [aos1609_1616_ata_pio_streaming.md](aos1609_1616_ata_pio_streaming.md)
 - [x] AOS-1617…1624 : fenêtre FAT16 caller-owned de 4 Kio, lecture ATA multi-secteurs et accélération QEMU du forward/continuation GGUF — [aos1617_1624_fat16_read_window.md](aos1617_1624_fat16_read_window.md)
+- [x] AOS-1625…1632 : fenêtre FAT16 inter-clusters de 8 Kio, cache FAT isolé, invalidation après écriture et gain QEMU supplémentaire — [aos1625_1632_fat16_intercluster_window.md](aos1625_1632_fat16_intercluster_window.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
