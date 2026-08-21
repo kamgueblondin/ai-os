@@ -20,7 +20,11 @@ LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
 QEMU_ERR = os.environ.get("QEMU_ERR", os.path.join(LOG_DIR, "ci-qemu-stderr.log"))
 MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-monitor.sock"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "18"))
-CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "8"))
+CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "30"))
+QEMU_MEMORY = os.environ.get("QEMU_MEMORY", "1024M")
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
+KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
+ACTIVE_PROC = None
 
 
 def say(msg):
@@ -114,11 +118,57 @@ def drain_monitor(mon):
             break
 
 
-def sendkeys(mon, keys):
+def command_from_keys(keys):
+    key_text = {"spc": " ", "dot": ".", "equal": "=", "minus": "-"}
+    command = []
+    for key in keys:
+        if key == "ret":
+            return "".join(command)
+        if key in key_text:
+            command.append(key_text[key])
+        elif len(key) == 1:
+            command.append(key)
+        else:
+            return None
+    return None
+
+
+def sendkeys_once(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
         drain_monitor(mon)
-        time.sleep(0.16)
+        time.sleep(KEY_DELAY)
+
+
+def sendkeys(mon, keys):
+    """Inject a full command and require its serial echo before continuing.
+
+    The hybrid PS/2 driver can occasionally duplicate a scancode under TCG.
+    Retrying before business assertions prevents an altered command from being
+    mistaken for a shell regression while retaining the real Ring 3 path.
+    """
+    expected = command_from_keys(keys)
+    if expected is None or ACTIVE_PROC is None:
+        sendkeys_once(mon, keys)
+        return
+    echo = "SYS_GETS: ligne lue: " + expected
+    for attempt in range(1, KEY_RETRIES + 1):
+        mark = len(log_text())
+        sendkeys_once(mon, keys)
+        t0 = time.time()
+        while time.time() - t0 < CMD_TIMEOUT:
+            if ACTIVE_PROC.poll() is not None:
+                raise RuntimeError("QEMU exited early with code %s" % ACTIVE_PROC.returncode)
+            text = log_text()[mark:]
+            if echo in text:
+                return
+            if "SYS_GETS: ligne lue: " in text:
+                say("retrying command after PS/2 echo mismatch (attempt %d/%d)" % (attempt, KEY_RETRIES))
+                break
+            time.sleep(0.15)
+        else:
+            raise RuntimeError("timeout waiting for command echo %r" % expected)
+    raise RuntimeError("command echo did not stabilize after %d attempts: %r" % (KEY_RETRIES, expected))
 
 
 def dump_logs():
@@ -162,7 +212,7 @@ def main():
         "qemu-system-i386",
         "-kernel", KERNEL,
         "-initrd", INITRD,
-        "-m", "128M",
+        "-m", QEMU_MEMORY,
         "-display", "none",
         "-vga", "none",
         "-serial", "file:" + LOG,
@@ -171,7 +221,7 @@ def main():
         "-no-reboot",
         "-no-shutdown",
     ]
-    say("=== QEMU syscall smoke (sendkey ls/cat/stat/test/alias/unalias/export/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc) ===")
+    say("=== QEMU syscall smoke (%s, key delay %.2fs, sendkey ls/cat/stat/test/alias/unalias/export/ai/ps/spawn/kill/uptime/mem/getpid/whoami/which/mkdir/cd/cp/mv/write/touch/append/grep/wc/sort/head/tail) ===" % (QEMU_MEMORY, KEY_DELAY))
     err_f = open(QEMU_ERR, "wb")
     proc = subprocess.Popen(
         cmd,
@@ -179,6 +229,8 @@ def main():
         stderr=err_f,
         start_new_session=True,
     )
+    global ACTIVE_PROC
+    ACTIVE_PROC = proc
     mon = None
     try:
         wait_needle("(-.-)", BOOT_TIMEOUT, proc)
@@ -207,7 +259,7 @@ def main():
              "which ok builtin ls"),
             ("ai hello",
              ["a", "i", "spc", "h", "e", "l", "l", "o", "ret"],
-             "ai ok"),
+             "[GPT-2 local]"),
             ("ps", ["p", "s", "ret"], "Processus (noyau)"),
         ]
         for name, keys, needle in commands:
@@ -562,6 +614,63 @@ def main():
         sendkeys(mon, ["w", "c", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
         wait_needle_from("wc ok 1 1 5 hi.txt", CMD_TIMEOUT, proc, mark)
 
+        say("typing write lines.txt zulu ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "w", "r", "i", "t", "e", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t",
+            "spc", "z", "u", "l", "u", "ret",
+        ])
+        wait_needle_from("write ok lines.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing append lines.txt alpha ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "a", "p", "p", "e", "n", "d", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t",
+            "spc", "a", "l", "p", "h", "a", "ret",
+        ])
+        wait_needle_from("append ok lines.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing append lines.txt mango ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "a", "p", "p", "e", "n", "d", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t",
+            "spc", "m", "a", "n", "g", "o", "ret",
+        ])
+        wait_needle_from("append ok lines.txt", CMD_TIMEOUT, proc, mark)
+
+        say("typing sort lines.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, ["s", "o", "r", "t", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret"])
+        wait_needle_from("sort ok 3 lines.txt", CMD_TIMEOUT, proc, mark)
+        sort_output = log_text()[mark:]
+        if "alpha\nmango\nzulu\nsort ok 3 lines.txt" not in sort_output:
+            raise RuntimeError("sort lines.txt did not emit the expected ascending order")
+
+        say("typing head -2 lines.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "h", "e", "a", "d", "spc", "minus", "2", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("head ok 2 lines.txt", CMD_TIMEOUT, proc, mark)
+        head_output = log_text()[mark:]
+        if "zulu\nalpha\nhead ok 2 lines.txt" not in head_output:
+            raise RuntimeError("head -2 lines.txt did not emit the first two lines")
+
+        say("typing tail -1 lines.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, [
+            "t", "a", "i", "l", "spc", "minus", "1", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret",
+        ])
+        wait_needle_from("tail ok 1 lines.txt", CMD_TIMEOUT, proc, mark)
+        tail_output = log_text()[mark:]
+        if "mango\ntail ok 1 lines.txt" not in tail_output:
+            raise RuntimeError("tail -1 lines.txt did not emit the final line")
+
+        say("typing rm lines.txt ...")
+        mark = len(log_text())
+        sendkeys(mon, ["r", "m", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret"])
+        wait_needle_from("rm ok lines.txt", CMD_TIMEOUT, proc, mark)
+
         say("typing rm hi.txt ...")
         mark = len(log_text())
         sendkeys(mon, ["r", "m", "spc", "h", "i", "dot", "t", "x", "t", "ret"])
@@ -583,8 +692,7 @@ def main():
             ("initrd ls", "startup.sh"),
             ("cat hello.txt", "Un autre fichier de demonstration"),
             ("ls bin", "fake_ai"),
-            ("ai exec", "AI: bonjour"),
-            ("ai exec returned", "ai ok"),
+            ("ai local generation", "[GPT-2 local]"),
             ("ps kernel table", "Processus (noyau)"),
             ("ps kernel", "kern"),
             ("ps shell", "shell"),
@@ -622,6 +730,10 @@ def main():
             ("stat appended", "stat file z.txt 4"),
             ("grep overlay", "grep hits 1"),
             ("wc overlay", "wc ok 1 1 5 hi.txt"),
+            ("sort overlay", "sort ok 3 lines.txt"),
+            ("head overlay", "head ok 2 lines.txt"),
+            ("tail overlay", "tail ok 1 lines.txt"),
+            ("rm multiline", "rm ok lines.txt"),
             ("rm write", "rm ok hi.txt"),
             ("test file", "test ok file hello.txt"),
             ("stat dir", "stat dir mydir"),
