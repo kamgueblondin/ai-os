@@ -3709,7 +3709,8 @@ static void cmd_vfs_list_page(shell_context_t* ctx, char args[][128], int arg_co
     if (rc != 0) { print_error("vfs-list-page: repertoire ou index invalide"); ctx->last_rc = rc; return; }
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-list-page: service indisponible"); ctx->last_rc = rc; return; }
-    rc = wait_ipc_reply(pid, OS_IPC_VFS_LIST_PAGE_REPLY, request_id, &message);
+    rc = wait_ipc_reply_turns(pid, OS_IPC_VFS_LIST_PAGE_REPLY, request_id, &message,
+                              VFS_READ_REPLY_WAIT_TURNS);
     if (rc == 0) rc = os_vfs_parse_list_page_reply(&message, &reply, request_id);
 
     if (rc != 0) { print_error("vfs-list-page: reponse VFS absente ou invalide"); ctx->last_rc = rc; return; }

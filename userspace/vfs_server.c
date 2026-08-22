@@ -370,12 +370,15 @@ static uint32_t vfs_list_generation = 1U;
 
 #define VFS_VIRTUAL_PENDING_SIMPLE 0U
 #define VFS_VIRTUAL_PENDING_MOUNTS 1U
+#define VFS_VIRTUAL_PENDING_MOUNT_PAGE 2U
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
 #define VFS_VIRTUAL_PENDING_TURNS_MAX 8U
 
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size);
+static int list_virtual_mounts_page(uint32_t start, uint8_t* data, uint32_t data_max,
+                                    uint32_t* size, uint32_t* count, uint32_t* next_start);
 
 typedef struct {
     uint32_t active;
@@ -385,6 +388,7 @@ typedef struct {
     int client_pid;
     uint32_t request_id;
     uint32_t mount_index;
+    uint32_t mount_start;
     uint32_t mount_written;
     uint32_t turns;
     uint8_t mount_data[OS_VFS_READ_MAX];
@@ -399,6 +403,7 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.client_pid = -1;
     vfs_virtual_pending.request_id = 0U;
     vfs_virtual_pending.mount_index = 0U;
+    vfs_virtual_pending.mount_start = 0U;
     vfs_virtual_pending.mount_written = 0U;
     vfs_virtual_pending.turns = 0U;
 }
@@ -418,6 +423,7 @@ static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id
     vfs_virtual_pending.client_pid = client_pid;
     vfs_virtual_pending.request_id = request_id;
     vfs_virtual_pending.mount_index = 0U;
+    vfs_virtual_pending.mount_start = 0U;
     vfs_virtual_pending.mount_written = 0U;
     vfs_virtual_pending.turns = 0U;
     return 0;
@@ -464,6 +470,24 @@ static int vfs_virtual_submit_mounts(int client_pid, uint32_t request_id) {
                              VFS_VIRTUAL_VIEW_MOUNTS);
 }
 
+static int vfs_virtual_submit_mount_page(uint32_t start, int client_pid, uint32_t request_id) {
+    os_ipc_payload_t payload;
+    int worker_pid;
+    if (vfs_virtual_pending.active) return -1;
+    if (start >= vfs_mount_count) return -2;
+    worker_pid = vfs_virtual_lookup();
+    if (worker_pid < 0) return -3;
+    if (os_vfs_make_worker_mount_request(&payload, vfs_mounts[start].prefix,
+                                         vfs_mounts[start].source == OS_VFS_MOUNT_SOURCE_OVERLAY,
+                                         request_id) != OS_VFS_STATUS_OK) return -4;
+    if (ipc_send(worker_pid, &payload) != 0) return -5;
+    if (vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_MOUNT_PAGE,
+                          VFS_VIRTUAL_VIEW_MOUNTS) != 0) return -6;
+    vfs_virtual_pending.mount_start = start;
+    vfs_virtual_pending.mount_index = start;
+    return 0;
+}
+
 static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
     static const char info_path[] = "vfs-info";
     static const char stats_path[] = "vfs-stats";
@@ -472,6 +496,19 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
     uint32_t size = 0U;
     const char* path = info_path;
     if (!reply_payload || !vfs_virtual_pending.active) return 0;
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE) {
+        uint32_t count = 0U;
+        uint32_t next_start = OS_VFS_LIST_PAGE_END;
+        int status = list_virtual_mounts_page(vfs_virtual_pending.mount_start, data,
+                                              OS_VFS_LIST_PAGE_DATA_MAX, &size, &count,
+                                              &next_start);
+        if (os_vfs_make_list_page_reply(reply_payload, status, count, next_start, data, size,
+                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
     if (vfs_virtual_pending.view == VFS_VIRTUAL_VIEW_STATS) path = stats_path;
     else if (vfs_virtual_pending.view == VFS_VIRTUAL_VIEW_MOUNTS) path = mounts_path;
     if (read_virtual(path, data, &size) &&
@@ -525,6 +562,45 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
      * type sont valides, mais un request_id discordant ne doit jamais terminer
      * la nouvelle transaction : il est simplement écarté. */
     if (parsed != OS_VFS_STATUS_OK) return 0;
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE) {
+        os_ipc_payload_t payload;
+        uint32_t count;
+        uint32_t next_start;
+        int32_t page_status;
+        uint32_t i;
+        if (status != OS_VFS_STATUS_OK ||
+            size > OS_VFS_LIST_PAGE_DATA_MAX - vfs_virtual_pending.mount_written) {
+            return vfs_virtual_reply_local(reply_payload);
+        }
+        for (i = 0U; i < size; i++) {
+            vfs_virtual_pending.mount_data[vfs_virtual_pending.mount_written + i] = data[i];
+        }
+        vfs_virtual_pending.mount_written += size;
+        vfs_virtual_pending.mount_index++;
+        count = vfs_virtual_pending.mount_index - vfs_virtual_pending.mount_start;
+        if (vfs_virtual_pending.mount_index < vfs_mount_count && count < OS_VFS_LIST_ENTRY_MAX) {
+            if (os_vfs_make_worker_mount_request(&payload,
+                                                  vfs_mounts[vfs_virtual_pending.mount_index].prefix,
+                                                  vfs_mounts[vfs_virtual_pending.mount_index].source == OS_VFS_MOUNT_SOURCE_OVERLAY,
+                                                  vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK ||
+                ipc_send(vfs_virtual_pending.worker_pid, &payload) != 0) {
+                return vfs_virtual_reply_local(reply_payload);
+            }
+            return 1;
+        }
+        next_start = vfs_virtual_pending.mount_index < vfs_mount_count
+            ? vfs_virtual_pending.mount_index : OS_VFS_LIST_PAGE_END;
+        page_status = next_start == OS_VFS_LIST_PAGE_END
+            ? OS_VFS_STATUS_OK : OS_VFS_STATUS_TRUNCATED;
+        if (os_vfs_make_list_page_reply(reply_payload, page_status, count, next_start,
+                                        vfs_virtual_pending.mount_data,
+                                        vfs_virtual_pending.mount_written,
+                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNTS) {
         os_ipc_payload_t payload;
         uint32_t i;
@@ -930,12 +1006,19 @@ void main(void) {
             uint32_t next_start = OS_VFS_LIST_PAGE_END;
             puts("vfsserver list page request\n");
             status = os_vfs_parse_list_page_request(&message, path, &start);
-            if (status == 0) {
-                status = string_equal(path, "vfs-mounts")
-                    ? list_virtual_mounts_page(start, data, OS_VFS_LIST_PAGE_DATA_MAX,
-                                               &size, &count, &next_start)
-                    : list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
-                                                &size, &count, &next_start);
+            if (status == 0 && string_equal(path, "vfs-mounts")) {
+                status = vfs_virtual_submit_mount_page(start, message.sender_pid, message.request_id);
+                if (status == 0) {
+                    puts("vfsserver delegated mount page\n");
+                    yield();
+                    continue;
+                }
+                status = list_virtual_mounts_page(start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                                  &size, &count, &next_start);
+                puts("vfsserver virtual mount page local\n");
+            } else if (status == 0) {
+                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                                   &size, &count, &next_start);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list page outside mounts\n");
             }
             if (os_vfs_make_list_page_reply(&reply_payload, status, count, next_start,
