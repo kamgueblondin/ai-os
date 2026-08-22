@@ -153,6 +153,7 @@
 - [x] AOS-2081…2088 : worker VFS virtuel Ring 3, délégation asynchrone bornée de `vfs-info`, corrélation PID/request-id, repli local et contrat QEMU inter-processus — [aos2081_2088_vfs_ring3_virtual_worker.md](aos2081_2088_vfs_ring3_virtual_worker.md)
 - [x] AOS-2089…2094 : instantané `vfs-stats` de 16 octets transmis au worker Ring 3 pour formatage borné, corrélation conservée et contrat QEMU sur les valeurs publiques — [aos2089_2094_vfs_ring3_stats_worker.md](aos2089_2094_vfs_ring3_stats_worker.md)
 - [x] AOS-2095…2102 : entrées `vfs-mounts` formatées séquentiellement par worker Ring 3, agrégation VFS de 80 octets, troncature historique préservée et attente de lecture bornée — [aos2095_2102_vfs_ring3_mounts_worker.md](aos2095_2102_vfs_ring3_mounts_worker.md)
+- [x] AOS-2103…2108 : redécouverte stricte du worker VFS, repli local vérifié après retrait du service et reprise de délégation après relance QEMU — [aos2103_2108_vfs_worker_resilience.md](aos2103_2108_vfs_worker_resilience.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

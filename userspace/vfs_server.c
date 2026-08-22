@@ -388,6 +388,11 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.mount_written = 0U;
 }
 
+static int vfs_virtual_lookup(void) {
+    int worker_pid = service_lookup("vfs-virtual");
+    return worker_pid > 0 ? worker_pid : -1;
+}
+
 static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id, uint32_t kind) {
     if (vfs_virtual_pending.active) return -1;
     vfs_virtual_pending.active = 1U;
@@ -404,7 +409,7 @@ static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request
     os_ipc_payload_t payload;
     int worker_pid;
     if (vfs_virtual_pending.active) return -1;
-    worker_pid = service_lookup("vfs-virtual");
+    worker_pid = vfs_virtual_lookup();
     if (worker_pid < 0) return -2;
     if (os_vfs_make_worker_read_request(&payload, path, request_id) != OS_VFS_STATUS_OK) return -3;
     if (ipc_send(worker_pid, &payload) != 0) return -4;
@@ -415,7 +420,7 @@ static int vfs_virtual_submit_stats(int client_pid, uint32_t request_id) {
     os_ipc_payload_t payload;
     int worker_pid;
     if (vfs_virtual_pending.active) return -1;
-    worker_pid = service_lookup("vfs-virtual");
+    worker_pid = vfs_virtual_lookup();
     if (worker_pid < 0) return -2;
     if (os_vfs_make_worker_stats_request(&payload, vfs_read_requests, vfs_write_requests,
                                          vfs_remove_requests, vfs_rename_requests, request_id)
@@ -428,7 +433,7 @@ static int vfs_virtual_submit_mounts(int client_pid, uint32_t request_id) {
     os_ipc_payload_t payload;
     int worker_pid;
     if (vfs_virtual_pending.active) return -1;
-    worker_pid = service_lookup("vfs-virtual");
+    worker_pid = vfs_virtual_lookup();
     if (worker_pid < 0) return -2;
     if (vfs_mount_count == 0U) return -3;
     if (os_vfs_make_worker_mount_request(&payload, vfs_mounts[0].prefix,
