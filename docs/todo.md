@@ -146,6 +146,7 @@
 - [x] AOS-2029…2036 : libération autonome des capacités backend VFS, PID dérivé de la tâche Ring 3, génération de révocation et contrat QEMU — [aos2029_2036_vfs_backend_self_release.md](aos2029_2036_vfs_backend_self_release.md)
 - [x] AOS-2037…2044 : routeur IPC Ring 3 commun aux réponses VFS, corrélation par PID/type/requête, conservation des messages discordants et contrat QEMU intercalé — [aos2037_2044_ipc_deferred_response_router.md](aos2037_2044_ipc_deferred_response_router.md)
 - [x] AOS-2045…2052 : table statique d’opérations backend VFS, dispatch de chemins externalisé, mutabilité overlay explicite et contrat QEMU d’alias dynamique — [aos2045_2052_vfs_path_backend_ops.md](aos2045_2052_vfs_path_backend_ops.md)
+- [x] AOS-2053…2060 : benchmark GGUF QEMU répétable, rapport JSON de médiane/dispersion et campagne locale de référence sur premier token et continuation — [aos2053_2060_gguf_qemu_latency_benchmark.md](aos2053_2060_gguf_qemu_latency_benchmark.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
