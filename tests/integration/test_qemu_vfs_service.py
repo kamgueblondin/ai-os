@@ -431,6 +431,29 @@ def main():
             wait_for("fat32/ ro", proc, before_virtual_mounts)
             if log_text()[before_virtual_mounts:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage sequentiel des montages incomplet")
+            before_worker_stop = len(log_text())
+            send_command_until(monitor, "kill %s" % worker_pid, "Processus %s termine" % worker_pid, proc)
+            before_worker_missing = len(log_text())
+            send_command_until(monitor, "service-find vfs-virtual",
+                               "service-find: service indisponible", proc)
+            before_worker_fallback = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-info", "vfsserver virtual vfs-info local", proc)
+            wait_for("vfsserver ring3 policy", proc, before_worker_fallback)
+            before_worker_restart = len(log_text())
+            send_command_until(monitor, "spawn vfsvirtual", "spawn ok pid", proc)
+            worker_restarted = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsvirtual",
+                                         log_text()[before_worker_restart:])
+            if not worker_restarted:
+                raise RuntimeError("worker virtuel VFS non relance")
+            worker_pid = worker_restarted.group(1)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsvirtual ready", proc, before_worker_restart)
+            send_command_until(monitor, "service-find vfs-virtual",
+                               "service-find ok vfs-virtual %s" % worker_pid, proc)
+            before_worker_recovered = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
+            wait_for("vfsvirtual read vfs-info", proc, before_worker_recovered)
+            wait_for("vfsserver ring3 policy", proc, before_worker_recovered)
             before_initrd_stat = len(log_text())
             send_command_until(monitor, "vfs-stat initrd/hello.txt", "vfs-stat ok size 35 flags file", proc)
             wait_for("vfs-stat ok size 35 flags file", proc, before_initrd_stat)
