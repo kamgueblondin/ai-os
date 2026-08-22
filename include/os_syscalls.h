@@ -216,7 +216,9 @@
 #define SYS_FAT32_LIST_PAGE 114
 /* EBX = nom de service ; le bénéficiaire courant abandonne sa capacité backend. */
 #define SYS_SERVICE_BACKEND_RELEASE 115
-#define MAX_SYSCALLS 115
+/* EBX = nom FAT16 8.3 sans séparateur, ECX = données, EDX = taille ; réservé aux droits backend mutate de `vfs`. */
+#define SYS_VFS_FAT16_CREATE 116
+#define MAX_SYSCALLS 117
 
 typedef struct {
     uint16_t source_port;

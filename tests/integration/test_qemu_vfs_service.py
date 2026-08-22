@@ -403,6 +403,17 @@ def main():
             send_command_until(monitor, "vfs-stat media/fatok.txt",
                                "vfs-stat ok size 17 flags file", proc)
             wait_for("vfs-stat ok size 17 flags file", proc, before_fat16_stat)
+            before_fat16_write = len(log_text())
+            send_command_until(monitor, "vfs-write fat16/new.txt qemu-fat16",
+                               "vfsserver write request", proc)
+            wait_for("vfs-write ok request", proc, before_fat16_write)
+            before_fat16_new_read = len(log_text())
+            send_command_until(monitor, "vfs-read fat16/new.txt", "vfs-read ok", proc)
+            wait_for("qemu-fat16", proc, before_fat16_new_read)
+            before_fat16_new_list = len(log_text())
+            send_command_until(monitor, "vfs-list fat16/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 3", proc, before_fat16_new_list)
+            wait_for("NEW.TXT", proc, before_fat16_new_list)
             before_fat32_list = len(log_text())
             send_command_until(monitor, "vfs-list media32/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 1", proc, before_fat32_list)

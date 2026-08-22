@@ -646,6 +646,10 @@ static int fat16_ata_read_sectors(uint32_t lba, uint32_t count, void* buffer) {
     return ata_read_sectors(lba, count, buffer);
 }
 
+static int fat16_ata_write_sector(uint32_t lba, const void* buffer) {
+    return ata_write_sectors(lba, 1U, buffer);
+}
+
 static int fat32_ata_slave_read_sector(uint32_t lba, void* buffer) {
     return ata_read_sectors_drive(ATA_DRIVE_SLAVE, lba, 1U, buffer);
 }
@@ -1176,9 +1180,12 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         }
         if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {
             if (fat16_attach_read_window(fat16_root(), fat16_ata_read_sectors,
-                                         fat16_ata_read_window,
-                                         sizeof(fat16_ata_read_window)) != 0) {
+                                          fat16_ata_read_window,
+                                          sizeof(fat16_ata_read_window)) != 0) {
                 print_string("FAT16: cache multi-secteurs indisponible; repli secteur.\n");
+            }
+            if (fat16_attach_writer(fat16_root(), fat16_ata_write_sector) != 0) {
+                print_string("FAT16: writer ATA indisponible; creation desactivee.\n");
             }
             print_string(fat16_status());
             print_string("\n");
