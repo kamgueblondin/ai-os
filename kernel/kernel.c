@@ -141,8 +141,8 @@ static void ne2k_boot_probe(void) {
         return;
     }
     if (ne2k_prepare(&boot_ne2k_device, &boot_ne2k_io) != 0 ||
-        ne2k_configure_rings(&boot_ne2k_device, &boot_ne2k_io) != 0 ||
-        ne2k_read_mac(&boot_ne2k_device, &boot_ne2k_io) != 0) {
+        ne2k_read_mac(&boot_ne2k_device, &boot_ne2k_io) != 0 ||
+        ne2k_configure_rings(&boot_ne2k_device, &boot_ne2k_io) != 0) {
         print_string("NE2000 detecte mais initialisation ou MAC incomplete.\\n");
         return;
     }
@@ -266,7 +266,7 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         request->local_port == 0U || request->remote_port == 0U) return OS_LLM_ACQUIRE_BAD_REQUEST;
     if (!boot_ne2k_present) return OS_LLM_ACQUIRE_UNAVAILABLE;
     if (boot_llm_socket_session.state.phase != NE2K_LLM_CONNECTION_IDLE) return OS_LLM_ACQUIRE_IN_PROGRESS;
-    if (kernel_llm_fill_tls_material() != 0) return OS_LLM_TLS_ENTROPY_UNAVAILABLE;
+    if (kernel_llm_fill_tls_material() != 0) return OS_LLM_ACQUIRE_TLS_ENTROPY;
     if (net_arp_cache_init(&boot_llm_arp_cache) != 0 ||
         ne2k_tls_client_init(&boot_llm_tls_client, boot_llm_tls_record, sizeof(boot_llm_tls_record),
                              boot_llm_tls_handshake, sizeof(boot_llm_tls_handshake),
@@ -285,6 +285,12 @@ int kernel_llm_acquire_start(const os_llm_acquire_start_request_t* request) {
         request->local_sequence, &boot_llm_lease, &boot_llm_socket_session);
     if (status != 0) {
         kernel_llm_clear_tls_material();
+        if (status == -12) return OS_LLM_ACQUIRE_DHCP_DISCOVER_FAILED;
+        if (status == -13) return OS_LLM_ACQUIRE_DHCP_OFFER_TIMEOUT;
+        if (status == -14) return OS_LLM_ACQUIRE_DHCP_REQUEST_FAILED;
+        if (status == -15) return OS_LLM_ACQUIRE_DHCP_ACK_TIMEOUT;
+        if (status == -2) return OS_LLM_ACQUIRE_DHCP_FAILED;
+        if (status == -3) return OS_LLM_ACQUIRE_BOOTSTRAP_FAILED;
         return OS_LLM_ACQUIRE_FAILED;
     }
     boot_llm_dhcp_maintenance.acquire = *request;

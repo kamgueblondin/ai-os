@@ -147,10 +147,11 @@
 - [x] AOS-2037…2044 : routeur IPC Ring 3 commun aux réponses VFS, corrélation par PID/type/requête, conservation des messages discordants et contrat QEMU intercalé — [aos2037_2044_ipc_deferred_response_router.md](aos2037_2044_ipc_deferred_response_router.md)
 - [x] AOS-2045…2052 : table statique d’opérations backend VFS, dispatch de chemins externalisé, mutabilité overlay explicite et contrat QEMU d’alias dynamique — [aos2045_2052_vfs_path_backend_ops.md](aos2045_2052_vfs_path_backend_ops.md)
 - [x] AOS-2053…2060 : benchmark GGUF QEMU répétable, rapport JSON de médiane/dispersion et campagne locale de référence sur premier token et continuation — [aos2053_2060_gguf_qemu_latency_benchmark.md](aos2053_2060_gguf_qemu_latency_benchmark.md)
-- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
+- [x] AOS-2061…2068 : contrat QEMU isolé du bootstrap LLM NE2000, DHCP/OFFER/REQUEST/ACK, ARP, DNS A et SYN observés ; lecture PROM DMA, PAR strict et ordre RDC/TX régressés — [aos2061_2068_ne2k_qemu_controlled_bootstrap.md](aos2061_2068_ne2k_qemu_controlled_bootstrap.md)
+- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 483 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu` et `make qemu-vfs-service` sur fixtures FAT16/FAT32)
+- [x] Tests complets du système corrigé (`make test-all` : 484 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` sur pair Ethernet local contrôlé)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

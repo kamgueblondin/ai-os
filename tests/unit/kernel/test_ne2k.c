@@ -11,6 +11,12 @@ typedef struct {
     uint8_t prom_index;
     uint8_t tx_data[NE2K_ETHERNET_MAX_FRAME];
     uint16_t tx_count;
+    uint16_t trace_ports[128];
+    uint8_t trace_values[128];
+    uint16_t trace_count;
+    uint8_t command;
+    uint8_t boundary;
+    uint8_t current_page;
 } fake_ne2k_t;
 typedef struct { uint8_t registers[128]; uint8_t selected; } fake_rtc_t;
 
@@ -20,7 +26,9 @@ void tearDown(void) {}
 static uint8_t fake_inb(void* context, uint16_t port) {
     fake_ne2k_t* fake = (fake_ne2k_t*)context;
     if ((port & 0x1fU) == NE2K_REG_RESET) return fake->reset;
-    if ((port & 0x1fU) == NE2K_REG_ISR) return fake->isr;
+    if ((port & 0x1fU) == NE2K_REG_ISR)
+        return (fake->command & 0xc0U) == NE2K_COMMAND_PAGE1 ? fake->current_page : fake->isr;
+    if ((port & 0x1fU) == NE2K_REG_BNRY) return fake->boundary;
     if ((port & 0x1fU) == NE2K_REG_DCR) return fake->dcr;
     if ((port & 0x1fU) == NE2K_REG_DATA && fake->prom_index < 12U)
         return fake->prom[fake->prom_index++];
@@ -32,8 +40,17 @@ static void fake_rtc_outb(void* context,uint16_t port,uint8_t value){fake_rtc_t*
 
 static void fake_outb(void* context, uint16_t port, uint8_t value) {
     fake_ne2k_t* fake = (fake_ne2k_t*)context;
+    if (fake->trace_count < 128U) {
+        fake->trace_ports[fake->trace_count] = port;
+        fake->trace_values[fake->trace_count++] = value;
+    }
     fake->writes++;
+    if ((port & 0x1fU) == NE2K_REG_COMMAND) fake->command = value;
     if ((port & 0x1fU) == NE2K_REG_RESET) fake->reset = value;
+    if ((port & 0x1fU) == NE2K_REG_BNRY && (fake->command & 0xc0U) == NE2K_COMMAND_PAGE0)
+        fake->boundary = value;
+    if ((port & 0x1fU) == NE2K_REG_CURR && (fake->command & 0xc0U) == NE2K_COMMAND_PAGE1)
+        fake->current_page = value;
     if ((port & 0x1fU) == NE2K_REG_DCR) fake->dcr = value;
     if ((port & 0x1fU) == NE2K_REG_DATA && fake->tx_count < NE2K_ETHERNET_MAX_FRAME)
         fake->tx_data[fake->tx_count++] = value;
@@ -98,6 +115,39 @@ void test_probe_and_prepare_use_injected_io(void) {
                                               tx_frame, sizeof(tx_frame), local_mac, local_ip,
                                               target_ip, 2)); }
     }
+}
+
+void test_ne2k_rom_read_and_tx_dma_order(void) {
+    fake_ne2k_t fake = {0x12, NE2K_ISR_RESET | NE2K_ISR_RDC, 0, 0};
+    ne2k_io_t io = {&fake, fake_inb, fake_outb};
+    ne2k_device_t device;
+    uint8_t frame[10] = {1,2,3,4,5,6,7,8,9,10};
+    uint16_t i, read_command = 128U, rbcr = 128U, rsar = 128U;
+    uint16_t rdc = 128U, write_command = 128U, first_data = 128U, transmit = 128U;
+    uint8_t prom[12] = {0x02,0xaa,0x10,0xbb,0x20,0xcc,0x30,0xdd,0x40,0xee,0x50,0xff};
+    for (i = 0U; i < 12U; ++i) fake.prom[i] = prom[i];
+    TEST_ASSERT_EQUAL(0, ne2k_probe(&device, 0x300U, &io));
+    TEST_ASSERT_EQUAL(0, ne2k_prepare(&device, &io));
+    fake.trace_count = 0U; fake.prom_index = 0U;
+    TEST_ASSERT_EQUAL(0, ne2k_read_mac(&device, &io));
+    for (i = 0U; i < fake.trace_count; ++i) {
+        if (fake.trace_ports[i] == 0x30aU && fake.trace_values[i] == 12U) rbcr = i;
+        if (fake.trace_ports[i] == 0x308U && fake.trace_values[i] == 0U) rsar = i;
+        if (fake.trace_ports[i] == 0x300U && fake.trace_values[i] == NE2K_COMMAND_REMOTE_READ) read_command = i;
+    }
+    TEST_ASSERT_TRUE(rbcr < rsar); TEST_ASSERT_TRUE(rsar < read_command);
+    TEST_ASSERT_EQUAL(0x02, device.mac[0]); TEST_ASSERT_EQUAL(0x50, device.mac[5]);
+    TEST_ASSERT_EQUAL(0, ne2k_configure_rings(&device, &io));
+    fake.trace_count = 0U; fake.tx_count = 0U; fake.isr = NE2K_ISR_RDC;
+    TEST_ASSERT_EQUAL(0, ne2k_tx_submit(&device, &io, frame, sizeof(frame)));
+    for (i = 0U; i < fake.trace_count; ++i) {
+        if (fake.trace_ports[i] == 0x307U && fake.trace_values[i] == NE2K_ISR_RDC) rdc = i;
+        if (fake.trace_ports[i] == 0x300U && fake.trace_values[i] == NE2K_COMMAND_REMOTE_WRITE) write_command = i;
+        if (first_data == 128U && fake.trace_ports[i] == 0x310U) first_data = i;
+        if (fake.trace_ports[i] == 0x300U && fake.trace_values[i] == NE2K_COMMAND_TRANSMIT) transmit = i;
+    }
+    TEST_ASSERT_TRUE(rdc < write_command); TEST_ASSERT_TRUE(write_command < first_data);
+    TEST_ASSERT_TRUE(first_data < transmit);
 }
 
 void test_ne2k_udp_via_gateway_preserves_ipv4_destination(void){fake_ne2k_t fake={0x12,NE2K_ISR_RESET|NE2K_ISR_RDC,0,0};ne2k_io_t io={&fake,fake_inb,fake_outb};ne2k_device_t device;net_arp_cache_t cache;uint8_t local_mac[6]={2,0,0,0,0,1},gateway_ip[4]={10,0,2,2},gateway_mac[6]={0x52,0x54,0,0,0,2},local_ip[4]={10,0,2,15},dns_ip[4]={1,1,1,1},request[128]={0},rx[128]={0},frame[128]={0},payload[2]={1,2};TEST_ASSERT_EQUAL(0,ne2k_probe(&device,0x300U,&io));TEST_ASSERT_EQUAL(0,ne2k_prepare(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_configure_rings(&device,&io));TEST_ASSERT_EQUAL(0,ne2k_set_mac(&device,local_mac));TEST_ASSERT_EQUAL(0,net_arp_cache_init(&cache));TEST_ASSERT_EQUAL(0,net_arp_cache_put(&cache,gateway_ip,gateway_mac));TEST_ASSERT_EQUAL(0,ne2k_tx_udp_via(&device,&io,&cache,request,sizeof(request),rx,sizeof(rx),frame,sizeof(frame),local_ip,dns_ip,gateway_ip,49152U,53U,payload,sizeof(payload),1U));TEST_ASSERT_EQUAL(0x52,frame[0]);TEST_ASSERT_EQUAL(0x54,frame[1]);TEST_ASSERT_EQUAL(1,frame[30]);TEST_ASSERT_EQUAL(1,frame[31]);TEST_ASSERT_EQUAL(1,frame[32]);TEST_ASSERT_EQUAL(1,frame[33]);}
@@ -366,7 +416,7 @@ void test_ne2k_llm_socket_bootstrap_failure_releases_slot(void){
 
 int main(void) {
     unity_init();
-    RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);    RUN_TEST(test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination); RUN_TEST(test_ne2k_tcp_segment_bridge); RUN_TEST(test_ne2k_tcp_syn_ack_via_gateway);RUN_TEST(test_ne2k_socket_syn_bridge);
+    RUN_TEST(test_probe_and_prepare_use_injected_io);RUN_TEST(test_ne2k_rom_read_and_tx_dma_order);RUN_TEST(test_ne2k_udp_via_gateway_preserves_ipv4_destination);    RUN_TEST(test_ne2k_tcp_syn_via_gateway_preserves_ipv4_destination); RUN_TEST(test_ne2k_tcp_segment_bridge); RUN_TEST(test_ne2k_tcp_syn_ack_via_gateway);RUN_TEST(test_ne2k_socket_syn_bridge);
 RUN_TEST(test_ne2k_llm_network_context_lifecycle);RUN_TEST(test_ne2k_llm_network_context_sse_resume_lifecycle);RUN_TEST(test_ne2k_llm_network_context_sse_event_tick_persists_retry);RUN_TEST(test_ne2k_llm_network_context_sse_rotate_provider);RUN_TEST(test_ne2k_llm_network_context_sse_schedule_jittered);RUN_TEST(test_ne2k_llm_network_context_dhcp_renew_if_due);RUN_TEST(test_ne2k_llm_network_context_reconcile_lease);RUN_TEST(test_ne2k_llm_network_context_sse_resume_decide);RUN_TEST(test_ne2k_socket_poll_tcp_guards);RUN_TEST(test_ne2k_dhcp_renew_if_due_guards_transactionally);RUN_TEST(test_ne2k_llm_connection_acquire_start_dhcp_guard_is_transactional);RUN_TEST(test_ne2k_llm_connection_start_dhcp_guard_is_transactional);
     RUN_TEST(test_tcp_receive_copies_bounded_payload);
     RUN_TEST(test_tcp_poll_is_bounded_when_rx_empty);

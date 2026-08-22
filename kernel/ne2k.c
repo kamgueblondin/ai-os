@@ -20,6 +20,23 @@ static ne2k_device_t* ne2k_irq_device;
 static const ne2k_io_t* ne2k_irq_io;
 static volatile uint32_t ne2k_irq_events;
 
+/* Laisse au contrôleur matériel le temps de publier RX sans dépendre d’une
+ * temporisation bloquante. Hors noyau (fixtures unitaires), le symbole faible
+ * est absent et la pause devient immédiatement nulle. */
+static void ne2k_poll_pause(void) {
+    uint32_t before, spins = 0U;
+    if (!timer_get_ticks) return;
+    before = timer_get_ticks();
+    /* 200 k PAUSE s’achèvent avant un tick sous QEMU TCG. La limite reste
+     * finie, mais couvre une fenêtre d’ordonnancement matérielle effective. */
+    while (timer_get_ticks() == before && spins < 20000000U) {
+#ifdef __i386__
+        __asm__ volatile ("pause" : : : "memory");
+#endif
+        ++spins;
+    }
+}
+
 int ne2k_tx_udp(ne2k_device_t* device, const ne2k_io_t* io,
                 uint8_t* frame, uint16_t frame_capacity,
                 const uint8_t destination_mac[6],
@@ -67,12 +84,11 @@ int ne2k_arp_resolve(ne2k_device_t* device, const ne2k_io_t* io,
     for (i = 0; i < attempts; ++i) {
         status = ne2k_rx_poll_arp(device, io, rx_frame, rx_capacity, &rx_length,
                                   &ethernet, &arp);
-        if (status == 1) continue;
-        if (status != 0) continue;
-        if (net_arp_is_reply_for(&arp, local_ipv4, target_ipv4)) {
+        if (status == 0 && net_arp_is_reply_for(&arp, local_ipv4, target_ipv4)) {
             if (net_arp_cache_put(cache, target_ipv4, arp.sender_mac) != 0) return -4;
             return 0;
         }
+        ne2k_poll_pause();
     }
     return -5;
 }
@@ -247,7 +263,7 @@ int ne2k_llm_socket_session_acquire_start_dhcp(ne2k_device_t* device,const ne2k_
     if (!lease || !session || session->state.phase != NE2K_LLM_CONNECTION_IDLE || session->socket_id >= 0) return -1;
     status = ne2k_dhcp_acquire(device, io, dhcp_tx, dhcp_tx_capacity, dhcp_rx, dhcp_rx_capacity,
                                xid, dhcp_attempts, &next_lease);
-    if (status != 0) return -2;
+    if (status != 0) return status;
     status = ne2k_llm_socket_session_start_dhcp(device, io, cache, arp_request, arp_request_capacity,
                                                  arp_rx, arp_rx_capacity, frame, frame_capacity, &next_lease,
                                                  dns_id, hostname, dns_attempts, arp_attempts, local_port,
@@ -664,9 +680,10 @@ int ne2k_dns_poll_a(ne2k_device_t* device, const ne2k_io_t* io,
     if (!device || !io || !frame || !result || attempts == 0U) return -1;
     for (i = 0; i < attempts; ++i) {
         status = ne2k_rx_poll_udp(device, io, frame, frame_capacity, &frame_length, &udp);
-        if (status != 0) continue;
-        if (udp.source_port != 53U || udp.destination_port != 49152U) continue;
-        if (net_dns_parse_a_response(udp.payload, udp.payload_length, expected_id, result) == 0) return 0;
+        if (status == 0 && udp.source_port == 53U && udp.destination_port == 49152U &&
+            net_dns_parse_a_response(udp.payload, udp.payload_length, expected_id, result) == 0)
+            return 0;
+        ne2k_poll_pause();
     }
     return -2;
 }
@@ -680,20 +697,18 @@ int ne2k_dhcp_poll_offer(ne2k_device_t* device, const ne2k_io_t* io,
     for (i = 0; i < attempts; ++i) {
         status = ne2k_rx_poll_udp(device, io, frame, frame_capacity,
                                   &frame_length, &udp);
-        if (status == 1) continue;
-        if (status != 0) continue;
-        if (udp.source_port != 67U || udp.destination_port != 68U ||
-            udp.payload_length < 244U) continue;
-        status = net_dhcp_parse_offer(udp.payload, udp.payload_length,
-                                      expected_xid, offer);
-        if (status == 0) return 0;
+        if (status == 0 && udp.source_port == 67U && udp.destination_port == 68U &&
+            udp.payload_length >= 244U &&
+            net_dhcp_parse_offer(udp.payload, udp.payload_length, expected_xid, offer) == 0)
+            return 0;
+        ne2k_poll_pause();
     }
     return -2;
 }
 
-int ne2k_dhcp_poll_ack(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* frame,uint16_t frame_capacity,uint32_t expected_xid,uint16_t attempts,net_dhcp_lease_t* lease){uint16_t frame_length,i;net_udp_view_t udp;net_dhcp_lease_t next_lease;int status;if(!device||!io||!frame||!lease||attempts==0U)return -1;for(i=0U;i<attempts;i++){status=ne2k_rx_poll_udp(device,io,frame,frame_capacity,&frame_length,&udp);if(status==1)continue;if(status!=0)continue;if(udp.source_port!=67U||udp.destination_port!=68U||udp.payload_length<NET_DHCP_FIXED_HEADER+NET_DHCP_COOKIE_SIZE)continue;status=net_dhcp_parse_ack(udp.payload,udp.payload_length,expected_xid,&next_lease);if(status==0){*lease=next_lease;return 0;}}return -2;}
+int ne2k_dhcp_poll_ack(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* frame,uint16_t frame_capacity,uint32_t expected_xid,uint16_t attempts,net_dhcp_lease_t* lease){uint16_t frame_length,i;net_udp_view_t udp;net_dhcp_lease_t next_lease;int status;if(!device||!io||!frame||!lease||attempts==0U)return -1;for(i=0U;i<attempts;i++){status=ne2k_rx_poll_udp(device,io,frame,frame_capacity,&frame_length,&udp);if(status==0&&udp.source_port==67U&&udp.destination_port==68U&&udp.payload_length>=NET_DHCP_FIXED_HEADER+NET_DHCP_COOKIE_SIZE&&net_dhcp_parse_ack(udp.payload,udp.payload_length,expected_xid,&next_lease)==0){*lease=next_lease;return 0;}ne2k_poll_pause();}return -2;}
 
-int ne2k_dhcp_acquire(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* tx_frame,uint16_t tx_capacity,uint8_t* rx_frame,uint16_t rx_capacity,uint32_t xid,uint16_t poll_attempts,net_dhcp_lease_t* lease){net_dhcp_offer_t offer;net_dhcp_lease_t next_lease;int status;if(!device||!io||!tx_frame||!rx_frame||!lease||poll_attempts==0U)return -1;status=ne2k_dhcp_discover(device,io,tx_frame,tx_capacity,xid);if(status!=0)return -2;status=ne2k_dhcp_poll_offer(device,io,rx_frame,rx_capacity,xid,poll_attempts,&offer);if(status!=0)return -3;status=ne2k_dhcp_request(device,io,tx_frame,tx_capacity,xid,offer.offered_ip,offer.server_ip);if(status!=0)return -4;status=ne2k_dhcp_poll_ack(device,io,rx_frame,rx_capacity,xid,poll_attempts,&next_lease);if(status!=0)return -5;*lease=next_lease;return 0;}
+int ne2k_dhcp_acquire(ne2k_device_t* device,const ne2k_io_t* io,uint8_t* tx_frame,uint16_t tx_capacity,uint8_t* rx_frame,uint16_t rx_capacity,uint32_t xid,uint16_t poll_attempts,net_dhcp_lease_t* lease){net_dhcp_offer_t offer;net_dhcp_lease_t next_lease;int status;if(!device||!io||!tx_frame||!rx_frame||!lease||poll_attempts==0U)return -1;status=ne2k_dhcp_discover(device,io,tx_frame,tx_capacity,xid);if(status!=0)return -12;status=ne2k_dhcp_poll_offer(device,io,rx_frame,rx_capacity,xid,poll_attempts,&offer);if(status!=0)return -13;status=ne2k_dhcp_request(device,io,tx_frame,tx_capacity,xid,offer.offered_ip,offer.server_ip);if(status!=0)return -14;status=ne2k_dhcp_poll_ack(device,io,rx_frame,rx_capacity,xid,poll_attempts,&next_lease);if(status!=0)return -15;*lease=next_lease;return 0;}
 
 int ne2k_dhcp_renew(ne2k_device_t* device, const ne2k_io_t* io,
                     uint8_t* frame, uint16_t frame_capacity,
@@ -771,33 +786,39 @@ int ne2k_rx_poll(ne2k_device_t* device, const ne2k_io_t* io,
                  uint16_t* frame_length) {
     uint16_t base, page, packet_length, payload_length;
     uint8_t header[NE2K_RX_HEADER_SIZE];
-    uint8_t next_page;
+    uint8_t next_page, current_page;
     uint32_t i;
     if (!device || !io || !io->inb || !io->outb || !frame || !frame_length ||
         !device->initialized || frame_capacity == 0U || device->base_port == 0U)
         return -1;
     *frame_length = 0U;
     base = device->base_port;
-    if ((io->inb(io->context, (uint16_t)(base + NE2K_REG_ISR)) & NE2K_ISR_PRX) == 0U)
-        return 1;
+    /* L’IRQ peut déjà avoir acquitté PRX : CURR/BNRY reste l’état persistant
+     * du ring et évite de perdre une trame DHCP ou DNS arrivée entre deux tours. */
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), 0x42U);
+    current_page = io->inb(io->context, (uint16_t)(base + NE2K_REG_CURR));
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), 0x22U);
     page = (uint16_t)io->inb(io->context, (uint16_t)(base + NE2K_REG_BNRY)) + 1U;
     if (page >= NE2K_RX_PAGE_STOP) page = NE2K_RX_PAGE_START;
+    if (current_page < NE2K_RX_PAGE_START || current_page >= NE2K_RX_PAGE_STOP)
+        return -2;
+    if ((uint8_t)page == current_page) return 1;
     ne2k_remote_read_setup(io, base, (uint16_t)(page << 8), NE2K_RX_HEADER_SIZE);
     for (i = 0; i < NE2K_RX_HEADER_SIZE; ++i)
         header[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
-    if ((header[0] & NE2K_RX_STATUS_OK) == 0U) return -2;
+    if ((header[0] & NE2K_RX_STATUS_OK) == 0U) return -3;
     next_page = header[1];
     packet_length = (uint16_t)(header[2] | ((uint16_t)header[3] << 8));
     if (packet_length < NE2K_RX_HEADER_SIZE || packet_length > NE2K_ETHERNET_MAX_FRAME)
-        return -3;
+        return -4;
     payload_length = (uint16_t)(packet_length - NE2K_RX_HEADER_SIZE);
-    if (payload_length > frame_capacity) return -4;
+    if (payload_length > frame_capacity) return -5;
     ne2k_remote_read_setup(io, base, (uint16_t)((page << 8) + NE2K_RX_HEADER_SIZE),
                            payload_length);
     for (i = 0; i < payload_length; ++i)
         frame[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
     if (next_page < NE2K_RX_PAGE_START || next_page >= NE2K_RX_PAGE_STOP)
-        return -5;
+        return -6;
     io->outb(io->context, (uint16_t)(base + NE2K_REG_BNRY),
              (uint8_t)(next_page == NE2K_RX_PAGE_START ? NE2K_RX_PAGE_STOP - 1U : next_page - 1U));
     *frame_length = payload_length;
@@ -927,16 +948,26 @@ int ne2k_probe(ne2k_device_t* device, uint16_t base_port, const ne2k_io_t* io) {
 
 int ne2k_configure_rings(ne2k_device_t* device, const ne2k_io_t* io) {
     uint16_t base;
+    uint8_t index;
     if (!device || !io || !io->outb || device->base_port == 0U) return -1;
     base = device->base_port;
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
-             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+             NE2K_COMMAND_STOP | NE2K_COMMAND_NODMA | NE2K_COMMAND_PAGE0);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_TPSR), 0x40U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_PSTART), 0x46U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_PSTOP), 0x60U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_BNRY), 0x46U);
+    /* Broadcast DHCP et unicast strictement filtré par PAR sont acceptés. */
     io->outb(io->context, (uint16_t)(base + NE2K_REG_RCR), 0x04U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_TCR), 0x00U);
+    /* CURR vit en page 1 : la première page RX est occupée par la frontière. */
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
+             NE2K_COMMAND_STOP | NE2K_COMMAND_NODMA | NE2K_COMMAND_PAGE1);
+    /* PAR[0..5] partage les offsets PSTART..TBCR0 de la page 0. */
+    if (device->mac_valid)
+        for (index = 0U; index < 6U; ++index)
+            io->outb(io->context, (uint16_t)(base + 1U + index), device->mac[index]);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_CURR), NE2K_RX_PAGE_START + 1U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), 0x22U);
     return 0;
 }
@@ -960,9 +991,17 @@ int ne2k_read_mac(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->inb || !io->outb || device->base_port == 0U)
         return -1;
     base = device->base_port;
-    /* La PROM NE2000 expose la MAC sur les octets pairs d’une lecture 16 bits. */
+    /* La PROM NE2000 expose la MAC sur les octets pairs d’une lecture DMA
+     * distante de 12 octets. Lire DATA sans initialiser RSAR/RBCR récupérait
+     * une position résiduelle et programmait un PAR différent de la MAC QEMU. */
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
-             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+             NE2K_COMMAND_STOP | NE2K_COMMAND_NODMA | NE2K_COMMAND_PAGE0);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_DCR), NE2K_DCR_BYTE_MODE);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR0), 12U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR1), 0U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR0), 0U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR1), 0U);
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), NE2K_COMMAND_REMOTE_READ);
     for (i = 0; i < 12U; ++i)
         prom[i] = io->inb(io->context, (uint16_t)(base + NE2K_REG_DATA));
     for (i = 0; i < 6U; ++i)
@@ -1012,17 +1051,19 @@ int ne2k_tx_submit(ne2k_device_t* device, const ne2k_io_t* io,
     base = device->base_port;
     wire_length = length < NE2K_ETHERNET_MIN_FRAME ? NE2K_ETHERNET_MIN_FRAME : length;
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
-             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+             NE2K_COMMAND_STOP | NE2K_COMMAND_NODMA | NE2K_COMMAND_PAGE0);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_DCR), NE2K_DCR_BYTE_MODE);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR0), (uint8_t)wire_length);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_RBCR1), (uint8_t)(wire_length >> 8));
     io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR0), 0U);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_RSAR1), NE2K_TX_PAGE);
+    /* Acquitter RDC avant le DMA : l’acquittement après copie effaçait le
+     * signal d’achèvement avant la boucle d’attente, notamment sous QEMU. */
+    io->outb(io->context, (uint16_t)(base + NE2K_REG_ISR), NE2K_ISR_RDC);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND), NE2K_COMMAND_REMOTE_WRITE);
     for (i = 0; i < (uint32_t)wire_length; ++i)
         io->outb(io->context, (uint16_t)(base + NE2K_REG_DATA),
                  i < length ? frame[i] : 0U);
-    io->outb(io->context, (uint16_t)(base + NE2K_REG_ISR), NE2K_ISR_RDC);
     for (i = 0; i < 65535U; ++i)
         if ((io->inb(io->context, (uint16_t)(base + NE2K_REG_ISR)) & NE2K_ISR_RDC) != 0U)
             break;
@@ -1039,7 +1080,7 @@ int ne2k_prepare(ne2k_device_t* device, const ne2k_io_t* io) {
     if (!device || !io || !io->outb || device->base_port == 0U) return -1;
     base = device->base_port;
     io->outb(io->context, (uint16_t)(base + NE2K_REG_COMMAND),
-             NE2K_COMMAND_STOP | NE2K_COMMAND_PAGE0);
+             NE2K_COMMAND_STOP | NE2K_COMMAND_NODMA | NE2K_COMMAND_PAGE0);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_DCR), NE2K_DCR_WORD_MODE);
     io->outb(io->context, (uint16_t)(base + NE2K_REG_ISR), 0xffU);
     device->initialized = 1U;
