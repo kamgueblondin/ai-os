@@ -140,6 +140,7 @@
 - [x] AOS-1981…1988 : smoke QEMU Ring 3 des builtins `sort`, `head` et `tail`, fixture multi-ligne, assertions d’ordre et rattachement au gate CI — [aos1981_1988_qemu_shell_file_builtins.md](aos1981_1988_qemu_shell_file_builtins.md)
 - [x] AOS-1989…1996 : alias VFS dynamiques FAT16/FAT32, table statique préservant trois alias, lecture seule et contrat QEMU sur fixture FAT16 — [aos1989_1996_vfs_fat_dynamic_mounts.md](aos1989_1996_vfs_fat_dynamic_mounts.md)
 - [x] AOS-1997…2004 : VFS QEMU multi-disque avec fixtures FAT16/FAT32, quatre alias dynamiques statiques et contrôles de lecture, listage et statut — [aos1997_2004_vfs_fat32_secondary.md](aos1997_2004_vfs_fat32_secondary.md)
+- [x] AOS-2005…2012 : pagination de la source virtuelle `vfs-mounts`, inventaire des huit montages sans dépasser la borne IPC — [aos2005_2012_vfs_mounts_pagination.md](aos2005_2012_vfs_mounts_pagination.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)

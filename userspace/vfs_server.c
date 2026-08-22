@@ -470,6 +470,36 @@ static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int list_virtual_mounts_page(uint32_t start, uint8_t* data, uint32_t data_max,
+                                    uint32_t* size, uint32_t* count, uint32_t* next_start) {
+    uint32_t index;
+    uint32_t written = 0U;
+    uint32_t emitted = 0U;
+    if (!data || !size || !count || !next_start || start > vfs_mount_count) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    *next_start = OS_VFS_LIST_PAGE_END;
+    for (index = start; index < vfs_mount_count && emitted < OS_VFS_LIST_ENTRY_MAX; index++) {
+        uint32_t prefix_size = string_length(vfs_mounts[index].prefix);
+        if (written + prefix_size + 4U > data_max) break;
+        for (uint32_t j = 0U; j < prefix_size; j++) data[written++] = (uint8_t)vfs_mounts[index].prefix[j];
+        data[written++] = (uint8_t)' ';
+        data[written++] = (uint8_t)'r';
+        data[written++] = (uint8_t)(vfs_mounts[index].source == OS_VFS_MOUNT_SOURCE_OVERLAY ? 'w' : 'o');
+        data[written++] = (uint8_t)'\n';
+        emitted++;
+    }
+    if (index < vfs_mount_count) {
+        *next_start = index;
+        *size = written;
+        *count = emitted;
+        return OS_VFS_STATUS_TRUNCATED;
+    }
+    *size = written;
+    *count = emitted;
+    return OS_VFS_STATUS_OK;
+}
+
 static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* data,
                                      uint32_t data_max, uint32_t* size, uint32_t* count,
                                      uint32_t* next_start) {
@@ -614,8 +644,11 @@ void main(void) {
             puts("vfsserver list page request\n");
             status = os_vfs_parse_list_page_request(&message, path, &start);
             if (status == 0) {
-                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
-                                                   &size, &count, &next_start);
+                status = string_equal(path, "vfs-mounts")
+                    ? list_virtual_mounts_page(start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                               &size, &count, &next_start)
+                    : list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                                &size, &count, &next_start);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list page outside mounts\n");
             }
             if (os_vfs_make_list_page_reply(&reply_payload, status, count, next_start,
