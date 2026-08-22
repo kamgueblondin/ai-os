@@ -381,8 +381,11 @@ def main():
             wait_for("media/ ro", proc, before_mount_page_last)
             before_mount_observe = len(log_text())
             send_command_until(monitor, "vfs-list-observe vfs-mounts 0 0", "vfsserver list observe request", proc)
+            wait_for("vfsserver delegated mount observe", proc, before_mount_observe)
             wait_for("vfs-list-observe partiel count 4 next 4 generation", proc, before_mount_observe)
             wait_for("initrd/ ro", proc, before_mount_observe)
+            if log_text()[before_mount_observe:].count("vfsvirtual format mount") < 4:
+                raise RuntimeError("formatage worker incomplet de la page observee de montages")
             before_mount_stale = len(log_text())
             send_command_until(monitor, "vfs-list-observe vfs-mounts 0 1", "vfsserver list observe request", proc)
             wait_for("vfs-list-observe obsolete generation", proc, before_mount_stale)
