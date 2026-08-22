@@ -4404,9 +4404,9 @@ static void cmd_ai_acquire(shell_context_t* ctx, char args[][128], int arg_count
     request.xid = 0xa0650001U;
     request.local_sequence = 1U;
     request.dns_id = 0xa665U;
-    request.dhcp_attempts = 2U;
-    request.dns_attempts = 2U;
-    request.arp_attempts = 2U;
+    request.dhcp_attempts = OS_LLM_ACQUIRE_MAX_ATTEMPTS;
+    request.dns_attempts = OS_LLM_ACQUIRE_MAX_ATTEMPTS;
+    request.arp_attempts = OS_LLM_ACQUIRE_MAX_ATTEMPTS;
     request.local_port = 49152U;
     request.remote_port = 443U;
     if (arg_count == 2 && ai_parse_port(args[1], &request.remote_port) != 0) {
@@ -4421,6 +4421,13 @@ static void cmd_ai_acquire(shell_context_t* ctx, char args[][128], int arg_count
     if (status == OS_LLM_ACQUIRE_BAD_REQUEST) print_error("ai-acquire: requete invalide");
     else if (status == OS_LLM_ACQUIRE_UNAVAILABLE) print_error("ai-acquire: NE2000 absent; aucun etat reseau publie");
     else if (status == OS_LLM_ACQUIRE_IN_PROGRESS) print_error("ai-acquire: session LLM deja active");
+    else if (status == OS_LLM_ACQUIRE_TLS_ENTROPY) print_error("ai-acquire: entropie RDRAND TLS indisponible");
+    else if (status == OS_LLM_ACQUIRE_DHCP_DISCOVER_FAILED) print_error("ai-acquire: emission DHCP DISCOVER refusee");
+    else if (status == OS_LLM_ACQUIRE_DHCP_OFFER_TIMEOUT) print_error("ai-acquire: offre DHCP absente dans le budget borne");
+    else if (status == OS_LLM_ACQUIRE_DHCP_REQUEST_FAILED) print_error("ai-acquire: emission DHCP REQUEST refusee");
+    else if (status == OS_LLM_ACQUIRE_DHCP_ACK_TIMEOUT) print_error("ai-acquire: ACK DHCP absent dans le budget borne");
+    else if (status == OS_LLM_ACQUIRE_DHCP_FAILED) print_error("ai-acquire: bail DHCP indisponible; contexte conserve");
+    else if (status == OS_LLM_ACQUIRE_BOOTSTRAP_FAILED) print_error("ai-acquire: DNS, ARP ou SYN indisponible; contexte conserve");
     else print_error("ai-acquire: bootstrap reseau echoue; contexte conserve");
 }
 
