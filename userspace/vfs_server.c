@@ -28,6 +28,12 @@ static int service_register(const char* name) {
     return result;
 }
 
+static int service_lookup(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_LOOKUP), "b"(name));
+    return result;
+}
+
 static int service_grant(const char* name, int target_pid) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_GRANT), "b"(name), "c"(target_pid));
@@ -357,6 +363,54 @@ static uint32_t vfs_rename_requests;
  * visible entre deux pages. */
 static uint32_t vfs_list_generation = 1U;
 
+typedef struct {
+    uint32_t active;
+    int worker_pid;
+    int client_pid;
+    uint32_t request_id;
+} vfs_virtual_pending_t;
+static vfs_virtual_pending_t vfs_virtual_pending;
+
+static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request_id) {
+    os_ipc_payload_t payload;
+    int worker_pid;
+    if (vfs_virtual_pending.active) return -1;
+    worker_pid = service_lookup("vfs-virtual");
+    if (worker_pid < 0) return -2;
+    if (os_vfs_make_worker_read_request(&payload, path, request_id) != OS_VFS_STATUS_OK) return -3;
+    if (ipc_send(worker_pid, &payload) != 0) return -4;
+    vfs_virtual_pending.active = 1U;
+    vfs_virtual_pending.worker_pid = worker_pid;
+    vfs_virtual_pending.client_pid = client_pid;
+    vfs_virtual_pending.request_id = request_id;
+    return 0;
+}
+
+static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_t* reply_payload) {
+    uint8_t data[OS_VFS_READ_MAX];
+    uint32_t size = 0U;
+    int32_t status = OS_VFS_STATUS_INVALID;
+    int parsed;
+    if (!message || !reply_payload || !vfs_virtual_pending.active ||
+        message->sender_pid != vfs_virtual_pending.worker_pid ||
+        message->type != OS_IPC_VFS_WORKER_READ_REPLY) return 0;
+    parsed = os_vfs_parse_worker_read_reply(message, &status, data, &size,
+                                            vfs_virtual_pending.request_id);
+    if (parsed != OS_VFS_STATUS_OK) {
+        status = OS_VFS_STATUS_INVALID;
+        size = 0U;
+    }
+    if (os_vfs_make_read_reply(reply_payload, status, data, size,
+                               vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+        (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+    }
+    vfs_virtual_pending.active = 0U;
+    vfs_virtual_pending.worker_pid = -1;
+    vfs_virtual_pending.client_pid = -1;
+    vfs_virtual_pending.request_id = 0U;
+    return 1;
+}
+
 static uint32_t append_text(uint8_t* data, uint32_t offset, const char* text) {
     uint32_t i = 0U;
     while (text[i] != '\0') data[offset++] = (uint8_t)text[i++];
@@ -661,6 +715,10 @@ void main(void) {
     puts("vfsserver mount overlay/ rw\n");
     for (;;) {
         int received = ipc_receive(&message);
+        if (received == 0 && vfs_virtual_complete(&message, &reply_payload)) {
+            yield();
+            continue;
+        }
         if (received == 0 && message.type == OS_IPC_VFS_LIST) {
             int status;
             uint32_t size = 0U;
@@ -742,9 +800,15 @@ void main(void) {
             puts("vfsserver read request\n");
             status = os_vfs_parse_read_request(&message, path);
             uint32_t size = 0U;
+            if (status == 0 && string_equal(path, "vfs-info") &&
+                vfs_virtual_submit(path, message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated vfs-info\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
-                    if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info\n");
+                    if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info local\n");
                     else if (string_equal(path, "vfs-mounts")) puts("vfsserver virtual vfs-mounts\n");
                     else puts("vfsserver virtual vfs-stats\n");
                 } else {

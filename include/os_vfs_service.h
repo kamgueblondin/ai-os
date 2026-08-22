@@ -41,10 +41,15 @@
 #define OS_IPC_VFS_BACKEND_LIST_REPLY 0x56465323U
 #define OS_IPC_VFS_BACKEND_OBSERVE       0x56465324U
 #define OS_IPC_VFS_BACKEND_OBSERVE_REPLY 0x56465325U
+/* Canal privé entre le médiateur `vfs` et le worker Ring 3 `vfs-virtual`. */
+#define OS_IPC_VFS_WORKER_READ       0x56465701U
+#define OS_IPC_VFS_WORKER_READ_REPLY 0x56465702U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
 #define OS_VFS_READ_MAX 80U
+#define OS_VFS_WORKER_READ_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_READ_REPLY_SIZE (8U + OS_VFS_READ_MAX)
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -215,6 +220,64 @@ static inline int os_vfs_match_mount(const char* path, const char* mount,
     if (i == 0U || mount[i - 1U] != '/' || path[i] == '\0') return 0;
     if (relative_out) *relative_out = path + i;
     return 1;
+}
+
+static inline int os_vfs_make_worker_read_request(os_ipc_payload_t* payload, const char* path,
+                                                  uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(path)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_READ;
+    payload->size = OS_VFS_WORKER_READ_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    for (i = OS_VFS_PATH_MAX; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_read_request(const os_ipc_message_t* message, char* path_out) {
+    uint32_t i;
+    if (!message || !path_out || message->type != OS_IPC_VFS_WORKER_READ ||
+        message->size != OS_VFS_WORKER_READ_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_path_is_safe(path_out) ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_worker_read_reply(os_ipc_payload_t* payload, int32_t status,
+                                                const uint8_t* data, uint32_t size,
+                                                uint32_t request_id) {
+    uint32_t i, raw = (uint32_t)status;
+    if (!payload || size > OS_VFS_READ_MAX || (size > 0U && !data)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_READ_REPLY;
+    payload->size = OS_VFS_WORKER_READ_REPLY_SIZE;
+    payload->request_id = request_id;
+    payload->data[0] = (uint8_t)(raw & 0xffU);
+    payload->data[1] = (uint8_t)((raw >> 8) & 0xffU);
+    payload->data[2] = (uint8_t)((raw >> 16) & 0xffU);
+    payload->data[3] = (uint8_t)((raw >> 24) & 0xffU);
+    payload->data[4] = (uint8_t)(size & 0xffU);
+    payload->data[5] = (uint8_t)((size >> 8) & 0xffU);
+    payload->data[6] = (uint8_t)((size >> 16) & 0xffU);
+    payload->data[7] = (uint8_t)((size >> 24) & 0xffU);
+    for (i = 0U; i < OS_VFS_READ_MAX; i++) payload->data[8U + i] = i < size ? data[i] : 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_read_reply(const os_ipc_message_t* message,
+                                                 int32_t* status_out, uint8_t* data_out,
+                                                 uint32_t* size_out, uint32_t request_id) {
+    uint32_t i, size, raw;
+    if (!message || !status_out || !data_out || !size_out || message->type != OS_IPC_VFS_WORKER_READ_REPLY ||
+        message->size != OS_VFS_WORKER_READ_REPLY_SIZE || message->request_id != request_id)
+        return OS_VFS_STATUS_INVALID;
+    raw = (uint32_t)message->data[0] | ((uint32_t)message->data[1] << 8) |
+          ((uint32_t)message->data[2] << 16) | ((uint32_t)message->data[3] << 24);
+    size = (uint32_t)message->data[4] | ((uint32_t)message->data[5] << 8) |
+           ((uint32_t)message->data[6] << 16) | ((uint32_t)message->data[7] << 24);
+    if (size > OS_VFS_READ_MAX) return OS_VFS_STATUS_INVALID;
+    *status_out = (int32_t)raw;
+    *size_out = size;
+    for (i = 0U; i < size; i++) data_out[i] = message->data[8U + i];
+    return OS_VFS_STATUS_OK;
 }
 
 static inline int os_vfs_make_read_request(os_ipc_payload_t* payload, const char* path,
