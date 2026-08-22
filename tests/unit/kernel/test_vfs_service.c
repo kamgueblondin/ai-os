@@ -650,6 +650,37 @@ static void test_worker_stats_snapshot_is_bounded_and_decoded(void) {
                       os_vfs_parse_worker_stats_request(&message, &reads, &writes, &removes, &renames));
 }
 
+static void test_worker_mount_request_is_bounded_and_decoded(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char prefix[OS_VFS_PATH_MAX];
+    uint32_t writable;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_mount_request(&payload, "overlay/", 1U, 141U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_MOUNT, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_MOUNT_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(141U, payload.request_id);
+    message.sender_pid = 9;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_mount_request(&message, prefix, &writable));
+    TEST_ASSERT_EQUAL_STRING("overlay/", prefix);
+    TEST_ASSERT_EQUAL(1U, writable);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_mount_request(&payload, "overlay", 1U, 1U));
+    message.data[OS_VFS_PATH_MAX] = 2U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_mount_request(&message, prefix, &writable));
+    message.data[OS_VFS_PATH_MAX] = 1U;
+    message.size = OS_VFS_WORKER_MOUNT_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_mount_request(&message, prefix, &writable));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -680,6 +711,7 @@ int main(void) {
     RUN_TEST(test_backend_list_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_worker_read_messages_are_bounded_and_correlated);
     RUN_TEST(test_worker_stats_snapshot_is_bounded_and_decoded);
+    RUN_TEST(test_worker_mount_request_is_bounded_and_decoded);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

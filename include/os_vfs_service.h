@@ -45,6 +45,7 @@
 #define OS_IPC_VFS_WORKER_READ       0x56465701U
 #define OS_IPC_VFS_WORKER_READ_REPLY 0x56465702U
 #define OS_IPC_VFS_WORKER_STATS      0x56465703U
+#define OS_IPC_VFS_WORKER_MOUNT      0x56465704U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -52,6 +53,7 @@
 #define OS_VFS_WORKER_READ_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WORKER_READ_REPLY_SIZE (8U + OS_VFS_READ_MAX)
 #define OS_VFS_WORKER_STATS_REQUEST_SIZE 16U
+#define OS_VFS_WORKER_MOUNT_REQUEST_SIZE (OS_VFS_PATH_MAX + 1U)
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -325,6 +327,31 @@ static inline int os_vfs_parse_worker_stats_request(const os_ipc_message_t* mess
                ((uint32_t)message->data[10] << 16) | ((uint32_t)message->data[11] << 24);
     *renames = (uint32_t)message->data[12] | ((uint32_t)message->data[13] << 8) |
                ((uint32_t)message->data[14] << 16) | ((uint32_t)message->data[15] << 24);
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_mount_request(os_ipc_payload_t* payload, const char* prefix,
+                                                   uint32_t writable, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_mount_prefix_is_valid(prefix) || writable > 1U) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_MOUNT;
+    payload->size = OS_VFS_WORKER_MOUNT_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)prefix[i];
+    payload->data[OS_VFS_PATH_MAX] = (uint8_t)writable;
+    for (i = OS_VFS_WORKER_MOUNT_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_mount_request(const os_ipc_message_t* message, char* prefix_out,
+                                                    uint32_t* writable_out) {
+    uint32_t i;
+    if (!message || !prefix_out || !writable_out || message->type != OS_IPC_VFS_WORKER_MOUNT ||
+        message->size != OS_VFS_WORKER_MOUNT_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) prefix_out[i] = (char)message->data[i];
+    if (!os_vfs_mount_prefix_is_valid(prefix_out) || message->data[OS_VFS_PATH_MAX] > 1U)
+        return OS_VFS_STATUS_INVALID;
+    *writable_out = (uint32_t)message->data[OS_VFS_PATH_MAX];
     return OS_VFS_STATUS_OK;
 }
 

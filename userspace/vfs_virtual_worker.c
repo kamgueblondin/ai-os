@@ -114,6 +114,17 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT) {
+            uint32_t writable;
+            if (os_vfs_parse_worker_mount_request(&message, path, &writable) == OS_VFS_STATUS_OK) {
+                uint32_t size = append_text(data, 0U, path);
+                size = append_text(data, size, writable ? " rw\n" : " ro\n");
+                puts("vfsvirtual format mount\n");
+                if (os_vfs_make_worker_read_reply(&reply, OS_VFS_STATUS_OK, data, size,
+                                                  message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
         }
         yield();
     }
