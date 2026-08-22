@@ -1031,6 +1031,8 @@ static void test_creates_persistent_file(void) {
     TEST_ASSERT_EQUAL(0xFFF8U, le16(18U * 512U + 8U));
     TEST_ASSERT_EQUAL(600, fat16_read_file(&volume, "persist.bin", (char*)readback, sizeof(readback)));
     for (i = 0U; i < sizeof(data); i++) TEST_ASSERT_EQUAL(data[i], readback[i]);
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_file(&volume, "PERSIST.BIN", 0x20U,
+                                                            data, sizeof(data), &first));
 }
 static void test_creates_lfn_file(void) {
     fat16_volume_t volume;

@@ -487,7 +487,11 @@ void syscall_handler(cpu_state_t* cpu) {
             break;
         case SYS_VFS_BACKEND_WRITE:
             cpu->eax = (uint32_t)sys_vfs_backend_write((const char*)cpu->ebx,
-                                                        (const char*)cpu->ecx, cpu->edx);
+                                                         (const char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_VFS_FAT16_CREATE:
+            cpu->eax = (uint32_t)sys_vfs_fat16_create((const char*)cpu->ebx,
+                                                       (const char*)cpu->ecx, cpu->edx);
             break;
         case SYS_VFS_INITRD_READ:
             cpu->eax = (uint32_t)sys_vfs_initrd_read((const char*)cpu->ebx,
@@ -892,6 +896,18 @@ int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_writefile(path, data, size);
+}
+
+/* Création FAT16 explicite : elle ne réutilise pas l’écriture overlay. Le
+ * médiateur fournit un nom 8.3 relatif et un buffer borné par son ABI publique. */
+int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
+    uint16_t first_cluster = 0U;
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
+    return fat16_create_file(fat16_root(), name, 0x20U, (const uint8_t*)data, size,
+                             &first_cluster);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {

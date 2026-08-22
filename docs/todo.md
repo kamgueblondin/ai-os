@@ -159,6 +159,7 @@
 - [x] AOS-2121…2126 : expiration coopérative d’un worker VFS vivant mais silencieux après huit tours du médiateur, repli local corrélé et compteur `timeouts` vérifiés sous QEMU — [aos2121_2126_vfs_worker_timeout.md](aos2121_2126_vfs_worker_timeout.md)
 - [x] AOS-2127…2132 : pages publiques `vfs-mounts` formatées séquentiellement par le worker Ring 3, avec pagination et génération conservées par le médiateur — [aos2127_2132_vfs_mount_page_worker.md](aos2127_2132_vfs_mount_page_worker.md)
 - [x] AOS-2133…2138 : pages observées `vfs-mounts` formatées séquentiellement par le worker Ring 3, avec contrôle de génération et réponse `stale` conservés par le médiateur — [aos2133_2138_vfs_mount_observe_worker.md](aos2133_2138_vfs_mount_observe_worker.md)
+- [x] AOS-2139…2146 : création FAT16 8.3 à la racine via `vfs-write`, sous capacité backend `mutate`, writer ATA explicite, prévention d’écrasement et preuve QEMU de persistance — [aos2139_2146_vfs_fat16_write.md](aos2139_2146_vfs_fat16_write.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
