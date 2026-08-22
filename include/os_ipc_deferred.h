@@ -57,6 +57,33 @@ static inline int os_ipc_deferred_take(os_ipc_deferred_t* queue,
     return 0;
 }
 
+/* Extrait une réponse corrélée de façon complète. L’expéditeur est inclus
+ * afin qu’une réponse de même type et même identifiant provenant d’un autre
+ * service reste disponible dans la file locale. */
+static inline int os_ipc_deferred_take_matching_from(os_ipc_deferred_t* queue,
+                                                     int32_t sender_pid, uint32_t type,
+                                                     uint32_t request_id,
+                                                     os_ipc_message_t* out) {
+    uint32_t i;
+    uint32_t j;
+    if (!queue || !out) return OS_IPC_BAD_MESSAGE;
+    for (i = 0U; i < queue->count; i++) {
+        if (queue->messages[i].sender_pid == sender_pid && queue->messages[i].type == type &&
+            queue->messages[i].request_id == request_id) {
+            *out = queue->messages[i];
+            for (; i + 1U < queue->count; i++) queue->messages[i] = queue->messages[i + 1U];
+            queue->count--;
+            queue->messages[queue->count].sender_pid = -1;
+            queue->messages[queue->count].type = 0U;
+            queue->messages[queue->count].size = 0U;
+            queue->messages[queue->count].request_id = 0U;
+            for (j = 0U; j < OS_IPC_MAX_DATA; j++) queue->messages[queue->count].data[j] = 0U;
+            return 0;
+        }
+    }
+    return OS_IPC_EMPTY;
+}
+
 static inline int os_ipc_deferred_take_matching(os_ipc_deferred_t* queue,
                                                 uint32_t type, uint32_t request_id,
                                                 os_ipc_message_t* out) {

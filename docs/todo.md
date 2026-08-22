@@ -144,10 +144,11 @@
 - [x] AOS-2013…2020 : observation cohérente de `vfs-mounts` avec génération, détection d’état obsolète et validation QEMU — [aos2013_2020_vfs_mounts_observe.md](aos2013_2020_vfs_mounts_observe.md)
 - [x] AOS-2021…2028 : pagination native des racines FAT16/FAT32 depuis le VFS, ABI Ring 3 dédiée, compatibilité des listes historiques et validation Unity/QEMU — [aos2021_2028_fat_vfs_root_pagination.md](aos2021_2028_fat_vfs_root_pagination.md)
 - [x] AOS-2029…2036 : libération autonome des capacités backend VFS, PID dérivé de la tâche Ring 3, génération de révocation et contrat QEMU — [aos2029_2036_vfs_backend_self_release.md](aos2029_2036_vfs_backend_self_release.md)
+- [x] AOS-2037…2044 : routeur IPC Ring 3 commun aux réponses VFS, corrélation par PID/type/requête, conservation des messages discordants et contrat QEMU intercalé — [aos2037_2044_ipc_deferred_response_router.md](aos2037_2044_ipc_deferred_response_router.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 482 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu` et `make qemu-vfs-service` sur fixtures FAT16/FAT32)
+- [x] Tests complets du système corrigé (`make test-all` : 483 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu` et `make qemu-vfs-service` sur fixtures FAT16/FAT32)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

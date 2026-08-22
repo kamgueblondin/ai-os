@@ -59,6 +59,23 @@ static void test_deferred_queue_extracts_match_without_losing_others(void) {
     TEST_ASSERT_EQUAL('z', out.data[0]);
 }
 
+static void test_deferred_queue_matches_sender_without_discarding_homonym(void) {
+    os_ipc_deferred_t queue;
+    os_ipc_message_t alien = make_message(8, 7U, 42U, 'a');
+    os_ipc_message_t expected = make_message(3, 7U, 42U, 'b');
+    os_ipc_message_t out;
+    os_ipc_deferred_init(&queue);
+    TEST_ASSERT_EQUAL(0, os_ipc_deferred_push(&queue, &alien));
+    TEST_ASSERT_EQUAL(0, os_ipc_deferred_push(&queue, &expected));
+    TEST_ASSERT_EQUAL(0, os_ipc_deferred_take_matching_from(&queue, 3, 7U, 42U, &out));
+    TEST_ASSERT_EQUAL(3, out.sender_pid);
+    TEST_ASSERT_EQUAL('b', out.data[0]);
+    TEST_ASSERT_EQUAL(1U, queue.count);
+    TEST_ASSERT_EQUAL(0, os_ipc_deferred_take_matching_from(&queue, 8, 7U, 42U, &out));
+    TEST_ASSERT_EQUAL(8, out.sender_pid);
+    TEST_ASSERT_EQUAL('a', out.data[0]);
+}
+
 static void test_deferred_queue_is_bounded_and_validates_message(void) {
     os_ipc_deferred_t queue;
     os_ipc_message_t message = make_message(1, 1U, 1U, 'q');
@@ -77,6 +94,7 @@ int main(void) {
     RUN_TEST(test_deferred_queue_starts_empty);
     RUN_TEST(test_deferred_queue_preserves_fifo);
     RUN_TEST(test_deferred_queue_extracts_match_without_losing_others);
+    RUN_TEST(test_deferred_queue_matches_sender_without_discarding_homonym);
     RUN_TEST(test_deferred_queue_is_bounded_and_validates_message);
     unity_print_results();
     unity_cleanup();

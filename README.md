@@ -45,7 +45,7 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE (AIOV + FAT16 à partir du LBA 64) |
-| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 482 tests exécutés avec succès |
+| `make test-all` | Suite complète Unity/robustesse ; l’état courant validé est de 483 tests exécutés avec succès |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make gguf-disk` | Construit un disque FAT16 de déploiement contenant le modèle sous l’alias `GPT2.GGU` |
 | `make qemu-gguf-smoke` | Démarre le disque GGUF, sélectionne `gpt2.gguf`, valide le premier token local réel puis `ai-continue` et affiche les deux latences |
@@ -97,7 +97,7 @@ Le profil `ai-provider openai` est activable de façon contrôlée : la session 
 
 ## Tests et artefacts
 
-`make test-all` a validé **482 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, pagination native de leurs racines à travers le VFS, capacité backend VFS à renonciation autonome, curseur, saut, cache de secteur, fenêtre inter-clusters et cache FAT isolé, une lecture FAT16 profonde, projection GGUF top-k en flux, décodage Q3_K sans branche, session GGUF locale persistante, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, orchestrateur noyau LLM TLS/HTTP/SSE sur socket, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make qemu-gguf-smoke` complète les smokes QEMU en validant le disque GPT2.GGU, le premier token sélectionné dans le shell et `ai-continue`, avec deux durées mesurées. Sur QEMU TCG, la fenêtre FAT16 réduit fortement ces deux durées ; elles ne préjugent pas de la performance matérielle. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
+`make test-all` a validé **483 tests exécutés avec succès** dans l’état courant, dont FAT16/FAT32, pagination native de leurs racines à travers le VFS, capacité backend VFS à renonciation autonome et routage IPC corrélé des réponses discordantes, curseur, saut, cache de secteur, fenêtre inter-clusters et cache FAT isolé, une lecture FAT16 profonde, projection GGUF top-k en flux, décodage Q3_K sans branche, session GGUF locale persistante, console VGA, PCI, SHA-256/HMAC, codecs Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP, NE2000, orchestrateur noyau LLM TLS/HTTP/SSE sur socket, GPT-2/GGUF, IPC, VFS, services, shell et RAMFS. `make qemu-gguf-smoke` complète les smokes QEMU en validant le disque GPT2.GGU, le premier token sélectionné dans le shell et `ai-continue`, avec deux durées mesurées. Sur QEMU TCG, la fenêtre FAT16 réduit fortement ces deux durées ; elles ne préjugent pas de la performance matérielle. Les détails de périmètre et les limites restantes sont maintenus dans [docs/ETAT_REEL.md](docs/ETAT_REEL.md) et [docs/todo.md](docs/todo.md).
 
 Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 sont fournis, ils sont bien incorporés à l’ISO pour un fonctionnement local sur une machine vierge ; ils restent ignorés par Git.
 
@@ -144,7 +144,8 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Profil mutation seule VFS : `vfs-backend-grant-mutate` autorise les mutations backend mais interdit lecture, métadonnées et listage
 - [x] Consultation médiée de capacité backend VFS : `vfs-backend-status` affiche le masque `read`, `mutate` ou `full` au propriétaire public de `vfs`
 - [x] Inventaire médié de capacités backend VFS : `vfs-backend-list` affiche jusqu’à quatre délégations actives et leurs masques au propriétaire public de `vfs`
-- [ ] Capabilities, révocation indépendante, identité vérifiée, routage général des réponses discordantes et externalisation d’un backend de chemins
+- [x] Capabilities backend VFS : délégation, moindre privilège, révocation indépendante, identité issue de la tâche Ring 3 et routage général des réponses discordantes
+- [ ] Externalisation d’un backend de chemins
 - [ ] Migration microkernel réelle
 - [ ] Optimisation de la latence GGUF quantifiée sur QEMU ; l’inférence bout-en-bout est livrée
 - [ ] Bail DHCP live, DNS/TCP utilisateur, handshake TLS et client OpenAI effectif
