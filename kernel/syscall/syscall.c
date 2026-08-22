@@ -496,6 +496,10 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_VFS_FAT16_UNLINK:
             cpu->eax = (uint32_t)sys_vfs_fat16_unlink((const char*)cpu->ebx);
             break;
+        case SYS_VFS_FAT16_RENAME:
+            cpu->eax = (uint32_t)sys_vfs_fat16_rename((const char*)cpu->ebx,
+                                                       (const char*)cpu->ecx);
+            break;
         case SYS_VFS_INITRD_READ:
             cpu->eax = (uint32_t)sys_vfs_initrd_read((const char*)cpu->ebx,
                                                       (char*)cpu->ecx, cpu->edx);
@@ -922,6 +926,16 @@ int sys_vfs_fat16_unlink(const char* name) {
     }
     if (!name) return OS_FAT16_BAD_PATH;
     return fat16_unlink_file(fat16_root(), name);
+}
+
+/* Renommage FAT16 explicite : seuls deux noms 8.3 relatifs du médiateur sont
+ * acceptés. La primitive ne touche ni aux données ni aux liens de clusters. */
+int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
+    return fat16_rename_file(fat16_root(), old_name, new_name);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {

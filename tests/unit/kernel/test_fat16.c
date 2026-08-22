@@ -1074,6 +1074,38 @@ static void test_unlinks_persistent_file_and_reuses_cluster(void) {
     TEST_ASSERT_EQUAL(3U, first);
 }
 
+static void test_renames_persistent_file_without_moving_chain(void) {
+    fat16_volume_t volume;
+    uint8_t data[600];
+    uint8_t target[1] = {'T'};
+    uint8_t readback[600];
+    uint16_t first = 0U;
+    uint32_t i;
+    make_volume();
+    for (i = 0U; i < sizeof(data); i++) data[i] = (uint8_t)(i ^ 0x3CU);
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "SOURCE.BIN", 0x20U,
+                                           data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "TARGET.BIN", 0x20U,
+                                           target, sizeof(target), &first));
+    TEST_ASSERT_EQUAL(5U, first);
+    TEST_ASSERT_EQUAL(0, fat16_rename_file(&volume, "source.bin", "renamed.bin"));
+    TEST_ASSERT_EQUAL('R', disk[35U * 512U + 32U]);
+    TEST_ASSERT_EQUAL(4U, le16(1U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0xFFF8U, le16(1U * 512U + 8U));
+    TEST_ASSERT_EQUAL(4U, le16(18U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0xFFF8U, le16(18U * 512U + 8U));
+    TEST_ASSERT_EQUAL(600, fat16_read_file(&volume, "RENAMED.BIN", (char*)readback, sizeof(readback)));
+    for (i = 0U; i < sizeof(data); i++) TEST_ASSERT_EQUAL(data[i], readback[i]);
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND,
+                      fat16_read_file(&volume, "SOURCE.BIN", (char*)readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH,
+                      fat16_rename_file(&volume, "RENAMED.BIN", "TARGET.BIN"));
+    TEST_ASSERT_EQUAL(600, fat16_read_file(&volume, "RENAMED.BIN", (char*)readback, sizeof(readback)));
+}
+
 static void test_creates_lfn_file(void) {
     fat16_volume_t volume;
     uint8_t data[3] = {'L', 'F', 'N'};
@@ -1272,6 +1304,7 @@ int main(void) {
     RUN_TEST(test_writes_only_with_explicit_writer);
     RUN_TEST(test_creates_persistent_file);
     RUN_TEST(test_unlinks_persistent_file_and_reuses_cluster);
+    RUN_TEST(test_renames_persistent_file_without_moving_chain);
     RUN_TEST(test_creates_lfn_file);
     RUN_TEST(test_creates_utf8_lfn_file);
     RUN_TEST(test_creates_non_bmp_lfn_file);

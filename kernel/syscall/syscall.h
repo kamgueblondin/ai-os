@@ -114,6 +114,7 @@ int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_backend_write(const char* path, const char* data, uint32_t size);
 int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size);
 int sys_vfs_fat16_unlink(const char* name);
+int sys_vfs_fat16_rename(const char* old_name, const char* new_name);
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max);
 int sys_vfs_overlay_unlink(const char* path);
