@@ -70,6 +70,8 @@ int fat16_create_root_entry(const fat16_volume_t* volume, const char* name,
 int fat16_create_file(const fat16_volume_t* volume, const char* name,
                       uint8_t attributes, const uint8_t* data, uint32_t size,
                       uint16_t* out_first_cluster);
+/* Supprime un fichier 8.3 classique de la racine et libère sa chaîne, sans LFN ni répertoire. */
+int fat16_unlink_file(const fat16_volume_t* volume, const char* name);
 /* Crée un fichier avec une séquence LFN ASCII bornée et un alias 8.3 explicite. */
 int fat16_create_lfn_file(const fat16_volume_t* volume, const char* long_name,
                           const char* short_name, uint8_t attributes,
