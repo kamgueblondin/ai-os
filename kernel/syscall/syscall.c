@@ -330,6 +330,9 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_FAT32_LIST_PAGE:
             cpu->eax = (uint32_t)sys_fat32_list_page((os_fat16_dirent_t*)cpu->ebx, cpu->ecx, cpu->edx);
             break;
+        case SYS_SERVICE_BACKEND_RELEASE:
+            cpu->eax = (uint32_t)sys_service_backend_release((const char*)cpu->ebx);
+            break;
         case SYS_SOCKET_OPEN:
             cpu->eax = (uint32_t)sys_socket_open((uint16_t)cpu->ebx, (uint16_t)cpu->ecx, cpu->edx);
             break;
@@ -821,6 +824,11 @@ int sys_service_backend_revoke(const char* name, int target_pid) {
     target = get_task_by_id(target_pid);
     if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
     return service_registry_backend_revoke(name, current_task->id, target_pid);
+}
+
+int sys_service_backend_release(const char* name) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    return service_registry_backend_release(name, current_task->id);
 }
 
 int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_rights) {

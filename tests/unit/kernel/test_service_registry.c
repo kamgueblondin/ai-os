@@ -229,6 +229,22 @@ static void test_backend_capability_list_is_owner_scoped_and_tracks_revocation(v
     TEST_ASSERT_EQUAL(7, list.entries[0].pid); TEST_ASSERT_EQUAL(9, list.entries[1].pid);
 }
 
+static void test_backend_capability_can_be_released_by_its_grantee(void) {
+    os_service_backend_snapshot_t snapshot;
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped("vfs", 3, 7,
+                                                                SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 7, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_release("vfs", 7));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for("vfs", 7, SERVICE_BACKEND_RIGHT_READ));
+    TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_backend_release("vfs", 7));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_release("bad name", 7));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_observe("vfs", 3, 0U, &snapshot));
+    TEST_ASSERT_EQUAL(3U, snapshot.generation);
+    TEST_ASSERT_EQUAL(0U, snapshot.list.count);
+}
+
 static void test_backend_observe_detects_stale_generations_without_disclosure(void) {
     os_service_backend_snapshot_t snapshot;
     service_registry_init();
@@ -272,6 +288,7 @@ int main(void) {
     RUN_TEST(test_backend_capability_scoped_read_only_enforces_least_privilege);
     RUN_TEST(test_backend_capability_rights_are_owner_scoped_and_revocable);
     RUN_TEST(test_backend_capability_list_is_owner_scoped_and_tracks_revocation);
+    RUN_TEST(test_backend_capability_can_be_released_by_its_grantee);
     RUN_TEST(test_backend_observe_detects_stale_generations_without_disclosure);
     unity_print_results();
     unity_cleanup();

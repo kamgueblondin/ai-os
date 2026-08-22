@@ -3598,7 +3598,10 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
                                        request_id, &message);
     if (rc == 0 && message.sender_pid != pid) rc = OS_IPC_EMPTY;
     if (rc == 0) rc = os_vfs_parse_read_reply(&message, &reply, request_id);
-    for (attempts = 0; attempts < 3 && rc == OS_IPC_EMPTY; attempts++) {
+    /* Une réponse VFS peut suivre un message différé conservé localement ; huit
+     * tours coopératifs bornés laissent le médiateur Ring 3 répondre sur QEMU
+     * sans transformer l’attente en blocage ni élargir les files IPC. */
+    for (attempts = 0; attempts < 8 && rc == OS_IPC_EMPTY; attempts++) {
         int saved;
         yield();
         rc = sys_ipc_receive(&message);

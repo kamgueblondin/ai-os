@@ -37,6 +37,8 @@ int service_registry_name_valid(const char* name);
 int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t grantee_pid);
 int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights);
 int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t grantee_pid);
+/* Libération autonome : seul le PID actuellement porteur peut retirer sa propre capacité. */
+int service_registry_backend_release(const char* name, int32_t grantee_pid);
 int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t* out_rights);
 int service_registry_backend_list(const char* name, int32_t owner_pid, os_service_backend_list_t* out_list);
 int service_registry_backend_observe(const char* name, int32_t owner_pid, uint32_t expected_generation,
