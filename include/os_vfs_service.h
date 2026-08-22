@@ -44,12 +44,14 @@
 /* Canal privé entre le médiateur `vfs` et le worker Ring 3 `vfs-virtual`. */
 #define OS_IPC_VFS_WORKER_READ       0x56465701U
 #define OS_IPC_VFS_WORKER_READ_REPLY 0x56465702U
+#define OS_IPC_VFS_WORKER_STATS      0x56465703U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
 #define OS_VFS_READ_MAX 80U
 #define OS_VFS_WORKER_READ_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WORKER_READ_REPLY_SIZE (8U + OS_VFS_READ_MAX)
+#define OS_VFS_WORKER_STATS_REQUEST_SIZE 16U
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -277,6 +279,52 @@ static inline int os_vfs_parse_worker_read_reply(const os_ipc_message_t* message
     *status_out = (int32_t)raw;
     *size_out = size;
     for (i = 0U; i < size; i++) data_out[i] = message->data[8U + i];
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_stats_request(os_ipc_payload_t* payload,
+                                                   uint32_t reads, uint32_t writes,
+                                                   uint32_t removes, uint32_t renames,
+                                                   uint32_t request_id) {
+    uint32_t i;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_STATS;
+    payload->size = OS_VFS_WORKER_STATS_REQUEST_SIZE;
+    payload->request_id = request_id;
+    payload->data[0] = (uint8_t)(reads & 0xffU);
+    payload->data[1] = (uint8_t)((reads >> 8) & 0xffU);
+    payload->data[2] = (uint8_t)((reads >> 16) & 0xffU);
+    payload->data[3] = (uint8_t)((reads >> 24) & 0xffU);
+    payload->data[4] = (uint8_t)(writes & 0xffU);
+    payload->data[5] = (uint8_t)((writes >> 8) & 0xffU);
+    payload->data[6] = (uint8_t)((writes >> 16) & 0xffU);
+    payload->data[7] = (uint8_t)((writes >> 24) & 0xffU);
+    payload->data[8] = (uint8_t)(removes & 0xffU);
+    payload->data[9] = (uint8_t)((removes >> 8) & 0xffU);
+    payload->data[10] = (uint8_t)((removes >> 16) & 0xffU);
+    payload->data[11] = (uint8_t)((removes >> 24) & 0xffU);
+    payload->data[12] = (uint8_t)(renames & 0xffU);
+    payload->data[13] = (uint8_t)((renames >> 8) & 0xffU);
+    payload->data[14] = (uint8_t)((renames >> 16) & 0xffU);
+    payload->data[15] = (uint8_t)((renames >> 24) & 0xffU);
+    for (i = OS_VFS_WORKER_STATS_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_stats_request(const os_ipc_message_t* message,
+                                                    uint32_t* reads, uint32_t* writes,
+                                                    uint32_t* removes, uint32_t* renames) {
+    if (!message || !reads || !writes || !removes || !renames ||
+        message->type != OS_IPC_VFS_WORKER_STATS ||
+        message->size != OS_VFS_WORKER_STATS_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    *reads = (uint32_t)message->data[0] | ((uint32_t)message->data[1] << 8) |
+             ((uint32_t)message->data[2] << 16) | ((uint32_t)message->data[3] << 24);
+    *writes = (uint32_t)message->data[4] | ((uint32_t)message->data[5] << 8) |
+              ((uint32_t)message->data[6] << 16) | ((uint32_t)message->data[7] << 24);
+    *removes = (uint32_t)message->data[8] | ((uint32_t)message->data[9] << 8) |
+               ((uint32_t)message->data[10] << 16) | ((uint32_t)message->data[11] << 24);
+    *renames = (uint32_t)message->data[12] | ((uint32_t)message->data[13] << 8) |
+               ((uint32_t)message->data[14] << 16) | ((uint32_t)message->data[15] << 24);
     return OS_VFS_STATUS_OK;
 }
 

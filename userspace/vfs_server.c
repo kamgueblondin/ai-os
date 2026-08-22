@@ -386,6 +386,23 @@ static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request
     return 0;
 }
 
+static int vfs_virtual_submit_stats(int client_pid, uint32_t request_id) {
+    os_ipc_payload_t payload;
+    int worker_pid;
+    if (vfs_virtual_pending.active) return -1;
+    worker_pid = service_lookup("vfs-virtual");
+    if (worker_pid < 0) return -2;
+    if (os_vfs_make_worker_stats_request(&payload, vfs_read_requests, vfs_write_requests,
+                                         vfs_remove_requests, vfs_rename_requests, request_id)
+        != OS_VFS_STATUS_OK) return -3;
+    if (ipc_send(worker_pid, &payload) != 0) return -4;
+    vfs_virtual_pending.active = 1U;
+    vfs_virtual_pending.worker_pid = worker_pid;
+    vfs_virtual_pending.client_pid = client_pid;
+    vfs_virtual_pending.request_id = request_id;
+    return 0;
+}
+
 static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_t* reply_payload) {
     uint8_t data[OS_VFS_READ_MAX];
     uint32_t size = 0U;
@@ -806,11 +823,17 @@ void main(void) {
                 yield();
                 continue;
             }
+            if (status == 0 && string_equal(path, "vfs-stats") &&
+                vfs_virtual_submit_stats(message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated vfs-stats\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
                     if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info local\n");
                     else if (string_equal(path, "vfs-mounts")) puts("vfsserver virtual vfs-mounts\n");
-                    else puts("vfsserver virtual vfs-stats\n");
+                    else puts("vfsserver virtual vfs-stats local\n");
                 } else {
                     status = read_mounted_backend(path, data, &size);
                     if (status == OS_VFS_STATUS_NOT_MOUNTED) {

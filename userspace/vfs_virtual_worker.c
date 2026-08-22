@@ -40,31 +40,79 @@ static int string_equal(const char* left, const char* right) {
     return left[index] == right[index];
 }
 
+static uint32_t append_text(uint8_t* data, uint32_t offset, const char* text) {
+    uint32_t index = 0U;
+    while (text[index] != '\0' && offset < OS_VFS_READ_MAX) data[offset++] = (uint8_t)text[index++];
+    return offset;
+}
+
+static uint32_t append_uint(uint8_t* data, uint32_t offset, uint32_t value) {
+    char digits[10];
+    uint32_t count = 0U;
+    if (value == 0U) {
+        if (offset < OS_VFS_READ_MAX) data[offset++] = (uint8_t)'0';
+        return offset;
+    }
+    while (value > 0U && count < (uint32_t)sizeof(digits)) {
+        digits[count++] = (char)('0' + (value % 10U));
+        value /= 10U;
+    }
+    while (count > 0U && offset < OS_VFS_READ_MAX) data[offset++] = (uint8_t)digits[--count];
+    return offset;
+}
+
+static uint32_t format_stats(uint8_t* data, uint32_t reads, uint32_t writes,
+                             uint32_t removes, uint32_t renames) {
+    uint32_t size = 0U;
+    size = append_text(data, size, "reads=");
+    size = append_uint(data, size, reads);
+    size = append_text(data, size, "\nwrites=");
+    size = append_uint(data, size, writes);
+    size = append_text(data, size, "\nremoves=");
+    size = append_uint(data, size, removes);
+    size = append_text(data, size, "\nrenames=");
+    size = append_uint(data, size, renames);
+    if (size < OS_VFS_READ_MAX) data[size++] = (uint8_t)'\n';
+    return size;
+}
+
 void main(void) {
     static const uint8_t info[] = "vfsserver ring3 policy\n";
     os_ipc_message_t message;
     os_ipc_payload_t reply;
     char path[OS_VFS_PATH_MAX];
+    uint8_t data[OS_VFS_READ_MAX];
     if (service_register("vfs-virtual") != 0) {
         puts("vfsvirtual register failed\n");
         for (;;) yield();
     }
     puts("vfsvirtual ready\n");
     for (;;) {
-        int status = ipc_receive(&message);
-        if (status == 0 && message.type == OS_IPC_VFS_WORKER_READ &&
+        int received = ipc_receive(&message);
+        if (received == 0 && message.type == OS_IPC_VFS_WORKER_READ &&
             os_vfs_parse_worker_read_request(&message, path) == OS_VFS_STATUS_OK) {
             uint32_t size = 0U;
-            int32_t reply_status = OS_VFS_STATUS_NOT_MOUNTED;
+            int32_t status = OS_VFS_STATUS_NOT_MOUNTED;
             if (string_equal(path, "vfs-info")) {
                 puts("vfsvirtual read vfs-info\n");
                 size = (uint32_t)(sizeof(info) - 1U);
-                reply_status = OS_VFS_STATUS_OK;
+                status = OS_VFS_STATUS_OK;
             }
-            if (os_vfs_make_worker_read_reply(&reply, reply_status,
-                                              reply_status == OS_VFS_STATUS_OK ? info : (const uint8_t*)0,
+            if (os_vfs_make_worker_read_reply(&reply, status,
+                                              status == OS_VFS_STATUS_OK ? info : (const uint8_t*)0,
                                               size, message.request_id) == OS_VFS_STATUS_OK) {
                 (void)ipc_send(message.sender_pid, &reply);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_STATS) {
+            uint32_t reads, writes, removes, renames;
+            if (os_vfs_parse_worker_stats_request(&message, &reads, &writes, &removes, &renames)
+                == OS_VFS_STATUS_OK) {
+                uint32_t size = format_stats(data, reads, writes, removes, renames);
+                puts("vfsvirtual format stats\n");
+                if (os_vfs_make_worker_read_reply(&reply, OS_VFS_STATUS_OK, data, size,
+                                                  message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
             }
         }
         yield();
