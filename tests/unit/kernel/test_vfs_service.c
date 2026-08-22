@@ -584,6 +584,46 @@ static void test_backend_list_request_and_reply_are_bounded_and_correlated(void)
     TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_backend_list_reply(&message, &reply, 114U));
 }
 
+static void test_worker_read_messages_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char path[OS_VFS_PATH_MAX];
+    uint8_t data[3] = {'o', 'k', '\n'};
+    uint8_t copied[OS_VFS_READ_MAX];
+    int32_t status;
+    uint32_t size;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_read_request(&payload, "vfs-info", 91U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_READ, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_READ_REQUEST_SIZE, payload.size);
+    message.sender_pid = 7;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_worker_read_request(&message, path));
+    TEST_ASSERT_EQUAL_STRING("vfs-info", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_read_reply(&payload, OS_VFS_STATUS_OK, data, 3U, 91U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_read_reply(&message, &status, copied, &size, 91U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, status);
+    TEST_ASSERT_EQUAL(3U, size);
+    TEST_ASSERT_EQUAL('o', copied[0]);
+    TEST_ASSERT_EQUAL('\n', copied[2]);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_read_reply(&message, &status, copied, &size, 92U));
+    message.request_id = 91U;
+    message.data[4] = OS_VFS_READ_MAX + 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_read_reply(&message, &status, copied, &size, 91U));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -612,6 +652,7 @@ int main(void) {
     RUN_TEST(test_rmdir_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     RUN_TEST(test_backend_list_request_and_reply_are_bounded_and_correlated);
+    RUN_TEST(test_worker_read_messages_are_bounded_and_correlated);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

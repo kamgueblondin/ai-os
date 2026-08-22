@@ -147,6 +147,16 @@ def main():
             before_probe = len(log_text())
             send_command_until(monitor, "vfs-backend-probe hello.txt",
                                "vfs-backend-probe denied", proc)
+            before_worker_spawn = len(log_text())
+            send_command_until(monitor, "spawn vfsvirtual", "spawn ok pid", proc)
+            worker_spawned = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsvirtual", log_text()[before_worker_spawn:])
+            if not worker_spawned:
+                raise RuntimeError("worker virtuel VFS non lance")
+            worker_pid = worker_spawned.group(1)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsvirtual ready", proc, before_worker_spawn)
+            send_command_until(monitor, "service-find vfs-virtual",
+                               "service-find ok vfs-virtual %s" % worker_pid, proc)
             before_spawn = len(log_text())
             send_command_until(monitor, "spawn vfsserver", "spawn ok pid", proc)
             spawned = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsserver", log_text()[before_spawn:])
@@ -409,7 +419,8 @@ def main():
             wait_for("type 0", proc, before_receive)
             wait_for("data deferred", proc, before_receive)
             before_virtual = len(log_text())
-            send_command_until(monitor, "vfs-read vfs-info", "vfsserver virtual vfs-info", proc)
+            send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
+            wait_for("vfsvirtual read vfs-info", proc, before_virtual)
             wait_for("vfsserver ring3 policy", proc, before_virtual)
             before_initrd_stat = len(log_text())
             send_command_until(monitor, "vfs-stat initrd/hello.txt", "vfs-stat ok size 35 flags file", proc)
