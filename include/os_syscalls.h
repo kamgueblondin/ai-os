@@ -214,7 +214,9 @@
 #define SYS_FAT16_LIST_PAGE 113
 /* EBX = tableau os_dirent_t, ECX = capacité, EDX = départ ; page de racine FAT32. */
 #define SYS_FAT32_LIST_PAGE 114
-#define MAX_SYSCALLS 114
+/* EBX = nom de service ; le bénéficiaire courant abandonne sa capacité backend. */
+#define SYS_SERVICE_BACKEND_RELEASE 115
+#define MAX_SYSCALLS 115
 
 typedef struct {
     uint16_t source_port;

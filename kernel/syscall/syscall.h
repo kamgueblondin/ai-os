@@ -102,6 +102,8 @@ int sys_service_grant(const char* name, int target_pid);
 int sys_service_backend_grant(const char* name, int target_pid);
 int sys_service_backend_grant_scoped(const char* name, int target_pid, uint32_t rights);
 int sys_service_backend_revoke(const char* name, int target_pid);
+/* Libère, pour le seul appelant Ring 3 courant, sa capacité sur le service nommé. */
+int sys_service_backend_release(const char* name);
 int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_rights);
 int sys_service_backend_list(const char* name, os_service_backend_list_t* out_list);
 int sys_service_backend_observe(const char* name, uint32_t expected_generation,

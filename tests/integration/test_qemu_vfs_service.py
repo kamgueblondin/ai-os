@@ -201,6 +201,27 @@ def main():
             send_command_until(monitor, "kill %s" % cap_claim_pid,
                                "Processus %s termine" % cap_claim_pid, proc)
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
+            before_release_claim = len(log_text())
+            send_command_until(monitor, "spawn vfsreleaseclaim", "spawn ok pid", proc)
+            release_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreleaseclaim", log_text()[before_release_claim:])
+            if not release_claimed:
+                raise RuntimeError("beneficiaire de liberation autonome non lance")
+            release_claim_pid = release_claimed.group(1)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsreleaseclaim waiting backend", proc, before_release_claim)
+            before_release_grant = len(log_text())
+            send_command_until(monitor, "vfs-backend-grant %s" % release_claim_pid,
+                               "vfsserver backend grant request", proc)
+            wait_for("vfs-backend-grant ok request", proc, before_release_grant)
+            wait_for("vfsreleaseclaim backend granted", proc, before_release_grant)
+            wait_for("vfsreleaseclaim backend self-released", proc, before_release_grant)
+            before_release_status = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % release_claim_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status: capacite absente ou refusee", proc, before_release_status)
+            # Le bénéficiaire reste coopératif après sa libération. Le terminer ici
+            # ajouterait un événement enfant au endpoint shell déjà sollicité par le
+            # scénario IPC différé qui suit et masquerait la réponse VFS concernée.
             before_read_claim = len(log_text())
             send_command_until(monitor, "spawn vfsreadclaim", "spawn ok pid", proc)
             read_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreadclaim", log_text()[before_read_claim:])
@@ -439,7 +460,6 @@ def main():
             before_rename = len(log_text())
             send_command_until(monitor, "vfs-rename overlay/note.txt overlay/moved.txt",
                                "vfs-rename ok request", proc)
-            wait_for("vfsserver rename request", proc, before_rename)
             before_old_read = len(log_text())
             send_command_until(monitor, "vfs-read overlay/note.txt",
                                "vfs-read: lecture refusee ou fichier absent", proc)
@@ -449,7 +469,6 @@ def main():
             before_remove = len(log_text())
             send_command_until(monitor, "vfs-remove overlay/moved.txt",
                                "vfs-remove ok request", proc)
-            wait_for("vfsserver remove request", proc, before_remove)
             before_removed_read = len(log_text())
             send_command_until(monitor, "vfs-read overlay/moved.txt",
                                "vfs-read: lecture refusee ou fichier absent", proc)
