@@ -83,6 +83,19 @@ static void print_int(int value) {
     while (n > 0) putc(digits[--n]);
 }
 
+static int string_equal_ascii_fold(const char* left, const char* right) {
+    uint32_t i = 0U;
+    while (left[i] != '\0' && right[i] != '\0') {
+        char a = left[i];
+        char b = right[i];
+        if (a >= 'a' && a <= 'z') a = (char)(a - ('a' - 'A'));
+        if (b >= 'a' && b <= 'z') b = (char)(b - ('a' - 'A'));
+        if (a != b) return 0;
+        i++;
+    }
+    return left[i] == right[i];
+}
+
 static int backend_initrd_read(const char* path, char* buffer, uint32_t max) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_READ), "b"(path), "c"(buffer), "d"(max));
@@ -112,9 +125,7 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     count = backend_fat16_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
     if (count < 0) return count;
     for (i = 0; i < count; i++) {
-        uint32_t j = 0U;
-        while (entries[i].name[j] && path[j] && entries[i].name[j] == path[j]) j++;
-        if (entries[i].name[j] == '\0' && path[j] == '\0') { *out = entries[i]; return 0; }
+        if (string_equal_ascii_fold(entries[i].name, path)) { *out = entries[i]; return 0; }
     }
     return -1;
 }
@@ -136,9 +147,7 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     count = backend_fat32_listdir("/", entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
     if (count < 0) return count;
     for (i = 0; i < count; i++) {
-        uint32_t j = 0U;
-        while (entries[i].name[j] && path[j] && entries[i].name[j] == path[j]) j++;
-        if (entries[i].name[j] == '\0' && path[j] == '\0') { *out = entries[i]; return 0; }
+        if (string_equal_ascii_fold(entries[i].name, path)) { *out = entries[i]; return 0; }
     }
     return -1;
 }
@@ -229,7 +238,7 @@ static int string_equal(const char* left, const char* right) {
 /* Table locale de montages : les entrées de démarrage sont protégées ; trois
  * alias dynamiques restent possibles. Les noms dynamiques sont bornés pour
  * que la source virtuelle `vfs-mounts` tienne toujours dans 80 octets. */
-#define VFS_MOUNT_MAX 5U
+#define VFS_MOUNT_MAX 7U
 #define VFS_BOOT_MOUNT_COUNT 4U
 #define VFS_DYNAMIC_MOUNT_MAX 13U
 typedef struct {
@@ -748,7 +757,9 @@ void main(void) {
             if (status == 0) {
                 puts("vfsserver mount added ");
                 puts(path);
-                puts(source == OS_VFS_MOUNT_SOURCE_OVERLAY ? " overlay\n" : " initrd\n");
+                puts(source == OS_VFS_MOUNT_SOURCE_OVERLAY ? " overlay\n"
+                     : (source == OS_VFS_MOUNT_SOURCE_FAT16 ? " fat16\n"
+                        : (source == OS_VFS_MOUNT_SOURCE_FAT32 ? " fat32\n" : " initrd\n")));
             } else {
                 puts("vfsserver mount add rc ");
                 print_int(status);
