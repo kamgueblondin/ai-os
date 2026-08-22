@@ -358,6 +358,9 @@ static uint32_t vfs_read_requests;
 static uint32_t vfs_write_requests;
 static uint32_t vfs_remove_requests;
 static uint32_t vfs_rename_requests;
+/* Nombre volatile de transactions privées terminées localement après disparition
+ * ou remplacement du PID publié par le worker virtuel. */
+static uint32_t vfs_virtual_recoveries;
 /* Génération volatile des contenus et de la table de montages. Elle n’est ni
  * persistante ni atomique : elle avertit seulement le client d’une mutation
  * visible entre deux pages. */
@@ -478,7 +481,11 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
  * celui de la transaction, le médiateur termine localement la réponse bornée. */
 static int vfs_virtual_recover_if_worker_missing(os_ipc_payload_t* reply_payload) {
     if (!vfs_virtual_pending.active || vfs_virtual_lookup() == vfs_virtual_pending.worker_pid) return 0;
-    return vfs_virtual_reply_local(reply_payload);
+    if (vfs_virtual_reply_local(reply_payload)) {
+        vfs_virtual_recoveries++;
+        return 1;
+    }
+    return 0;
 }
 
 static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_t* reply_payload) {
@@ -594,6 +601,20 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
         i = append_uint(data, i, vfs_remove_requests);
         i = append_text(data, i, "\nrenames=");
         i = append_uint(data, i, vfs_rename_requests);
+        data[i++] = (uint8_t)'\n';
+        *size = i;
+        return 1;
+    } else if (string_equal(path, "vfs-worker")) {
+        int worker_pid = vfs_virtual_lookup();
+        i = append_text(data, 0U, "vfsvirtual ");
+        if (worker_pid > 0) {
+            i = append_text(data, i, "ready pid=");
+            i = append_uint(data, i, (uint32_t)worker_pid);
+        } else {
+            i = append_text(data, i, "missing");
+        }
+        i = append_text(data, i, " recoveries=");
+        i = append_uint(data, i, vfs_virtual_recoveries);
         data[i++] = (uint8_t)'\n';
         *size = i;
         return 1;
@@ -960,7 +981,8 @@ void main(void) {
                 if (read_virtual(path, data, &size)) {
                     if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info local\n");
                     else if (string_equal(path, "vfs-mounts")) puts("vfsserver virtual vfs-mounts local\n");
-                    else puts("vfsserver virtual vfs-stats local\n");
+                    else if (string_equal(path, "vfs-stats")) puts("vfsserver virtual vfs-stats local\n");
+                    else puts("vfsserver virtual vfs-worker local\n");
                 } else {
                     status = read_mounted_backend(path, data, &size);
                     if (status == OS_VFS_STATUS_NOT_MOUNTED) {
