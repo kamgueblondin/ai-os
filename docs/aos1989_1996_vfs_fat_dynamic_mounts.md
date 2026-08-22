@@ -15,7 +15,7 @@ Ce macro-lot rend les sources **FAT16** et **FAT32** disponibles dans `vfs-mount
 
 ## Contrat de mise en œuvre
 
-Le serveur VFS possède quatre montages protégés au démarrage : `initrd/`, `overlay/`, `fat16/` et `fat32/`. Sa table statique contient désormais sept entrées, ce qui conserve les **trois alias dynamiques** prévus après ces quatre montages de base. Aucune allocation dynamique n’est introduite.
+Le serveur VFS possède quatre montages protégés au démarrage : `initrd/`, `overlay/`, `fat16/` et `fat32/`. Sa table statique contient désormais huit entrées, ce qui conserve **quatre alias dynamiques** après ces montages de base et permet de tester FAT16 et FAT32 simultanément. Aucune allocation dynamique n’est introduite.
 
 Les opérations de lecture, listage et statut routent le suffixe du montage vers les syscalls FAT existants. La recherche de métadonnées FAT compare les noms 8.3 sans casse ASCII, de manière cohérente avec la lecture depuis le shell où les frappes HMP sont normalisées en minuscules.
 

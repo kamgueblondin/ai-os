@@ -1,6 +1,6 @@
 # État réel d’AI-OS
 
-**Date de constat :** 20 août 2026
+**Date de constat :** 22 août 2026
 
 **Référence :** hobby OS pédagogique i386 32-bit, BIOS/Multiboot, QEMU et Ring 3. Ce n’est pas une distribution Linux.
 
@@ -8,12 +8,12 @@
 
 ## État courant vérifié
 
-| Domaine | État au 20 août 2026 |
+| Domaine | État au 22 août 2026 |
 |---|---|
-| FAT16/FAT32 | FAT16 dispose des primitives d’écriture 8.3 et LFN ; FAT32 valide le BPB, lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et gère les LFN UTF-8/UTF-16LE bornés. |
-| LFN FAT32 | Le checksum 8.3, la publication multi-entrée, la reconstruction et la lecture par nom long, le renommage et la suppression sont livrés. La conversion UTF-8/UTF-16LE couvre les caractères BMP et les paires substituts ; l’intégration FAT32 au VFS reste un axe séparé. |
+| FAT16/FAT32 | FAT16 et FAT32 valident leurs BPB, lisent les fichiers et listes de racine ; FAT32 lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et gère les LFN UTF-8/UTF-16LE bornés. Les deux volumes sont accessibles au VFS en lecture seule. |
+| LFN FAT32 | Le checksum 8.3, la publication multi-entrée, la reconstruction, la lecture par nom long, le renommage et la suppression sont livrés. La conversion UTF-8/UTF-16LE couvre les caractères BMP et les paires substituts ; le VFS expose FAT32 en lecture, listage et statut. |
 | Réseau utilisateur | Le registre TCP statique expose le cycle actif et passif ; les syscalls 99–108 valident les requêtes et buffers page-par-page dans l’espace utilisateur VMM. Les opérations passives `listen`, SYN entrant, SYN-ACK et ACK final sont disponibles. L’émission/réception NE2000 automatique reste à intégrer. |
-| Validation | Le runner noyau passe **35/35** tests et la suite complète passe **425/425** avec le registre et les syscalls passifs. La CI et le smoke QEMU de la PR suivante restent à valider. |
+| Validation | La suite complète passe **479/479** tests. Le contrat QEMU VFS valide les fixtures FAT16 et FAT32 sur deux disques IDE, leurs alias dynamiques, le listage, la lecture et le statut ; la CI des PR #465 et #466 est verte. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.
@@ -22,9 +22,9 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 |---|---|
 | Démarrage et espace utilisateur | Noyau Multiboot i386, VGA/série, clavier PS/2, shell ELF Ring 3, curseur bloc et historique d’écran (Page Up/Down) |
 | IA locale | GPT-2 124M `llm.c v3`, BPE, cache KV, SSE2 et top-k, sans réseau au boot ; le runtime GGUF prépare et exécute la génération quantifiée Q3_K/Q4_K/Q6_K sur buffers statiques ou caller-owned |
-| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63, volume FAT16 et primitives FAT32 avec LFN UTF-8, renommage et suppression ; le branchement FAT32 au VFS reste distinct |
+| Stockage | Archive initrd TAR en lecture seule, overlay AIOV V2 sur ATA PIO aux LBA 0–63, volumes FAT16 et FAT32 avec LFN UTF-8, renommage et suppression ; le VFS route leurs lectures, listages et statuts en lecture seule. |
 | Ordonnancement et télémétrie | Coopératif par syscall et quantum IRQ0 sûr entre tâches utilisateur ; instantané de ticks, sélections, priorité CPU, parent et enfants directs ; terminaison, réattribution, attente et capacité de création limitées à la filiation directe |
-| IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; capacité de deux messages clients et état borné pour un propriétaire de service, médiateur VFS, métadonnées et listage de racine ou de sous-répertoire source-spécifiques, sources virtuelles, compteurs volatils et alias initrd/overlay dynamiques |
+| IPC/VFS Foundation MOHHOS | Boîte aux lettres FIFO non bloquante entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets et `request_id` corrélé ; capacité de deux messages clients et état borné pour un propriétaire de service, médiateur VFS, métadonnées et listage source-spécifiques, sources virtuelles, compteurs volatils, quatre montages protégés et quatre alias dynamiques (`initrd`, `overlay`, `fat16`, `fat32`) |
 | Découverte Foundation MOHHOS | Registre volatile de 8 services nommés ; retrait, transfert par propriétaire, révocation VFS, abonnements de service best-effort et nettoyage à la terminaison |
 | Réseau | Pilote NE2000 ISA (sonde `0x300`, anneaux, IRQ3), codecs caller-owned Ethernet/ARP/IPv4/UDP/DHCP/DNS/TCP et TLS record ; `net-status` publie la NIC ; **pas** de bail DHCP live, handshake TLS, HTTP ni OpenAI |
 

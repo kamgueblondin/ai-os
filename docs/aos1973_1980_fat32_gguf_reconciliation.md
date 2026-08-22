@@ -6,7 +6,7 @@ Ce macro-lot ne modifie pas les algorithmes du noyau. Il aligne la documentation
 
 | Domaine | État vérifié | Limite conservée |
 |---|---|---|
-| FAT32 LFN | Création, publication multi-entrée, lecture, listage, renommage et suppression par nom long sont disponibles. | Le volume FAT32 n’est pas encore exposé comme backend des opérations VFS génériques. |
+| FAT32 LFN | Création, publication multi-entrée, lecture, listage, renommage et suppression par nom long sont disponibles. | FAT32 est exposé au VFS en lecture, listage et statut ; les mutations VFS restent limitées à l’overlay. |
 | Encodage LFN | La conversion UTF-8/UTF-16LE valide les séquences, couvre le BMP et les paires substituts pour les points de code non-BMP. | Les noms restent bornés par `OS_NAME_MAX`, 13 unités UTF-16 par entrée et 20 entrées LFN. |
 | Runtime GGUF | Le chargement prépare la génération quantifiée Q3_K/Q4_K/Q6_K, le cache KV, puis exécute la génération échantillonnée top-k avec des espaces de travail caller-owned. | Les contraintes de taille du modèle et de capacité mémoire de la plateforme i386 demeurent inchangées. |
 
@@ -16,7 +16,7 @@ Les helpers [`lfn_utf8.h`](../kernel/fs/lfn_utf8.h) convertissent les noms UTF-8
 
 La régression [`test_fat32.c`](../tests/unit/kernel/test_fat32.c) couvre les conversions UTF-8/UTF-16, l’encodage d’entrée, la création d’un nom long, la lecture par alias et par nom long, le listage, le renommage, la suppression, ainsi que les aller-retours UTF-8 BMP et non-BMP.
 
-> L’intégration FAT32 au VFS est volontairement conservée comme travail distinct : cette réconciliation ne transforme pas les primitives de volume caller-owned en backend VFS.
+> La réconciliation initiale séparait les primitives caller-owned du backend VFS. Les lots AOS-1989…2004 ont depuis relié FAT16 et FAT32 au médiateur pour la lecture, le listage et le statut, sans ouvrir de mutation FAT via VFS.
 
 ## Preuves GGUF
 
@@ -31,7 +31,7 @@ Le chargeur [`gpt2_gguf_loader.c`](../kernel/llm/gpt2_gguf_loader.c) valide les 
 
 ## Résultat
 
-Les descriptions historiques de limitations FAT32 LFN et GGUF ont été réconciliées avec le code exécutable. Les limitations toujours réelles — notamment le branchement FAT32 au VFS générique — restent explicitement documentées afin d’éviter de créer un faux état de complétude.
+Les descriptions historiques de limitations FAT32 LFN et GGUF ont été réconciliées avec le code exécutable. Les limitations toujours réelles concernent désormais les mutations FAT via VFS et non plus le branchement FAT32 de lecture, listage et statut.
 
 ## Références
 

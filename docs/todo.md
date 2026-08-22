@@ -143,7 +143,7 @@
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 457 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke` et `make integration-qemu`)
+- [x] Tests complets du système corrigé (`make test-all` : 479 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu` et `make qemu-vfs-service` sur fixtures FAT16/FAT32)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
