@@ -624,6 +624,32 @@ static void test_worker_read_messages_are_bounded_and_correlated(void) {
                       os_vfs_parse_worker_read_reply(&message, &status, copied, &size, 91U));
 }
 
+static void test_worker_stats_snapshot_is_bounded_and_decoded(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    uint32_t reads, writes, removes, renames;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_stats_request(&payload, 3U, 5U, 7U, 11U, 123U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_STATS, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_STATS_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(123U, payload.request_id);
+    message.sender_pid = 7;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_stats_request(&message, &reads, &writes, &removes, &renames));
+    TEST_ASSERT_EQUAL(3U, reads);
+    TEST_ASSERT_EQUAL(5U, writes);
+    TEST_ASSERT_EQUAL(7U, removes);
+    TEST_ASSERT_EQUAL(11U, renames);
+    message.size = OS_VFS_WORKER_STATS_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_stats_request(&message, &reads, &writes, &removes, &renames));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -653,6 +679,7 @@ int main(void) {
     RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     RUN_TEST(test_backend_list_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_worker_read_messages_are_bounded_and_correlated);
+    RUN_TEST(test_worker_stats_snapshot_is_bounded_and_decoded);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

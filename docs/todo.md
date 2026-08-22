@@ -151,10 +151,11 @@
 - [x] AOS-2069…2075 : pair QEMU TCP contrôlé, SYN-ACK checksumé, voisin de prochain saut DHCP conservé pour TLS/HTTP, ClientHello observé et publication Ring 3 `TLS_STARTED` — [aos2069_2075_ne2k_qemu_synack_clienthello.md](aos2069_2075_ne2k_qemu_synack_clienthello.md)
 - [x] AOS-2076…2080 : ServerHello TLS 1.2 minimal reçu du pair QEMU, parsing borné au paquet IPv4 et ACK TCP observé ; certificat, X25519 et TLS complet restent distincts — [aos2076_2080_ne2k_qemu_server_hello.md](aos2076_2080_ne2k_qemu_server_hello.md)
 - [x] AOS-2081…2088 : worker VFS virtuel Ring 3, délégation asynchrone bornée de `vfs-info`, corrélation PID/request-id, repli local et contrat QEMU inter-processus — [aos2081_2088_vfs_ring3_virtual_worker.md](aos2081_2088_vfs_ring3_virtual_worker.md)
-- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et délégation virtuelle Ring 3, services)
+- [x] AOS-2089…2094 : instantané `vfs-stats` de 16 octets transmis au worker Ring 3 pour formatage borné, corrélation conservée et contrat QEMU sur les valeurs publiques — [aos2089_2094_vfs_ring3_stats_worker.md](aos2089_2094_vfs_ring3_stats_worker.md)
+- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 485 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé, et `make qemu-vfs-service` avec worker VFS Ring 3)
+- [x] Tests complets du système corrigé (`make test-all` : 486 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé, et `make qemu-vfs-service` avec worker VFS Ring 3)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
