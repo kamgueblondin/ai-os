@@ -161,10 +161,11 @@
 - [x] AOS-2133…2138 : pages observées `vfs-mounts` formatées séquentiellement par le worker Ring 3, avec contrôle de génération et réponse `stale` conservés par le médiateur — [aos2133_2138_vfs_mount_observe_worker.md](aos2133_2138_vfs_mount_observe_worker.md)
 - [x] AOS-2139…2146 : création FAT16 8.3 à la racine via `vfs-write`, sous capacité backend `mutate`, writer ATA explicite, prévention d’écrasement et preuve QEMU de persistance — [aos2139_2146_vfs_fat16_write.md](aos2139_2146_vfs_fat16_write.md)
 - [x] AOS-2147…2154 : suppression FAT16 8.3 racine via `vfs-remove`, syscall backend `mutate`, marqueur d’entrée supprimée, libération bornée des copies FAT et preuve QEMU de retrait persistant — [aos2147_2154_vfs_fat16_unlink.md](aos2147_2154_vfs_fat16_unlink.md)
+- [x] AOS-2155…2162 : renommage FAT16 8.3 racine via `vfs-rename`, syscall backend `mutate`, collision refusée, chaîne FAT inchangée et preuve QEMU ancien nom absent/nouveau nom lisible — [aos2155_2162_vfs_fat16_rename.md](aos2155_2162_vfs_fat16_rename.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 488 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé, et `make qemu-vfs-service` avec worker VFS Ring 3)
+- [x] Tests complets du système corrigé (`make test-all` : 489 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé, et `make qemu-vfs-service` avec worker VFS Ring 3)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))

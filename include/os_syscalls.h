@@ -220,7 +220,9 @@
 #define SYS_VFS_FAT16_CREATE 116
 /* EBX = nom FAT16 8.3 sans séparateur ; réservé aux droits backend mutate de `vfs`. */
 #define SYS_VFS_FAT16_UNLINK 117
-#define MAX_SYSCALLS 118
+/* EBX = ancien nom FAT16 8.3, ECX = nouveau nom 8.3 ; réservé aux droits backend mutate de `vfs`. */
+#define SYS_VFS_FAT16_RENAME 118
+#define MAX_SYSCALLS 119
 
 typedef struct {
     uint16_t source_port;

@@ -310,6 +310,45 @@ int fat16_unlink_file(const fat16_volume_t* v, const char* name) {
     return OS_FAT16_NOT_FOUND;
 }
 
+/* Renommage limité à une entrée 8.3 classique. La recherche de collision
+ * parcourt la racine entière avant d’écrire : un emplacement supprimé ou une
+ * fin logique ne peut donc pas masquer une cible déjà présente plus loin. */
+int fat16_rename_file(const fat16_volume_t* v, const char* old_name, const char* new_name) {
+    uint8_t old_short[11], new_short[11];
+    uint32_t index, old_index, byte_offset, lba, entry_offset, i;
+    uint8_t lfn_pending = 0U;
+    if (!v || !old_name || !new_name || !fat16_is_mounted(v) || !v->write_sector) {
+        return OS_FAT16_NOT_MOUNTED;
+    }
+    if (make_short_name(old_name, old_short) != 0 || make_short_name(new_name, new_short) != 0) {
+        return OS_FAT16_BAD_PATH;
+    }
+    old_index = v->root_entries;
+    for (index = 0U; index < v->root_entries; index++) {
+        byte_offset = index * FAT16_ENTRY_SIZE;
+        lba = v->root_lba + (byte_offset / FAT16_SECTOR_SIZE);
+        entry_offset = byte_offset % FAT16_SECTOR_SIZE;
+        if (read_at(v, lba, sector) != 0) return OS_FAT16_CORRUPT;
+        if (sector[entry_offset] == 0U) break;
+        if (sector[entry_offset] == 0xE5U) { lfn_pending = 0U; continue; }
+        if ((sector[entry_offset + 11U] & 0x0FU) == 0x0FU) { lfn_pending = 1U; continue; }
+        if (entry_matches(sector + entry_offset, old_short)) {
+            if (lfn_pending || (sector[entry_offset + 11U] & 0x18U) != 0U) return OS_FAT16_BAD_PATH;
+            old_index = index;
+        }
+        if (entry_matches(sector + entry_offset, new_short) &&
+            !entry_matches(sector + entry_offset, old_short)) return OS_FAT16_BAD_PATH;
+        lfn_pending = 0U;
+    }
+    if (old_index == v->root_entries) return OS_FAT16_NOT_FOUND;
+    byte_offset = old_index * FAT16_ENTRY_SIZE;
+    lba = v->root_lba + (byte_offset / FAT16_SECTOR_SIZE);
+    entry_offset = byte_offset % FAT16_SECTOR_SIZE;
+    if (read_at(v, lba, sector) != 0) return OS_FAT16_CORRUPT;
+    for (i = 0U; i < 11U; i++) sector[entry_offset + i] = new_short[i];
+    return fat16_write_sector(v, lba, sector);
+}
+
 int fat16_create_file(const fat16_volume_t* v, const char* name, uint8_t attributes,
                       const uint8_t* data, uint32_t size, uint16_t* out_first_cluster) {
     uint32_t cluster_bytes, remaining, offset = 0U;

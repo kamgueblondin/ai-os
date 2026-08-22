@@ -143,8 +143,8 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT16 n’expose ici que la création et la suppression 8.3 à la racine.
- * Aucun remplacement, sous-répertoire, LFN ni renommage n’est publié par le VFS. */
+/* FAT16 n’expose ici que création, suppression et renommage 8.3 à la racine.
+ * Aucun remplacement, sous-répertoire ni LFN n’est publié par le VFS. */
 static int backend_fat16_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -158,6 +158,14 @@ static int backend_fat16_remove(const char* path) {
     int result;
     if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT16_UNLINK), "b"(path));
+    return result;
+}
+static int backend_fat16_rename(const char* oldpath, const char* newpath) {
+    int result;
+    if (!oldpath || !newpath || oldpath[0] == '\0' || newpath[0] == '\0' ||
+        oldpath[0] == '/' || newpath[0] == '/') return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT16_RENAME),
+                 "b"(oldpath), "c"(newpath));
     return result;
 }
 static int backend_fat32_read(const char* path, char* buffer, uint32_t max) {
@@ -281,7 +289,7 @@ static const vfs_backend_ops_t vfs_backend_ops[] = {
       backend_rmdir, backend_remove, backend_rename },
     { OS_VFS_MOUNT_SOURCE_FAT16, backend_fat16_read, backend_fat16_stat,
       backend_fat16_listdir, backend_fat16_listdir_page, backend_fat16_create, 0, 0,
-      backend_fat16_remove, 0 },
+      backend_fat16_remove, backend_fat16_rename },
     { OS_VFS_MOUNT_SOURCE_FAT32, backend_fat32_read, backend_fat32_stat,
       backend_fat32_listdir, backend_fat32_listdir_page, 0, 0, 0, 0, 0 },
 };
