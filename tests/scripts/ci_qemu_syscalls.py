@@ -160,7 +160,9 @@ def sendkeys(mon, keys):
             if ACTIVE_PROC.poll() is not None:
                 raise RuntimeError("QEMU exited early with code %s" % ACTIVE_PROC.returncode)
             text = log_text()[mark:]
-            if echo in text:
+            # L’écho doit se terminer ici : un préfixe accepterait à tort une
+            # touche PS/2 dupliquée (par exemple `alpha` dans `alphaa`).
+            if (echo + "\n") in text:
                 return
             if "SYS_GETS: ligne lue: " in text:
                 say("retrying command after PS/2 echo mismatch (attempt %d/%d)" % (attempt, KEY_RETRIES))
