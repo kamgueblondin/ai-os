@@ -663,6 +663,8 @@ help:
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
+	@echo "  gguf-benchmark  - Mesure répétée du premier token et de ai-continue GGUF sous QEMU"
+	@echo "  gguf-benchmark-check - Vérifie le protocole de synthèse sans démarrer QEMU"
 	@echo "  gui-captures    - Screendumps QEMU GTK (DISPLAY=:1, artefacts PNG)"
 	@echo "  gui-record      - Video courte QEMU GTK (ffmpeg x11grab)"
 	@echo "  disk            - Cree build/overlay.img (IDE, 32 Kio) si absent"
@@ -693,7 +695,7 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # 251 tests Unity avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests ci deps disk gui-captures gui-record
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
 
 
 gguf-disk:
@@ -702,6 +704,12 @@ gguf-disk:
 fat32-secondary-disk:
 	@python3 scripts/make_fat32_secondary_image.py --image $(FAT32_SECONDARY_IMAGE)
 
-.PHONY: qemu-gguf-smoke
+.PHONY: qemu-gguf-smoke gguf-benchmark
 qemu-gguf-smoke: $(OS_IMAGE) pack-initrd gguf-disk
 	@OVERLAY_DISK="$(abspath $(GGUF_DISK_IMAGE))" python3 tests/scripts/ci_qemu_gguf_local_smoke.py
+
+gguf-benchmark: $(OS_IMAGE) pack-initrd gguf-disk
+	@OVERLAY_DISK="$(abspath $(GGUF_DISK_IMAGE))" python3 tests/scripts/benchmark_qemu_gguf_latency.py
+
+gguf-benchmark-check:
+	@python3 tests/scripts/test_benchmark_qemu_gguf_latency.py
