@@ -236,6 +236,39 @@ static int backend_rename(const char* oldpath, const char* newpath) {
     return result;
 }
 
+typedef struct {
+    uint32_t source;
+    int (*read)(const char* path, char* buffer, uint32_t max);
+    int (*stat)(const char* path, os_dirent_t* out);
+    int (*list)(const char* path, os_dirent_t* out, int max_n);
+    int (*list_page)(const char* path, os_dirent_t* out, uint32_t start);
+    int (*write)(const char* path, const uint8_t* data, uint32_t size);
+    int (*mkdir)(const char* path);
+    int (*rmdir)(const char* path);
+    int (*remove)(const char* path);
+    int (*rename)(const char* oldpath, const char* newpath);
+} vfs_backend_ops_t;
+
+static const vfs_backend_ops_t vfs_backend_ops[] = {
+    { OS_VFS_MOUNT_SOURCE_INITRD, backend_initrd_read, backend_initrd_stat,
+      backend_initrd_listdir, backend_initrd_listdir_page, 0, 0, 0, 0, 0 },
+    { OS_VFS_MOUNT_SOURCE_OVERLAY, backend_overlay_read, backend_overlay_stat,
+      backend_overlay_listdir, backend_overlay_listdir_page, backend_write, backend_mkdir,
+      backend_rmdir, backend_remove, backend_rename },
+    { OS_VFS_MOUNT_SOURCE_FAT16, backend_fat16_read, backend_fat16_stat,
+      backend_fat16_listdir, backend_fat16_listdir_page, 0, 0, 0, 0, 0 },
+    { OS_VFS_MOUNT_SOURCE_FAT32, backend_fat32_read, backend_fat32_stat,
+      backend_fat32_listdir, backend_fat32_listdir_page, 0, 0, 0, 0, 0 },
+};
+
+static const vfs_backend_ops_t* vfs_backend_ops_for(uint32_t source) {
+    uint32_t i;
+    for (i = 0U; i < (uint32_t)(sizeof(vfs_backend_ops) / sizeof(vfs_backend_ops[0])); i++) {
+        if (vfs_backend_ops[i].source == source) return &vfs_backend_ops[i];
+    }
+    return 0;
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -388,13 +421,10 @@ static int read_mounted_backend(const char* path, uint8_t* data, uint32_t* size)
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
         if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
-            int read = vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
-                ? backend_initrd_read(relative, (char*)data, OS_VFS_READ_MAX)
-                : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT16
-                    ? backend_fat16_read(relative, (char*)data, OS_VFS_READ_MAX)
-                    : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT32
-                        ? backend_fat32_read(relative, (char*)data, OS_VFS_READ_MAX)
-                        : backend_overlay_read(relative, (char*)data, OS_VFS_READ_MAX)));
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            int read;
+            if (!ops || !ops->read) return OS_VFS_STATUS_NOT_MOUNTED;
+            read = ops->read(relative, (char*)data, OS_VFS_READ_MAX);
             if (read < 0) return read;
             *size = (uint32_t)read;
             return OS_VFS_STATUS_OK;
@@ -409,13 +439,8 @@ static int stat_mounted_backend(const char* path, os_dirent_t* out) {
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
         if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
-            return vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_INITRD
-                ? backend_initrd_stat(relative, out)
-                : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT16
-                    ? backend_fat16_stat(relative, out)
-                    : (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_FAT32
-                        ? backend_fat32_stat(relative, out)
-                        : backend_overlay_stat(relative, out)));
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            return ops && ops->stat ? ops->stat(relative, out) : OS_VFS_STATUS_NOT_MOUNTED;
         }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
@@ -453,13 +478,9 @@ static int list_mounted_backend(const char* path, uint8_t* data, uint32_t* size,
     for (mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
         const char* relative = 0;
         if (list_path_matches_mount(path, vfs_mounts[mount_index].prefix, &relative)) {
-            listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
-                ? backend_initrd_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
-                : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT16
-                    ? backend_fat16_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
-                    : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT32
-                        ? backend_fat32_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
-                        : backend_overlay_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))));
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[mount_index].source);
+            if (!ops || !ops->list) return OS_VFS_STATUS_NOT_MOUNTED;
+            listed = ops->list(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U));
             if (listed < 0) return listed;
             for (uint32_t entry_index = 0U;
                  entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
@@ -528,13 +549,11 @@ static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* 
     for (mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
         const char* relative = 0;
         if (!list_path_matches_mount(path, vfs_mounts[mount_index].prefix, &relative)) continue;
-        listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
-            ? backend_initrd_listdir_page(relative, entries, start)
-            : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT16
-                ? backend_fat16_listdir_page(relative, entries, start)
-                : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT32
-                    ? backend_fat32_listdir_page(relative, entries, start)
-                    : backend_overlay_listdir_page(relative, entries, start)));
+        {
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[mount_index].source);
+            if (!ops || !ops->list_page) return OS_VFS_STATUS_NOT_MOUNTED;
+            listed = ops->list_page(relative, entries, start);
+        }
         if (listed < 0) return listed;
         for (uint32_t entry_index = 0U;
              entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX;
@@ -563,9 +582,11 @@ static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
-            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
-            int written = backend_write(relative, data, size);
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            int written;
+            if (!ops || !ops->write) return OS_VFS_STATUS_NOT_MOUNTED;
+            written = ops->write(relative, data, size);
             return written < 0 ? written : OS_VFS_STATUS_OK;
         }
     }
@@ -576,8 +597,10 @@ static int mkdir_mounted_backend(const char* path) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
-            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) return backend_mkdir(relative);
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            return ops && ops->mkdir ? ops->mkdir(relative) : OS_VFS_STATUS_NOT_MOUNTED;
+        }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
@@ -586,8 +609,10 @@ static int rmdir_mounted_backend(const char* path) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
-            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) return backend_rmdir(relative);
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            return ops && ops->rmdir ? ops->rmdir(relative) : OS_VFS_STATUS_NOT_MOUNTED;
+        }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
@@ -596,9 +621,9 @@ static int remove_mounted_backend(const char* path) {
     uint32_t i;
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* relative = 0;
-        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
-            os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
-            return backend_remove(relative);
+        if (os_vfs_match_mount(path, vfs_mounts[i].prefix, &relative)) {
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            return ops && ops->remove ? ops->remove(relative) : OS_VFS_STATUS_NOT_MOUNTED;
         }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
@@ -609,10 +634,11 @@ static int rename_mounted_backend(const char* oldpath, const char* newpath) {
     for (i = 0U; i < vfs_mount_count; i++) {
         const char* old_relative = 0;
         const char* new_relative = 0;
-        if (vfs_mounts[i].source == OS_VFS_MOUNT_SOURCE_OVERLAY &&
-            os_vfs_match_mount(oldpath, vfs_mounts[i].prefix, &old_relative) &&
+        if (os_vfs_match_mount(oldpath, vfs_mounts[i].prefix, &old_relative) &&
             os_vfs_match_mount(newpath, vfs_mounts[i].prefix, &new_relative)) {
-            return backend_rename(old_relative, new_relative);
+            const vfs_backend_ops_t* ops = vfs_backend_ops_for(vfs_mounts[i].source);
+            return ops && ops->rename ? ops->rename(old_relative, new_relative)
+                                      : OS_VFS_STATUS_NOT_MOUNTED;
         }
     }
     return OS_VFS_STATUS_NOT_MOUNTED;
