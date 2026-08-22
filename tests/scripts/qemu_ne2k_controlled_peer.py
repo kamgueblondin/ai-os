@@ -26,20 +26,37 @@ def _checksum(data):
     return (~total) & 0xffff
 
 
-def _ipv4_udp(source_ip, destination_ip, source_port, destination_port, payload):
-    udp_length = 8 + len(payload)
-    total_length = 20 + udp_length
+def _ipv4_packet(source_ip, destination_ip, protocol, payload):
+    total_length = 20 + len(payload)
     ip = bytearray(20)
     ip[0] = 0x45
     ip[2:4] = struct.pack("!H", total_length)
     ip[6:8] = b"\x40\x00"
     ip[8] = 64
-    ip[9] = 17
+    ip[9] = protocol
     ip[12:16] = source_ip
     ip[16:20] = destination_ip
     ip[10:12] = struct.pack("!H", _checksum(bytes(ip)))
+    return bytes(ip) + payload
+
+
+def _ipv4_udp(source_ip, destination_ip, source_port, destination_port, payload):
+    udp_length = 8 + len(payload)
     udp = struct.pack("!HHHH", source_port, destination_port, udp_length, 0)
-    return bytes(ip) + udp + payload
+    return _ipv4_packet(source_ip, destination_ip, 17, udp + payload)
+
+
+def _ipv4_tcp(source_ip, destination_ip, source_port, destination_port, sequence, acknowledgment, flags, payload=b""):
+    tcp = bytearray(20 + len(payload))
+    tcp[0:4] = struct.pack("!HH", source_port, destination_port)
+    tcp[4:12] = struct.pack("!II", sequence, acknowledgment)
+    tcp[12] = 0x50
+    tcp[13] = flags
+    tcp[14:16] = b"\xff\xff"
+    tcp[20:] = payload
+    pseudo_header = source_ip + destination_ip + b"\x00\x06" + struct.pack("!H", len(tcp))
+    tcp[16:18] = struct.pack("!H", _checksum(pseudo_header + bytes(tcp)))
+    return _ipv4_packet(source_ip, destination_ip, 6, bytes(tcp))
 
 
 def _ethernet(destination_mac, ethertype, payload):
@@ -119,7 +136,8 @@ class ControlledEthernetPeer:
     """Serveur socket QEMU non persistant avec compteurs de protocole publics."""
 
     def __init__(self):
-        self.events = {"discover": 0, "offer": 0, "request": 0, "ack": 0, "arp": 0, "dns": 0, "syn": 0}
+        self.events = {"discover": 0, "offer": 0, "request": 0, "ack": 0,
+                       "arp": 0, "dns": 0, "syn": 0, "syn_ack": 0, "client_hello": 0}
         self.error = None
         self._stop = threading.Event()
         self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -179,8 +197,24 @@ class ControlledEthernetPeer:
         source_ip = frame[ip_offset + 12:ip_offset + 16]
         if protocol == 6:
             tcp_offset = ip_offset + header_length
-            if len(frame) >= tcp_offset + 14 and (frame[tcp_offset + 13] & 0x02):
+            if len(frame) < tcp_offset + 20:
+                return
+            source_port, destination_port = struct.unpack("!HH", frame[tcp_offset:tcp_offset + 4])
+            sequence = struct.unpack("!I", frame[tcp_offset + 4:tcp_offset + 8])[0]
+            flags = frame[tcp_offset + 13]
+            tcp_header_length = (frame[tcp_offset + 12] >> 4) * 4
+            if tcp_header_length < 20 or len(frame) < tcp_offset + tcp_header_length:
+                return
+            payload = frame[tcp_offset + tcp_header_length:]
+            if source_port == 49152 and destination_port == 443 and (flags & 0x12) == 0x02:
                 self.events["syn"] += 1
+                self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
+                    _ipv4_tcp(REMOTE_IP, source_ip, 443, source_port, 0x10203040,
+                              sequence + 1, 0x12)))
+                self.events["syn_ack"] += 1
+            elif source_port == 49152 and destination_port == 443 and len(payload) >= 5 and \
+                    payload[0:3] == b"\x16\x03\x03":
+                self.events["client_hello"] += 1
             return
         if protocol != 17:
             return
