@@ -361,6 +361,8 @@ static uint32_t vfs_rename_requests;
 /* Nombre volatile de transactions privées terminées localement après disparition
  * ou remplacement du PID publié par le worker virtuel. */
 static uint32_t vfs_virtual_recoveries;
+/* Nombre volatile de workers publiés mais silencieux au-delà du budget local. */
+static uint32_t vfs_virtual_timeouts;
 /* Génération volatile des contenus et de la table de montages. Elle n’est ni
  * persistante ni atomique : elle avertit seulement le client d’une mutation
  * visible entre deux pages. */
@@ -371,6 +373,7 @@ static uint32_t vfs_list_generation = 1U;
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
+#define VFS_VIRTUAL_PENDING_TURNS_MAX 8U
 
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size);
 
@@ -383,6 +386,7 @@ typedef struct {
     uint32_t request_id;
     uint32_t mount_index;
     uint32_t mount_written;
+    uint32_t turns;
     uint8_t mount_data[OS_VFS_READ_MAX];
 } vfs_virtual_pending_t;
 static vfs_virtual_pending_t vfs_virtual_pending;
@@ -396,6 +400,7 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.request_id = 0U;
     vfs_virtual_pending.mount_index = 0U;
     vfs_virtual_pending.mount_written = 0U;
+    vfs_virtual_pending.turns = 0U;
 }
 
 static int vfs_virtual_lookup(void) {
@@ -414,6 +419,7 @@ static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id
     vfs_virtual_pending.request_id = request_id;
     vfs_virtual_pending.mount_index = 0U;
     vfs_virtual_pending.mount_written = 0U;
+    vfs_virtual_pending.turns = 0U;
     return 0;
 }
 
@@ -488,6 +494,23 @@ static int vfs_virtual_recover_if_worker_missing(os_ipc_payload_t* reply_payload
     return 0;
 }
 
+static int vfs_virtual_recover_if_timed_out(os_ipc_payload_t* reply_payload) {
+    if (!vfs_virtual_pending.active ||
+        vfs_virtual_pending.turns < VFS_VIRTUAL_PENDING_TURNS_MAX) return 0;
+    if (vfs_virtual_reply_local(reply_payload)) {
+        vfs_virtual_timeouts++;
+        return 1;
+    }
+    return 0;
+}
+
+static void vfs_virtual_advance_turn(void) {
+    if (vfs_virtual_pending.active &&
+        vfs_virtual_pending.turns < VFS_VIRTUAL_PENDING_TURNS_MAX) {
+        vfs_virtual_pending.turns++;
+    }
+}
+
 static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_t* reply_payload) {
     uint8_t data[OS_VFS_READ_MAX];
     uint32_t size = 0U;
@@ -498,10 +521,10 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
         message->type != OS_IPC_VFS_WORKER_READ_REPLY) return 0;
     parsed = os_vfs_parse_worker_read_reply(message, &status, data, &size,
                                             vfs_virtual_pending.request_id);
-    if (parsed != OS_VFS_STATUS_OK) {
-        status = OS_VFS_STATUS_INVALID;
-        size = 0U;
-    }
+    /* Un worker repris peut vider après coup une requête expirée. Le PID et le
+     * type sont valides, mais un request_id discordant ne doit jamais terminer
+     * la nouvelle transaction : il est simplement écarté. */
+    if (parsed != OS_VFS_STATUS_OK) return 0;
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNTS) {
         os_ipc_payload_t payload;
         uint32_t i;
@@ -615,6 +638,8 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
         }
         i = append_text(data, i, " recoveries=");
         i = append_uint(data, i, vfs_virtual_recoveries);
+        i = append_text(data, i, " timeouts=");
+        i = append_uint(data, i, vfs_virtual_timeouts);
         data[i++] = (uint8_t)'\n';
         *size = i;
         return 1;
@@ -877,6 +902,11 @@ void main(void) {
         }
         if (vfs_virtual_recover_if_worker_missing(&reply_payload)) {
             puts("vfsserver virtual worker fallback local\n");
+        } else {
+            vfs_virtual_advance_turn();
+            if (vfs_virtual_recover_if_timed_out(&reply_payload)) {
+                puts("vfsserver virtual worker timeout local\n");
+            }
         }
         if (received == 0 && message.type == OS_IPC_VFS_LIST) {
             int status;
