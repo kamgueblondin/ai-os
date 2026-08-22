@@ -3744,7 +3744,8 @@ static void cmd_vfs_list_observe(shell_context_t* ctx, char args[][128], int arg
     if (rc != 0) { print_error("vfs-list-observe: argument invalide"); ctx->last_rc = rc; return; }
     rc = sys_ipc_send(pid, &request);
     if (rc != 0) { print_error("vfs-list-observe: service indisponible"); ctx->last_rc = rc; return; }
-    rc = wait_ipc_reply(pid, OS_IPC_VFS_LIST_OBSERVE_REPLY, request_id, &message);
+    rc = wait_ipc_reply_turns(pid, OS_IPC_VFS_LIST_OBSERVE_REPLY, request_id, &message,
+                              VFS_READ_REPLY_WAIT_TURNS);
     if (rc == 0) rc = os_vfs_parse_list_observe_reply(&message, &reply, request_id);
 
     if (rc != 0) { print_error("vfs-list-observe: reponse VFS absente ou invalide"); ctx->last_rc = rc; return; }

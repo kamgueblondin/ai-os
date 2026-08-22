@@ -371,6 +371,7 @@ static uint32_t vfs_list_generation = 1U;
 #define VFS_VIRTUAL_PENDING_SIMPLE 0U
 #define VFS_VIRTUAL_PENDING_MOUNTS 1U
 #define VFS_VIRTUAL_PENDING_MOUNT_PAGE 2U
+#define VFS_VIRTUAL_PENDING_MOUNT_OBSERVE 3U
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
@@ -488,6 +489,24 @@ static int vfs_virtual_submit_mount_page(uint32_t start, int client_pid, uint32_
     return 0;
 }
 
+static int vfs_virtual_submit_mount_observe(uint32_t start, int client_pid, uint32_t request_id) {
+    os_ipc_payload_t payload;
+    int worker_pid;
+    if (vfs_virtual_pending.active) return -1;
+    if (start >= vfs_mount_count) return -2;
+    worker_pid = vfs_virtual_lookup();
+    if (worker_pid < 0) return -3;
+    if (os_vfs_make_worker_mount_request(&payload, vfs_mounts[start].prefix,
+                                         vfs_mounts[start].source == OS_VFS_MOUNT_SOURCE_OVERLAY,
+                                         request_id) != OS_VFS_STATUS_OK) return -4;
+    if (ipc_send(worker_pid, &payload) != 0) return -5;
+    if (vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_MOUNT_OBSERVE,
+                          VFS_VIRTUAL_VIEW_MOUNTS) != 0) return -6;
+    vfs_virtual_pending.mount_start = start;
+    vfs_virtual_pending.mount_index = start;
+    return 0;
+}
+
 static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
     static const char info_path[] = "vfs-info";
     static const char stats_path[] = "vfs-stats";
@@ -504,6 +523,20 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
                                               &next_start);
         if (os_vfs_make_list_page_reply(reply_payload, status, count, next_start, data, size,
                                         vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_OBSERVE) {
+        uint32_t count = 0U;
+        uint32_t next_start = OS_VFS_LIST_PAGE_END;
+        int status = list_virtual_mounts_page(vfs_virtual_pending.mount_start, data,
+                                              OS_VFS_LIST_OBSERVE_DATA_MAX, &size, &count,
+                                              &next_start);
+        if (os_vfs_make_list_observe_reply(reply_payload, status, count, next_start,
+                                           vfs_list_generation, data, size,
+                                           vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
             (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
         }
         vfs_virtual_reset();
@@ -562,14 +595,17 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
      * type sont valides, mais un request_id discordant ne doit jamais terminer
      * la nouvelle transaction : il est simplement écarté. */
     if (parsed != OS_VFS_STATUS_OK) return 0;
-    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE) {
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_OBSERVE) {
         os_ipc_payload_t payload;
         uint32_t count;
         uint32_t next_start;
+        uint32_t data_max = vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_OBSERVE
+            ? OS_VFS_LIST_OBSERVE_DATA_MAX : OS_VFS_LIST_PAGE_DATA_MAX;
         int32_t page_status;
         uint32_t i;
         if (status != OS_VFS_STATUS_OK ||
-            size > OS_VFS_LIST_PAGE_DATA_MAX - vfs_virtual_pending.mount_written) {
+            size > data_max - vfs_virtual_pending.mount_written) {
             return vfs_virtual_reply_local(reply_payload);
         }
         for (i = 0U; i < size; i++) {
@@ -592,10 +628,17 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
             ? vfs_virtual_pending.mount_index : OS_VFS_LIST_PAGE_END;
         page_status = next_start == OS_VFS_LIST_PAGE_END
             ? OS_VFS_STATUS_OK : OS_VFS_STATUS_TRUNCATED;
-        if (os_vfs_make_list_page_reply(reply_payload, page_status, count, next_start,
-                                        vfs_virtual_pending.mount_data,
-                                        vfs_virtual_pending.mount_written,
-                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+        if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_OBSERVE) {
+            if (os_vfs_make_list_observe_reply(reply_payload, page_status, count, next_start,
+                                               vfs_list_generation, vfs_virtual_pending.mount_data,
+                                               vfs_virtual_pending.mount_written,
+                                               vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+            }
+        } else if (os_vfs_make_list_page_reply(reply_payload, page_status, count, next_start,
+                                               vfs_virtual_pending.mount_data,
+                                               vfs_virtual_pending.mount_written,
+                                               vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
             (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
         }
         vfs_virtual_reset();
@@ -1037,12 +1080,19 @@ void main(void) {
             if (status == 0 && expected_generation != 0U && expected_generation != vfs_list_generation) {
                 status = OS_VFS_STATUS_STALE;
             }
-            if (status == 0) {
-                status = string_equal(path, "vfs-mounts")
-                    ? list_virtual_mounts_page(start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
-                                               &size, &count, &next_start)
-                    : list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
-                                                &size, &count, &next_start);
+            if (status == 0 && string_equal(path, "vfs-mounts")) {
+                status = vfs_virtual_submit_mount_observe(start, message.sender_pid, message.request_id);
+                if (status == 0) {
+                    puts("vfsserver delegated mount observe\n");
+                    yield();
+                    continue;
+                }
+                status = list_virtual_mounts_page(start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                                  &size, &count, &next_start);
+                puts("vfsserver virtual mount observe local\n");
+            } else if (status == 0) {
+                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                                   &size, &count, &next_start);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list observe outside mounts\n");
             }
             if (os_vfs_make_list_observe_reply(&reply_payload, status, count, next_start,
