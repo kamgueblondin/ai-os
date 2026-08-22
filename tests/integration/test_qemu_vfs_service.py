@@ -319,6 +319,10 @@ def main():
             wait_for("vfsvirtual format stats", proc, before_initial_stats)
             wait_for("reads=1", proc, before_initial_stats)
             wait_for("writes=0", proc, before_initial_stats)
+            before_worker_initial_health = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
+            wait_for("vfsvirtual ready pid=%s recoveries=0" % worker_pid, proc,
+                     before_worker_initial_health)
             wait_for("removes=0", proc, before_initial_stats)
             wait_for("renames=0", proc, before_initial_stats)
             before_direct_write = len(log_text())
@@ -436,6 +440,9 @@ def main():
             before_worker_missing = len(log_text())
             send_command_until(monitor, "service-find vfs-virtual",
                                "service-find: service indisponible", proc)
+            before_worker_missing_health = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
+            wait_for("vfsvirtual missing recoveries=0", proc, before_worker_missing_health)
             before_worker_fallback = len(log_text())
             send_command_until(monitor, "vfs-read vfs-info", "vfsserver virtual vfs-info local", proc)
             wait_for("vfsserver ring3 policy", proc, before_worker_fallback)
@@ -450,6 +457,10 @@ def main():
             wait_for("vfsvirtual ready", proc, before_worker_restart)
             send_command_until(monitor, "service-find vfs-virtual",
                                "service-find ok vfs-virtual %s" % worker_pid, proc)
+            before_worker_restart_health = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
+            wait_for("vfsvirtual ready pid=%s recoveries=0" % worker_pid, proc,
+                     before_worker_restart_health)
             before_worker_recovered = len(log_text())
             send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
             wait_for("vfsvirtual read vfs-info", proc, before_worker_recovered)
@@ -476,6 +487,9 @@ def main():
             send_command(monitor, "yield", proc)
             wait_for("vfsserver virtual worker fallback local", proc, before_worker_inflight_stop)
             wait_for("vfsflight local reply ok", proc, before_worker_inflight_stop)
+            before_worker_inflight_health = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
+            wait_for("vfsvirtual missing recoveries=1", proc, before_worker_inflight_health)
             before_flight_stop = len(log_text())
             send_command_until(monitor, "kill %s" % flight_pid,
                                "Processus %s termine" % flight_pid, proc)
@@ -490,6 +504,10 @@ def main():
             wait_for("vfsvirtual ready", proc, before_worker_inflight_restart)
             send_command_until(monitor, "service-find vfs-virtual",
                                "service-find ok vfs-virtual %s" % worker_pid, proc)
+            before_worker_inflight_restart_health = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
+            wait_for("vfsvirtual ready pid=%s recoveries=1" % worker_pid, proc,
+                     before_worker_inflight_restart_health)
             before_worker_inflight_recovered = len(log_text())
             send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
             wait_for("vfsvirtual read vfs-info", proc, before_worker_inflight_recovered)
