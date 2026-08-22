@@ -194,6 +194,16 @@ static inline int os_vfs_list_path_is_valid(const char* path) {
     return i > 0U && path[i - 1U] == '/';
 }
 
+/* La pagination peut aussi observer la table virtuelle de montages. Cette
+ * exception ne s’applique ni aux listes ordinaires ni aux chemins physiques. */
+static inline int os_vfs_list_page_path_is_valid(const char* path) {
+    if (os_vfs_list_path_is_valid(path)) return 1;
+    return path && path[0] == 'v' && path[1] == 'f' && path[2] == 's' &&
+           path[3] == '-' && path[4] == 'm' && path[5] == 'o' &&
+           path[6] == 'u' && path[7] == 'n' && path[8] == 't' &&
+           path[9] == 's' && path[10] == '\0';
+}
+
 static inline int os_vfs_match_mount(const char* path, const char* mount,
                                      const char** relative_out) {
     uint32_t i = 0U;
@@ -259,7 +269,7 @@ static inline int os_vfs_parse_list_request(const os_ipc_message_t* message, cha
 static inline int os_vfs_make_list_page_request(os_ipc_payload_t* payload, const char* path,
                                                 uint32_t start, uint32_t request_id) {
     uint32_t i;
-    if (!payload || !os_vfs_list_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
+    if (!payload || !os_vfs_list_page_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
     payload->type = OS_IPC_VFS_LIST_PAGE;
     payload->size = OS_VFS_LIST_PAGE_REQUEST_SIZE;
     payload->request_id = request_id;
@@ -278,7 +288,7 @@ static inline int os_vfs_parse_list_page_request(const os_ipc_message_t* message
     if (!message || !path_out || !start_out || message->type != OS_IPC_VFS_LIST_PAGE ||
         message->size != OS_VFS_LIST_PAGE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
-    if (!os_vfs_list_path_is_valid(path_out)) return OS_VFS_STATUS_INVALID;
+    if (!os_vfs_list_page_path_is_valid(path_out)) return OS_VFS_STATUS_INVALID;
     *start_out = (uint32_t)message->data[48] | ((uint32_t)message->data[49] << 8) |
                  ((uint32_t)message->data[50] << 16) | ((uint32_t)message->data[51] << 24);
     return 0;
