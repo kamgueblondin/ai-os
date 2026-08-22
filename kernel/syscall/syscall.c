@@ -318,11 +318,17 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_FAT16_LIST:
             cpu->eax = (uint32_t)sys_fat16_list((os_fat16_dirent_t*)cpu->ebx, cpu->ecx);
             break;
+        case SYS_FAT16_LIST_PAGE:
+            cpu->eax = (uint32_t)sys_fat16_list_page((os_fat16_dirent_t*)cpu->ebx, cpu->ecx, cpu->edx);
+            break;
         case SYS_FAT32_READ:
             cpu->eax = (uint32_t)sys_fat32_read((const char*)cpu->ebx, (char*)cpu->ecx, cpu->edx);
             break;
         case SYS_FAT32_LIST:
             cpu->eax = (uint32_t)sys_fat32_list((os_fat16_dirent_t*)cpu->ebx, cpu->ecx);
+            break;
+        case SYS_FAT32_LIST_PAGE:
+            cpu->eax = (uint32_t)sys_fat32_list_page((os_fat16_dirent_t*)cpu->ebx, cpu->ecx, cpu->edx);
             break;
         case SYS_SOCKET_OPEN:
             cpu->eax = (uint32_t)sys_socket_open((uint16_t)cpu->ebx, (uint16_t)cpu->ecx, cpu->edx);
@@ -631,6 +637,12 @@ int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
     return fat16_list_root(fat16_root(), out, capacity);
 }
 
+int sys_fat16_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
+    return fat16_list_root_page(fat16_root(), start, out, capacity);
+}
+
 int sys_fat32_read(const char* name, char* buffer, uint32_t max) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
     if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
@@ -643,6 +655,11 @@ int sys_fat32_list(os_fat16_dirent_t* out, uint32_t capacity) {
     return fat32_list_root(fat32_root(), out, capacity);
 }
 
+int sys_fat32_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
+    return fat32_list_root_page(fat32_root(), start, out, capacity);
+}
 static int syscall_user_range(const void* pointer, uint32_t length, int write) {
     uint32_t start, end, address;
     page_t* page;

@@ -887,6 +887,21 @@ static void test_mount_list_and_read(void) {
     TEST_ASSERT_EQUAL_STRING("hello", content);
 }
 
+static void test_lists_root_page_after_first_entry(void) {
+    fat16_volume_t volume;
+    os_fat16_dirent_t entries[2];
+    uint8_t data[1] = {'2'};
+    uint16_t first = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "SECOND.TXT", 0x20U,
+                                           data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(1, fat16_list_root_page(&volume, 1U, entries, 2U));
+    TEST_ASSERT_EQUAL_STRING("SECOND.TXT", entries[0].name);
+    TEST_ASSERT_EQUAL(0, fat16_list_root_page(&volume, 2U, entries, 2U));
+}
+
 static void test_reads_bounded_file_range(void) {
     fat16_volume_t volume;
     uint8_t content[4] = {0U, 0U, 0U, 0U};
@@ -1199,6 +1214,7 @@ static void test_rejects_bad_name_and_small_buffer(void) {
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
+    RUN_TEST(test_lists_root_page_after_first_entry);
     RUN_TEST(test_loads_gpt2_from_fat16);
     RUN_TEST(test_indexes_gpt2_header_from_fat16);
     RUN_TEST(test_executes_q4_block_from_fat16);

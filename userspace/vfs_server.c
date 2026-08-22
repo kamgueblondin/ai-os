@@ -118,6 +118,13 @@ static int backend_fat16_listdir(const char* path, os_dirent_t* out, int max_n) 
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST), "b"(out), "c"(max_n));
     return result;
 }
+static int backend_fat16_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    int result;
+    if (!path || path[0] != '/' || path[1] != '\0') return -1;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PAGE), "b"(out),
+                 "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+    return result;
+}
 static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
     int count, i;
@@ -138,6 +145,13 @@ static int backend_fat32_listdir(const char* path, os_dirent_t* out, int max_n) 
     int result;
     if (!path || path[0] != '/' || path[1] != '\0') return -1;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST), "b"(out), "c"(max_n));
+    return result;
+}
+static int backend_fat32_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
+    int result;
+    if (!path || path[0] != '/' || path[1] != '\0') return -1;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PAGE), "b"(out),
+                 "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
     return result;
 }
 static int backend_fat32_stat(const char* path, os_dirent_t* out) {
@@ -517,9 +531,9 @@ static int list_mounted_backend_page(const char* path, uint32_t start, uint8_t* 
         listed = vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_INITRD
             ? backend_initrd_listdir_page(relative, entries, start)
             : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT16
-                ? backend_fat16_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+                ? backend_fat16_listdir_page(relative, entries, start)
                 : (vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_FAT32
-                    ? backend_fat32_listdir(relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+                    ? backend_fat32_listdir_page(relative, entries, start)
                     : backend_overlay_listdir_page(relative, entries, start)));
         if (listed < 0) return listed;
         for (uint32_t entry_index = 0U;

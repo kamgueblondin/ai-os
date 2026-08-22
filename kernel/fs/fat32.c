@@ -474,16 +474,19 @@ int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, 
     return OS_FAT16_NOT_FOUND;
 }
 
-int fat32_list_root(const fat32_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
+int fat32_list_root_page(const fat32_volume_t* v, uint32_t start,
+                         os_fat16_dirent_t* out, uint32_t capacity) {
     uint8_t entry[32], lfn_sum = 0U, expected = 0U, valid = 0U;
     uint16_t lfn_units[OS_NAME_MAX];
     uint32_t count = 0U;
+    uint32_t seen = 0U;
     if (!v || !out || capacity == 0U || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
     for (uint32_t i = 0U; i < v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U; i++) {
         if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break;
         if (entry[0] == 0xe5U) { valid = 0U; continue; }
         if (entry[11] == 0x0fU) { uint8_t ord = entry[0] & 0x1fU; if (entry[0] & 0x40U) { if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; } for (uint32_t j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U; lfn_sum = entry[13]; expected = ord; valid = 1U; } if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; } fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX); fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX); fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX); expected--; continue; }
         if (entry[11] & 0x08U) { valid = 0U; continue; }
+        if (seen++ < start) { valid = 0U; continue; }
         if (count >= capacity) return (int)count;
         if (!(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum &&
               lfn_utf16_bmp_to_utf8(lfn_units, OS_NAME_MAX, out[count].name, OS_NAME_MAX) >= 0)) {
@@ -498,4 +501,8 @@ int fat32_list_root(const fat32_volume_t* v, os_fat16_dirent_t* out, uint32_t ca
         out[count].size = le32(entry + 28U); out[count].flags = (entry[11] & 0x10U) ? OS_DIRENT_DIR : OS_DIRENT_FILE; count++; valid = 0U;
     }
     return (int)count;
+}
+
+int fat32_list_root(const fat32_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
+    return fat32_list_root_page(v, 0U, out, capacity);
 }
