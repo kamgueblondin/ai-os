@@ -35,7 +35,7 @@ def wait_for(needle, proc, offset=0, timeout=15):
             raise RuntimeError("QEMU s'est arrêté prématurément")
         # Les diagnostics timer asynchrones peuvent couper une ligne applicative
         # sans modifier le protocole VFS ; ils ne font pas partie du contrat testé.
-        output = re.sub(r"TIMER_ALIVE: tick=[^\\n]*\\n", "", log_text()[offset:])
+        output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[offset:])
         if needle in output:
             return
         time.sleep(0.1)
@@ -454,6 +454,46 @@ def main():
             send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
             wait_for("vfsvirtual read vfs-info", proc, before_worker_recovered)
             wait_for("vfsserver ring3 policy", proc, before_worker_recovered)
+            before_worker_suspend = len(log_text())
+            send_command_until(monitor, "task-suspend %s" % worker_pid,
+                               "task-suspend ok %s" % worker_pid, proc)
+            before_flight_spawn = len(log_text())
+            send_command_until(monitor, "spawn vfsflight", "spawn ok pid", proc)
+            flight_spawned = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsflight",
+                                       log_text()[before_flight_spawn:])
+            if not flight_spawned:
+                raise RuntimeError("client VFS en vol non lance")
+            flight_pid = flight_spawned.group(1)
+            send_command(monitor, "yield", proc)
+            send_command(monitor, "yield", proc)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsflight waiting vfs-info", proc, before_flight_spawn)
+            wait_for("vfsserver delegated vfs-info", proc, before_flight_spawn)
+            before_worker_inflight_stop = len(log_text())
+            send_command_until(monitor, "kill %s" % worker_pid,
+                               "Processus %s termine" % worker_pid, proc)
+            send_command(monitor, "yield", proc)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsserver virtual worker fallback local", proc, before_worker_inflight_stop)
+            wait_for("vfsflight local reply ok", proc, before_worker_inflight_stop)
+            before_flight_stop = len(log_text())
+            send_command_until(monitor, "kill %s" % flight_pid,
+                               "Processus %s termine" % flight_pid, proc)
+            before_worker_inflight_restart = len(log_text())
+            send_command_until(monitor, "spawn vfsvirtual", "spawn ok pid", proc)
+            worker_restarted_inflight = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsvirtual",
+                                                  log_text()[before_worker_inflight_restart:])
+            if not worker_restarted_inflight:
+                raise RuntimeError("worker virtuel VFS en vol non relance")
+            worker_pid = worker_restarted_inflight.group(1)
+            send_command(monitor, "yield", proc)
+            wait_for("vfsvirtual ready", proc, before_worker_inflight_restart)
+            send_command_until(monitor, "service-find vfs-virtual",
+                               "service-find ok vfs-virtual %s" % worker_pid, proc)
+            before_worker_inflight_recovered = len(log_text())
+            send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
+            wait_for("vfsvirtual read vfs-info", proc, before_worker_inflight_recovered)
+            wait_for("vfsserver ring3 policy", proc, before_worker_inflight_recovered)
             before_initrd_stat = len(log_text())
             send_command_until(monitor, "vfs-stat initrd/hello.txt", "vfs-stat ok size 35 flags file", proc)
             wait_for("vfs-stat ok size 35 flags file", proc, before_initrd_stat)
@@ -534,7 +574,8 @@ def main():
             before_final_stats = len(log_text())
             send_command_until(monitor, "vfs-stats", "vfsserver delegated vfs-stats", proc)
             wait_for("vfsvirtual format stats", proc, before_final_stats)
-            wait_for("reads=1", proc, before_final_stats)
+            # `vfsflight` ajoute une lecture publique corrélée au scénario de reprise en vol.
+            wait_for("reads=2", proc, before_final_stats)
             wait_for("writes=", proc, before_final_stats)
             wait_for("removes=", proc, before_final_stats)
             wait_for("renames=", proc, before_final_stats)

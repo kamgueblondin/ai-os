@@ -365,10 +365,16 @@ static uint32_t vfs_list_generation = 1U;
 
 #define VFS_VIRTUAL_PENDING_SIMPLE 0U
 #define VFS_VIRTUAL_PENDING_MOUNTS 1U
+#define VFS_VIRTUAL_VIEW_INFO 0U
+#define VFS_VIRTUAL_VIEW_STATS 1U
+#define VFS_VIRTUAL_VIEW_MOUNTS 2U
+
+static int read_virtual(const char* path, uint8_t* data, uint32_t* size);
 
 typedef struct {
     uint32_t active;
     uint32_t kind;
+    uint32_t view;
     int worker_pid;
     int client_pid;
     uint32_t request_id;
@@ -381,6 +387,7 @@ static vfs_virtual_pending_t vfs_virtual_pending;
 static void vfs_virtual_reset(void) {
     vfs_virtual_pending.active = 0U;
     vfs_virtual_pending.kind = VFS_VIRTUAL_PENDING_SIMPLE;
+    vfs_virtual_pending.view = VFS_VIRTUAL_VIEW_INFO;
     vfs_virtual_pending.worker_pid = -1;
     vfs_virtual_pending.client_pid = -1;
     vfs_virtual_pending.request_id = 0U;
@@ -393,10 +400,12 @@ static int vfs_virtual_lookup(void) {
     return worker_pid > 0 ? worker_pid : -1;
 }
 
-static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id, uint32_t kind) {
+static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id, uint32_t kind,
+                             uint32_t view) {
     if (vfs_virtual_pending.active) return -1;
     vfs_virtual_pending.active = 1U;
     vfs_virtual_pending.kind = kind;
+    vfs_virtual_pending.view = view;
     vfs_virtual_pending.worker_pid = worker_pid;
     vfs_virtual_pending.client_pid = client_pid;
     vfs_virtual_pending.request_id = request_id;
@@ -413,7 +422,8 @@ static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request
     if (worker_pid < 0) return -2;
     if (os_vfs_make_worker_read_request(&payload, path, request_id) != OS_VFS_STATUS_OK) return -3;
     if (ipc_send(worker_pid, &payload) != 0) return -4;
-    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_SIMPLE);
+    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_SIMPLE,
+                             VFS_VIRTUAL_VIEW_INFO);
 }
 
 static int vfs_virtual_submit_stats(int client_pid, uint32_t request_id) {
@@ -426,7 +436,8 @@ static int vfs_virtual_submit_stats(int client_pid, uint32_t request_id) {
                                          vfs_remove_requests, vfs_rename_requests, request_id)
         != OS_VFS_STATUS_OK) return -3;
     if (ipc_send(worker_pid, &payload) != 0) return -4;
-    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_SIMPLE);
+    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_SIMPLE,
+                             VFS_VIRTUAL_VIEW_STATS);
 }
 
 static int vfs_virtual_submit_mounts(int client_pid, uint32_t request_id) {
@@ -440,7 +451,34 @@ static int vfs_virtual_submit_mounts(int client_pid, uint32_t request_id) {
                                          vfs_mounts[0].source == OS_VFS_MOUNT_SOURCE_OVERLAY,
                                          request_id) != OS_VFS_STATUS_OK) return -4;
     if (ipc_send(worker_pid, &payload) != 0) return -5;
-    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_MOUNTS);
+    return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_MOUNTS,
+                             VFS_VIRTUAL_VIEW_MOUNTS);
+}
+
+static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
+    static const char info_path[] = "vfs-info";
+    static const char stats_path[] = "vfs-stats";
+    static const char mounts_path[] = "vfs-mounts";
+    uint8_t data[OS_VFS_READ_MAX];
+    uint32_t size = 0U;
+    const char* path = info_path;
+    if (!reply_payload || !vfs_virtual_pending.active) return 0;
+    if (vfs_virtual_pending.view == VFS_VIRTUAL_VIEW_STATS) path = stats_path;
+    else if (vfs_virtual_pending.view == VFS_VIRTUAL_VIEW_MOUNTS) path = mounts_path;
+    if (read_virtual(path, data, &size) &&
+        os_vfs_make_read_reply(reply_payload, OS_VFS_STATUS_OK, data, size,
+                               vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+        (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+    }
+    vfs_virtual_reset();
+    return 1;
+}
+
+/* Le registre est purgé à la terminaison. Dès que le PID publié n’est plus
+ * celui de la transaction, le médiateur termine localement la réponse bornée. */
+static int vfs_virtual_recover_if_worker_missing(os_ipc_payload_t* reply_payload) {
+    if (!vfs_virtual_pending.active || vfs_virtual_lookup() == vfs_virtual_pending.worker_pid) return 0;
+    return vfs_virtual_reply_local(reply_payload);
 }
 
 static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_t* reply_payload) {
@@ -488,11 +526,7 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
                                                   vfs_mounts[vfs_virtual_pending.mount_index].source == OS_VFS_MOUNT_SOURCE_OVERLAY,
                                                   vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK ||
                 ipc_send(vfs_virtual_pending.worker_pid, &payload) != 0) {
-                if (os_vfs_make_read_reply(reply_payload, OS_VFS_STATUS_INVALID, data, 0U,
-                                           vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
-                    (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
-                }
-                vfs_virtual_reset();
+                return vfs_virtual_reply_local(reply_payload);
             }
             return 1;
         }
@@ -819,6 +853,9 @@ void main(void) {
         if (received == 0 && vfs_virtual_complete(&message, &reply_payload)) {
             yield();
             continue;
+        }
+        if (vfs_virtual_recover_if_worker_missing(&reply_payload)) {
+            puts("vfsserver virtual worker fallback local\n");
         }
         if (received == 0 && message.type == OS_IPC_VFS_LIST) {
             int status;
