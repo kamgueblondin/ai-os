@@ -94,8 +94,15 @@ def main():
                 raise RuntimeError("%s; peer events=%r peer error=%r" %
                                    (error, peer.events, peer.error))
             start = len(text())
+            keys(client, "ai-tls-poll")
+            try:
+                wait_for(proc, "ai-tls-poll: progression TLS publiee", 30, start)
+            except RuntimeError as error:
+                raise RuntimeError("%s; peer events=%r peer error=%r" %
+                                   (error, peer.events, peer.error))
+            start = len(text())
             keys(client, "ai-runtime")
-            wait_for(proc, "Session LLM noyau  : SYN_SENT (NE2000 pret)", 20, start)
+            wait_for(proc, "Session LLM noyau  : TLS_STARTED (NE2000 pret)", 20, start)
             wait_for(proc, "Bail DHCP noyau    : present (routes disponibles)", 20, start)
             deadline = time.monotonic() + 5.0
             while time.monotonic() < deadline and not all(peer.events[name] for name in peer.events):

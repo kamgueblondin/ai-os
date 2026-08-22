@@ -590,7 +590,9 @@ int kernel_llm_poll_tls(void) {
             boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
             boot_llm_tls_hello, sizeof(boot_llm_tls_hello), boot_llm_tcp_segment,
             sizeof(boot_llm_tcp_segment), 2U);
-        return status < 0 ? OS_LLM_TLS_FAILED : status;
+        /* Le bridge retourne la longueur du ClientHello ; l’ABI publique
+         * publie un succès normalisé lorsque la phase TLS est effectivement démarrée. */
+        return status < 0 ? OS_LLM_TLS_FAILED : 0;
     }
     if (rtc_i386_io(&boot_llm_rtc_io) != 0 ||
         rtc_read_utc(&boot_llm_rtc_io, utc_time, sizeof(utc_time)) != 0) return OS_LLM_TLS_FAILED;
