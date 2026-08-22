@@ -59,6 +59,19 @@ def _ipv4_tcp(source_ip, destination_ip, source_port, destination_port, sequence
     return _ipv4_packet(source_ip, destination_ip, 6, bytes(tcp))
 
 
+def _tls_server_hello_record():
+    """Record TLS 1.2 ServerHello minimal, sans certificat ni clé serveur."""
+    hello = bytearray(42)
+    hello[0] = 2
+    hello[3] = 38
+    hello[4:6] = b"\x03\x03"
+    hello[6:38] = bytes(range(32))
+    hello[38] = 0
+    hello[39:41] = b"\xc0\x2b"
+    hello[41] = 0
+    return b"\x16\x03\x03" + struct.pack("!H", len(hello)) + bytes(hello)
+
+
 def _ethernet(destination_mac, ethertype, payload):
     return destination_mac + SERVER_MAC + struct.pack("!H", ethertype) + payload
 
@@ -137,7 +150,9 @@ class ControlledEthernetPeer:
 
     def __init__(self):
         self.events = {"discover": 0, "offer": 0, "request": 0, "ack": 0,
-                       "arp": 0, "dns": 0, "syn": 0, "syn_ack": 0, "client_hello": 0}
+                       "arp": 0, "dns": 0, "syn": 0, "syn_ack": 0, "client_hello": 0,
+                       "server_hello": 0, "server_hello_ack": 0}
+        self.server_sequence = 0x10203041
         self.error = None
         self._stop = threading.Event()
         self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -191,8 +206,10 @@ class ControlledEthernetPeer:
         if (frame[ip_offset] >> 4) != 4:
             return
         header_length = (frame[ip_offset] & 0x0f) * 4
-        if header_length < 20 or len(frame) < ip_offset + header_length:
+        total_length = struct.unpack("!H", frame[ip_offset + 2:ip_offset + 4])[0]
+        if header_length < 20 or total_length < header_length or len(frame) < ip_offset + total_length:
             return
+        ip_end = ip_offset + total_length
         protocol = frame[ip_offset + 9]
         source_ip = frame[ip_offset + 12:ip_offset + 16]
         if protocol == 6:
@@ -203,9 +220,9 @@ class ControlledEthernetPeer:
             sequence = struct.unpack("!I", frame[tcp_offset + 4:tcp_offset + 8])[0]
             flags = frame[tcp_offset + 13]
             tcp_header_length = (frame[tcp_offset + 12] >> 4) * 4
-            if tcp_header_length < 20 or len(frame) < tcp_offset + tcp_header_length:
+            if tcp_header_length < 20 or ip_end < tcp_offset + tcp_header_length:
                 return
-            payload = frame[tcp_offset + tcp_header_length:]
+            payload = frame[tcp_offset + tcp_header_length:ip_end]
             if source_port == 49152 and destination_port == 443 and (flags & 0x12) == 0x02:
                 self.events["syn"] += 1
                 self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
@@ -214,7 +231,15 @@ class ControlledEthernetPeer:
                 self.events["syn_ack"] += 1
             elif source_port == 49152 and destination_port == 443 and len(payload) >= 5 and \
                     payload[0:3] == b"\x16\x03\x03":
+                server_hello = _tls_server_hello_record()
                 self.events["client_hello"] += 1
+                self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
+                    _ipv4_tcp(REMOTE_IP, source_ip, 443, source_port, self.server_sequence,
+                              sequence + len(payload), 0x18, server_hello)))
+                self.server_sequence += len(server_hello)
+                self.events["server_hello"] += 1
+            elif source_port == 49152 and destination_port == 443 and flags == 0x10 and not payload:
+                self.events["server_hello_ack"] += 1
             return
         if protocol != 17:
             return
