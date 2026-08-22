@@ -156,6 +156,7 @@
 - [x] AOS-2103…2108 : redécouverte stricte du worker VFS, repli local vérifié après retrait du service et reprise de délégation après relance QEMU — [aos2103_2108_vfs_worker_resilience.md](aos2103_2108_vfs_worker_resilience.md)
 - [x] AOS-2109…2114 : récupération bornée d’une transaction privée VFS active après disparition du worker, réponse locale corrélée et redélégation QEMU — [aos2109_2114_vfs_worker_inflight_recovery.md](aos2109_2114_vfs_worker_inflight_recovery.md)
 - [x] AOS-2115…2120 : vue locale `vfs-worker`, PID publié/absence et compteur volatile des récupérations en vol, validés dans le contrat QEMU — [aos2115_2120_vfs_worker_health.md](aos2115_2120_vfs_worker_health.md)
+- [x] AOS-2121…2126 : expiration coopérative d’un worker VFS vivant mais silencieux après quatre tours du médiateur, repli local corrélé et compteur `timeouts` vérifiés sous QEMU — [aos2121_2126_vfs_worker_timeout.md](aos2121_2126_vfs_worker_timeout.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
