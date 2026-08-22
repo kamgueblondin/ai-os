@@ -394,9 +394,11 @@ static void fat16_lfn_get(uint8_t* entry, uint32_t offset, uint32_t pos,
     }
 }
 
-int fat16_list_root(const fat16_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
+int fat16_list_root_page(const fat16_volume_t* v, uint32_t start,
+                         os_fat16_dirent_t* out, uint32_t capacity) {
     uint32_t i;
     uint32_t count = 0U;
+    uint32_t seen = 0U;
     uint8_t entry[FAT16_ENTRY_SIZE];
     char lfn[OS_NAME_MAX];
     uint16_t lfn_units[OS_NAME_MAX];
@@ -425,6 +427,7 @@ int fat16_list_root(const fat16_volume_t* v, os_fat16_dirent_t* out, uint32_t ca
             continue;
         }
         if ((entry[11] & 0x08U) != 0U) { lfn_valid = 0U; continue; }
+        if (seen++ < start) { lfn_valid = 0U; continue; }
         if (count >= capacity) return (int)count;
         if (!(lfn_valid && lfn_expected == 0U && fat16_lfn_checksum(entry) == lfn_sum &&
               lfn_utf16_bmp_to_utf8(lfn_units, OS_NAME_MAX, lfn, OS_NAME_MAX) >= 0)) {
@@ -549,10 +552,13 @@ int fat16_read_file(const fat16_volume_t* v, const char* name, char* buffer, uin
     return (int)copied;
 }
 
+int fat16_list_root(const fat16_volume_t* v, os_fat16_dirent_t* out, uint32_t capacity) {
+    return fat16_list_root_page(v, 0U, out, capacity);
+}
+
 const char* fat16_status(void) {
     return status_text;
 }
-
 
 int fat16_read_file_range(const fat16_volume_t* v, const char* name,
                           uint32_t offset, uint8_t* buffer, uint32_t max,

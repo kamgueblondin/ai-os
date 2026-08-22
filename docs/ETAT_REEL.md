@@ -10,10 +10,10 @@
 
 | Domaine | État au 22 août 2026 |
 |---|---|
-| FAT16/FAT32 | FAT16 et FAT32 valident leurs BPB, lisent les fichiers et listes de racine ; FAT32 lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et gère les LFN UTF-8/UTF-16LE bornés. Les deux volumes sont accessibles au VFS en lecture seule. |
+| FAT16/FAT32 | FAT16 et FAT32 valident leurs BPB, lisent les fichiers et listes de racine ; leurs primitives de pagination native parcourent les entrées logiques, y compris LFN, et sont relayées au VFS Ring 3. FAT32 lit et écrit les FAT 28 bits répliquées, alloue et chaîne les clusters, crée des fichiers avec rollback, étend la chaîne racine et gère les LFN UTF-8/UTF-16LE bornés. Les deux volumes sont accessibles au VFS en lecture seule. |
 | LFN FAT32 | Le checksum 8.3, la publication multi-entrée, la reconstruction, la lecture par nom long, le renommage et la suppression sont livrés. La conversion UTF-8/UTF-16LE couvre les caractères BMP et les paires substituts ; le VFS expose FAT32 en lecture, listage et statut. |
 | Réseau utilisateur | Le registre TCP statique expose le cycle actif et passif ; les syscalls 99–108 valident les requêtes et buffers page-par-page dans l’espace utilisateur VMM. Les opérations passives `listen`, SYN entrant, SYN-ACK et ACK final sont disponibles. L’émission/réception NE2000 automatique reste à intégrer. |
-| Validation | La suite complète passe **479/479** tests. Le contrat QEMU VFS valide les fixtures FAT16 et FAT32 sur deux disques IDE, leurs alias dynamiques, le listage, la lecture et le statut ; la CI des PR #465 et #466 est verte. |
+| Validation | La suite complète passe **481/481** tests. Le contrat QEMU VFS valide les fixtures FAT16 et FAT32 sur deux disques IDE, leurs alias dynamiques, le listage, la lecture, le statut et le chemin de pagination VFS ; les contrôles de CI antérieurs restent verts. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.

@@ -77,6 +77,9 @@ int fat16_create_lfn_file(const fat16_volume_t* volume, const char* long_name,
                           uint16_t* out_first_cluster);
 int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
                     uint32_t capacity);
+/* Retourne une page de racine à partir d’un index logique, sans allocation. */
+int fat16_list_root_page(const fat16_volume_t* volume, uint32_t start,
+                         os_fat16_dirent_t* out, uint32_t capacity);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
                     char* buffer, uint32_t max);
 /* Lit au plus max octets à partir d’un offset sans charger tout le fichier. */

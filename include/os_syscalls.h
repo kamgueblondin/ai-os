@@ -210,7 +210,11 @@
 #define SYS_FAT32_READ 111
 /* EBX = tableau os_dirent_t, ECX = capacité ; liste de la racine FAT32 esclave. */
 #define SYS_FAT32_LIST 112
-#define MAX_SYSCALLS 111
+/* EBX = tableau os_dirent_t, ECX = capacité, EDX = départ ; page de racine FAT16. */
+#define SYS_FAT16_LIST_PAGE 113
+/* EBX = tableau os_dirent_t, ECX = capacité, EDX = départ ; page de racine FAT32. */
+#define SYS_FAT32_LIST_PAGE 114
+#define MAX_SYSCALLS 114
 
 typedef struct {
     uint16_t source_port;
