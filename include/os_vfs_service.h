@@ -370,7 +370,7 @@ static inline int os_vfs_make_list_observe_request(os_ipc_payload_t* payload, co
                                                    uint32_t start, uint32_t expected_generation,
                                                    uint32_t request_id) {
     uint32_t i;
-    if (!payload || !os_vfs_list_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
+    if (!payload || !os_vfs_list_page_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
     payload->type = OS_IPC_VFS_LIST_OBSERVE;
     payload->size = OS_VFS_LIST_OBSERVE_REQUEST_SIZE;
     payload->request_id = request_id;
@@ -389,7 +389,7 @@ static inline int os_vfs_parse_list_observe_request(const os_ipc_message_t* mess
     if (!message || !path_out || !start_out || !generation_out || message->type != OS_IPC_VFS_LIST_OBSERVE ||
         message->size != OS_VFS_LIST_OBSERVE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
-    if (!os_vfs_list_path_is_valid(path_out)) return OS_VFS_STATUS_INVALID;
+    if (!os_vfs_list_page_path_is_valid(path_out)) return OS_VFS_STATUS_INVALID;
     *start_out = (uint32_t)message->data[48] | ((uint32_t)message->data[49] << 8) |
                  ((uint32_t)message->data[50] << 16) | ((uint32_t)message->data[51] << 24);
     *generation_out = (uint32_t)message->data[52] | ((uint32_t)message->data[53] << 8) |

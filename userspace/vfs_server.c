@@ -668,8 +668,11 @@ void main(void) {
                 status = OS_VFS_STATUS_STALE;
             }
             if (status == 0) {
-                status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
-                                                   &size, &count, &next_start);
+                status = string_equal(path, "vfs-mounts")
+                    ? list_virtual_mounts_page(start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                               &size, &count, &next_start)
+                    : list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                                &size, &count, &next_start);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list observe outside mounts\n");
             }
             if (os_vfs_make_list_observe_reply(&reply_payload, status, count, next_start,

@@ -141,6 +141,7 @@
 - [x] AOS-1989…1996 : alias VFS dynamiques FAT16/FAT32, table statique préservant trois alias, lecture seule et contrat QEMU sur fixture FAT16 — [aos1989_1996_vfs_fat_dynamic_mounts.md](aos1989_1996_vfs_fat_dynamic_mounts.md)
 - [x] AOS-1997…2004 : VFS QEMU multi-disque avec fixtures FAT16/FAT32, quatre alias dynamiques statiques et contrôles de lecture, listage et statut — [aos1997_2004_vfs_fat32_secondary.md](aos1997_2004_vfs_fat32_secondary.md)
 - [x] AOS-2005…2012 : pagination de la source virtuelle `vfs-mounts`, inventaire des huit montages sans dépasser la borne IPC — [aos2005_2012_vfs_mounts_pagination.md](aos2005_2012_vfs_mounts_pagination.md)
+- [x] AOS-2013…2020 : observation cohérente de `vfs-mounts` avec génération, détection d’état obsolète et validation QEMU — [aos2013_2020_vfs_mounts_observe.md](aos2013_2020_vfs_mounts_observe.md)
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
