@@ -493,6 +493,9 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_fat16_create((const char*)cpu->ebx,
                                                        (const char*)cpu->ecx, cpu->edx);
             break;
+        case SYS_VFS_FAT16_UNLINK:
+            cpu->eax = (uint32_t)sys_vfs_fat16_unlink((const char*)cpu->ebx);
+            break;
         case SYS_VFS_INITRD_READ:
             cpu->eax = (uint32_t)sys_vfs_initrd_read((const char*)cpu->ebx,
                                                       (char*)cpu->ecx, cpu->edx);
@@ -908,6 +911,17 @@ int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
     return fat16_create_file(fat16_root(), name, 0x20U, (const uint8_t*)data, size,
                              &first_cluster);
+}
+
+/* Suppression FAT16 explicite : elle ne réutilise pas unlink overlay. Le VFS
+ * fournit exclusivement un nom relatif 8.3 et la capacité mutate est vérifiée
+ * avant de toucher au volume ATA maître monté. */
+int sys_vfs_fat16_unlink(const char* name) {
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!name) return OS_FAT16_BAD_PATH;
+    return fat16_unlink_file(fat16_root(), name);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {

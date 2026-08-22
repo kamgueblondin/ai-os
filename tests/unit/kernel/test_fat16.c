@@ -1034,6 +1034,46 @@ static void test_creates_persistent_file(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_file(&volume, "PERSIST.BIN", 0x20U,
                                                             data, sizeof(data), &first));
 }
+static void test_unlinks_persistent_file_and_reuses_cluster(void) {
+    fat16_volume_t volume;
+    os_fat16_dirent_t entries[4];
+    uint8_t data[600];
+    uint8_t next_data[1] = {'R'};
+    uint8_t trail_data[1] = {'T'};
+    char readback[4] = {0};
+    uint16_t first = 0U;
+    uint32_t i;
+    make_volume();
+    for (i = 0U; i < sizeof(data); i++) data[i] = (uint8_t)(i ^ 0x5AU);
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "PERSIST.BIN", 0x20U,
+                                           data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "TRAIL.BIN", 0x20U,
+                                           trail_data, sizeof(trail_data), &first));
+    TEST_ASSERT_EQUAL(5U, first);
+    TEST_ASSERT_EQUAL(0, fat16_unlink_file(&volume, "persist.bin"));
+    TEST_ASSERT_EQUAL(0xE5U, disk[35U * 512U + 32U]);
+    TEST_ASSERT_EQUAL(0U, le16(1U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0U, le16(1U * 512U + 8U));
+    TEST_ASSERT_EQUAL(0U, le16(18U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0U, le16(18U * 512U + 8U));
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND,
+                      fat16_read_file(&volume, "PERSIST.BIN", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_file(&volume, "TRAIL.BIN", 0x20U,
+                                                            trail_data, sizeof(trail_data), &first));
+    TEST_ASSERT_EQUAL('T', disk[35U * 512U + 64U]);
+    TEST_ASSERT_EQUAL(0U, le16(1U * 512U + 6U));
+    TEST_ASSERT_EQUAL(0U, le16(18U * 512U + 6U));
+    TEST_ASSERT_EQUAL(2, fat16_list_root(&volume, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("FATOK.TXT", entries[0].name);
+    TEST_ASSERT_EQUAL_STRING("TRAIL.BIN", entries[1].name);
+    TEST_ASSERT_EQUAL(0, fat16_create_file(&volume, "REUSE.BIN", 0x20U,
+                                           next_data, sizeof(next_data), &first));
+    TEST_ASSERT_EQUAL(3U, first);
+}
+
 static void test_creates_lfn_file(void) {
     fat16_volume_t volume;
     uint8_t data[3] = {'L', 'F', 'N'};
@@ -1231,6 +1271,7 @@ int main(void) {
     RUN_TEST(test_rejects_bad_name_and_small_buffer);
     RUN_TEST(test_writes_only_with_explicit_writer);
     RUN_TEST(test_creates_persistent_file);
+    RUN_TEST(test_unlinks_persistent_file_and_reuses_cluster);
     RUN_TEST(test_creates_lfn_file);
     RUN_TEST(test_creates_utf8_lfn_file);
     RUN_TEST(test_creates_non_bmp_lfn_file);
