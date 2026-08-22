@@ -591,14 +591,15 @@ static uint32_t next_vfs_request_id(void) {
  * source, le type et l’identifiant : les messages discordants sont conservés
  * dans une file statique pour leur consommateur légitime. */
 #define IPC_REPLY_WAIT_TURNS 8U
-static int wait_ipc_reply(int expected_sender, uint32_t type, uint32_t request_id,
-                          os_ipc_message_t* out) {
+#define VFS_READ_REPLY_WAIT_TURNS 24U
+static int wait_ipc_reply_turns(int expected_sender, uint32_t type, uint32_t request_id,
+                                os_ipc_message_t* out, uint32_t turns) {
     int rc;
     uint32_t attempt;
     if (!out || expected_sender <= 0) return OS_IPC_BAD_MESSAGE;
     rc = os_ipc_deferred_take_matching_from(&ipc_deferred, expected_sender, type,
                                             request_id, out);
-    for (attempt = 0U; attempt < IPC_REPLY_WAIT_TURNS && rc == OS_IPC_EMPTY; attempt++) {
+    for (attempt = 0U; attempt < turns && rc == OS_IPC_EMPTY; attempt++) {
         int saved;
         yield();
         rc = sys_ipc_receive(out);
@@ -610,6 +611,16 @@ static int wait_ipc_reply(int expected_sender, uint32_t type, uint32_t request_i
         }
     }
     return rc;
+}
+
+static int wait_ipc_reply(int expected_sender, uint32_t type, uint32_t request_id,
+                          os_ipc_message_t* out) {
+    return wait_ipc_reply_turns(expected_sender, type, request_id, out, IPC_REPLY_WAIT_TURNS);
+}
+
+static int wait_vfs_read_reply(int expected_sender, uint32_t request_id, os_ipc_message_t* out) {
+    return wait_ipc_reply_turns(expected_sender, OS_IPC_VFS_READ_REPLY, request_id, out,
+                                VFS_READ_REPLY_WAIT_TURNS);
 }
 
 static void print_fs_err(const char* cmd, int rc);
@@ -3551,7 +3562,7 @@ static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count) 
         ctx->last_rc = rc;
         return;
     }
-    rc = wait_ipc_reply(pid, OS_IPC_VFS_READ_REPLY, request_id, &message);
+    rc = wait_vfs_read_reply(pid, request_id, &message);
     if (rc == 0) rc = os_vfs_parse_read_reply(&message, &reply, request_id);
     if (rc != 0) {
         print_error("vfs-read: reponse VFS absente ou invalide");
