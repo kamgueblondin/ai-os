@@ -366,11 +366,17 @@ def main():
             wait_for("media32/ ro", proc, before_mounts)
             before_mount_page_zero = len(log_text())
             send_command_until(monitor, "vfs-list-page vfs-mounts 0", "vfsserver list page request", proc)
+            wait_for("vfsserver delegated mount page", proc, before_mount_page_zero)
             wait_for("vfs-list-page partiel count 4 next 4", proc, before_mount_page_zero)
             wait_for("initrd/ ro", proc, before_mount_page_zero)
+            if log_text()[before_mount_page_zero:].count("vfsvirtual format mount") < 4:
+                raise RuntimeError("formatage worker incomplet de la premiere page de montages")
             before_mount_page_last = len(log_text())
             send_command_until(monitor, "vfs-list-page vfs-mounts 4", "vfsserver list page request", proc)
+            wait_for("vfsserver delegated mount page", proc, before_mount_page_last)
             wait_for("vfs-list-page ok count 4 next end", proc, before_mount_page_last)
+            if log_text()[before_mount_page_last:].count("vfsvirtual format mount") < 4:
+                raise RuntimeError("formatage worker incomplet de la derniere page de montages")
             wait_for("media32/ ro", proc, before_mount_page_last)
             wait_for("media/ ro", proc, before_mount_page_last)
             before_mount_observe = len(log_text())
