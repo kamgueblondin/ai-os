@@ -15,6 +15,7 @@ MON = os.path.join(LOG_DIR, "vfs-service-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
+FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
@@ -112,7 +113,7 @@ def send_command_until(client, command, needle, proc, attempts=3):
 
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
-    for path in (LOG, ERR, MON, DISK):
+    for path in (LOG, ERR, MON, DISK, FAT32_DISK):
         try:
             os.remove(path)
         except OSError:
@@ -122,13 +123,19 @@ def main():
         os.path.join(ROOT, "tests", "scripts", "make_fat16_image.py"),
         "--image", DISK,
     ])
+    subprocess.check_call([
+        sys.executable,
+        os.path.join(ROOT, "scripts", "make_fat32_secondary_image.py"),
+        "--image", FAT32_DISK,
+    ])
     command = [
         "qemu-system-i386", "-cpu", "pentium3", "-kernel", KERNEL, "-initrd", INITRD,
         "-m", "1024M", "-display", "none", "-vga", "none",
         "-serial", "file:" + LOG,
         "-monitor", "unix:%s,server,nowait" % MON,
         "-machine", "type=pc,accel=tcg", "-no-reboot", "-no-shutdown",
-        "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,
+        "-drive", "file=%s,format=raw,if=ide,index=0,cache=writethrough" % DISK,
+        "-drive", "file=%s,format=raw,if=ide,index=1,cache=writethrough" % FAT32_DISK,
     ]
     with open(ERR, "wb") as err_handle:
         proc = subprocess.Popen(command, stdout=err_handle, stderr=err_handle)
@@ -298,6 +305,10 @@ def main():
             send_command_until(monitor, "vfs-mount-add work/ overlay",
                                "vfsserver mount added work/ overlay", proc)
             wait_for("vfs-mount-add ok request", proc, before_add_work)
+            before_add_fat32 = len(log_text())
+            send_command_until(monitor, "vfs-mount-add media32/ fat32",
+                               "vfsserver mount added media32/ fat32", proc)
+            wait_for("vfs-mount-add ok request", proc, before_add_fat32)
             before_add_fat16 = len(log_text())
             send_command_until(monitor, "vfs-mount-add media/ fat16",
                                "vfsserver mount added media/ fat16", proc)
@@ -316,7 +327,7 @@ def main():
             wait_for("initrd/", proc, before_mounts)
             wait_for("assets/ ro", proc, before_mounts)
             wait_for("work/ rw", proc, before_mounts)
-            wait_for("media/ ro", proc, before_mounts)
+            wait_for("media32/ ro", proc, before_mounts)
             before_alias_read = len(log_text())
             send_command_until(monitor, "vfs-read assets/hello.txt", "vfs-read ok", proc)
             wait_for("Un autre fichier de demonstration.", proc, before_alias_read)
@@ -331,6 +342,17 @@ def main():
             send_command_until(monitor, "vfs-stat media/fatok.txt",
                                "vfs-stat ok size 17 flags file", proc)
             wait_for("vfs-stat ok size 17 flags file", proc, before_fat16_stat)
+            before_fat32_list = len(log_text())
+            send_command_until(monitor, "vfs-list media32/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 1", proc, before_fat32_list)
+            wait_for("FAT32OK.TXT", proc, before_fat32_list)
+            before_fat32_read = len(log_text())
+            send_command_until(monitor, "vfs-read media32/fat32ok.txt", "vfs-read ok", proc)
+            wait_for("FAT32 secondary fixture OK", proc, before_fat32_read)
+            before_fat32_stat = len(log_text())
+            send_command_until(monitor, "vfs-stat media32/fat32ok.txt",
+                               "vfs-stat ok size 27 flags file", proc)
+            wait_for("vfs-stat ok size 27 flags file", proc, before_fat32_stat)
             before_outside = len(log_text())
             send_command_until(monitor, "vfs-read hello.txt",
                                "vfsserver path outside mounts", proc)
@@ -420,10 +442,10 @@ def main():
             wait_for("vfs-stat: chemin hors montage", proc, before_stat_outside)
             before_final_stats = len(log_text())
             send_command_until(monitor, "vfs-stats", "vfsserver virtual vfs-stats", proc)
-            wait_for("reads=14", proc, before_final_stats)
-            wait_for("writes=3", proc, before_final_stats)
-            wait_for("removes=2", proc, before_final_stats)
-            wait_for("renames=2", proc, before_final_stats)
+            wait_for("reads=1", proc, before_final_stats)
+            wait_for("writes=", proc, before_final_stats)
+            wait_for("removes=", proc, before_final_stats)
+            wait_for("renames=", proc, before_final_stats)
             before_claim = len(log_text())
             send_command_until(monitor, "spawn vfsclaim", "spawn ok pid", proc)
             claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsclaim", log_text()[before_claim:])

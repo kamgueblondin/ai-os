@@ -235,10 +235,10 @@ static int string_equal(const char* left, const char* right) {
     return left[i] == right[i];
 }
 
-/* Table locale de montages : les entrées de démarrage sont protégées ; trois
+/* Table locale de montages : les entrées de démarrage sont protégées ; quatre
  * alias dynamiques restent possibles. Les noms dynamiques sont bornés pour
  * que la source virtuelle `vfs-mounts` tienne toujours dans 80 octets. */
-#define VFS_MOUNT_MAX 7U
+#define VFS_MOUNT_MAX 8U
 #define VFS_BOOT_MOUNT_COUNT 4U
 #define VFS_DYNAMIC_MOUNT_MAX 13U
 typedef struct {
@@ -339,6 +339,10 @@ static int read_virtual(const char* path, uint8_t* data, uint32_t* size) {
     else if (string_equal(path, "vfs-mounts")) {
         i = 0U;
         for (uint32_t mount_index = 0U; mount_index < vfs_mount_count; mount_index++) {
+            uint32_t prefix_size = 0U;
+            while (vfs_mounts[mount_index].prefix[prefix_size] != '\0') prefix_size++;
+            /* suffixe fixe : espace, droits et saut de ligne. */
+            if (i + prefix_size + 4U > OS_VFS_READ_MAX) break;
             i = append_text(data, i, vfs_mounts[mount_index].prefix);
             i = append_text(data, i, vfs_mounts[mount_index].source == OS_VFS_MOUNT_SOURCE_OVERLAY
                               ? " rw\n" : " ro\n");
