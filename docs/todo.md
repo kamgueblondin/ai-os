@@ -149,10 +149,11 @@
 - [x] AOS-2053…2060 : benchmark GGUF QEMU répétable, rapport JSON de médiane/dispersion et campagne locale de référence sur premier token et continuation — [aos2053_2060_gguf_qemu_latency_benchmark.md](aos2053_2060_gguf_qemu_latency_benchmark.md)
 - [x] AOS-2061…2068 : contrat QEMU isolé du bootstrap LLM NE2000, DHCP/OFFER/REQUEST/ACK, ARP, DNS A et SYN observés ; lecture PROM DMA, PAR strict et ordre RDC/TX régressés — [aos2061_2068_ne2k_qemu_controlled_bootstrap.md](aos2061_2068_ne2k_qemu_controlled_bootstrap.md)
 - [x] AOS-2069…2075 : pair QEMU TCP contrôlé, SYN-ACK checksumé, voisin de prochain saut DHCP conservé pour TLS/HTTP, ClientHello observé et publication Ring 3 `TLS_STARTED` — [aos2069_2075_ne2k_qemu_synack_clienthello.md](aos2069_2075_ne2k_qemu_synack_clienthello.md)
-- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ClientHello, IPC, VFS, services)
+- [x] AOS-2076…2080 : ServerHello TLS 1.2 minimal reçu du pair QEMU, parsing borné au paquet IPv4 et ACK TCP observé ; certificat, X25519 et TLS complet restent distincts — [aos2076_2080_ne2k_qemu_server_hello.md](aos2076_2080_ne2k_qemu_server_hello.md)
+- [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 484 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ClientHello sur pair Ethernet local contrôlé)
+- [x] Tests complets du système corrigé (`make test-all` : 484 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé)
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
