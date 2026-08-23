@@ -697,7 +697,7 @@ help:
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # 484 tests de non-régression avant push"
+	@echo "  make test-all             # 494 tests de non-régression avant push"
 
 .PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
 

@@ -69,10 +69,13 @@ int net_tls_record_parse_stream(const uint8_t* stream, uint32_t length,
                                 net_tls_record_view_t* out, uint16_t* consumed);
 int net_tls_record_accumulator_init(net_tls_record_accumulator_t* accumulator,
                                     uint8_t* buffer, uint16_t capacity);
-/* Retourne 1 si le record est incomplet, 0 lorsqu’il est complet. */
+/* Retourne 1 si le record est incomplet, 0 lorsqu’il est complet.
+ * Les octets suivant un record complet restent dans l'accumulateur. */
 int net_tls_record_accumulator_feed(net_tls_record_accumulator_t* accumulator,
                                     const uint8_t* fragment, uint16_t fragment_length,
                                     net_tls_record_view_t* out);
+/* Retire un record deja copie hors de l'accumulateur ; conserve le reste. */
+int net_tls_record_accumulator_consume(net_tls_record_accumulator_t* accumulator,uint16_t consumed);
 int net_tls_handshake_parse(const uint8_t* handshake, uint16_t length,
                             net_tls_handshake_view_t* out);
 int net_tls_handshake_accumulator_init(net_tls_handshake_accumulator_t* accumulator,

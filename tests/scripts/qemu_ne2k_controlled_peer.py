@@ -340,22 +340,11 @@ class ControlledEthernetPeer:
                 self.tls.note_client_hello(payload)
                 self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
                                self.tls.server_hello_record())
-                self.events["server_hello"] += 1
-                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
-                               self.tls.certificate_record())
-                self.events["certificate"] += 1
-                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
-                               self.tls.server_key_exchange_record())
-                self.events["server_key_exchange"] += 1
-                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
-                               self.tls.server_hello_done_record())
-                self.events["server_hello_done"] += 1
-                self.tls_step = 4
             else:
                 self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
                                _tls_server_hello_record())
-                self.tls_step = 1
-                self.events["server_hello"] += 1
+            self.tls_step = 1
+            self.events["server_hello"] += 1
             return
         if payload[:3] == b"\x16\x03\x03" and self.tls_step >= 1:
             # ClientHello reemis : le vol serveur n'a pas ete vu.

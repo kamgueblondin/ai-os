@@ -158,6 +158,9 @@ static void ne2k_boot_probe(void) {
     }
     boot_ne2k_present = 1U;
     print_string("NE2000 ISA detecte, MAC valide et anneaux RX/TX configures.\\n");
+    print_string(boot_llm_test_trust_anchor_ready ?
+        "Ancre TLS de test locale prete (example.com).\n" :
+        "Ancre TLS de test locale indisponible.\n");
 }
 
 uint32_t kernel_net_status(void) {
@@ -232,12 +235,14 @@ failure:
     return -1;
 }
 
-/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ; bits 8..15 : phase LLM. */
+/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ;
+ * bit 4 : ancre de test locale ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
            (boot_llm_lease.valid ? 2U : 0U) |
            (boot_llm_rdrand_supported ? 4U : 0U) |
            (boot_llm_trust_anchor_ready ? 8U : 0U) |
+           (boot_llm_test_trust_anchor_ready ? 16U : 0U) |
            ((uint32_t)boot_llm_socket_session.state.phase << 8);
 }
 
@@ -273,10 +278,16 @@ static int kernel_llm_hostname_has_suffix(const char* hostname, const char* suff
 }
 
 /* Ancre locale pour example.com / api.example.test ; ISRG Root X1 reste le defaut public. */
+static const char* kernel_llm_session_hostname(void) {
+    if (boot_llm_hostname[0] != '\0') return boot_llm_hostname;
+    return boot_llm_dhcp_maintenance.acquire.hostname;
+}
+
 static const x509_certificate_view_t* kernel_llm_select_trust_anchor(void) {
+    const char* hostname = kernel_llm_session_hostname();
     if (boot_llm_test_trust_anchor_ready &&
-        (kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.test") ||
-         kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.com")))
+        (kernel_llm_hostname_has_suffix(hostname, "example.test") ||
+         kernel_llm_hostname_has_suffix(hostname, "example.com")))
         return &boot_llm_test_trust_anchor;
     return &boot_llm_trust_anchor;
 }
@@ -641,7 +652,7 @@ int kernel_llm_poll_tls(void) {
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
         boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
-        boot_llm_client_private, kernel_llm_select_trust_anchor(), boot_llm_hostname, utc_time,
+        boot_llm_client_private, kernel_llm_select_trust_anchor(), kernel_llm_session_hostname(), utc_time,
         boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
         boot_llm_x25519_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS, boot_llm_prf_workspace,
         sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),

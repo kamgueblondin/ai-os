@@ -341,7 +341,7 @@ int net_tls_handshake_accept_server_message(net_tls_handshake_t* handshake,const
 }
 
 int net_tls_handshake_accept_server_message_authenticated(net_tls_handshake_t* handshake,const uint8_t client_random[32],const uint8_t* message,uint16_t length,net_tls_transcript_t* transcript,uint32_t* rsa_workspace,uint16_t rsa_workspace_length){
-    net_tls_handshake_t previous;int status;
+    static net_tls_handshake_t previous;int status;
     if(!handshake||!client_random||!message)return -1;
     previous=*handshake;
     if(message[0]==NET_TLS_HANDSHAKE_SERVER_HELLO){status=net_tls_handshake_accept_server_hello(handshake,message,length);if(status==0&&!net_tls_cipher_suite_is_ecdhe_aes128_gcm(handshake->cipher_suite))status=-5;}
@@ -372,7 +372,16 @@ int net_tls_record_accumulator_feed(net_tls_record_accumulator_t* accumulator,co
     status=net_tls_record_parse_stream(accumulator->buffer,accumulator->length,out,&consumed);
     if(status==-2||status==-3)return 1;
     if(status!=0)return -3;
-    if(consumed!=accumulator->length)return -4;
+    if(consumed==0U||consumed>accumulator->length)return -4;
+    return 0;
+}
+
+int net_tls_record_accumulator_consume(net_tls_record_accumulator_t* accumulator,uint16_t consumed){
+    uint16_t i, remain;
+    if(!accumulator||!accumulator->buffer||consumed==0U||consumed>accumulator->length)return -1;
+    remain=(uint16_t)(accumulator->length-consumed);
+    for(i=0;i<remain;i++) accumulator->buffer[i]=accumulator->buffer[consumed+i];
+    accumulator->length=remain;
     return 0;
 }
 

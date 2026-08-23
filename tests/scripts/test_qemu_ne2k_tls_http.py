@@ -59,6 +59,23 @@ def keys(client, command):
     client.sendall(b"sendkey ret\n")
 
 
+def keys_retry(client, proc, command, success, timeout=45):
+    start = len(text())
+    keys(client, command)
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("QEMU stopped: %s" % text()[-2000:])
+        chunk = text()[start:]
+        if success in chunk:
+            return
+        if "Commande non trouvée" in chunk or "Commande non trouvee" in chunk:
+            start = len(text())
+            keys(client, command)
+        time.sleep(0.15)
+    raise RuntimeError("missing output %r: %s" % (success, text()[-2000:]))
+
+
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     for path in (LOG, ERR, MON):
@@ -85,12 +102,10 @@ def main():
             wait_for(proc, "(-.-)")
             client = monitor()
             start = len(text())
-            keys(client, "ai-runtime")
-            wait_for(proc, "Entropie TLS RDRAND : disponible (materiel)", 20, start)
-            start = len(text())
-            keys(client, "ai-acquire example.com")
+            keys_retry(client, proc, "ai-runtime", "Entropie TLS RDRAND : disponible (materiel)", 20)
             try:
-                wait_for(proc, "ai-acquire: DHCP, DNS et SYN LLM demarres", 60, start)
+                keys_retry(client, proc, "ai-acquire example.com",
+                           "ai-acquire: DHCP, DNS et SYN LLM demarres", 60)
             except RuntimeError as error:
                 raise RuntimeError("%s; peer events=%r peer error=%r" %
                                    (error, peer.events, peer.error))

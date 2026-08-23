@@ -112,6 +112,10 @@ int net_tcp_connection_accept_tls_authenticated_fragment(net_tcp_connection_t* c
                                                          net_tcp_tls_stream_t* stream,net_tls_handshake_t* handshake,
                                                          const uint8_t client_random[32],net_tls_transcript_t* transcript,
                                                          uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint16_t* consumed);
+/* Traite un record TLS deja present dans l'accumulateur, sans nouvelle donnee TCP. */
+int net_tcp_tls_stream_accept_pending(net_tcp_tls_stream_t* stream,net_tls_handshake_t* handshake,
+                                      const uint8_t client_random[32],net_tls_transcript_t* transcript,
+                                      uint32_t* rsa_workspace,uint16_t rsa_workspace_length);
 int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,
                                             const net_tcp_view_t* view,
                                             net_tls_handshake_t* handshake,

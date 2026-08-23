@@ -211,7 +211,7 @@ int net_tcp_tls_stream_init(net_tcp_tls_stream_t* stream,uint8_t* record_buffer,
     return 0;
 }
 int net_tcp_connection_accept_tls_authenticated_fragment(net_tcp_connection_t* connection,const net_tcp_view_t* view,net_tcp_tls_stream_t* stream,net_tls_handshake_t* handshake,const uint8_t client_random[32],net_tls_transcript_t* transcript,uint32_t* rsa_workspace,uint16_t rsa_workspace_length,uint16_t* consumed){
-    net_tcp_connection_t previous_connection;net_tls_handshake_t previous_handshake;net_tls_record_view_t record;net_tls_handshake_view_t message;uint16_t accepted,previous_transcript_length,previous_record_length,previous_handshake_length;int status;
+    static net_tcp_connection_t previous_connection;static net_tls_handshake_t previous_handshake;net_tls_record_view_t record;net_tls_handshake_view_t message;uint16_t accepted,previous_transcript_length,previous_record_length,previous_handshake_length;int status;
     if(!connection||!view||!stream||!handshake||!client_random||!transcript||!rsa_workspace||!consumed)return -1;
     previous_connection=*connection;previous_handshake=*handshake;previous_transcript_length=transcript->length;previous_record_length=stream->record_accumulator.length;previous_handshake_length=stream->handshake_accumulator.length;*consumed=0U;
     if(net_tcp_connection_accept_data(connection,view,&accepted)!=0||accepted!=view->payload_length)return -2;
@@ -219,16 +219,46 @@ int net_tcp_connection_accept_tls_authenticated_fragment(net_tcp_connection_t* c
     status=net_tls_record_accumulator_feed(&stream->record_accumulator,view->payload,view->payload_length,&record);
     if(status==1)return 1;
     if(status!=0||record.content_type!=NET_TLS_CONTENT_HANDSHAKE)goto rollback;
-    stream->record_accumulator.length=0U;
     status=net_tls_handshake_accumulator_feed(&stream->handshake_accumulator,record.payload,record.payload_length,&message);
-    if(status==1)return 1;
+    if(status==1){
+        if(net_tls_record_accumulator_consume(&stream->record_accumulator,(uint16_t)(NET_TLS_RECORD_HEADER+record.payload_length))!=0)goto rollback;
+        return 1;
+    }
     if(status!=0)goto rollback;
     status=net_tls_handshake_accept_server_message_authenticated(handshake,client_random,stream->handshake_accumulator.buffer,stream->handshake_accumulator.length,transcript,rsa_workspace,rsa_workspace_length);
     if(status!=0)goto rollback;
+    if(net_tls_record_accumulator_consume(&stream->record_accumulator,(uint16_t)(NET_TLS_RECORD_HEADER+record.payload_length))!=0)goto rollback;
     stream->handshake_accumulator.length=0U;
     return 0;
 rollback:
     *connection=previous_connection;*handshake=previous_handshake;transcript->length=previous_transcript_length;stream->record_accumulator.length=previous_record_length;stream->handshake_accumulator.length=previous_handshake_length;*consumed=0U;return -3;
+}
+int net_tcp_tls_stream_accept_pending(net_tcp_tls_stream_t* stream,net_tls_handshake_t* handshake,
+                                      const uint8_t client_random[32],net_tls_transcript_t* transcript,
+                                      uint32_t* rsa_workspace,uint16_t rsa_workspace_length){
+    static net_tls_handshake_t previous_handshake;
+    net_tls_record_view_t record;net_tls_handshake_view_t message;
+    uint16_t previous_transcript_length,previous_record_length,previous_handshake_length,consumed=0U;int status;
+    if(!stream||!handshake||!client_random||!transcript||!rsa_workspace)return -1;
+    if(net_tls_record_parse_stream(stream->record_accumulator.buffer,stream->record_accumulator.length,&record,&consumed)!=0)return 1;
+    if(record.content_type!=NET_TLS_CONTENT_HANDSHAKE)return -2;
+    previous_handshake=*handshake;previous_transcript_length=transcript->length;
+    previous_record_length=stream->record_accumulator.length;previous_handshake_length=stream->handshake_accumulator.length;
+    status=net_tls_handshake_accumulator_feed(&stream->handshake_accumulator,record.payload,record.payload_length,&message);
+    if(status==1){
+        if(net_tls_record_accumulator_consume(&stream->record_accumulator,consumed)!=0)goto rollback;
+        return 1;
+    }
+    if(status!=0)goto rollback;
+    status=net_tls_handshake_accept_server_message_authenticated(handshake,client_random,stream->handshake_accumulator.buffer,stream->handshake_accumulator.length,transcript,rsa_workspace,rsa_workspace_length);
+    if(status!=0)goto rollback;
+    if(net_tls_record_accumulator_consume(&stream->record_accumulator,consumed)!=0)goto rollback;
+    stream->handshake_accumulator.length=0U;
+    return 0;
+rollback:
+    *handshake=previous_handshake;transcript->length=previous_transcript_length;
+    stream->record_accumulator.length=previous_record_length;stream->handshake_accumulator.length=previous_handshake_length;
+    return -3;
 }
 int net_tcp_connection_accept_tls_handshake(net_tcp_connection_t* connection,const net_tcp_view_t* view,
                                             net_tls_handshake_t* handshake,net_tls_transcript_t* transcript,
