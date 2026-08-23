@@ -21,7 +21,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 | AOS-009 | Executer un ELF bloquant | `exec`, parent `TASK_WAITING`, reveil par `SYS_EXIT` |
 | AOS-010 | Completer localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
 | AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et decodage UTF-8 brut |
-| AOS-012 | Prevenir les regressions | 491 tests C et contrats QEMU versionnes, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http` et `qemu-vfs-service` |
+| AOS-012 | Prevenir les regressions | 492 tests C et contrats QEMU versionnes, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http` et `qemu-vfs-service` |
 
 ## Tranche AOS-020 à AOS-025 — livrée
 
