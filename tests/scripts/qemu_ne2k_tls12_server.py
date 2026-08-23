@@ -319,6 +319,13 @@ def _self_check():
     _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 3, second)
     if SSE_DONE not in body or b"0\r\n\r\n" not in body:
         raise RuntimeError("SSE local sans [DONE]")
+    second_post = _aes_gcm_seal(key_block[0:16], key_block[32:36], 2, CONTENT_APPLICATION_DATA, request)
+    if server.open_application(second_post) != request:
+        raise RuntimeError("second POST local illisible")
+    reply2 = server.http_ok_record()
+    _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 4, reply2)
+    if HTTP_JSON_OK not in body:
+        raise RuntimeError("second HTTP local incomplet")
     print("local TLS 1.2 self-check passed.")
 
 
