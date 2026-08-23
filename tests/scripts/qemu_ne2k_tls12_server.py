@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Serveur TLS 1.2 local pour le pair QEMU (ECDHE_RSA_AES_128_GCM_SHA256).
 
-Le guest n'accepte qu'un record TLS par segment TCP. Ce module construit les
-messages handshake et les records AES-GCM compatibles avec kernel/net_tls_record.c.
-La cle et les certificats sont du materiel de test pour api.example.test.
+Le guest assemble un record TLS sur plusieurs segments TCP, mais refuse deux
+records complets dans le meme segment. Ce module construit les messages
+handshake et les records AES-GCM compatibles avec kernel/net_tls_record.c.
+La cle et les certificats sont du materiel de test pour example.com.
 """
 import hashlib
 import hmac

@@ -54,7 +54,7 @@ make run
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ne2k-status` | Vérifie `nic=detected` avec `-device ne2k_isa` |
 | `make qemu-ne2k-acquire` | Valide `ai-acquire example.com` puis deux `ai-tls-poll` via DHCP, ARP, DNS A, SYN/SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet socket local déterministe |
-| `make qemu-ne2k-tls-http` | Valide `ai-acquire api.example.test`, le handshake TLS authentifie local jusqu'a `TLS_COMPLETE`, puis `ai-request ollama` et `ai-text-poll` (`LLM : ok`, `HTTP : 200`) |
+| `make qemu-ne2k-tls-http` | Valide `ai-acquire example.com`, le handshake TLS authentifie local jusqu'a `TLS_COMPLETE`, puis `ai-request ollama` et `ai-text-poll` (`LLM : ok`, `HTTP : 200`) |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
 | `make qemu-vfs-service` | Lance `vfsvirtual` puis `vfsserver`, verifie la delegation Ring 3, les volumes FAT16/FAT32 reels sur deux disques IDE, les alias dynamiques, les capacites, les refus, les mutations overlay et les cycles FAT16/FAT32 creation/lecture/renommage/listage/suppression sous `mutate` |
 | `make qemu-service-grant` | Publie `demo`, observe l’événement de transfert et de purge, puis vérifie son nettoyage |

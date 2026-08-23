@@ -39,6 +39,7 @@ void test_x509_local_example_test_anchor_and_leaf(void){
     TEST_ASSERT_EQUAL(0,x509_rsa_public_key_validate(&root));
     TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos_tls_test_leaf_der,sizeof(aos_tls_test_leaf_der),&leaf));
     TEST_ASSERT_EQUAL(0,x509_rsa_public_key_validate(&leaf));
+    TEST_ASSERT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"example.com","20260818000000Z",workspace,512U));
     TEST_ASSERT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"api.example.test","20260818000000Z",workspace,512U));
     TEST_ASSERT_NOT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"wrong.example.test","20260818000000Z",workspace,512U));
     TEST_ASSERT_NOT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"api.example.test","20190101000000Z",workspace,512U));

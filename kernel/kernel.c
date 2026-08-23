@@ -272,10 +272,11 @@ static int kernel_llm_hostname_has_suffix(const char* hostname, const char* suff
     return 1;
 }
 
-/* Ancre locale pour api.example.test ; ISRG Root X1 reste le defaut public. */
+/* Ancre locale pour example.com / api.example.test ; ISRG Root X1 reste le defaut public. */
 static const x509_certificate_view_t* kernel_llm_select_trust_anchor(void) {
     if (boot_llm_test_trust_anchor_ready &&
-        (kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.test")))
+        (kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.test") ||
+         kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.com")))
         return &boot_llm_test_trust_anchor;
     return &boot_llm_trust_anchor;
 }
