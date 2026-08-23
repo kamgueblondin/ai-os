@@ -4611,19 +4611,18 @@ static void cmd_ai_sse_poll(shell_context_t* ctx, char args[][128], int arg_coun
         print_warning("ai-sse-poll: attente de delta SSE");
         return;
     }
-    if (status == 0 && result.text_length == 0U) {
-        print_success("ai-sse-poll: flux SSE termine");
-        print_string("HTTP : ");
-        print_int(result.status_code);
+    if (result.text_length > 0U) {
+        for (index = 0U; index < result.text_length && index < OS_LLM_TEXT_MAX; ++index)
+            output[index] = (char)result.text[index];
+        output[index] = '\0';
+        print_string("SSE : ");
+        print_string(output);
         print_string("\n");
-        return;
     }
-    for (index = 0U; index < result.text_length && index < OS_LLM_TEXT_MAX; ++index)
-        output[index] = (char)result.text[index];
-    output[index] = '\0';
-    print_string("SSE : ");
-    print_string(output);
-    print_string("\nHTTP : ");
+    if (status == 0) {
+        print_success("ai-sse-poll: flux SSE termine");
+    }
+    print_string("HTTP : ");
     print_int(result.status_code);
     print_string("\n");
 }

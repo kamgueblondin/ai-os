@@ -60,6 +60,12 @@ def keys(client, command):
 
 
 def keys_retry(client, proc, command, success, timeout=45):
+    found = keys_retry_any(client, proc, command, (success,), timeout)
+    if found != success:
+        raise RuntimeError("missing output %r: %s" % (success, text()[-2000:]))
+
+
+def keys_retry_any(client, proc, command, needles, timeout=45):
     start = len(text())
     keys(client, command)
     deadline = time.monotonic() + timeout
@@ -67,13 +73,14 @@ def keys_retry(client, proc, command, success, timeout=45):
         if proc.poll() is not None:
             raise RuntimeError("QEMU stopped: %s" % text()[-2000:])
         chunk = text()[start:]
-        if success in chunk:
-            return
+        for needle in needles:
+            if needle in chunk:
+                return needle
         if "Commande non trouvée" in chunk or "Commande non trouvee" in chunk:
             start = len(text())
             keys(client, command)
         time.sleep(0.15)
-    raise RuntimeError("missing output %r: %s" % (success, text()[-2000:]))
+    raise RuntimeError("missing output %r: %s" % (needles, text()[-2000:]))
 
 
 def handshake_tls(client, proc, peer):
@@ -128,32 +135,32 @@ def handshake_tls(client, proc, peer):
 def poll_sse(client, proc, peer):
     saw_delta = False
     complete = False
+    needles = (
+        "SSE : ok",
+        "ai-sse-poll: flux SSE termine",
+        "ai-sse-poll: attente de delta SSE",
+        "ai-sse-poll: flux SSE non emis",
+        "lecture refusee",
+    )
     for _ in range(24):
         start = len(text())
-        keys(client, "ai-sse-poll")
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            if proc.poll() is not None:
-                raise RuntimeError("QEMU stopped: %s" % text()[-2000:])
-            chunk = text()[start:]
-            if "ai-sse-poll: flux SSE non emis" in chunk or "lecture refusee" in chunk:
-                raise RuntimeError("SSE refused; peer events=%r peer error=%r log=%s" %
-                                   (peer.events, peer.error, chunk[-1500:]))
-            if "SSE : ok" in chunk:
-                saw_delta = True
-                break
-            if "ai-sse-poll: flux SSE termine" in chunk:
-                complete = True
-                break
-            if "ai-sse-poll: attente de delta SSE" in chunk:
-                break
-            time.sleep(0.15)
-        else:
-            raise RuntimeError("sse-poll mute; peer events=%r sizes=%r peer error=%r" %
-                               (peer.events, peer.sent_sizes, peer.error))
-        if complete:
+        try:
+            needle = keys_retry_any(client, proc, "ai-sse-poll", needles, 30)
+        except RuntimeError as error:
+            raise RuntimeError("sse-poll mute; peer events=%r sizes=%r peer error=%r (%s)" %
+                               (peer.events, peer.sent_sizes, peer.error, error))
+        chunk = text()[start:]
+        if "ai-sse-poll: flux SSE non emis" in chunk or "lecture refusee" in chunk:
+            raise RuntimeError("SSE refused; peer events=%r peer error=%r log=%s" %
+                               (peer.events, peer.error, chunk[-1500:]))
+        if "SSE : ok" in chunk:
+            saw_delta = True
+        if "ai-sse-poll: flux SSE termine" in chunk:
+            complete = True
             wait_for(proc, "HTTP : 200", 10, start)
             break
+        if needle == "ai-sse-poll: attente de delta SSE":
+            continue
     if not saw_delta or not complete:
         raise RuntimeError("SSE incomplet delta=%s done=%s; peer events=%r sizes=%r peer error=%r log=%s" %
                            (saw_delta, complete, peer.events, peer.sent_sizes, peer.error, text()[-2000:]))
