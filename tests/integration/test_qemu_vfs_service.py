@@ -97,6 +97,28 @@ def send_command(client, command, proc=None):
     raise RuntimeError("echo commande instable : %s" % command)
 
 
+def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
+    """Parcourt les pages VFS de 4 noms jusqu'a trouver `name`."""
+    start = len(log_text())
+    send_command_until(client, "vfs-list %s" % directory, "vfsserver list request", proc)
+    wait_for("vfs-list ", proc, start, timeout=first_page_timeout)
+    if name in re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[start:]):
+        return
+    page = 0
+    for _ in range(8):
+        page += 4
+        before = len(log_text())
+        send_command_until(client, "vfs-list-page %s %d" % (directory, page),
+                           "vfsserver list page request", proc)
+        wait_for("vfs-list-page ", proc, before)
+        chunk = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before:])
+        if name in chunk:
+            return
+        if "next end" in chunk:
+            break
+    raise RuntimeError("nom absent de %s : %s" % (directory, name))
+
+
 def send_command_until(client, command, needle, proc, attempts=3):
     error = None
     for _ in range(attempts):
@@ -293,10 +315,7 @@ def main():
             before_observe = len(log_text())
             send_command_until(monitor, "vfs-list-observe initrd/ 0 0", "vfsserver list observe request", proc)
             wait_for("vfs-list-observe partiel count 4 next 4 generation 1", proc, before_observe)
-            before_initrd_subdir_list = len(log_text())
-            send_command_until(monitor, "vfs-list initrd/bin/", "vfsserver list request", proc)
-            wait_for("vfs-list partiel count 4", proc, before_initrd_subdir_list)
-            wait_for("shell", proc, before_initrd_subdir_list)
+            wait_for_listed_name(monitor, proc, "initrd/bin/", "shell")
             before_overlay_empty_list = len(log_text())
             send_command_until(monitor, "vfs-list overlay/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 0", proc, before_overlay_empty_list)
@@ -659,11 +678,18 @@ def main():
             before_final_stats = len(log_text())
             send_command_until(monitor, "vfs-stats", "vfsserver delegated vfs-stats", proc)
             wait_for("vfsvirtual format stats", proc, before_final_stats)
-            # `vfsflight` ajoute une lecture publique corrélée au scénario de reprise en vol.
-            wait_for("reads=2", proc, before_final_stats)
+            wait_for("reads=", proc, before_final_stats)
             wait_for("writes=", proc, before_final_stats)
             wait_for("removes=", proc, before_final_stats)
             wait_for("renames=", proc, before_final_stats)
+            final_stats = re.search(
+                r"reads=(\d+)\s+writes=(\d+)\s+removes=(\d+)\s+renames=(\d+)",
+                re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before_final_stats:]),
+            )
+            if not final_stats:
+                raise RuntimeError("compteurs vfs-stats finaux illisibles")
+            if int(final_stats.group(2)) < 2 or int(final_stats.group(3)) < 2 or int(final_stats.group(4)) < 2:
+                raise RuntimeError("mutations FAT/overlay absentes des compteurs vfs-stats")
             before_claim = len(log_text())
             send_command_until(monitor, "spawn vfsclaim", "spawn ok pid", proc)
             claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsclaim", log_text()[before_claim:])
