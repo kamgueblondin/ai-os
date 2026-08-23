@@ -2463,14 +2463,14 @@ void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     print_string("\x1b[2J\x1b[H");
     
     // Banner de bienvenue moderne
-    print_colored("═══════════════════════════════════════════════════════════\n", COLOR_CYAN);
-    print_colored("    🤖 AI-OS v6.0 - Intelligence Artificielle Intégrée    \n", COLOR_BRIGHT);
-    print_colored("═══════════════════════════════════════════════════════════\n", COLOR_CYAN);
-    print_colored("💻 Shell Avancé", COLOR_GREEN);
+    print_colored("===========================================================\n", COLOR_CYAN);
+    print_colored("    [AI-OS] v6.0 - Intelligence artificielle intégrée    \n", COLOR_BRIGHT);
+    print_colored("===========================================================\n", COLOR_CYAN);
+    print_colored("[shell] Shell avancé", COLOR_GREEN);
     print_string(" | ");
-    print_colored("🧠 IA Intelligente", COLOR_MAGENTA);
+    print_colored("[IA] IA intégrée", COLOR_MAGENTA);
     print_string(" | ");
-    print_colored("⚡ Haute Performance\n", COLOR_YELLOW);
+    print_colored("[perf] Haute performance\n", COLOR_YELLOW);
     print_string("\n");
     print_info("Tapez 'help' pour voir toutes les commandes disponibles");
     print_info("Mode IA activé - Posez vos questions directement !");
@@ -4708,7 +4708,7 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
         exit_code = result;
     }
     
-    print_colored("\n🤖 Merci d'avoir utilisé AI-OS v6.0 !\n", COLOR_CYAN);
+    print_colored("\n[AI-OS] Merci d'avoir utilisé AI-OS v6.0 !\n", COLOR_CYAN);
     print_colored("   Au revoir et à bientôt !\n\n", COLOR_YELLOW);
     
     exit_program(exit_code);
@@ -4828,28 +4828,28 @@ void cmd_ai_mode(shell_context_t* ctx, char args[][128], int arg_count) {
 void cmd_ai_help(shell_context_t* ctx, char args[][128], int arg_count) {
     print_colored("\n=== Guide d'Utilisation de l'IA ===\n", COLOR_CYAN);
     
-    print_colored("🧠 FONCTIONNALITÉS IA :\n", COLOR_MAGENTA);
-    print_string("  • Réponses contextuelles intelligentes\n");
-    print_string("  • Aide technique et suggestions\n");
-    print_string("  • Analyse de commandes et diagnostics\n");
-    print_string("  • Assistant personnel intégré\n\n");
+    print_colored("[IA] FONCTIONNALITES IA :\n", COLOR_MAGENTA);
+    print_string("  - Reponses contextuelles intelligentes\n");
+    print_string("  - Aide technique et suggestions\n");
+    print_string("  - Analyse de commandes et diagnostics\n");
+    print_string("  - Assistant personnel intégré\n\n");
     
-    print_colored("💬 EXEMPLES DE QUESTIONS :\n", COLOR_YELLOW);
+    print_colored("[exemples] EXEMPLES DE QUESTIONS :\n", COLOR_YELLOW);
     print_string("  ai comment optimiser la mémoire ?\n");
     print_string("  ai explique-moi le multitâche\n");
     print_string("  ai que fait cette commande : ls -la\n");
     print_string("  ai résoudre erreur de compilation\n");
     print_string("  ai créer un script automatique\n\n");
     
-    print_colored("⚙️ MODES D'UTILISATION :\n", COLOR_YELLOW);
+    print_colored("[modes] MODES D'UTILISATION :\n", COLOR_YELLOW);
     print_string("  1. Mode explicite : ai <question>\n");
     print_string("  2. Mode automatique : question directe (si activé)\n");
     print_string("  3. Mode intégré : aide contextuelle dans les commandes\n\n");
     
-    print_colored("🎯 CONSEILS :\n", COLOR_GREEN);
-    print_string("  • Soyez précis dans vos questions\n");
-    print_string("  • Mentionnez le contexte si nécessaire\n");
-    print_string("  • L'IA apprend de vos interactions\n\n");
+    print_colored("[conseils] CONSEILS :\n", COLOR_GREEN);
+    print_string("  - Soyez précis dans vos questions\n");
+    print_string("  - Mentionnez le contexte si nécessaire\n");
+    print_string("  - L'IA apprend de vos interactions\n\n");
     print_string("aihelp ok\n");
 }
 
@@ -5421,7 +5421,7 @@ void handle_line(shell_context_t* ctx, char* input_buffer) {
         
         // Suggestion IA si mode activé
         if (ctx->ai_mode) {
-            print_colored("💡 Suggestion IA : ", COLOR_YELLOW);
+            print_colored("[IA] Suggestion IA : ", COLOR_YELLOW);
             print_string("Voulez-vous que je vous aide avec cette commande ?\n");
         }
     } else {
@@ -5454,7 +5454,7 @@ void main() {
     // Affichage de bienvenue moderne
     cmd_clear(&shell_ctx, NULL, 0);
     
-    print_colored("🚀 Initialisation du Shell IA...", COLOR_CYAN);
+    print_colored("* Initialisation du Shell IA...", COLOR_CYAN);
     
     // Simulation d'initialisation progressive
     for (int i = 0; i < 3; i++) {

@@ -8,16 +8,16 @@ Depuis la racine du dépôt : `make deps` (script [`scripts/bootstrap-dev.sh`](.
 
 1. [ETAT_REEL.md](ETAT_REEL.md) - **état actuel du code**, y compris GPT-2 local et limites vérifiées
 2. [vocabulaire.md](vocabulaire.md) - termes du hobby OS (pas une identité Linux)
-3. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite, dont FAT lecture seule et réseau caller-owned)
-4. [aos_fat_volume.md](aos_fat_volume.md) - volume FAT16 lecture seule (pas ext2) ; écriture encore hors périmètre
+3. [../US/ai_os_us.md](../US/ai_os_us.md) - user stories du prototype (fait + suite, dont FAT16 mutate 8.3 et reseau local)
+4. [aos_fat_volume.md](aos_fat_volume.md) - volume FAT16 (lecture + create/remove/rename 8.3 racine) et FAT32 lecture VFS ; pas ext2
 5. [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) - IPC Foundation MOHHOS, limites et contrat QEMU
 6. [aos020_gguf_quantization_design.md](aos020_gguf_quantization_design.md) - sonde GGUF v3 et quantification préparatoire
-7. [aos025_network_stub.md](aos025_network_stub.md) - stub OpenAI ; voir aussi AOS-113…154 pour le pilote NE2000
+7. [aos025_network_stub.md](aos025_network_stub.md) - stub OpenAI initial ; voir ETAT_REEL pour `ai-acquire`
 8. [gpt2_baremetal_deployment.md](gpt2_baremetal_deployment.md) - préparation des poids et construction d'une ISO autonome
 9. [GUIDE_EXECUTION.md](GUIDE_EXECUTION.md) - lancement QEMU (console / GUI / nographic / NE2000)
 10. [../README.md](../README.md) - compilation, tests, architecture des sources
 
-Les incréments Foundation 02 à 64 restent dans le tableau ci-dessous ; ils décrivent des tranches déjà livrées, pas l’identité du système. Le nombre de tests Unity cité dans un incrément est le **constat à la livraison** de cette tranche ; le chiffre courant est dans [ETAT_REEL.md](ETAT_REEL.md) (**299**).
+Les increments Foundation 02 a 64 restent dans le tableau ci-dessous ; ils decrivent des tranches deja livrees, pas l'identite du systeme. Le nombre de tests Unity cite dans un increment est le **constat a la livraison** de cette tranche ; le chiffre courant est dans [ETAT_REEL.md](ETAT_REEL.md) (**489**).
 
 Les autres fichiers de ce dossier sont conservés : rapports de debug, chronologie des correctifs clavier, spécifications d'étapes. Beaucoup décrivent un état **intermédiaire** (shell simulé dans le kernel, crash timer, clavier mort). Ils ne sont pas effacés.
 
@@ -27,9 +27,9 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
 | [vocabulaire.md](vocabulaire.md) | Lexique du hobby OS ; distance volontaire d’une identité Linux |
-| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001…026 et lots réseau 113…154 |
-| [aos_fat_volume.md](aos_fat_volume.md) | Volume FAT16 lecture seule sur IDE ; écriture/LFN/FAT32 hors périmètre |
-| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI ; la NIC NE2000 est désormais sondée, le client HTTP ne l’est pas |
+| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001...026, FAT16 mutate, sockets et `ai-acquire` |
+| [aos_fat_volume.md](aos_fat_volume.md) | FAT16 lecture + mutations 8.3 racine ; FAT32 lecture VFS ; LFN FAT16 hors perimetre |
+| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI initial ; voir ETAT_REEL pour `ai-acquire` sur pair local |
 | [aos132_net_status_dynamic.md](aos132_net_status_dynamic.md) | `SYS_NET_STATUS` et smoke `qemu-ne2k-status` |
 | [aos153_154_tcp_sequence_retransmit.md](aos153_154_tcp_sequence_retransmit.md) | Dernière tranche TCP caller-owned (séquence et retransmission bornée) |
 | [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) | IPC Foundation entre tâches Ring 3, limites de la tranche et contrat QEMU |
@@ -98,8 +98,8 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 
 ## User stories
 
-- [../US/ai_os_us.md](../US/ai_os_us.md) — backlog du **prototype** (AOS-001…026 livrés ; lots réseau 113…154 : primitives, pas client OpenAI)
+- [../US/ai_os_us.md](../US/ai_os_us.md) - backlog du **prototype** (AOS-001...026 livres ; FAT16 mutate 8.3 ; `ai-acquire` local, pas client OpenAI public)
 - [../US/README.md](../US/README.md) — deux couches : hobby OS AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les phases MOHHOS restent majoritairement des **spécifications**. Les incréments Foundation 01–64 (IPC, médiateur de chemins, registre, supervision de tâches) sont compilés et testés ; ils ne transforment pas le noyau monolithique en microkernel et n’implémentent pas les autres phases. Le volume FAT16 lecture seule est livré ; l’écriture FAT et le client OpenAI restent hors périmètre.
+Les phases MOHHOS restent majoritairement des **specifications**. Les increments Foundation 01-64 (IPC, mediateur de chemins, registre, supervision de taches) sont compiles et testes ; ils ne transforment pas le noyau monolithique en microkernel et n'implementent pas les autres phases. FAT16 8.3 racine est mutable via VFS ; FAT32 reste lecture seule cote VFS ; le client OpenAI public reste hors perimetre.
