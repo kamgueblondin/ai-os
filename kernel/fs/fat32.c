@@ -171,7 +171,8 @@ static void fat32_release_chain(const fat32_volume_t* volume, uint32_t first) {
 
 int fat32_create_file(const fat32_volume_t* volume, const char* name, uint8_t attributes, const uint8_t* data, uint32_t size, uint32_t* out_first_cluster) {
     uint32_t first = 0U, previous = 0U, current = 0U, offset = 0U, cluster_bytes, needed, i, take;
-    if (!volume || !data || !out_first_cluster || !fat32_is_mounted(volume) || !volume->write_sector) return OS_FAT16_NOT_MOUNTED;
+    if (!volume || !out_first_cluster || (size != 0U && !data) ||
+        !fat32_is_mounted(volume) || !volume->write_sector) return OS_FAT16_NOT_MOUNTED;
     if (fat32_short_name(name, fat32_file_cluster) != 0) return OS_FAT16_BAD_PATH;
     cluster_bytes = (uint32_t)volume->sectors_per_cluster * 512U;
     needed = size == 0U ? 1U : (size + cluster_bytes - 1U) / cluster_bytes;
@@ -377,6 +378,45 @@ int fat32_unlink_file(const fat32_volume_t* v, const char* name) {
         return 0;
     }
     return OS_FAT16_NOT_FOUND;
+}
+
+/* Renommage limite a une entree 8.3 classique. La recherche de collision
+ * parcourt la racine entiere avant d'ecrire : un emplacement supprime ou une
+ * fin logique ne peut donc pas masquer une cible deja presente plus loin. */
+int fat32_rename_file(const fat32_volume_t* v, const char* old_name, const char* new_name) {
+    uint8_t entry[32], old_short[11], new_short[11];
+    uint32_t i, j, limit, old_index;
+    uint8_t lfn_pending = 0U;
+    if (!v || !old_name || !new_name || !fat32_is_mounted(v) || !v->write_sector) {
+        return OS_FAT16_NOT_MOUNTED;
+    }
+    if (fat32_short_name(old_name, old_short) != 0 || fat32_short_name(new_name, new_short) != 0) {
+        return OS_FAT16_BAD_PATH;
+    }
+    limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
+    old_index = limit;
+    for (i = 0U; i < limit; i++) {
+        int same_old = 1, same_new = 1;
+        if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break;
+        if (entry[0] == 0xe5U) { lfn_pending = 0U; continue; }
+        if (entry[11] == 0x0fU) { lfn_pending = 1U; continue; }
+        if ((entry[11] & 0x18U) != 0U) { lfn_pending = 0U; continue; }
+        for (j = 0U; j < 11U; j++) {
+            if (entry[j] != old_short[j]) same_old = 0;
+            if (entry[j] != new_short[j]) same_new = 0;
+        }
+        if (same_old) {
+            if (lfn_pending) return OS_FAT16_BAD_PATH;
+            old_index = i;
+        }
+        if (same_new && !same_old) return OS_FAT16_BAD_PATH;
+        lfn_pending = 0U;
+    }
+    if (old_index == limit) return OS_FAT16_NOT_FOUND;
+    if (fat32_dir_slot(v, old_index, entry, 0, 0) != 0) return OS_FAT16_CORRUPT;
+    for (j = 0U; j < 11U; j++) entry[j] = new_short[j];
+    if (fat32_dir_slot(v, old_index, entry, 1, 0) != 0) return OS_FAT16_CORRUPT;
+    return 0;
 }
 
 int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
