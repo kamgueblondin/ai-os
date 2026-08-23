@@ -95,7 +95,8 @@ def main():
                 raise RuntimeError("%s; peer events=%r peer error=%r" %
                                    (error, peer.events, peer.error))
             complete = False
-            for _ in range(16):
+            progressions = 0
+            for _ in range(20):
                 start = len(text())
                 keys(client, "ai-tls-poll")
                 deadline = time.monotonic() + 30
@@ -106,18 +107,28 @@ def main():
                     if "ai-tls-poll: echec TLS" in chunk:
                         raise RuntimeError("TLS failed; peer events=%r peer error=%r log=%s" %
                                            (peer.events, peer.error, chunk[-1500:]))
-                    if "progression TLS publiee" in chunk or "attente de trame TLS" in chunk:
+                    if "progression TLS publiee" in chunk:
+                        progressions += 1
+                        break
+                    if "attente de trame TLS" in chunk:
                         break
                     time.sleep(0.15)
                 else:
                     raise RuntimeError("tls-poll mute; peer events=%r peer error=%r" %
                                        (peer.events, peer.error))
+                if progressions >= 7:
+                    start = len(text())
+                    keys(client, "ai-runtime")
+                    wait_for(proc, "Session LLM noyau", 20, start)
+                    if "TLS_COMPLETE" in text()[start:]:
+                        complete = True
+                        break
+            if not complete:
                 start = len(text())
                 keys(client, "ai-runtime")
                 wait_for(proc, "Session LLM noyau", 20, start)
                 if "TLS_COMPLETE" in text()[start:]:
                     complete = True
-                    break
             if not complete:
                 raise RuntimeError("TLS_COMPLETE absent; peer events=%r peer error=%r log=%s" %
                                    (peer.events, peer.error, text()[-2000:]))

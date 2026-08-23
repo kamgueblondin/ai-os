@@ -164,6 +164,8 @@ class ControlledEthernetPeer:
         self.tls = LocalTls12Server() if full_tls else None
         self.tls_step = 0
         self.last_sent_end = 0
+        self.last_payload = b""
+        self.last_payload_sequence = 0
         self.pending_advance = False
         self.guest_mac = None
         self.guest_ip = None
@@ -272,12 +274,21 @@ class ControlledEthernetPeer:
                     _ipv4_udp(SERVER_IP, source_ip, 53, 49152, response)))
 
     def _send_tcp(self, connection, dest_mac, dest_ip, dest_port, guest_ack, payload, flags=0x18):
+        self.last_payload = payload
+        self.last_payload_sequence = self.server_sequence
         self._send_frame(connection, _ethernet(dest_mac, 0x0800,
             _ipv4_tcp(REMOTE_IP, dest_ip, 443, dest_port, self.server_sequence,
                       guest_ack, flags, payload)))
         self.server_sequence += len(payload)
         self.last_sent_end = self.server_sequence
         self.pending_advance = True
+
+    def _retransmit_tcp(self, connection, dest_mac, dest_ip, dest_port, guest_ack):
+        if not self.last_payload:
+            return
+        self._send_frame(connection, _ethernet(dest_mac, 0x0800,
+            _ipv4_tcp(REMOTE_IP, dest_ip, 443, dest_port, self.last_payload_sequence,
+                      guest_ack, 0x18, self.last_payload)))
 
     def _handle_tcp_443(self, connection, dest_mac, dest_ip, dest_port, sequence, acknowledgment, flags, payload):
         if (flags & 0x12) == 0x02:
@@ -297,10 +308,15 @@ class ControlledEthernetPeer:
                 hello = self.tls.server_hello_record()
             else:
                 hello = _tls_server_hello_record()
-            self._send_tcp(connection, dest_mac, dest_ip, dest_port,
-                           sequence + len(payload), hello)
+            guest_ack = sequence + len(payload)
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack, hello)
             self.tls_step = 1
             self.events["server_hello"] += 1
+            return
+        if payload[:3] == b"\x16\x03\x03" and self.tls_step == 1 and self.full_tls:
+            # ClientHello reemis : le ServerHello n'a pas ete vu.
+            self._retransmit_tcp(connection, dest_mac, dest_ip, dest_port,
+                                 sequence + len(payload))
             return
         if self.full_tls and payload and self.tls_step == 4:
             self.tls.accept_client_flight(payload)
