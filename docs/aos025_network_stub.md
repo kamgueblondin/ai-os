@@ -1,8 +1,8 @@
 # AOS-025 — Stub réseau bare-metal et profil OpenAI
 
-**Statut :** livré comme **stub OpenAI contrôlé**. Un pilote NE2000 ISA et des codecs caller-owned existent (AOS-113…154) ; ils ne rendent pas OpenAI fonctionnel.
+**Statut :** jalon initial **stub OpenAI controle**. Un pilote NE2000 ISA et des codecs caller-owned existent (AOS-113...154). Les lots suivants ont ajoute sockets utilisateur et `ai-acquire` sur pair local ; OpenAI public reste hors livraison. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
-**Date :** 17 août 2026.
+**Date du jalon :** 17 aout 2026. **Constat courant :** 23 aout 2026.
 
 ## Objet
 

@@ -4,7 +4,7 @@ Deux couches distinctes. Ne pas les mélanger.
 
 | Couche | Document | Statut |
 |---|---|---|
-| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 à AOS-026 vérifiés ; lots réseau 113–154 : primitives NE2000/codecs, pas client OpenAI |
+| **Prototype qui tourne** | [ai_os_us.md](ai_os_us.md) + [docs/ETAT_REEL.md](../docs/ETAT_REEL.md) | AOS-001 a AOS-026 verifies ; FAT16 8.3 racine mutable via VFS ; FAT32 lecture VFS ; reseau local `ai-acquire` ; pas client OpenAI public |
 | **Vision MOHHOS** | fichiers `mohhos_*.md` + [individual_us/](individual_us/INDEX.md) | Spécifications, sauf incrément Foundation IPC documenté |
 
 En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
@@ -13,18 +13,18 @@ En cas de contradiction, **ETAT_REEL** et **ai_os_us.md** priment.
 
 Hobby OS i386 32-bit — pas une distribution Linux : boot QEMU, shell Ring 3, overlay AIOV persisté, `spawn`/`yield`/`exec`, GPT-2 124M optionnel. Lexique : [docs/vocabulaire.md](../docs/vocabulaire.md).
 
-- Backlog réel : [ai_os_us.md](ai_os_us.md) (`AOS-001` … `AOS-026` livrés ; lots réseau 113–154 = primitives)
+- Backlog reel : [ai_os_us.md](ai_os_us.md) (`AOS-001` ... `AOS-026` livres ; FAT16 mutate 8.3 racine ; sockets et `ai-acquire` locaux)
 - Runtime : [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)
-- Volume FAT16 lecture seule : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md)
+- Volume FAT16 (lecture + create/remove/rename 8.3 racine) et FAT32 lecture VFS : [docs/aos_fat_volume.md](../docs/aos_fat_volume.md)
 - Roadmap courte : [README.md](../README.md)
 
 Ce n'est **pas** TensorFlow Lite, pas un microkernel, pas `fake_ai` comme moteur principal (`fake_ai` est un binaire historique ; `ai <texte>` appelle `SYS_GPT2_GENERATE`).
 
 ## Couche 2 — MOHHOS (archives de conception)
 
-Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US). **Soixante-quatre** incréments de **Foundation** sont maintenant livrés (IPC, médiateur de chemins, registre, montages, capacités backend, supervision de tâches). Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le stockage, ni les pilotes, ni le réseau hors du noyau ; le noyau reste monolithique. Le volume FAT16 lecture seule du prototype est livré ([docs/aos_fat_volume.md](../docs/aos_fat_volume.md)) ; le réseau est un pilote NE2000 et des codecs caller-owned dans le noyau, pas un service Ring 3.
+Plan historique pour transformer AI-OS v5 en « Manus Operating Hybrid Hosted OS » (8 phases, 120 US). **Soixante-quatre** incréments de **Foundation** sont maintenant livrés (IPC, médiateur de chemins, registre, montages, capacités backend, supervision de tâches). Ils préparent US-001/US-003/US-012/US-013, mais ne déplacent encore ni le stockage, ni les pilotes, ni le réseau hors du noyau ; le noyau reste monolithique. Le volume FAT16 du prototype est livre en lecture plus creation/suppression/renommage 8.3 racine ([docs/aos_fat_volume.md](../docs/aos_fat_volume.md)) ; FAT32 est expose au VFS en lecture seule. Le reseau est un pilote NE2000, des sockets utilisateur et un bootstrap `ai-acquire` sur pair local, pas un service Ring 3 ni un client OpenAI public.
 
-Les autres fichiers MOHHOS restent des **spécifications**. Le recouvrement avec le prototype (mémoire, tests, moteur IA local, assistant, IPC local, médiateur VFS et découverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un ✅ dans l’index MOHHOS signifie « fichier de spec présent », **pas** « implémenté », sauf lorsqu’un statut explicite de tranche livrée est indiqué.
+Les autres fichiers MOHHOS restent des **specifications**. Le recouvrement avec le prototype (memoire, tests, moteur IA local, assistant, IPC local, mediateur VFS et decouverte de service) est partiel : voir le tableau dans [individual_us/INDEX.md](individual_us/INDEX.md). Un [OK] dans l'index MOHHOS signifie "fichier de spec present", **pas** "implemente", sauf lorsqu'un statut explicite de tranche livree est indique.
 
 ### Fichiers MOHHOS
 

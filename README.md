@@ -14,7 +14,7 @@ AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Ce 
 | Domaine | Fonction réellement disponible |
 |---|---|
 | Démarrage | Multiboot BIOS, VGA/série, GDT, IDT, PIC, PIT, clavier PS/2, curseur bloc et historique d’écran (Page Up/Down) |
-| Utilisateur | Shell ELF Ring 3, ABI de syscalls jusqu’à 110, `spawn`, `yield`, `exec`, `ps`, `kill` |
+| Utilisateur | Shell ELF Ring 3, ABI de syscalls 0-118 (`MAX_SYSCALLS = 119`), `spawn`, `yield`, `exec`, `ps`, `kill` |
 | Préemption | Quantum IRQ0 de 20 ticks, uniquement entre tâches utilisateur prêtes |
 | IPC Foundation | Boîte aux lettres FIFO entre tâches Ring 3, 4 entrées par tâche, charge de 96 octets, `request_id` opaque, capacité client de 2 messages et instantané de file pour un propriétaire publié, événements best-effort ; pas de capabilities |
 | VFS Foundation | `vfsserver` Ring 3, sources `vfs-info`/`vfs-mounts`/`vfs-stats`, quatre montages protégés (`initrd/`, `overlay/`, `fat16/`, `fat32/`) et quatre alias dynamiques au plus, lectures, métadonnées et listage source-spécifiques ; écriture, suppression et renommage complets pour l’overlay, création, suppression et renommage de fichiers FAT16 8.3 racine sous `mutate`, compteurs volatils, transfert contrôlé de `vfs`, délégation backend révocable avec profils `read`/`mutate`/`full`, consultation unitaire et inventaire borné réservés au propriétaire publié courant |
@@ -113,7 +113,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Overlay ATA PIO V2, 64 nœuds et restauration V1
 - [x] Préemption IRQ0 sûre entre tâches Ring 3
 - [x] Stub OpenAI honnête et `net-status` dynamique (NIC absente ou NE2000 détectée)
-- [x] Volume FAT16 lecture seule sur IDE (LBA 64), `fat16-list` / `fat16-cat`
+- [x] Volume FAT16 sur IDE (LBA 64) : lecture `fat16-list` / `fat16-cat`, puis creation/suppression/renommage 8.3 racine via VFS
 - [x] Console VGA : curseur bloc et historique Page Up/Down
 - [x] Pilote NE2000 ISA (sonde, anneaux, IRQ3, RX/TX PIO) et codecs ARP/IPv4/UDP/DHCP/DNS/TCP
 - [x] SHA-256, HMAC-SHA-256 et framing TLS record (sans handshake)
@@ -152,7 +152,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [ ] Optimisation supplémentaire de la latence GGUF sur une plateforme de référence stable, distincte de la variabilité QEMU TCG
 - [x] Bootstrap DHCP/OFFER/REQUEST/ACK, ARP, DNS A, SYN/SYN-ACK, ClientHello, ServerHello minimal et ACK LLM observé sur NE2000 QEMU avec pair Ethernet local contrôlé
 - [ ] Validation sur réseau physique/TAP ou bridge réel, handshake TLS authentifié, HTTP et client OpenAI effectif
-- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de la racine, LFN UTF-8 avec publication multi-entrée, reconstruction, renommage et suppression ; les deux volumes sont exposés au VFS en lecture seule — [docs/aos1989_1996_vfs_fat_dynamic_mounts.md](docs/aos1989_1996_vfs_fat_dynamic_mounts.md)
+- [x] Ecriture FAT16 8.3 racine via VFS (`vfs-write` / `vfs-remove` / `vfs-rename`), primitives FAT32 d'ecriture/chainage/LFN cote noyau ; FAT32 reste lecture seule cote VFS - [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 
 ## Arborescence
 
