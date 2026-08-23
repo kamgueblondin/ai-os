@@ -366,7 +366,8 @@ class ControlledEthernetPeer:
                            sequence + len(payload), self.tls.change_cipher_spec_record())
             self.tls_step = 5
             return
-        if self.full_tls and payload and self.tls_step == 6:
+        if self.full_tls and payload and self.tls.ready and self.tls_step >= 6 and not self.sse_pending:
+            # Premier POST apres Finished, ou second tour apres ai-next.
             request = self.tls.open_application(payload)
             if b"POST" not in request:
                 raise RuntimeError("HTTP POST local attendu")

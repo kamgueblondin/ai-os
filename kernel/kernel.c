@@ -581,24 +581,24 @@ int kernel_llm_reset_for_request(void) {
         return OS_LLM_RESET_FAILED;
     boot_llm_http_streaming = 0U;
     boot_llm_http_provider = NE2K_LLM_PROVIDER_OLLAMA;
-    boot_llm_http_accumulator.length = 0U;
-    boot_llm_http_accumulator.header_length = 0U;
-    boot_llm_http_accumulator.expected_body_length = 0U;
-    boot_llm_http_accumulator.status_code = 0U;
-    boot_llm_http_accumulator.headers_complete = 0U;
+    if (net_http_response_accumulator_init(&boot_llm_http_accumulator,
+                                           boot_llm_http_response_buffer,
+                                           sizeof(boot_llm_http_response_buffer)) != 0)
+        return OS_LLM_RESET_FAILED;
+    if (net_llm_sse_response_init(&boot_llm_sse_response, boot_llm_sse_http_buffer,
+                                  sizeof(boot_llm_sse_http_buffer), boot_llm_sse_event_buffer,
+                                  sizeof(boot_llm_sse_event_buffer)) != 0)
+        return OS_LLM_RESET_FAILED;
     boot_llm_http_response.status_code = 0U;
     boot_llm_http_response.body = 0;
     boot_llm_http_response.body_length = 0U;
     boot_llm_http_response.header_length = 0U;
-    boot_llm_sse_response.http.length = 0U;
-    boot_llm_sse_response.http.raw_length = 0U;
-    boot_llm_sse_response.sse.length = 0U;
-    boot_llm_sse_response.sse.done = 0U;
-    boot_llm_sse_response.decoded_consumed = 0U;
     kernel_llm_clear_bytes(boot_llm_http_text, sizeof(boot_llm_http_text));
-    kernel_llm_clear_bytes(boot_llm_http_response_buffer, sizeof(boot_llm_http_response_buffer));
-    kernel_llm_clear_bytes(boot_llm_sse_http_buffer, sizeof(boot_llm_sse_http_buffer));
-    kernel_llm_clear_bytes(boot_llm_sse_event_buffer, sizeof(boot_llm_sse_event_buffer));
+    boot_llm_application_recovery.pending = 0U;
+    boot_llm_application_recovery.is_sse_resume = 0U;
+    boot_llm_application_recovery.event_id_length = 0U;
+    kernel_llm_clear_bytes(boot_llm_application_recovery.event_id,
+                           sizeof(boot_llm_application_recovery.event_id));
     return 0;
 }
 
