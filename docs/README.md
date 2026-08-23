@@ -27,9 +27,9 @@ Les autres fichiers de ce dossier sont conservés : rapports de debug, chronolog
 |---|---|
 | [ETAT_REEL.md](ETAT_REEL.md) | État fonctionnel, GPT-2 local et limites vérifiées |
 | [vocabulaire.md](vocabulaire.md) | Lexique du hobby OS ; distance volontaire d’une identité Linux |
-| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001...026, FAT16 mutate, sockets et `ai-acquire` |
+| [../US/ai_os_us.md](../US/ai_os_us.md) | Backlog du prototype, AOS-001...026, FAT16 mutate, sockets, `ai-acquire` et TLS/HTTP local |
 | [aos_fat_volume.md](aos_fat_volume.md) | FAT16 lecture + mutations 8.3 racine ; FAT32 lecture VFS ; LFN FAT16 hors perimetre |
-| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI initial ; voir ETAT_REEL pour `ai-acquire` sur pair local |
+| [aos025_network_stub.md](aos025_network_stub.md) | Stub OpenAI initial ; voir ETAT_REEL pour `ai-acquire` et TLS/HTTP local |
 | [aos132_net_status_dynamic.md](aos132_net_status_dynamic.md) | `SYS_NET_STATUS` et smoke `qemu-ne2k-status` |
 | [aos153_154_tcp_sequence_retransmit.md](aos153_154_tcp_sequence_retransmit.md) | Dernière tranche TCP caller-owned (séquence et retransmission bornée) |
 | [mohhos_foundation_increment_01_ipc.md](mohhos_foundation_increment_01_ipc.md) | IPC Foundation entre tâches Ring 3, limites de la tranche et contrat QEMU |

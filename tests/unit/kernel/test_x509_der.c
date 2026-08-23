@@ -6,6 +6,8 @@
 #include "x509_chain_three_vectors.inc"
 #include "x509_ecdsa_vectors.inc"
 #include "x509_ecdsa_chain_vectors.inc"
+#include "tls_test_leaf.inc"
+#include "../../../kernel/tls_test_trust_anchor.h"
 static const uint8_t certificate[]={0x30,0x4b,0x30,0x40,0x02,0x01,0x01,0x30,0x03,0x06,0x01,0x2a,0x30,0x00,0x30,0x1e,0x17,0x0d,'2','6','0','1','0','1','0','0','0','0','0','0','Z',0x17,0x0d,'2','7','0','1','0','1','0','0','0','0','0','0','Z',0x30,0x00,0x30,0x12,0x30,0x03,0x06,0x01,0x2a,0x03,0x0b,0x00,0x30,0x08,0x02,0x01,0x01,0x02,0x03,0x01,0x00,0x01,0x30,0x03,0x06,0x01,0x2a,0x03,0x02,0x00,0x00};
 static const uint8_t hostname_certificate[]={0x30,0x81,0x84,0x30,0x79,0x02,0x01,0x01,0x30,0x03,0x06,0x01,0x2a,0x30,0x00,0x30,0x1e,0x17,0x0d,'2','6','0','1','0','1','0','0','0','0','0','0','Z',0x17,0x0d,'2','7','0','1','0','1','0','0','0','0','0','0','Z',0x30,0x18,0x31,0x16,0x30,0x14,0x06,0x03,0x55,0x04,0x03,0x0c,0x0d,'w','r','o','n','g','.', 'e','x','a','m','p','l','e',0x30,0x12,0x30,0x03,0x06,0x01,0x2a,0x03,0x0b,0x00,0x30,0x08,0x02,0x01,0x01,0x02,0x03,0x01,0x00,0x01,0xa3,0x1f,0x30,0x1d,0x30,0x1b,0x06,0x03,0x55,0x1d,0x11,0x04,0x14,0x30,0x12,0x82,0x10,'a','p','i','.', 'e','x','a','m','p','l','e','.', 't','e','s','t',0x30,0x03,0x06,0x01,0x2a,0x03,0x02,0x00,0x00};
 static const uint8_t eku_server_certificate[]={0x30,0x64,0x30,0x59,0x02,0x01,0x01,0x30,0x03,0x06,0x01,0x2a,0x30,0x00,0x30,0x1e,0x17,0x0d,'2','6','0','1','0','1','0','0','0','0','0','0','Z',0x17,0x0d,'2','7','0','1','0','1','0','0','0','0','0','0','Z',0x30,0x00,0x30,0x12,0x30,0x03,0x06,0x01,0x2a,0x03,0x0b,0x00,0x30,0x08,0x02,0x01,0x01,0x02,0x03,0x01,0x00,0x01,0xa3,0x17,0x30,0x15,0x30,0x13,0x06,0x03,0x55,0x1d,0x25,0x04,0x0c,0x30,0x0a,0x06,0x08,0x2b,0x06,0x01,0x05,0x05,0x07,0x03,0x01,0x30,0x03,0x06,0x01,0x2a,0x03,0x02,0x00,0x00};
@@ -31,4 +33,15 @@ void test_x509_ecdsa_chain_two_intermediate(void){x509_certificate_view_t root,i
 
 void test_x509_rejects_unknown_critical_extension(void){uint8_t altered[sizeof(aos417_root_der)];x509_certificate_view_t view;uint32_t i;uint8_t found=0U;for(i=0U;i<sizeof(altered);i++)altered[i]=aos417_root_der[i];for(i=0U;i+5U<sizeof(altered);i++){if(altered[i]==0x55U&&altered[i+1U]==0x1dU&&altered[i+2U]==0x0fU&&altered[i+3U]==0x01U&&altered[i+4U]==0x01U&&altered[i+5U]==0xffU){altered[i+2U]=0x7eU;found=1U;break;}}TEST_ASSERT_EQUAL(1U,found);TEST_ASSERT_NOT_EQUAL(0,x509_certificate_parse(altered,sizeof(altered),&view));}
 
-int main(void){unity_init();RUN_TEST(test_der_tlv_bounds);RUN_TEST(test_x509_minimal_rsa_view);RUN_TEST(test_x509_rsa_key_validation);RUN_TEST(test_x509_hostname_cn_san_and_wildcard);RUN_TEST(test_x509_validity_dates);RUN_TEST(test_x509_chain_one_anchor_rsa_sha256);RUN_TEST(test_x509_tls_identity_policy);RUN_TEST(test_x509_chain_two_intermediate_rsa_sha256);RUN_TEST(test_x509_chain_three_two_intermediates_rsa_sha256);RUN_TEST(test_x509_extended_key_usage_server_auth);RUN_TEST(test_x509_name_constraints_dns);RUN_TEST(test_x509_ec_p256_key_and_chain);RUN_TEST(test_x509_ecdsa_chain_two_intermediate);RUN_TEST(test_x509_rejects_unknown_critical_extension);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+void test_x509_local_example_test_anchor_and_leaf(void){
+    x509_certificate_view_t root,leaf;uint32_t workspace[512]={0};
+    TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos_tls_test_root_der,aos_tls_test_root_der_len,&root));
+    TEST_ASSERT_EQUAL(0,x509_rsa_public_key_validate(&root));
+    TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos_tls_test_leaf_der,sizeof(aos_tls_test_leaf_der),&leaf));
+    TEST_ASSERT_EQUAL(0,x509_rsa_public_key_validate(&leaf));
+    TEST_ASSERT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"api.example.test","20260818000000Z",workspace,512U));
+    TEST_ASSERT_NOT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"wrong.example.test","20260818000000Z",workspace,512U));
+    TEST_ASSERT_NOT_EQUAL(0,x509_certificate_tls_identity_validate(&leaf,&root,"api.example.test","20190101000000Z",workspace,512U));
+}
+
+int main(void){unity_init();RUN_TEST(test_der_tlv_bounds);RUN_TEST(test_x509_minimal_rsa_view);RUN_TEST(test_x509_rsa_key_validation);RUN_TEST(test_x509_hostname_cn_san_and_wildcard);RUN_TEST(test_x509_validity_dates);RUN_TEST(test_x509_chain_one_anchor_rsa_sha256);RUN_TEST(test_x509_tls_identity_policy);RUN_TEST(test_x509_chain_two_intermediate_rsa_sha256);RUN_TEST(test_x509_chain_three_two_intermediates_rsa_sha256);RUN_TEST(test_x509_extended_key_usage_server_auth);RUN_TEST(test_x509_name_constraints_dns);RUN_TEST(test_x509_ec_p256_key_and_chain);RUN_TEST(test_x509_ecdsa_chain_two_intermediate);RUN_TEST(test_x509_rejects_unknown_critical_extension);RUN_TEST(test_x509_local_example_test_anchor_and_leaf);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}

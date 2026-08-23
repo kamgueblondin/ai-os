@@ -24,6 +24,7 @@
 #include "ne2k.h"
 #include "net_socket.h"
 #include "tls_trust_anchor.h"
+#include "tls_test_trust_anchor.h"
 #include "ecdsa_p256.h"
 #include <stddef.h>
 
@@ -68,6 +69,8 @@ static uint8_t boot_llm_frame[KERNEL_LLM_FRAME_CAPACITY];
 static ne2k_tls_client_t boot_llm_tls_client;
 static x509_certificate_view_t boot_llm_trust_anchor;
 static uint8_t boot_llm_trust_anchor_ready;
+static x509_certificate_view_t boot_llm_test_trust_anchor;
+static uint8_t boot_llm_test_trust_anchor_ready;
 static rtc_io_t boot_llm_rtc_io;
 static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
 static char boot_llm_openai_bearer[OS_LLM_BEARER_MAX];
@@ -124,6 +127,9 @@ static void ne2k_boot_probe(void) {
     boot_llm_trust_anchor_ready = (x509_certificate_parse(aos_tls_isrg_root_x1_der,
         aos_tls_isrg_root_x1_der_len, &boot_llm_trust_anchor) == 0 &&
         x509_rsa_public_key_validate(&boot_llm_trust_anchor) == 0) ? 1U : 0U;
+    boot_llm_test_trust_anchor_ready = (x509_certificate_parse(aos_tls_test_root_der,
+        aos_tls_test_root_der_len, &boot_llm_test_trust_anchor) == 0 &&
+        x509_rsa_public_key_validate(&boot_llm_test_trust_anchor) == 0) ? 1U : 0U;
     boot_llm_tls_entropy_ready = 0U;
     boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
@@ -245,6 +251,33 @@ static int kernel_llm_hostname_is_valid(const char hostname[OS_LLM_HOSTNAME_MAX]
               (value >= '0' && value <= '9') || value == '.' || value == '-')) return 0;
     }
     return 0;
+}
+
+static int kernel_llm_ascii_lower(char value) {
+    if (value >= 'A' && value <= 'Z') return (int)(value - 'A' + 'a');
+    return (int)(unsigned char)value;
+}
+
+static int kernel_llm_hostname_has_suffix(const char* hostname, const char* suffix) {
+    uint16_t host_length = 0U, suffix_length = 0U, index;
+    if (!hostname || !suffix) return 0;
+    while (hostname[host_length] != '\0' && host_length < OS_LLM_HOSTNAME_MAX) host_length++;
+    while (suffix[suffix_length] != '\0') suffix_length++;
+    if (host_length < suffix_length) return 0;
+    for (index = 0U; index < suffix_length; ++index) {
+        if (kernel_llm_ascii_lower(hostname[host_length - suffix_length + index]) !=
+            kernel_llm_ascii_lower(suffix[index])) return 0;
+    }
+    if (host_length != suffix_length && hostname[host_length - suffix_length - 1U] != '.') return 0;
+    return 1;
+}
+
+/* Ancre locale pour api.example.test ; ISRG Root X1 reste le defaut public. */
+static const x509_certificate_view_t* kernel_llm_select_trust_anchor(void) {
+    if (boot_llm_test_trust_anchor_ready &&
+        (kernel_llm_hostname_has_suffix(boot_llm_hostname, "example.test")))
+        return &boot_llm_test_trust_anchor;
+    return &boot_llm_trust_anchor;
 }
 
 static void kernel_llm_copy_hostname(const char source[OS_LLM_HOSTNAME_MAX]) {
@@ -600,7 +633,7 @@ int kernel_llm_poll_tls(void) {
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
         boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
-        boot_llm_client_private, &boot_llm_trust_anchor, boot_llm_hostname, utc_time,
+        boot_llm_client_private, kernel_llm_select_trust_anchor(), boot_llm_hostname, utc_time,
         boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
         boot_llm_x25519_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS, boot_llm_prf_workspace,
         sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),
