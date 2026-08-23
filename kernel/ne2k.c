@@ -1258,6 +1258,7 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
     static net_tcp_connection_t previous_connection;
     net_tcp_view_t view;
     uint16_t frame_length = 0U; uint32_t local_flight_length = 0U; int status;
+    uint8_t acked_this_poll = 0U;
     if (!device || !io || !cache || !rx_frame || !tx_frame || !local_ip || !remote_ip || !client ||
         !client_random || !client_private || !trust_anchor || !hostname || !utc_time || !rsa_workspace ||
         !x25519_workspace || !prf_workspace || !tcp_segment || !flight_records || !flight_records_length ||
@@ -1273,7 +1274,15 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
         if (status == 0) goto after_handshake_message;
     }
     status = ne2k_rx_poll_tcp(device, io, rx_frame, rx_capacity, &frame_length, &view);
-    if (status != 0) return status;
+    if (status != 0) {
+        /* Apres ServerHelloDone, emettre le vol sur un sondage sans ACK :
+         * QEMU perd souvent la trame si elle part dans le meme tour que l'ACK. */
+        if (status == 1 &&
+            client->handshake.state == NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED &&
+            client->peer_identity_validated && !client->handshake.certificate_requested)
+            goto after_handshake_message;
+        return status;
+    }
     if (client->handshake.state == NET_TLS_HANDSHAKE_FINISHED_SENT ||
         client->handshake.state == NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED) {
         status = net_socket_accept_tls_x25519_postflight(socket_id, &client->handshake,
@@ -1292,6 +1301,7 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
                                                            rsa_workspace_length, consumed);
     if (status < 0 || ne2k_socket_ack(device, io, cache, tx_frame, tx_capacity,
                                       local_ip, remote_ip, socket_id) != 0) goto rollback_socket;
+    acked_this_poll = 1U;
     if (status == 1) return 1;
 after_handshake_message:
     if (client->handshake.state == NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED) {
@@ -1316,6 +1326,7 @@ after_handshake_message:
     }
     if (client->handshake.state != NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED ||
         !client->peer_identity_validated || client->handshake.certificate_requested) return 0;
+    if (acked_this_poll) return 0;
     status = net_socket_build_tls_x25519_flight(socket_id, &client->handshake, &client->x25519,
                                                  client_private, client_random, &client->transcript,
                                                  client->master_secret, client->key_block, &client->session,

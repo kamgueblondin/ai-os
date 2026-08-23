@@ -322,6 +322,13 @@ class ControlledEthernetPeer:
                                  sequence, guest_ack, chunk)
             sequence += len(chunk)
 
+    @staticmethod
+    def _tls_handshake_type(payload):
+        # En-tete record 5 octets puis type handshake (ClientHello=1, CKE=16).
+        if len(payload) < 6 or payload[:3] != b"\x16\x03\x03":
+            return None
+        return payload[5]
+
     def _handle_tcp_443(self, connection, dest_mac, dest_ip, dest_port, sequence, acknowledgment, flags, payload):
         if (flags & 0x12) == 0x02:
             self.events["syn"] += 1
@@ -333,7 +340,7 @@ class ControlledEthernetPeer:
                           sequence + 1, 0x12)))
             self.events["syn_ack"] += 1
             return
-        if payload[:3] == b"\x16\x03\x03" and self.tls_step == 0:
+        if self._tls_handshake_type(payload) == 1 and self.tls_step == 0:
             self.events["client_hello"] += 1
             guest_ack = sequence + len(payload)
             if self.full_tls:
@@ -346,8 +353,8 @@ class ControlledEthernetPeer:
             self.tls_step = 1
             self.events["server_hello"] += 1
             return
-        if payload[:3] == b"\x16\x03\x03" and self.tls_step >= 1:
-            # ClientHello reemis : le vol serveur n'a pas ete vu.
+        if self._tls_handshake_type(payload) == 1 and 1 <= self.tls_step < 4:
+            # ClientHello reemis : le vol serveur n'a pas encore ete acheve.
             self._retransmit_tcp(connection, dest_mac, dest_ip, dest_port,
                                  sequence + len(payload), acknowledgment)
             return

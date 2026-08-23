@@ -111,7 +111,7 @@ def main():
                                    (error, peer.events, peer.error))
             complete = False
             progressions = 0
-            for _ in range(24):
+            for _ in range(32):
                 start = len(text())
                 keys(client, "ai-tls-poll")
                 deadline = time.monotonic() + 30

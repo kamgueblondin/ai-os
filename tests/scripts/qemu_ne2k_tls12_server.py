@@ -269,6 +269,12 @@ def _self_check():
     finished = _handshake(HANDSHAKE_FINISHED, verify)
     finished_record = _aes_gcm_seal(key_block[0:16], key_block[32:36], 0, CONTENT_HANDSHAKE, finished)
     flight = _record(CONTENT_HANDSHAKE, key_exchange) + _record(CONTENT_CHANGE_CIPHER_SPEC, b"\x01") + finished_record
+    from qemu_ne2k_controlled_peer import ControlledEthernetPeer
+    hello_record = _record(CONTENT_HANDSHAKE, bytes(hello))
+    if ControlledEthernetPeer._tls_handshake_type(hello_record) != 1:
+        raise RuntimeError("ClientHello local non reconnu")
+    if ControlledEthernetPeer._tls_handshake_type(flight) != 16:
+        raise RuntimeError("vol client local pris pour un ClientHello")
     server.accept_client_flight(flight)
     if server.master_secret != master:
         raise RuntimeError("master secret diverge")
