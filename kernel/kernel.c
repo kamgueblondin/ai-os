@@ -24,6 +24,7 @@
 #include "ne2k.h"
 #include "net_socket.h"
 #include "tls_trust_anchor.h"
+#include "tls_test_trust_anchor.h"
 #include "ecdsa_p256.h"
 #include <stddef.h>
 
@@ -68,6 +69,8 @@ static uint8_t boot_llm_frame[KERNEL_LLM_FRAME_CAPACITY];
 static ne2k_tls_client_t boot_llm_tls_client;
 static x509_certificate_view_t boot_llm_trust_anchor;
 static uint8_t boot_llm_trust_anchor_ready;
+static x509_certificate_view_t boot_llm_test_trust_anchor;
+static uint8_t boot_llm_test_trust_anchor_ready;
 static rtc_io_t boot_llm_rtc_io;
 static char boot_llm_hostname[OS_LLM_HOSTNAME_MAX];
 static char boot_llm_openai_bearer[OS_LLM_BEARER_MAX];
@@ -124,6 +127,9 @@ static void ne2k_boot_probe(void) {
     boot_llm_trust_anchor_ready = (x509_certificate_parse(aos_tls_isrg_root_x1_der,
         aos_tls_isrg_root_x1_der_len, &boot_llm_trust_anchor) == 0 &&
         x509_rsa_public_key_validate(&boot_llm_trust_anchor) == 0) ? 1U : 0U;
+    boot_llm_test_trust_anchor_ready = (x509_certificate_parse(aos_tls_test_root_der,
+        aos_tls_test_root_der_len, &boot_llm_test_trust_anchor) == 0 &&
+        x509_rsa_public_key_validate(&boot_llm_test_trust_anchor) == 0) ? 1U : 0U;
     boot_llm_tls_entropy_ready = 0U;
     boot_llm_tls_material_ready = 0U;
     boot_llm_flight_records_length = 0U;
@@ -152,6 +158,9 @@ static void ne2k_boot_probe(void) {
     }
     boot_ne2k_present = 1U;
     print_string("NE2000 ISA detecte, MAC valide et anneaux RX/TX configures.\\n");
+    print_string(boot_llm_test_trust_anchor_ready ?
+        "Ancre TLS de test locale prete (example.com).\n" :
+        "Ancre TLS de test locale indisponible.\n");
 }
 
 uint32_t kernel_net_status(void) {
@@ -226,12 +235,14 @@ failure:
     return -1;
 }
 
-/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ; bits 8..15 : phase LLM. */
+/* Bit 0 : NE2000 prêt ; bit 1 : bail DHCP ; bit 2 : RDRAND ; bit 3 : ancre X.509 ;
+ * bit 4 : ancre de test locale ; bits 8..15 : phase LLM. */
 uint32_t kernel_llm_session_status(void) {
     return (boot_ne2k_present ? 1U : 0U) |
            (boot_llm_lease.valid ? 2U : 0U) |
            (boot_llm_rdrand_supported ? 4U : 0U) |
            (boot_llm_trust_anchor_ready ? 8U : 0U) |
+           (boot_llm_test_trust_anchor_ready ? 16U : 0U) |
            ((uint32_t)boot_llm_socket_session.state.phase << 8);
 }
 
@@ -245,6 +256,40 @@ static int kernel_llm_hostname_is_valid(const char hostname[OS_LLM_HOSTNAME_MAX]
               (value >= '0' && value <= '9') || value == '.' || value == '-')) return 0;
     }
     return 0;
+}
+
+static int kernel_llm_ascii_lower(char value) {
+    if (value >= 'A' && value <= 'Z') return (int)(value - 'A' + 'a');
+    return (int)(unsigned char)value;
+}
+
+static int kernel_llm_hostname_has_suffix(const char* hostname, const char* suffix) {
+    uint16_t host_length = 0U, suffix_length = 0U, index;
+    if (!hostname || !suffix) return 0;
+    while (hostname[host_length] != '\0' && host_length < OS_LLM_HOSTNAME_MAX) host_length++;
+    while (suffix[suffix_length] != '\0') suffix_length++;
+    if (host_length < suffix_length) return 0;
+    for (index = 0U; index < suffix_length; ++index) {
+        if (kernel_llm_ascii_lower(hostname[host_length - suffix_length + index]) !=
+            kernel_llm_ascii_lower(suffix[index])) return 0;
+    }
+    if (host_length != suffix_length && hostname[host_length - suffix_length - 1U] != '.') return 0;
+    return 1;
+}
+
+/* Ancre locale pour example.com / api.example.test ; ISRG Root X1 reste le defaut public. */
+static const char* kernel_llm_session_hostname(void) {
+    if (boot_llm_hostname[0] != '\0') return boot_llm_hostname;
+    return boot_llm_dhcp_maintenance.acquire.hostname;
+}
+
+static const x509_certificate_view_t* kernel_llm_select_trust_anchor(void) {
+    const char* hostname = kernel_llm_session_hostname();
+    if (boot_llm_test_trust_anchor_ready &&
+        (kernel_llm_hostname_has_suffix(hostname, "example.test") ||
+         kernel_llm_hostname_has_suffix(hostname, "example.com")))
+        return &boot_llm_test_trust_anchor;
+    return &boot_llm_trust_anchor;
 }
 
 static void kernel_llm_copy_hostname(const char source[OS_LLM_HOSTNAME_MAX]) {
@@ -307,6 +352,13 @@ int kernel_llm_dhcp_maintenance(uint32_t now) {
     int status; uint32_t delay; uint8_t attempt; os_llm_acquire_start_request_t retry;
     if (!boot_llm_dhcp_maintenance.armed || !boot_ne2k_present) return 0;
     if (boot_llm_lease.valid) {
+        /* ne2k_dhcp_poll_ack consomme la tete du ring, DHCP ou pas. Pendant
+         * SYN/TLS/HTTP ces trames ne doivent pas disparaitre. */
+        if (boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_SYN_SENT ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_TLS_STARTED ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_REQUEST_SENT ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_STREAMING)
+            return 0;
         status = ne2k_dhcp_renew_if_due(&boot_ne2k_device, &boot_ne2k_io,
                                         boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx),
                                         boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
@@ -600,7 +652,7 @@ int kernel_llm_poll_tls(void) {
         &boot_ne2k_device, &boot_ne2k_io, &boot_llm_arp_cache,
         boot_llm_arp_rx, sizeof(boot_llm_arp_rx), boot_llm_frame, sizeof(boot_llm_frame),
         boot_llm_lease.ipv4, &boot_llm_socket_session, &boot_llm_tls_client, boot_llm_client_random,
-        boot_llm_client_private, &boot_llm_trust_anchor, boot_llm_hostname, utc_time,
+        boot_llm_client_private, kernel_llm_select_trust_anchor(), kernel_llm_session_hostname(), utc_time,
         boot_llm_rsa_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS,
         boot_llm_x25519_workspace, KERNEL_LLM_TLS_WORKSPACE_WORDS, boot_llm_prf_workspace,
         sizeof(boot_llm_prf_workspace), boot_llm_tcp_segment, sizeof(boot_llm_tcp_segment),

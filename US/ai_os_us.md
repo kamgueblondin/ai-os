@@ -21,7 +21,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 | AOS-009 | Executer un ELF bloquant | `exec`, parent `TASK_WAITING`, reveil par `SYS_EXIT` |
 | AOS-010 | Completer localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
 | AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et decodage UTF-8 brut |
-| AOS-012 | Prevenir les regressions | 489 tests C et contrats QEMU versionnes, dont `qemu-ne2k-status`, `qemu-ne2k-acquire` et `qemu-vfs-service` |
+| AOS-012 | Prevenir les regressions | 495 tests C et contrats QEMU versionnes, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http` et `qemu-vfs-service` |
 
 ## Tranche AOS-020 à AOS-025 — livrée
 
@@ -73,11 +73,11 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison initiale.** `ai-provider openai` reste un profil explicite. `net-status` / `net-status json` publient la presence reelle d'une NIC NE2000 ISA (`SYS_NET_STATUS`). Sans carte, `nic=absent` ; avec `-device ne2k_isa`, `make qemu-ne2k-status` exige `nic=detected`.
 
-**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. Ce n'est pas Internet public, pas un TLS authentifie vers un hote reel, et pas OpenAI sans jeton fourni hors image.
+**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. `make qemu-ne2k-tls-http` complete le handshake TLS 1.2 authentifie local (`example.com`, ancre de test, `TLS_COMPLETE`) puis un POST ollama et l'extraction HTTP 200 `ok`. Ce n'est pas Internet public, pas un TLS vers un hote reel, et pas OpenAI.
 
-**Limite et suite.** Un client OpenAI reel exige encore un handshake TLS authentifie, HTTP et un secret hors initrd. QEMU peut relier `ne2k_isa` a un backend utilisateur [1] ; le guest a un pilote et un bootstrap local, pas un client HTTPS public.
+**Limite et suite.** Un client OpenAI reel exige encore un secret hors initrd et un hote public. QEMU peut relier `ne2k_isa` a un backend utilisateur [1] ; le guest a un pilote, un TLS local et un HTTP local, pas un client HTTPS public.
 
-**Verification.** `make qemu-ai-provider`, `make qemu-ne2k-status` et `make qemu-ne2k-acquire`.
+**Verification.** `make qemu-ai-provider`, `make qemu-ne2k-status`, `make qemu-ne2k-acquire` et `make qemu-ne2k-tls-http`.
 
 ### AOS-026 — Volume FAT sur disque IDE (lot 68 livré)
 

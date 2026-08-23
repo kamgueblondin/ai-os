@@ -1,11 +1,14 @@
 #include "../../framework/unity.h"
 #include "../../../kernel/net_tls_record.h"
 #include "../../../kernel/ecdsa_p256.h"
+#include "../../../kernel/tls_test_trust_anchor.h"
 #include "x509_ecdsa_vectors.inc"
 #include "x509_ecdsa_chain_vectors.inc"
 #include "tls_ecdsa_vectors.inc"
+#include "tls_test_leaf.inc"
 void setUp(void){} void tearDown(void){}
 void test_tls_handshake_state(void){uint8_t hello[42]={0};net_tls_handshake_t handshake;hello[0]=2;hello[3]=38;hello[4]=3;hello[5]=3;for(uint8_t i=0;i<32;i++)hello[6+i]=i;hello[38]=0;hello[39]=0;hello[40]=0x9c;hello[41]=0;TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake));TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_IDLE,handshake.state);TEST_ASSERT_NOT_EQUAL(0,net_tls_handshake_accept_server_hello(&handshake,hello,sizeof(hello)));TEST_ASSERT_EQUAL(0,net_tls_handshake_note_client_hello(&handshake));TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_CLIENT_HELLO_SENT,handshake.state);TEST_ASSERT_EQUAL(0,net_tls_handshake_accept_server_hello(&handshake,hello,sizeof(hello)));TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_SERVER_HELLO_RECEIVED,handshake.state);TEST_ASSERT_EQUAL(0x009c,handshake.cipher_suite);TEST_ASSERT_NOT_EQUAL(0,net_tls_handshake_accept_server_hello(&handshake,hello,sizeof(hello)));}
+void test_tls_server_random_survives_buffer_reuse(void){uint8_t hello[42]={0};net_tls_handshake_t handshake;uint8_t i;hello[0]=2;hello[3]=38;hello[4]=3;hello[5]=3;for(i=0;i<32;i++)hello[6+i]=(uint8_t)(0xA0+i);hello[38]=0;hello[39]=0;hello[40]=0x9c;hello[41]=0;TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake));TEST_ASSERT_EQUAL(0,net_tls_handshake_note_client_hello(&handshake));TEST_ASSERT_EQUAL(0,net_tls_handshake_accept_server_hello(&handshake,hello,sizeof(hello)));for(i=0;i<42;i++)hello[i]=0xFF;for(i=0;i<32;i++)TEST_ASSERT_EQUAL((uint8_t)(0xA0+i),handshake.server_random[i]);}
 void test_tls_server_hello_parse(void){uint8_t hello[44]={0};net_tls_server_hello_view_t view;hello[0]=2;hello[3]=38;hello[4]=3;hello[5]=3;for(uint8_t i=0;i<32;i++)hello[6+i]=i;hello[38]=0;hello[39]=0;hello[40]=0x9c;hello[41]=0;TEST_ASSERT_EQUAL(0,net_tls_server_hello_parse(hello,42,&view));TEST_ASSERT_EQUAL(0x009c,view.cipher_suite);TEST_ASSERT_EQUAL(0,view.compression_method);hello[42]=0;hello[43]=0;hello[3]=40;TEST_ASSERT_EQUAL(0,net_tls_server_hello_parse(hello,44,&view));TEST_ASSERT_EQUAL(0,view.extensions_length);hello[43]=1;TEST_ASSERT_NOT_EQUAL(0,net_tls_server_hello_parse(hello,44,&view));hello[3]=38;hello[5]=1;TEST_ASSERT_NOT_EQUAL(0,net_tls_server_hello_parse(hello,42,&view));hello[5]=3;hello[41]=1;TEST_ASSERT_NOT_EQUAL(0,net_tls_server_hello_parse(hello,42,&view));}
 void test_tls_certificate_parse(void){uint8_t message[18]={11,0,0,14,0,0,11,0,0,3,'A','B','C',0,0,2,'D','E'};net_tls_certificate_view_t view;TEST_ASSERT_EQUAL(0,net_tls_certificate_parse(message,sizeof(message),&view));TEST_ASSERT_EQUAL(11,view.certificate_list_length);TEST_ASSERT_EQUAL(3,view.certificate_length);TEST_ASSERT_EQUAL('A',view.certificate[0]);TEST_ASSERT_EQUAL(2,view.intermediate_length);TEST_ASSERT_EQUAL('D',view.intermediate[0]);message[6]=12;TEST_ASSERT_NOT_EQUAL(0,net_tls_certificate_parse(message,sizeof(message),&view));message[6]=11;message[9]=0;TEST_ASSERT_NOT_EQUAL(0,net_tls_certificate_parse(message,sizeof(message),&view));}
 void test_tls_certificate_parse_two_intermediates_bound(void){uint8_t three[22]={11,0,0,18,0,0,15,0,0,2,'A','B',0,0,2,'C','D',0,0,2,'E','F'},four[23]={11,0,0,19,0,0,16,0,0,1,'A',0,0,1,'B',0,0,1,'C',0,0,1,'D'};net_tls_certificate_view_t view;TEST_ASSERT_EQUAL(0,net_tls_certificate_parse(three,sizeof(three),&view));TEST_ASSERT_EQUAL(2U,view.certificate_length);TEST_ASSERT_EQUAL(2U,view.intermediate_length);TEST_ASSERT_EQUAL(2U,view.intermediate_two_length);TEST_ASSERT_EQUAL('E',view.intermediate_two[0]);TEST_ASSERT_NOT_EQUAL(0,net_tls_certificate_parse(four,sizeof(four),&view));}
@@ -41,4 +44,56 @@ void test_tls_record_parse_stream_bounds(void){uint8_t record[16]={0},payload[3]
 void test_tls_record_build_parse(void){uint8_t record[32]={0},payload[3]={'C','H','1'};net_tls_record_view_t view;TEST_ASSERT_EQUAL(8,net_tls_record_build(record,sizeof(record),NET_TLS_CONTENT_HANDSHAKE,payload,3));TEST_ASSERT_EQUAL(0,net_tls_record_parse(record,8,&view));TEST_ASSERT_EQUAL(NET_TLS_CONTENT_HANDSHAKE,view.content_type);TEST_ASSERT_EQUAL(3,view.payload_length);TEST_ASSERT_EQUAL('C',view.payload[0]);record[2]=2;TEST_ASSERT_NOT_EQUAL(0,net_tls_record_parse(record,8,&view));}
 void test_tls_chain_selection_with_intermediate(void){net_tls_handshake_t handshake;net_tls_certificate_chain_selection_t selected; x509_certificate_view_t root,intermediate,leaf;static uint32_t workspace[ECDSA_P256_WORKSPACE_WORDS]={0};TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos769_ecdsa_root_der,sizeof(aos769_ecdsa_root_der),&root));TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos769_ecdsa_intermediate_der,sizeof(aos769_ecdsa_intermediate_der),&intermediate));TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos769_ecdsa_leaf_der,sizeof(aos769_ecdsa_leaf_der),&leaf));TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake));handshake.server_x509=leaf;handshake.server_intermediate_x509=intermediate;handshake.server_x509_valid=1U;handshake.server_intermediate_x509_valid=1U;selected.intermediate_one=&root;selected.intermediate_two=&root;selected.depth=9U;TEST_ASSERT_EQUAL(0,net_tls_handshake_chain_select(&handshake,&root,workspace,ECDSA_P256_WORKSPACE_WORDS,&selected));TEST_ASSERT_EQUAL(1U,selected.depth);TEST_ASSERT_EQUAL_PTR(&handshake.server_intermediate_x509,selected.intermediate_one);TEST_ASSERT_NULL(selected.intermediate_two);TEST_ASSERT_NOT_EQUAL(0,net_tls_handshake_chain_select(&handshake,&root,workspace,ECDSA_P256_WORKSPACE_WORDS-1U,&selected));TEST_ASSERT_NOT_EQUAL(0,net_tls_handshake_chain_select(0,&root,workspace,ECDSA_P256_WORKSPACE_WORDS,&selected));}
 
-int main(void){unity_init();RUN_TEST(test_tls_handshake_state);RUN_TEST(test_tls_server_hello_parse);RUN_TEST(test_tls_certificate_parse);RUN_TEST(test_tls_certificate_parse_two_intermediates_bound);RUN_TEST(test_tls_certificate_handshake_state);RUN_TEST(test_tls_server_hello_done);RUN_TEST(test_tls_server_hello_done_state);RUN_TEST(test_tls_handshake_fragment_and_transcript);RUN_TEST(test_tls_server_key_exchange_and_certificate_request);RUN_TEST(test_tls_server_message_dispatch);RUN_TEST(test_tls_authenticated_dispatch);RUN_TEST(test_tls_client_flight_build_and_state);RUN_TEST(test_tls_prf_master_and_finished);RUN_TEST(test_tls_aes128_gcm_key_block);RUN_TEST(test_tls_server_postflight_verify);RUN_TEST(test_tls_aes_gcm_record_roundtrip);RUN_TEST(test_tls_aes_gcm_session_sequences);RUN_TEST(test_tls_accumulator_fragments);RUN_TEST(test_tls_close_notify_build);RUN_TEST(test_tls_close_notify_parse);RUN_TEST(test_tls_record_parse_stream_bounds);RUN_TEST(test_tls_ecdhe_ecdsa_authenticated_server_key_exchange);RUN_TEST(test_tls_client_hello_build);RUN_TEST(test_tls_client_hello_sni_alpn_build);RUN_TEST(test_tls_x25519_prepare_and_master_secret);RUN_TEST(test_tls_x25519_client_flight_transaction);RUN_TEST(test_tls_ecdhe_ecdsa_full_client_flight);RUN_TEST(test_tls_record_build_parse);RUN_TEST(test_tls_chain_selection_with_intermediate);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}
+void test_tls_record_accumulator_keeps_leftover(void){
+    uint8_t first[16]={0},second[16]={0},stream[32]={0},buffer[32]={0},payload[3]={'A','B','C'};
+    uint16_t index,first_length,second_length;
+    net_tls_record_accumulator_t accumulator;
+    net_tls_record_view_t view;
+    first_length=(uint16_t)net_tls_record_build(first,sizeof(first),NET_TLS_CONTENT_HANDSHAKE,payload,3);
+    second_length=(uint16_t)net_tls_record_build(second,sizeof(second),NET_TLS_CONTENT_HANDSHAKE,payload,3);
+    TEST_ASSERT_EQUAL(8,first_length);
+    for(index=0;index<first_length;index++)stream[index]=first[index];
+    for(index=0;index<second_length;index++)stream[first_length+index]=second[index];
+    TEST_ASSERT_EQUAL(0,net_tls_record_accumulator_init(&accumulator,buffer,sizeof(buffer)));
+    TEST_ASSERT_EQUAL(0,net_tls_record_accumulator_feed(&accumulator,stream,(uint16_t)(first_length+second_length),&view));
+    TEST_ASSERT_EQUAL(3,view.payload_length);
+    TEST_ASSERT_EQUAL('C',view.payload[2]);
+    TEST_ASSERT_EQUAL(16,accumulator.length);
+    TEST_ASSERT_EQUAL(0,net_tls_record_accumulator_consume(&accumulator,first_length));
+    TEST_ASSERT_EQUAL(8,accumulator.length);
+    TEST_ASSERT_EQUAL(0,net_tls_record_accumulator_feed(&accumulator,stream,0,&view));
+    TEST_ASSERT_EQUAL(3,view.payload_length);
+}
+
+void test_tls_local_rsa_certificate_identity_after_rebind(void){
+    uint8_t hello[42]={0},certificate[16U+sizeof(aos_tls_test_leaf_der)]={0};
+    uint8_t transcript_buffer[2048]={0},client_random[32]={0};
+    static uint32_t workspace[ECDSA_P256_WORKSPACE_WORDS]={0};
+    x509_certificate_view_t root;
+    net_tls_handshake_t handshake;
+    net_tls_transcript_t transcript;
+    uint32_t body,list_length,index;
+    list_length=3U+(uint32_t)sizeof(aos_tls_test_leaf_der);
+    body=3U+list_length;
+    hello[0]=2U;hello[3]=38U;hello[4]=3U;hello[5]=3U;hello[38]=0U;hello[39]=0xc0U;hello[40]=0x2fU;hello[41]=0U;
+    certificate[0]=11U;
+    certificate[1]=(uint8_t)(body>>16);certificate[2]=(uint8_t)(body>>8);certificate[3]=(uint8_t)body;
+    certificate[4]=(uint8_t)(list_length>>16);certificate[5]=(uint8_t)(list_length>>8);certificate[6]=(uint8_t)list_length;
+    certificate[7]=(uint8_t)(sizeof(aos_tls_test_leaf_der)>>16);
+    certificate[8]=(uint8_t)(sizeof(aos_tls_test_leaf_der)>>8);
+    certificate[9]=(uint8_t)sizeof(aos_tls_test_leaf_der);
+    for(index=0U;index<sizeof(aos_tls_test_leaf_der);index++)certificate[10U+index]=aos_tls_test_leaf_der[index];
+    TEST_ASSERT_EQUAL(0,x509_certificate_parse(aos_tls_test_root_der,aos_tls_test_root_der_len,&root));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_init(&handshake));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_note_client_hello(&handshake));
+    TEST_ASSERT_EQUAL(0,net_tls_transcript_init(&transcript,transcript_buffer,sizeof(transcript_buffer)));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_accept_server_message_authenticated(&handshake,client_random,hello,sizeof(hello),&transcript,workspace,ECDSA_P256_WORKSPACE_WORDS));
+    TEST_ASSERT_EQUAL(0,net_tls_handshake_accept_server_message_authenticated(&handshake,client_random,certificate,(uint16_t)(10U+sizeof(aos_tls_test_leaf_der)),&transcript,workspace,ECDSA_P256_WORKSPACE_WORDS));
+    TEST_ASSERT_EQUAL(NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED,handshake.state);
+    TEST_ASSERT_EQUAL((int)sizeof(aos_tls_test_leaf_der),(int)handshake.server_certificate_length);
+    TEST_ASSERT_EQUAL_MEMORY(aos_tls_test_leaf_der,handshake.server_certificate,sizeof(aos_tls_test_leaf_der));
+    for(index=0U;index<10U+sizeof(aos_tls_test_leaf_der);index++)certificate[index]=0x5aU;
+    TEST_ASSERT_EQUAL(0,x509_certificate_tls_identity_validate(&handshake.server_x509,&root,"example.com","20260818000000Z",workspace,ECDSA_P256_WORKSPACE_WORDS));
+}
+
+int main(void){unity_init();RUN_TEST(test_tls_handshake_state);RUN_TEST(test_tls_server_random_survives_buffer_reuse);RUN_TEST(test_tls_server_hello_parse);RUN_TEST(test_tls_certificate_parse);RUN_TEST(test_tls_certificate_parse_two_intermediates_bound);RUN_TEST(test_tls_certificate_handshake_state);RUN_TEST(test_tls_server_hello_done);RUN_TEST(test_tls_server_hello_done_state);RUN_TEST(test_tls_handshake_fragment_and_transcript);RUN_TEST(test_tls_server_key_exchange_and_certificate_request);RUN_TEST(test_tls_server_message_dispatch);RUN_TEST(test_tls_authenticated_dispatch);RUN_TEST(test_tls_client_flight_build_and_state);RUN_TEST(test_tls_prf_master_and_finished);RUN_TEST(test_tls_aes128_gcm_key_block);RUN_TEST(test_tls_server_postflight_verify);RUN_TEST(test_tls_aes_gcm_record_roundtrip);RUN_TEST(test_tls_aes_gcm_session_sequences);RUN_TEST(test_tls_accumulator_fragments);RUN_TEST(test_tls_close_notify_build);RUN_TEST(test_tls_close_notify_parse);RUN_TEST(test_tls_record_parse_stream_bounds);RUN_TEST(test_tls_ecdhe_ecdsa_authenticated_server_key_exchange);RUN_TEST(test_tls_client_hello_build);RUN_TEST(test_tls_client_hello_sni_alpn_build);RUN_TEST(test_tls_x25519_prepare_and_master_secret);RUN_TEST(test_tls_x25519_client_flight_transaction);RUN_TEST(test_tls_ecdhe_ecdsa_full_client_flight);RUN_TEST(test_tls_record_build_parse);RUN_TEST(test_tls_chain_selection_with_intermediate);RUN_TEST(test_tls_record_accumulator_keeps_leftover);RUN_TEST(test_tls_local_rsa_certificate_identity_after_rebind);unity_print_results();unity_cleanup();return unity_stats.tests_failed==0?0:1;}

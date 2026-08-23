@@ -10,6 +10,11 @@ import socket
 import struct
 import threading
 
+from qemu_ne2k_tls12_server import LocalTls12Server
+
+# Un record TLS peut s'assembler sur plusieurs segments ; au-dela de ~500 o
+# Ethernet, QEMU/NE2000 ISA laisse parfois la trame invisible au guest.
+MAX_TCP_PAYLOAD = 256
 SERVER_MAC = b"\x52\x54\x00\xa0\x20\x02"
 SERVER_IP = b"\x0a\x20\x00\x02"       # 10.32.0.2
 GUEST_IP = b"\x0a\x20\x00\x0f"        # 10.32.0.15
@@ -113,7 +118,7 @@ def _dhcp_reply(request, message_type):
         options += b"\x01\x04" + NETMASK
         options += b"\x03\x04" + SERVER_IP
         options += b"\x06\x04" + SERVER_IP
-        options += b"\x33\x04" + struct.pack("!I", 3600)
+        options += b"\x33\x04" + struct.pack("!I", 86400)
     options += b"\xff"
     payload[240:240 + len(options)] = options
     return _ethernet(b"\xff" * 6, 0x0800, _ipv4_udp(SERVER_IP, b"\xff\xff\xff\xff", 67, 68, bytes(payload)))
@@ -148,10 +153,28 @@ def _dns_reply(request_payload):
 class ControlledEthernetPeer:
     """Serveur socket QEMU non persistant avec compteurs de protocole publics."""
 
-    def __init__(self):
+    def __init__(self, full_tls=False):
+        self.full_tls = full_tls
         self.events = {"discover": 0, "offer": 0, "request": 0, "ack": 0,
                        "arp": 0, "dns": 0, "syn": 0, "syn_ack": 0, "client_hello": 0,
                        "server_hello": 0, "server_hello_ack": 0}
+        if full_tls:
+            self.events.update({
+                "certificate": 0, "server_key_exchange": 0, "server_hello_done": 0,
+                "client_flight": 0, "server_finished": 0, "http_request": 0,
+                "http_response": 0,
+            })
+        self.tls = LocalTls12Server() if full_tls else None
+        self.tls_step = 0
+        self.last_sent_end = 0
+        self.last_payload = b""
+        self.last_payload_sequence = 0
+        self.pending_advance = False
+        self.deferred_ack = None
+        self.sent_sizes = []
+        self.guest_mac = None
+        self.guest_ip = None
+        self.guest_port = 49152
         self.server_sequence = 0x10203041
         self.error = None
         self._stop = threading.Event()
@@ -223,23 +246,10 @@ class ControlledEthernetPeer:
             if tcp_header_length < 20 or ip_end < tcp_offset + tcp_header_length:
                 return
             payload = frame[tcp_offset + tcp_header_length:ip_end]
-            if source_port == 49152 and destination_port == 443 and (flags & 0x12) == 0x02:
-                self.events["syn"] += 1
-                self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
-                    _ipv4_tcp(REMOTE_IP, source_ip, 443, source_port, 0x10203040,
-                              sequence + 1, 0x12)))
-                self.events["syn_ack"] += 1
-            elif source_port == 49152 and destination_port == 443 and len(payload) >= 5 and \
-                    payload[0:3] == b"\x16\x03\x03":
-                server_hello = _tls_server_hello_record()
-                self.events["client_hello"] += 1
-                self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
-                    _ipv4_tcp(REMOTE_IP, source_ip, 443, source_port, self.server_sequence,
-                              sequence + len(payload), 0x18, server_hello)))
-                self.server_sequence += len(server_hello)
-                self.events["server_hello"] += 1
-            elif source_port == 49152 and destination_port == 443 and flags == 0x10 and not payload:
-                self.events["server_hello_ack"] += 1
+            if source_port == 49152 and destination_port == 443:
+                acknowledgment = struct.unpack("!I", frame[tcp_offset + 8:tcp_offset + 12])[0]
+                self._handle_tcp_443(connection, frame[6:12], source_ip, source_port,
+                                     sequence, acknowledgment, flags, payload)
             return
         if protocol != 17:
             return
@@ -268,6 +278,137 @@ class ControlledEthernetPeer:
                 self._send_frame(connection, _ethernet(frame[6:12], 0x0800,
                     _ipv4_udp(SERVER_IP, source_ip, 53, 49152, response)))
 
+    def _send_tcp_chunk(self, connection, dest_mac, dest_ip, dest_port, sequence,
+                        guest_ack, payload, flags=0x18):
+        frame = _ethernet(dest_mac, 0x0800,
+            _ipv4_tcp(REMOTE_IP, dest_ip, 443, dest_port, sequence, guest_ack, flags, payload))
+        self.sent_sizes.append(len(frame))
+        self._send_frame(connection, frame)
+
+    def _send_tcp(self, connection, dest_mac, dest_ip, dest_port, guest_ack, payload, flags=0x18):
+        if (not self.last_payload or
+                self.last_payload_sequence + len(self.last_payload) != self.server_sequence):
+            self.last_payload = b""
+            self.last_payload_sequence = self.server_sequence
+        self.last_payload += payload
+        offset = 0
+        if not payload:
+            self._send_tcp_chunk(connection, dest_mac, dest_ip, dest_port,
+                                 self.server_sequence, guest_ack, b"", flags)
+        while offset < len(payload):
+            chunk = payload[offset:offset + MAX_TCP_PAYLOAD]
+            self._send_tcp_chunk(connection, dest_mac, dest_ip, dest_port,
+                                 self.server_sequence, guest_ack, chunk, flags)
+            self.server_sequence += len(chunk)
+            offset += len(chunk)
+        self.last_sent_end = self.server_sequence
+        self.pending_advance = True
+
+    def _retransmit_tcp(self, connection, dest_mac, dest_ip, dest_port, guest_ack,
+                        acknowledgment=None):
+        if not self.last_payload:
+            return
+        if acknowledgment is None or acknowledgment < self.last_payload_sequence:
+            offset = 0
+            sequence = self.last_payload_sequence
+        else:
+            offset = acknowledgment - self.last_payload_sequence
+            sequence = acknowledgment
+        remaining = self.last_payload[offset:]
+        while remaining:
+            chunk = remaining[:MAX_TCP_PAYLOAD]
+            remaining = remaining[MAX_TCP_PAYLOAD:]
+            self._send_tcp_chunk(connection, dest_mac, dest_ip, dest_port,
+                                 sequence, guest_ack, chunk)
+            sequence += len(chunk)
+
+    @staticmethod
+    def _tls_handshake_type(payload):
+        # En-tete record 5 octets puis type handshake (ClientHello=1, CKE=16).
+        if len(payload) < 6 or payload[:3] != b"\x16\x03\x03":
+            return None
+        return payload[5]
+
+    def _handle_tcp_443(self, connection, dest_mac, dest_ip, dest_port, sequence, acknowledgment, flags, payload):
+        if (flags & 0x12) == 0x02:
+            self.events["syn"] += 1
+            self.guest_mac = dest_mac
+            self.guest_ip = dest_ip
+            self.guest_port = dest_port
+            self._send_frame(connection, _ethernet(dest_mac, 0x0800,
+                _ipv4_tcp(REMOTE_IP, dest_ip, 443, dest_port, 0x10203040,
+                          sequence + 1, 0x12)))
+            self.events["syn_ack"] += 1
+            return
+        if self._tls_handshake_type(payload) == 1 and self.tls_step == 0:
+            self.events["client_hello"] += 1
+            guest_ack = sequence + len(payload)
+            if self.full_tls:
+                self.tls.note_client_hello(payload)
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                               self.tls.server_hello_record())
+            else:
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                               _tls_server_hello_record())
+            self.tls_step = 1
+            self.events["server_hello"] += 1
+            return
+        if self._tls_handshake_type(payload) == 1 and 1 <= self.tls_step < 4:
+            # ClientHello reemis : le vol serveur n'a pas encore ete acheve.
+            self._retransmit_tcp(connection, dest_mac, dest_ip, dest_port,
+                                 sequence + len(payload), acknowledgment)
+            return
+        if self.full_tls and payload and self.tls_step == 4:
+            self.tls.accept_client_flight(payload)
+            self.events["client_flight"] += 1
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port,
+                           sequence + len(payload), self.tls.change_cipher_spec_record())
+            self.tls_step = 5
+            return
+        if self.full_tls and payload and self.tls_step == 6:
+            request = self.tls.open_application(payload)
+            if b"POST" not in request:
+                raise RuntimeError("HTTP POST local attendu")
+            self.events["http_request"] += 1
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port,
+                           sequence + len(payload), self.tls.http_ok_record())
+            self.events["http_response"] += 1
+            self.tls_step = 7
+            return
+        if (flags & 0x10) and not payload:
+            if self.tls_step >= 1:
+                self.events["server_hello_ack"] += 1
+            if self.full_tls:
+                # Differer l'envoi : QEMU perd la trame si elle part dans le
+                # meme tour que l'ACK invite.
+                self.deferred_ack = (dest_mac, dest_ip, dest_port, sequence, acknowledgment)
+
+    def _advance_tls_on_ack(self, connection, dest_mac, dest_ip, dest_port, sequence, acknowledgment):
+        if not self.pending_advance or acknowledgment < self.last_sent_end:
+            return
+        self.pending_advance = False
+        guest_ack = sequence
+        if self.tls_step == 1:
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                           self.tls.certificate_record())
+            self.tls_step = 2
+            self.events["certificate"] += 1
+        elif self.tls_step == 2:
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                           self.tls.server_key_exchange_record())
+            self.tls_step = 3
+            self.events["server_key_exchange"] += 1
+        elif self.tls_step == 3:
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                           self.tls.server_hello_done_record())
+            self.tls_step = 4
+            self.events["server_hello_done"] += 1
+        elif self.tls_step == 5:
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                           self.tls.finished_record())
+            self.tls_step = 6
+            self.events["server_finished"] += 1
+
     def _serve(self):
         connection = None
         try:
@@ -285,11 +426,16 @@ class ControlledEthernetPeer:
                     try:
                         size_raw = self._read_exact(connection, 4)
                     except socket.timeout:
+                        if self.deferred_ack is not None:
+                            dest_mac, dest_ip, dest_port, sequence, acknowledgment = self.deferred_ack
+                            self.deferred_ack = None
+                            self._advance_tls_on_ack(connection, dest_mac, dest_ip,
+                                                     dest_port, sequence, acknowledgment)
                         continue
                     if size_raw is None:
                         return
                     size = struct.unpack("!I", size_raw)[0]
-                    if size == 0 or size > 2048:
+                    if size == 0 or size > 4096:
                         raise RuntimeError("invalid Ethernet frame size %d" % size)
                     frame = self._read_exact(connection, size)
                     if frame is None:

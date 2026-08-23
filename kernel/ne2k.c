@@ -326,7 +326,9 @@ int ne2k_llm_socket_session_poll_tls(ne2k_device_t* device,const ne2k_io_t* io,c
                                       uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
                                       uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
                                       uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed) {
-    ne2k_llm_socket_session_t previous_session; ne2k_tls_client_t previous_client; int status;
+    static ne2k_llm_socket_session_t previous_session;
+    static ne2k_tls_client_t previous_client;
+    int status;
     if (!session || !client) return -1;
     if (session->state.phase != NE2K_LLM_CONNECTION_TLS_STARTED || session->socket_id < 0) return -2;
     previous_session = *session; previous_client = *client;
@@ -1202,7 +1204,7 @@ static int ne2k_tls_client_poll_internal(ne2k_device_t* device,const ne2k_io_t* 
                          uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
                          uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
                          uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed){
-    ne2k_tls_client_t previous_client;net_tcp_connection_t previous_connection;net_tcp_view_t view;uint16_t frame_length=0U;uint32_t local_flight_length=0U;int status;
+    static ne2k_tls_client_t previous_client;static net_tcp_connection_t previous_connection;net_tcp_view_t view;uint16_t frame_length=0U;uint32_t local_flight_length=0U;int status;
     if(!device||!io||!cache||!rx_frame||!tx_frame||!local_ip||!remote_ip||!connection||!client||!client_random||!client_private||!trust_anchor||!hostname||!utc_time||!rsa_workspace||!x25519_workspace||!prf_workspace||!tcp_segment||!flight_records||!flight_records_length||!plaintext||!consumed)return -1;
     *consumed=0U;*flight_records_length=0U;
     status=ne2k_rx_poll_tcp(device,io,rx_frame,rx_capacity,&frame_length,&view);
@@ -1252,17 +1254,35 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
                          uint8_t* tcp_segment,uint32_t tcp_segment_capacity,
                          uint8_t* flight_records,uint32_t flight_records_capacity,uint32_t* flight_records_length,
                          uint8_t* plaintext,uint16_t plaintext_capacity,uint8_t retransmit_limit,uint16_t* consumed) {
-    ne2k_tls_client_t previous_client; net_tcp_connection_t previous_connection; net_tcp_view_t view;
+    static ne2k_tls_client_t previous_client;
+    static net_tcp_connection_t previous_connection;
+    net_tcp_view_t view;
     uint16_t frame_length = 0U; uint32_t local_flight_length = 0U; int status;
+    uint8_t acked_this_poll = 0U;
     if (!device || !io || !cache || !rx_frame || !tx_frame || !local_ip || !remote_ip || !client ||
         !client_random || !client_private || !trust_anchor || !hostname || !utc_time || !rsa_workspace ||
         !x25519_workspace || !prf_workspace || !tcp_segment || !flight_records || !flight_records_length ||
         !plaintext || !consumed) return -1;
     *consumed = 0U; *flight_records_length = 0U;
-    status = ne2k_rx_poll_tcp(device, io, rx_frame, rx_capacity, &frame_length, &view);
-    if (status != 0) return status;
     if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
     previous_client = *client;
+    if (client->handshake.state != NET_TLS_HANDSHAKE_FINISHED_SENT &&
+        client->handshake.state != NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED) {
+        status = net_tcp_tls_stream_accept_pending(&client->stream, &client->handshake, client_random,
+                                                   &client->transcript, rsa_workspace, rsa_workspace_length);
+        if (status < 0) goto rollback_socket;
+        if (status == 0) goto after_handshake_message;
+    }
+    status = ne2k_rx_poll_tcp(device, io, rx_frame, rx_capacity, &frame_length, &view);
+    if (status != 0) {
+        /* Apres ServerHelloDone, emettre le vol sur un sondage sans ACK :
+         * QEMU perd souvent la trame si elle part dans le meme tour que l'ACK. */
+        if (status == 1 &&
+            client->handshake.state == NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED &&
+            client->peer_identity_validated && !client->handshake.certificate_requested)
+            goto after_handshake_message;
+        return status;
+    }
     if (client->handshake.state == NET_TLS_HANDSHAKE_FINISHED_SENT ||
         client->handshake.state == NET_TLS_HANDSHAKE_SERVER_CHANGE_CIPHER_SPEC_RECEIVED) {
         status = net_socket_accept_tls_x25519_postflight(socket_id, &client->handshake,
@@ -1281,7 +1301,9 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
                                                            rsa_workspace_length, consumed);
     if (status < 0 || ne2k_socket_ack(device, io, cache, tx_frame, tx_capacity,
                                       local_ip, remote_ip, socket_id) != 0) goto rollback_socket;
+    acked_this_poll = 1U;
     if (status == 1) return 1;
+after_handshake_message:
     if (client->handshake.state == NET_TLS_HANDSHAKE_CERTIFICATE_RECEIVED) {
         if (client->handshake.server_intermediate_two) {
             if (!client->handshake.server_intermediate_x509_valid ||
@@ -1304,6 +1326,7 @@ int ne2k_socket_tls_poll(ne2k_device_t* device,const ne2k_io_t* io,const net_arp
     }
     if (client->handshake.state != NET_TLS_HANDSHAKE_SERVER_HELLO_DONE_RECEIVED ||
         !client->peer_identity_validated || client->handshake.certificate_requested) return 0;
+    if (acked_this_poll) return 0;
     status = net_socket_build_tls_x25519_flight(socket_id, &client->handshake, &client->x25519,
                                                  client_private, client_random, &client->transcript,
                                                  client->master_secret, client->key_block, &client->session,

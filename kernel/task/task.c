@@ -18,7 +18,9 @@ volatile int g_reschedule_needed = 0;
 /* Tâche détachée à libérer lors d’un passage ultérieur, hors de sa pile et de son VMM. */
 static task_t* deferred_reap_task = NULL;
 
-#define TASK_STATIC_KERNEL_STACK_SIZE 4096U
+/* 16 Kio : le polling TLS empile plusieurs instantanes handshake/client
+ * puis un verify RSA. 4 Kio suffisait au ServerHello mais pas a l'identite. */
+#define TASK_STATIC_KERNEL_STACK_SIZE 16384U
 static task_t task_static_pool[OS_TASK_GLOBAL_CAPACITY];
 static uint8_t task_static_used[OS_TASK_GLOBAL_CAPACITY];
 static uint8_t task_static_kernel_stacks[OS_TASK_GLOBAL_CAPACITY][TASK_STATIC_KERNEL_STACK_SIZE] __attribute__((aligned(16)));

@@ -1,6 +1,6 @@
 # AOS-025 — Stub réseau bare-metal et profil OpenAI
 
-**Statut :** jalon initial **stub OpenAI controle**. Un pilote NE2000 ISA et des codecs caller-owned existent (AOS-113...154). Les lots suivants ont ajoute sockets utilisateur et `ai-acquire` sur pair local ; OpenAI public reste hors livraison. Voir [ETAT_REEL.md](ETAT_REEL.md).
+**Statut :** jalon initial **stub OpenAI controle**. Un pilote NE2000 ISA et des codecs caller-owned existent (AOS-113...154). Les lots suivants ont ajoute sockets utilisateur, `ai-acquire` et un TLS/HTTP local sur pair QEMU ; OpenAI public reste hors livraison. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
 **Date du jalon :** 17 aout 2026. **Constat courant :** 23 aout 2026.
 
@@ -15,7 +15,7 @@ Le shell historique possédait un profil `ai-provider openai`, mais le noyau ne 
 | `net-status` / `net-status json` | Diagnostic : NIC absente ou NE2000 détectée ; ARP/IPv4/DHCP/DNS/TCP/TLS affichés absents |
 | Pilote Ethernet | NE2000 ISA sondé au boot (`0x300`) ; smoke `make qemu-ne2k-status` |
 | ARP / IPv4 / DHCP / DNS / TCP | Codecs et TX/RX caller-owned unit-testés ; **pas** de configuration live ni de commande shell |
-| TLS / HTTP | Framing TLS record seulement ; pas de handshake, certificat, HTTP |
+| TLS / HTTP | Le jalon initial n'offrait que le framing. L'etat courant ajoute un handshake TLS 1.2 authentifie et un POST HTTP local ; voir [ETAT_REEL.md](ETAT_REEL.md). |
 | Clé API dans l’image | Interdite |
 
 > Le résultat attendu n’est pas une connexion simulée : l’utilisateur doit voir qu’aucune requête OpenAI ne peut partir du noyau actuel.

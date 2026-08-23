@@ -7,7 +7,7 @@ Ce macro-lot supprime les allocations de tas du cycle de vie des tâches Ring 3.
 | Ressource | Avant | Après |
 |---|---|---|
 | Structure `task_t` | Allocation de tas à la création | Slot statique réutilisable |
-| Pile noyau Ring 3 | Allocation de 4 Kio à la création | Bloc statique aligné de 4 Kio par slot |
+| Pile noyau Ring 3 | Allocation de 4 Kio à la création | Bloc statique aligné par slot (16 Kio depuis le lot TLS/HTTP local, pour les instantanes handshake) |
 | `vmm_directory_t`, pointeurs de tables et répertoire matériel | Allocations de tas distinctes | Conteneurs statiques par slot |
 | Tables privées utilisateur | N/A | Pages PMM caller-owned, libérées au nettoyage |
 
