@@ -85,7 +85,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison lecture seule (lot 68).** Le noyau monte un volume FAT16 prepare sur le disque IDE a partir du LBA 64, sans toucher aux 64 secteurs AIOV. `fat16-list` liste la racine 8.3 et `fat16-cat <8.3>` lit les fichiers chaines par la FAT. Note : [docs/mohhos_foundation_increment_68_fat16_volume.md](../docs/mohhos_foundation_increment_68_fat16_volume.md).
 
-**Livraison ulterieure (23 aout 2026).** Le VFS expose `fat16/` en creation, suppression et renommage de fichiers 8.3 a la racine (`vfs-write`, `vfs-remove`, `vfs-rename`) sous capacite backend `mutate`. Pas de LFN, pas de sous-repertoire, pas d'ecrasement, pas de remplacement transactionnel. Un second disque IDE porte un volume FAT32 : lecture, listage et statut VFS (`vfs-mount-add media32/ fat32`), LFN UTF-8 cote noyau ; FAT32 reste lecture seule cote VFS. **ext2 n'est pas une option.**
+**Livraison ulterieure (23 aout 2026).** Le VFS expose `fat16/` et `fat32/` en creation, suppression et renommage de fichiers 8.3 a la racine (`vfs-write`, `vfs-remove`, `vfs-rename`) sous capacite backend `mutate`. Pas de LFN VFS, pas de sous-repertoire, pas d'ecrasement, pas de remplacement transactionnel. Un second disque IDE porte le volume FAT32 ; LFN UTF-8 reste cote noyau seulement. **ext2 n'est pas une option.**
 
 **Verification.** `make test-all` et `make qemu-vfs-service` (creation, lecture, renommage `NEW.TXT` -> `RENAMED.TXT`, puis suppression).
 
@@ -116,17 +116,17 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 | 111-114 | Lecture et pagination FAT32 / pages FAT16 |
 | 115 | Liberation d'une capacite backend |
 | 116-118 | Creation, suppression et renommage FAT16 8.3 racine |
+| 119-121 | Creation, suppression et renommage FAT32 8.3 racine |
 
-`MAX_SYSCALLS = 119`.
+`MAX_SYSCALLS = 122`.
 
 ## Prochaines tranches, hors livraison actuelle
 
 | Priorite | Sujet | Critere de sortie |
 |---|---|---|
 | 1 | TLS et HTTP | Handshake TLS authentifie, certificats, requete HTTP controlee, OpenAI optionnel hors image |
-| 2 | Ecriture FAT32 VFS | Creation/ecriture/suppression mediees sur `fat32/`, sans pretendre a un FS generaliste |
-| 3 | Latence locale | Mesure sous materiel/KVM jusqu'a l'objectif cible ; QEMU TCG reste ~48 s / ~23 s |
-| 4 | FAT16 etendu | LFN, sous-repertoires ou ecrasement : hors contrat actuel |
+| 2 | Latence locale | Mesure sous materiel/KVM jusqu'a l'objectif cible ; QEMU TCG reste ~48 s / ~23 s |
+| 3 | FAT etendu | LFN VFS, sous-repertoires ou ecrasement : hors contrat actuel |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
 

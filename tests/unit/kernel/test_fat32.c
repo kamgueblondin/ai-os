@@ -68,6 +68,33 @@ void test_fat32_lists_root_page_after_first_entry(void) {
     TEST_ASSERT_EQUAL(0, fat32_list_root_page(&volume, 2U, entries, 2U));
 }
 
+void test_fat32_rename_file_root_8_3(void) {
+    fat32_volume_t volume;
+    os_fat16_dirent_t entries[2];
+    uint8_t data[8] = {'q', 'e', 'm', 'u', '-', 'o', 'k', '!'};
+    uint8_t readback[8];
+    uint32_t first = 0U;
+    for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
+    disk[13] = 2U; put16(disk + 11U, 512U); put16(disk + 14U, 32U); disk[16] = 2U;
+    put32(disk + 32U, 200000U); put32(disk + 36U, 1000U); put32(disk + 44U, 2U);
+    put16(disk + 510U, 0xaa55U);
+    disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU;
+    disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_create_file(&volume, "NEW.TXT", 0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(0, fat32_create_file(&volume, "KEEP.TXT", 0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat32_rename_file(&volume, "NEW.TXT", "KEEP.TXT"));
+    TEST_ASSERT_EQUAL(0, fat32_rename_file(&volume, "NEW.TXT", "RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat32_read_file(&volume, "NEW.TXT", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL(8, fat32_read_file(&volume, "RENAMED.TXT", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL('q', readback[0]);
+    TEST_ASSERT_EQUAL(2, fat32_list_root(&volume, entries, 2U));
+    TEST_ASSERT_EQUAL(0, fat32_unlink_file(&volume, "RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(1, fat32_list_root(&volume, entries, 2U));
+    TEST_ASSERT_EQUAL_STRING("KEEP.TXT", entries[0].name);
+}
+
 void test_fat32_extend_full_root(void) {
     fat32_volume_t volume; uint32_t next;
     for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
@@ -184,4 +211,4 @@ void test_fat32_utf8_lfn_non_bmp_roundtrip(void) {
     TEST_ASSERT_EQUAL_STRING("rocket-\xF0\x9F\x98\x80.txt", entries[0].name);
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_lists_root_page_after_first_entry); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); RUN_TEST(test_fat32_utf8_lfn_non_bmp_roundtrip); unity_print_results(); unity_cleanup(); return 0; }
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_lists_root_page_after_first_entry); RUN_TEST(test_fat32_rename_file_root_8_3); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); RUN_TEST(test_fat32_utf8_lfn_non_bmp_roundtrip); unity_print_results(); unity_cleanup(); return 0; }

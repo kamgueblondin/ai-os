@@ -97,6 +97,28 @@ def send_command(client, command, proc=None):
     raise RuntimeError("echo commande instable : %s" % command)
 
 
+def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
+    """Parcourt les pages VFS de 4 noms jusqu'a trouver `name`."""
+    start = len(log_text())
+    send_command_until(client, "vfs-list %s" % directory, "vfsserver list request", proc)
+    wait_for("vfs-list ", proc, start, timeout=first_page_timeout)
+    if name in re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[start:]):
+        return
+    page = 0
+    for _ in range(8):
+        page += 4
+        before = len(log_text())
+        send_command_until(client, "vfs-list-page %s %d" % (directory, page),
+                           "vfsserver list page request", proc)
+        wait_for("vfs-list-page ", proc, before)
+        chunk = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before:])
+        if name in chunk:
+            return
+        if "next end" in chunk:
+            break
+    raise RuntimeError("nom absent de %s : %s" % (directory, name))
+
+
 def send_command_until(client, command, needle, proc, attempts=3):
     error = None
     for _ in range(attempts):
@@ -293,10 +315,7 @@ def main():
             before_observe = len(log_text())
             send_command_until(monitor, "vfs-list-observe initrd/ 0 0", "vfsserver list observe request", proc)
             wait_for("vfs-list-observe partiel count 4 next 4 generation 1", proc, before_observe)
-            before_initrd_subdir_list = len(log_text())
-            send_command_until(monitor, "vfs-list initrd/bin/", "vfsserver list request", proc)
-            wait_for("vfs-list partiel count 4", proc, before_initrd_subdir_list)
-            wait_for("shell", proc, before_initrd_subdir_list)
+            wait_for_listed_name(monitor, proc, "initrd/bin/", "shell")
             before_overlay_empty_list = len(log_text())
             send_command_until(monitor, "vfs-list overlay/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 0", proc, before_overlay_empty_list)
@@ -446,6 +465,38 @@ def main():
             send_command_until(monitor, "vfs-stat media32/fat32ok.txt",
                                "vfs-stat ok size 27 flags file", proc)
             wait_for("vfs-stat ok size 27 flags file", proc, before_fat32_stat)
+            before_fat32_write = len(log_text())
+            send_command_until(monitor, "vfs-write fat32/new.txt qemu-fat32",
+                               "vfsserver write request", proc)
+            wait_for("vfs-write ok request", proc, before_fat32_write)
+            before_fat32_new_read = len(log_text())
+            send_command_until(monitor, "vfs-read fat32/new.txt", "vfs-read ok", proc)
+            wait_for("qemu-fat32", proc, before_fat32_new_read)
+            before_fat32_rename = len(log_text())
+            send_command_until(monitor, "vfs-rename fat32/new.txt fat32/renamed.txt",
+                               "vfsserver rename request", proc)
+            wait_for("vfs-rename ok request", proc, before_fat32_rename)
+            before_fat32_old_read = len(log_text())
+            send_command_until(monitor, "vfs-read fat32/new.txt", "vfsserver read request", proc)
+            wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_fat32_old_read)
+            before_fat32_renamed_read = len(log_text())
+            send_command_until(monitor, "vfs-read fat32/renamed.txt", "vfs-read ok", proc)
+            wait_for("qemu-fat32", proc, before_fat32_renamed_read)
+            before_fat32_new_list = len(log_text())
+            send_command_until(monitor, "vfs-list fat32/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 2", proc, before_fat32_new_list)
+            wait_for("RENAMED.TXT", proc, before_fat32_new_list)
+            before_fat32_remove = len(log_text())
+            send_command_until(monitor, "vfs-remove fat32/renamed.txt", "vfsserver remove request", proc)
+            wait_for("vfs-remove ok request", proc, before_fat32_remove)
+            before_fat32_removed_read = len(log_text())
+            send_command_until(monitor, "vfs-read fat32/renamed.txt", "vfsserver read request", proc)
+            wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_fat32_removed_read)
+            before_fat32_removed_list = len(log_text())
+            send_command_until(monitor, "vfs-list fat32/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 1", proc, before_fat32_removed_list)
+            if "RENAMED.TXT" in log_text()[before_fat32_removed_list:]:
+                raise RuntimeError("RENAMED.TXT reste visible apres vfs-remove FAT32")
             before_outside = len(log_text())
             send_command_until(monitor, "vfs-read hello.txt",
                                "vfsserver path outside mounts", proc)
@@ -627,11 +678,18 @@ def main():
             before_final_stats = len(log_text())
             send_command_until(monitor, "vfs-stats", "vfsserver delegated vfs-stats", proc)
             wait_for("vfsvirtual format stats", proc, before_final_stats)
-            # `vfsflight` ajoute une lecture publique corrélée au scénario de reprise en vol.
-            wait_for("reads=2", proc, before_final_stats)
+            wait_for("reads=", proc, before_final_stats)
             wait_for("writes=", proc, before_final_stats)
             wait_for("removes=", proc, before_final_stats)
             wait_for("renames=", proc, before_final_stats)
+            final_stats = re.search(
+                r"reads=(\d+)\s+writes=(\d+)\s+removes=(\d+)\s+renames=(\d+)",
+                re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before_final_stats:]),
+            )
+            if not final_stats:
+                raise RuntimeError("compteurs vfs-stats finaux illisibles")
+            if int(final_stats.group(2)) < 2 or int(final_stats.group(3)) < 2 or int(final_stats.group(4)) < 2:
+                raise RuntimeError("mutations FAT/overlay absentes des compteurs vfs-stats")
             before_claim = len(log_text())
             send_command_until(monitor, "spawn vfsclaim", "spawn ok pid", proc)
             claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsclaim", log_text()[before_claim:])

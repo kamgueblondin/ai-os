@@ -500,6 +500,17 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_vfs_fat16_rename((const char*)cpu->ebx,
                                                        (const char*)cpu->ecx);
             break;
+        case SYS_VFS_FAT32_CREATE:
+            cpu->eax = (uint32_t)sys_vfs_fat32_create((const char*)cpu->ebx,
+                                                       (const char*)cpu->ecx, cpu->edx);
+            break;
+        case SYS_VFS_FAT32_UNLINK:
+            cpu->eax = (uint32_t)sys_vfs_fat32_unlink((const char*)cpu->ebx);
+            break;
+        case SYS_VFS_FAT32_RENAME:
+            cpu->eax = (uint32_t)sys_vfs_fat32_rename((const char*)cpu->ebx,
+                                                       (const char*)cpu->ecx);
+            break;
         case SYS_VFS_INITRD_READ:
             cpu->eax = (uint32_t)sys_vfs_initrd_read((const char*)cpu->ebx,
                                                       (char*)cpu->ecx, cpu->edx);
@@ -936,6 +947,32 @@ int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
     return fat16_rename_file(fat16_root(), old_name, new_name);
+}
+
+int sys_vfs_fat32_create(const char* name, const char* data, uint32_t size) {
+    uint32_t first_cluster = 0U;
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
+    return fat32_create_file(fat32_root(), name, 0x20U, (const uint8_t*)data, size,
+                             &first_cluster);
+}
+
+int sys_vfs_fat32_unlink(const char* name) {
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!name) return OS_FAT16_BAD_PATH;
+    return fat32_unlink_file(fat32_root(), name);
+}
+
+int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
+    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+        return OS_VFS_BACKEND_DENIED;
+    }
+    if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
+    return fat32_rename_file(fat32_root(), old_name, new_name);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {

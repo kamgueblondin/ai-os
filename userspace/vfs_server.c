@@ -198,6 +198,32 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
+/* FAT32 n'expose ici que creation, suppression et renommage 8.3 a la racine.
+ * Aucun remplacement, sous-repertoire ni LFN n'est publie par le VFS. */
+static int backend_fat32_create(const char* path, const uint8_t* data, uint32_t size) {
+    os_dirent_t existing;
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    if (backend_fat32_stat(path, &existing) == 0) return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_CREATE),
+                 "b"(path), "c"(data), "d"(size));
+    return result;
+}
+static int backend_fat32_remove(const char* path) {
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_UNLINK), "b"(path));
+    return result;
+}
+static int backend_fat32_rename(const char* oldpath, const char* newpath) {
+    int result;
+    if (!oldpath || !newpath || oldpath[0] == '\0' || newpath[0] == '\0' ||
+        oldpath[0] == '/' || newpath[0] == '/') return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_RENAME),
+                 "b"(oldpath), "c"(newpath));
+    return result;
+}
+
 static int backend_initrd_stat(const char* path, os_dirent_t* out) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_STAT), "b"(path), "c"(out));
@@ -291,7 +317,8 @@ static const vfs_backend_ops_t vfs_backend_ops[] = {
       backend_fat16_listdir, backend_fat16_listdir_page, backend_fat16_create, 0, 0,
       backend_fat16_remove, backend_fat16_rename },
     { OS_VFS_MOUNT_SOURCE_FAT32, backend_fat32_read, backend_fat32_stat,
-      backend_fat32_listdir, backend_fat32_listdir_page, 0, 0, 0, 0, 0 },
+      backend_fat32_listdir, backend_fat32_listdir_page, backend_fat32_create, 0, 0,
+      backend_fat32_remove, backend_fat32_rename },
 };
 
 static const vfs_backend_ops_t* vfs_backend_ops_for(uint32_t source) {

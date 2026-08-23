@@ -654,6 +654,10 @@ static int fat32_ata_slave_read_sector(uint32_t lba, void* buffer) {
     return ata_read_sectors_drive(ATA_DRIVE_SLAVE, lba, 1U, buffer);
 }
 
+static int fat32_ata_slave_write_sector(uint32_t lba, const void* buffer) {
+    return ata_write_sectors_drive(ATA_DRIVE_SLAVE, lba, 1U, buffer);
+}
+
 void serial_init() {
     // Disable all interrupts
     outb(0x3F8 + 1, 0x00);
@@ -1176,6 +1180,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
         }
         if (ata_present_drive(ATA_DRIVE_SLAVE) &&
             fat32_mount(fat32_root(), fat32_ata_slave_read_sector, 0U) == 0) {
+            if (fat32_attach_writer(fat32_root(), fat32_ata_slave_write_sector) != 0) {
+                print_string("FAT32: writer ATA esclave indisponible; creation desactivee.\n");
+            }
             print_string("FAT32 secondaire monte.\n");
         }
         if (fat16_mount(fat16_root(), fat16_ata_read_sector, 64U) == 0) {

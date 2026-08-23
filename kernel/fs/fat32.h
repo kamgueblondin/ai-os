@@ -49,6 +49,8 @@ int fat32_list_root_page(const fat32_volume_t* volume, uint32_t start,
 int fat32_read_file(const fat32_volume_t* volume, const char* name, uint8_t* buffer, uint32_t max);
 /* Supprime un alias 8.3 ou une séquence LFN ASCII validée et libère sa chaîne. */
 int fat32_unlink_file(const fat32_volume_t* volume, const char* name);
+/* Renomme un fichier 8.3 classique de la racine sans deplacer sa chaine, sans LFN ni repertoire. */
+int fat32_rename_file(const fat32_volume_t* volume, const char* old_name, const char* new_name);
 /* Renomme une séquence LFN validée sans déplacer ni recopier sa chaîne de données. */
 int fat32_rename_lfn_file(const fat32_volume_t* volume, const char* old_name,
                           const char* new_long_name, const char* new_short_name);

@@ -1,6 +1,6 @@
 # Volume FAT sur disque IDE - conception
 
-**Statut :** jalon AOS-026 lecture seule livre, puis mutations FAT16 8.3 racine via VFS. FAT32 est un second disque IDE, lecture/listage/statut VFS seulement.
+**Statut :** jalon AOS-026 lecture seule livre, puis mutations FAT16 et FAT32 8.3 racine via VFS. FAT32 reste un second disque IDE.
 
 **Date :** 23 aout 2026.
 
@@ -19,7 +19,7 @@ AI-OS n'est pas un clone Unix. Un volume a table d'allocation (clusters, reperto
 | Initrd | Archive TAR (ustar) en RAM | Programmes, modeles, lecture seule | Pas un volume disque |
 | Overlay | Snapshot **AIOV** V2 sur ATA PIO | Petits fichiers persistants du shell | 64 noeuds, 80 octets de chemin, 384 octets de contenu, 64 secteurs (32 Kio) a LBA 0 |
 | Disque IDE principal | Image brute `build/overlay.img` | Snapshot AIOV aux LBA 0-63, volume FAT16 a partir du LBA 64 | FAT16 VFS : create/remove/rename 8.3 racine seulement |
-| Second disque IDE | Image FAT32 de fixture | Lecture, listage et statut via `fat32/` | Pas d'ecriture VFS, pas de pretention FS generaliste |
+| Second disque IDE | Image FAT32 de fixture | Lecture et mutations 8.3 racine via `fat32/` | Pas de LFN VFS, pas de pretention FS generaliste |
 
 L'overlay occupe les **64 premiers secteurs** (LBA 0-63). Un volume FAT ne doit **pas** les ecraser.
 
@@ -33,9 +33,10 @@ L'overlay occupe les **64 premiers secteurs** (LBA 0-63). Un volume FAT ne doit 
 - `vfs-write fat16/<8.3> <texte>` : cree un fichier racine, refuse l'ecrasement.
 - `vfs-remove fat16/<8.3>` : marque l'entree 8.3 supprimee et libere la chaine.
 - `vfs-rename fat16/<ancien> fat16/<nouveau>` : renomme sans deplacer la chaine, refuse une cible existante.
-- `vfs-mount-add media32/ fat32` puis `vfs-list` / `vfs-read` / `vfs-stat` : FAT32 lecture seule.
+- `vfs-mount-add media32/ fat32` puis `vfs-list` / `vfs-read` / `vfs-stat` : lecture FAT32.
+- `vfs-write fat32/<8.3> <texte>` / `vfs-remove` / `vfs-rename` : mutations 8.3 racine, meme politique que FAT16.
 
-Hors contrat actuel : LFN FAT16, sous-repertoires FAT16, ecrasement, remplacement transactionnel, ecriture VFS FAT32.
+Hors contrat actuel : LFN VFS, sous-repertoires, ecrasement, remplacement transactionnel.
 
 ## Pourquoi FAT, et pas un FS Unix
 
@@ -54,10 +55,10 @@ Hors contrat actuel : LFN FAT16, sous-repertoires FAT16, ecrasement, remplacemen
 | Table d'allocation et racine 8.3 | Livre |
 | Lecture de fichier chainee | Livre |
 | Isolation overlay LBA 0-63 | Livre |
-| Creation / suppression / renommage 8.3 racine via VFS | Livre sous capacite `mutate` |
-| LFN, sous-repertoires, ecrasement FAT16 | Hors perimetre |
+| Creation / suppression / renommage FAT16 8.3 racine via VFS | Livre sous capacite `mutate` |
+| Creation / suppression / renommage FAT32 8.3 racine via VFS | Livre sous capacite `mutate` |
+| LFN, sous-repertoires, ecrasement VFS | Hors perimetre |
 | FAT32 lecture / listage / statut VFS | Livre sur le second disque |
-| Ecriture VFS FAT32 | Hors perimetre |
 | ext2 et assimilés | Hors perimetre |
 
 ## Place dans la suite du prototype
@@ -76,7 +77,7 @@ Ce n'est **pas** le moment d'introduire ext2 "pour faire comme un Unix", ni de p
 ```text
 make test-all              # parseur BPB, chaines, mutations FAT16, refus de volume invalide
 make qemu-smoke            # overlay AIOV inchange
-make qemu-vfs-service      # FAT16 create/read/rename/remove et FAT32 lecture
+make qemu-vfs-service      # FAT16 et FAT32 create/read/rename/remove
 make integration-qemu      # contrats QEMU
 ```
 

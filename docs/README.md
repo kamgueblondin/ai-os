@@ -102,4 +102,4 @@ Les captures QEMU et les exports Word ont été retirés du dépôt (la source r
 - [../US/README.md](../US/README.md) — deux couches : hobby OS AI-OS vs vision MOHHOS
 - [../US/individual_us/INDEX.md](../US/individual_us/INDEX.md) — specs MOHHOS, chevauchements, IDs dupliqués
 
-Les phases MOHHOS restent majoritairement des **specifications**. Les increments Foundation 01-64 (IPC, mediateur de chemins, registre, supervision de taches) sont compiles et testes ; ils ne transforment pas le noyau monolithique en microkernel et n'implementent pas les autres phases. FAT16 8.3 racine est mutable via VFS ; FAT32 reste lecture seule cote VFS ; le client OpenAI public reste hors perimetre.
+Les phases MOHHOS restent majoritairement des **specifications**. Les increments Foundation 01-64 (IPC, mediateur de chemins, registre, supervision de taches) sont compiles et testes ; ils ne transforment pas le noyau monolithique en microkernel et n'implementent pas les autres phases. FAT16 et FAT32 8.3 racine sont mutables via VFS ; le client OpenAI public reste hors perimetre.
