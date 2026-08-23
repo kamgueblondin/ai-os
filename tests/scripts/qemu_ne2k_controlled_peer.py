@@ -118,7 +118,7 @@ def _dhcp_reply(request, message_type):
         options += b"\x01\x04" + NETMASK
         options += b"\x03\x04" + SERVER_IP
         options += b"\x06\x04" + SERVER_IP
-        options += b"\x33\x04" + struct.pack("!I", 3600)
+        options += b"\x33\x04" + struct.pack("!I", 86400)
     options += b"\xff"
     payload[240:240 + len(options)] = options
     return _ethernet(b"\xff" * 6, 0x0800, _ipv4_udp(SERVER_IP, b"\xff\xff\xff\xff", 67, 68, bytes(payload)))

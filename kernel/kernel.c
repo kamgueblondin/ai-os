@@ -341,6 +341,13 @@ int kernel_llm_dhcp_maintenance(uint32_t now) {
     int status; uint32_t delay; uint8_t attempt; os_llm_acquire_start_request_t retry;
     if (!boot_llm_dhcp_maintenance.armed || !boot_ne2k_present) return 0;
     if (boot_llm_lease.valid) {
+        /* ne2k_dhcp_poll_ack consomme la tete du ring, DHCP ou pas. Pendant
+         * SYN/TLS/HTTP ces trames ne doivent pas disparaitre. */
+        if (boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_SYN_SENT ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_TLS_STARTED ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_REQUEST_SENT ||
+            boot_llm_socket_session.state.phase == NE2K_LLM_CONNECTION_STREAMING)
+            return 0;
         status = ne2k_dhcp_renew_if_due(&boot_ne2k_device, &boot_ne2k_io,
                                         boot_llm_dhcp_tx, sizeof(boot_llm_dhcp_tx),
                                         boot_llm_dhcp_rx, sizeof(boot_llm_dhcp_rx),
