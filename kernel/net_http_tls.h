@@ -62,7 +62,9 @@ int net_llm_build_openai_chat_stream_json(uint8_t* output,uint16_t output_capaci
 /* Accumule des événements SSE `data:` fragmentés et extrait les deltas Ollama/OpenAI. Retourne 1 si aucun événement complet n’est disponible, 0 après progression, négatif si framing ou capacité invalide. */
 int net_llm_sse_accumulator_init(net_llm_sse_accumulator_t* accumulator,uint8_t* buffer,uint16_t capacity);
 int net_llm_sse_accumulator_feed(net_llm_sse_accumulator_t* accumulator,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
-/* Combine le décodage HTTP chunked et SSE. Les deux buffers restent caller-owned. */
+/* Combine le décodage HTTP chunked et SSE. Les deux buffers restent caller-owned.
+ * feed retourne 1 tant que le flux chunked n'est pas clos et que [DONE] n'est pas vu,
+ * même si un delta a déjà été produit. Retourne 0 si sse.done ou HTTP état 8. */
 int net_llm_sse_response_init(net_llm_sse_response_t* response,uint8_t* http_buffer,uint16_t http_capacity,uint8_t* sse_buffer,uint16_t sse_capacity);
 int net_llm_sse_response_feed(net_llm_sse_response_t* response,uint8_t provider,const uint8_t* fragment,uint16_t fragment_length,uint8_t* text,uint16_t text_capacity,uint16_t* text_length);
 /* Variante transactionnelle : restaure l’état SSE/HTTP et text_length sur erreur, sans copier les buffers caller-owned. */

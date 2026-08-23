@@ -594,7 +594,7 @@ gui-captures: $(OS_IMAGE) pack-initrd disk
 gui-record: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/gui_record_demo.py
 
-.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ipc-foundation qemu-vfs-service qemu-service-grant
+.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ipc-foundation qemu-vfs-service qemu-service-grant
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
@@ -665,6 +665,7 @@ help:
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  qemu-ne2k-acquire - Exerce DHCP, DNS, ARP, SYN/SYN-ACK et ClientHello via NIC QEMU"
 	@echo "  qemu-ne2k-tls-http - TLS authentifie local puis HTTP 200 JSON sur pair QEMU"
+	@echo "  qemu-ne2k-tls-sse - TLS authentifie local puis flux SSE chunked sur pair QEMU"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
 	@echo "  gguf-benchmark  - Mesure répétée du premier token et de ai-continue GGUF sous QEMU"
@@ -697,9 +698,9 @@ help:
 	@echo "Tests de non-régression:"
 	@echo "  make test-setup           # Configuration initiale (une fois)"
 	@echo "  make test-quick           # Tests pendant développement"
-	@echo "  make test-all             # 495 tests de non-régression avant push"
+	@echo "  make test-all             # 496 tests de non-régression avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http qemu-ne2k-tls-sse gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
 
 
 gguf-disk:
@@ -715,6 +716,10 @@ qemu-ne2k-acquire: $(OS_IMAGE) pack-initrd
 qemu-ne2k-tls-http: $(OS_IMAGE) pack-initrd
 	@python3 tests/scripts/qemu_ne2k_tls12_server.py
 	@python3 tests/scripts/test_qemu_ne2k_tls_http.py
+
+qemu-ne2k-tls-sse: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/qemu_ne2k_tls12_server.py
+	@python3 tests/scripts/test_qemu_ne2k_tls_sse.py
 
 qemu-gguf-smoke: $(OS_IMAGE) pack-initrd gguf-disk
 	@OVERLAY_DISK="$(abspath $(GGUF_DISK_IMAGE))" python3 tests/scripts/ci_qemu_gguf_local_smoke.py

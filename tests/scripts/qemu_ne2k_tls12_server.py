@@ -36,6 +36,17 @@ HTTP_REPLY = (
     b"Connection: close\r\n"
     b"\r\n" + HTTP_JSON_OK
 )
+SSE_EVENT = b'data: {"response":"ok"}\n\n'
+SSE_DONE = b"data: [DONE]\n\n"
+SSE_HEADERS = (
+    b"HTTP/1.1 200 OK\r\n"
+    b"Transfer-Encoding: chunked\r\n"
+    b"\r\n"
+)
+
+
+def _http_chunk(payload):
+    return b"%x\r\n" % len(payload) + payload + b"\r\n"
 
 
 def _u24(value):
@@ -237,6 +248,12 @@ class LocalTls12Server:
     def http_ok_record(self):
         return self.application_record(HTTP_REPLY)
 
+    def sse_headers_and_event_record(self):
+        return self.application_record(SSE_HEADERS + _http_chunk(SSE_EVENT))
+
+    def sse_done_record(self):
+        return self.application_record(_http_chunk(SSE_DONE) + b"0\r\n\r\n")
+
 
 def _self_check():
     server = LocalTls12Server()
@@ -292,6 +309,16 @@ def _self_check():
     _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 1, reply)
     if HTTP_JSON_OK not in body:
         raise RuntimeError("HTTP local incomplet")
+    first = server.sse_headers_and_event_record()
+    _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 2, first)
+    if b"Transfer-Encoding: chunked" not in body or SSE_EVENT not in body:
+        raise RuntimeError("SSE local incomplet")
+    if b"Content-Length" in body:
+        raise RuntimeError("SSE local avec Content-Length")
+    second = server.sse_done_record()
+    _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 3, second)
+    if SSE_DONE not in body or b"0\r\n\r\n" not in body:
+        raise RuntimeError("SSE local sans [DONE]")
     print("local TLS 1.2 self-check passed.")
 
 

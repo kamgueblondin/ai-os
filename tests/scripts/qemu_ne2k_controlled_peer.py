@@ -162,10 +162,11 @@ class ControlledEthernetPeer:
             self.events.update({
                 "certificate": 0, "server_key_exchange": 0, "server_hello_done": 0,
                 "client_flight": 0, "server_finished": 0, "http_request": 0,
-                "http_response": 0,
+                "http_response": 0, "sse": 0, "sse_done": 0,
             })
         self.tls = LocalTls12Server() if full_tls else None
         self.tls_step = 0
+        self.sse_pending = False
         self.last_sent_end = 0
         self.last_payload = b""
         self.last_payload_sequence = 0
@@ -370,9 +371,16 @@ class ControlledEthernetPeer:
             if b"POST" not in request:
                 raise RuntimeError("HTTP POST local attendu")
             self.events["http_request"] += 1
-            self._send_tcp(connection, dest_mac, dest_ip, dest_port,
-                           sequence + len(payload), self.tls.http_ok_record())
-            self.events["http_response"] += 1
+            if b'"stream":true' in request:
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port,
+                               sequence + len(payload),
+                               self.tls.sse_headers_and_event_record())
+                self.events["sse"] += 1
+                self.sse_pending = True
+            else:
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port,
+                               sequence + len(payload), self.tls.http_ok_record())
+                self.events["http_response"] += 1
             self.tls_step = 7
             return
         if (flags & 0x10) and not payload:
@@ -408,6 +416,14 @@ class ControlledEthernetPeer:
                            self.tls.finished_record())
             self.tls_step = 6
             self.events["server_finished"] += 1
+        elif self.tls_step == 7 and self.sse_pending:
+            # Differer le second record SSE : un ACK invite dans le meme
+            # tour fait perdre la trame cote QEMU.
+            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                           self.tls.sse_done_record())
+            self.events["sse_done"] += 1
+            self.sse_pending = False
+            self.tls_step = 8
 
     def _serve(self):
         connection = None
