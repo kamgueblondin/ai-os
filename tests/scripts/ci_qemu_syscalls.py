@@ -7,10 +7,13 @@ kernel syscalls, not only the boot prompt.
 from __future__ import print_function
 
 import os
+import re
 import socket
 import subprocess
 import sys
 import time
+
+_TIMER_ALIVE = re.compile(r"TIMER_ALIVE: tick=\S+\n?")
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "ai_os.bin"))
@@ -37,6 +40,11 @@ def log_text():
         return ""
     with open(LOG, "r", errors="replace") as f:
         return f.read()
+
+
+def without_timer(text):
+    """Drop TIMER_ALIVE insertions that QEMU can splice onto a payload line."""
+    return _TIMER_ALIVE.sub("", text)
 
 
 def err_text():
@@ -644,7 +652,7 @@ def main():
         mark = len(log_text())
         sendkeys(mon, ["s", "o", "r", "t", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret"])
         wait_needle_from("sort ok 3 lines.txt", CMD_TIMEOUT, proc, mark)
-        sort_output = log_text()[mark:]
+        sort_output = without_timer(log_text()[mark:])
         if "alpha\nmango\nzulu\nsort ok 3 lines.txt" not in sort_output:
             raise RuntimeError("sort lines.txt did not emit the expected ascending order")
 
@@ -654,7 +662,7 @@ def main():
             "h", "e", "a", "d", "spc", "minus", "2", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("head ok 2 lines.txt", CMD_TIMEOUT, proc, mark)
-        head_output = log_text()[mark:]
+        head_output = without_timer(log_text()[mark:])
         if "zulu\nalpha\nhead ok 2 lines.txt" not in head_output:
             raise RuntimeError("head -2 lines.txt did not emit the first two lines")
 
@@ -664,7 +672,7 @@ def main():
             "t", "a", "i", "l", "spc", "minus", "1", "spc", "l", "i", "n", "e", "s", "dot", "t", "x", "t", "ret",
         ])
         wait_needle_from("tail ok 1 lines.txt", CMD_TIMEOUT, proc, mark)
-        tail_output = log_text()[mark:]
+        tail_output = without_timer(log_text()[mark:])
         if "mango\ntail ok 1 lines.txt" not in tail_output:
             raise RuntimeError("tail -1 lines.txt did not emit the final line")
 
