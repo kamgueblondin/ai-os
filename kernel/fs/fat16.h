@@ -74,6 +74,8 @@ int fat16_create_file(const fat16_volume_t* volume, const char* name,
 int fat16_unlink_file(const fat16_volume_t* volume, const char* name);
 /* Renomme un fichier 8.3 classique de la racine sans déplacer sa chaîne, sans LFN ni répertoire. */
 int fat16_rename_file(const fat16_volume_t* volume, const char* old_name, const char* new_name);
+int fat16_rename_lfn_file(const fat16_volume_t* volume, const char* old_name,
+                          const char* new_long_name, const char* new_short_name);
 /* Crée un fichier avec une séquence LFN ASCII bornée et un alias 8.3 explicite. */
 int fat16_create_lfn_file(const fat16_volume_t* volume, const char* long_name,
                           const char* short_name, uint8_t attributes,
