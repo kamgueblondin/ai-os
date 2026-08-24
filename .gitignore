@@ -7,18 +7,19 @@ userspace/idle
 userspace/spin
 userspace/ipcserver
 userspace/vfsserver
+userspace/vfsvirtual
+userspace/vfsflight
+userspace/serviceclaim
+userspace/vfsclaim
+userspace/vfscapclaim
+userspace/vfsreleaseclaim
+userspace/vfsreadclaim
+userspace/vfsmutateclaim
+userspace/waitchild
 userspace/ok
 userspace/*.o
 userspace/*.bin
-initrd_content/bin/shell
-initrd_content/bin/fake_ai
-initrd_content/bin/ai_assistant
-initrd_content/bin/user_program
-initrd_content/bin/idle
-initrd_content/bin/spin
-initrd_content/bin/ipcserver
-initrd_content/bin/vfsserver
-initrd_content/bin/ok
+initrd_content/bin/*
 
 # Build and QEMU artefacts
 /build/
