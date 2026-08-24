@@ -1285,6 +1285,30 @@ static void test_rejects_bad_name_and_small_buffer(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_BUFFER_SMALL, fat16_read_file(&volume, "FATOK.TXT", content, sizeof(content)));
 }
 
+static void test_unlinks_and_renames_lfn_file(void) {
+    fat16_volume_t volume;
+    uint8_t data[5] = {'D', 'A', 'T', 'A', '1'};
+    char readback[5] = {0};
+    uint16_t first = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_lfn_file(&volume, "long-file-2026.txt", "LONG01.TXT",
+                                               0x20U, data, sizeof(data), &first));
+    TEST_ASSERT_EQUAL(5, fat16_read_file(&volume, "long-file-2026.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+
+    // Test rename LFN -> LFN (cardinalité identique)
+    TEST_ASSERT_EQUAL(0, fat16_rename_lfn_file(&volume, "long-file-2026.txt", "renamed-file-26.txt", "LONG01.TXT"));
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat16_read_file(&volume, "long-file-2026.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL(5, fat16_read_file(&volume, "renamed-file-26.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(data, readback, sizeof(data));
+
+    // Test unlink LFN
+    TEST_ASSERT_EQUAL(0, fat16_unlink_file(&volume, "renamed-file-26.txt"));
+    TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat16_read_file(&volume, "renamed-file-26.txt", readback, sizeof(readback)));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
@@ -1308,6 +1332,7 @@ int main(void) {
     RUN_TEST(test_creates_lfn_file);
     RUN_TEST(test_creates_utf8_lfn_file);
     RUN_TEST(test_creates_non_bmp_lfn_file);
+    RUN_TEST(test_unlinks_and_renames_lfn_file);
     unity_print_results();
     unity_cleanup();
     return 0;

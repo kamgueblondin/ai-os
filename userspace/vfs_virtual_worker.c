@@ -125,6 +125,17 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_WRITE) {
+            uint8_t write_buf[OS_VFS_WRITE_MAX];
+            uint32_t write_len = 0U;
+            if (os_vfs_parse_worker_write_request(&message, path, write_buf, &write_len) == OS_VFS_STATUS_OK) {
+                puts("vfsvirtual write ");
+                puts(path);
+                puts("\n");
+                if (os_vfs_make_write_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
         }
         yield();
     }

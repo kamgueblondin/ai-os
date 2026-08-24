@@ -916,21 +916,80 @@ int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
     return sys_writefile(path, data, size);
 }
 
-/* Création FAT16 explicite : elle ne réutilise pas l’écriture overlay. Le
- * médiateur fournit un nom 8.3 relatif et un buffer borné par son ABI publique. */
+static void generate_short_alias(const char* name, char* short_out) {
+    uint32_t i = 0U, base = 0U, ext = 0U;
+    while (name[i] != '\0' && name[i] != '.') {
+        char c = name[i++];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+            if (base < 6U) short_out[base++] = c;
+        }
+    }
+    if (base == 0U) {
+        short_out[base++] = 'F';
+        short_out[base++] = 'I';
+        short_out[base++] = 'L';
+        short_out[base++] = 'E';
+    }
+    short_out[base++] = '~';
+    short_out[base++] = '1';
+    if (name[i] == '.') {
+        i++;
+        while (name[i] != '\0' && ext < 3U) {
+            char c = name[i++];
+            if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+                if (ext == 0U) short_out[base++] = '.';
+                short_out[base++] = c;
+                ext++;
+            }
+        }
+    }
+    if (ext == 0U) {
+        short_out[base++] = '.';
+        short_out[base++] = 'T';
+        short_out[base++] = 'X';
+        short_out[base++] = 'T';
+    }
+    short_out[base] = '\0';
+}
+
+static int is_strict_short_83(const char* name) {
+    uint32_t i = 0U, base = 0U, ext = 0U;
+    int dot = 0;
+    if (!name || name[0] == '\0') return 0;
+    while (name[i] != '\0') {
+        char c = name[i];
+        if (c == '.') {
+            if (dot || base == 0U) return 0;
+            dot = 1; i++; continue;
+        }
+        if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return 0;
+        if (!dot) { if (++base > 8U) return 0; }
+        else { if (++ext > 3U) return 0; }
+        i++;
+    }
+    return base > 0U;
+}
+
+/* Création FAT16 explicite : gère à la fois le format 8.3 classique et les noms longs LFN. */
 int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
     uint16_t first_cluster = 0U;
+    char short_alias[16];
     if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
-    return fat16_create_file(fat16_root(), name, 0x20U, (const uint8_t*)data, size,
-                             &first_cluster);
+    if (is_strict_short_83(name)) {
+        return fat16_create_file(fat16_root(), name, 0x20U, (const uint8_t*)data, size,
+                                 &first_cluster);
+    }
+    generate_short_alias(name, short_alias);
+    return fat16_create_lfn_file(fat16_root(), name, short_alias, 0x20U, (const uint8_t*)data, size,
+                                 &first_cluster);
 }
 
-/* Suppression FAT16 explicite : elle ne réutilise pas unlink overlay. Le VFS
- * fournit exclusivement un nom relatif 8.3 et la capacité mutate est vérifiée
- * avant de toucher au volume ATA maître monté. */
+/* Suppression FAT16 explicite : supporte 8.3 et LFN. */
 int sys_vfs_fat16_unlink(const char* name) {
     if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
         return OS_VFS_BACKEND_DENIED;
@@ -939,24 +998,34 @@ int sys_vfs_fat16_unlink(const char* name) {
     return fat16_unlink_file(fat16_root(), name);
 }
 
-/* Renommage FAT16 explicite : seuls deux noms 8.3 relatifs du médiateur sont
- * acceptés. La primitive ne touche ni aux données ni aux liens de clusters. */
+/* Renommage FAT16 explicite : supporte 8.3 et LFN. */
 int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
+    char new_short[16];
     if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
-    return fat16_rename_file(fat16_root(), old_name, new_name);
+    if (is_strict_short_83(old_name) && is_strict_short_83(new_name)) {
+        return fat16_rename_file(fat16_root(), old_name, new_name);
+    }
+    generate_short_alias(new_name, new_short);
+    return fat16_rename_lfn_file(fat16_root(), old_name, new_name, new_short);
 }
 
 int sys_vfs_fat32_create(const char* name, const char* data, uint32_t size) {
     uint32_t first_cluster = 0U;
+    char short_alias[16];
     if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
-    return fat32_create_file(fat32_root(), name, 0x20U, (const uint8_t*)data, size,
-                             &first_cluster);
+    if (is_strict_short_83(name)) {
+        return fat32_create_file(fat32_root(), name, 0x20U, (const uint8_t*)data, size,
+                                 &first_cluster);
+    }
+    generate_short_alias(name, short_alias);
+    return fat32_create_lfn_file(fat32_root(), name, short_alias, 0x20U, (const uint8_t*)data, size,
+                                 &first_cluster);
 }
 
 int sys_vfs_fat32_unlink(const char* name) {
@@ -968,11 +1037,16 @@ int sys_vfs_fat32_unlink(const char* name) {
 }
 
 int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
+    char new_short[16];
     if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
-    return fat32_rename_file(fat32_root(), old_name, new_name);
+    if (is_strict_short_83(old_name) && is_strict_short_83(new_name)) {
+        return fat32_rename_file(fat32_root(), old_name, new_name);
+    }
+    generate_short_alias(new_name, new_short);
+    return fat32_rename_lfn_file(fat32_root(), old_name, new_name, new_short);
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {

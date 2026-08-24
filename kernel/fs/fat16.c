@@ -10,6 +10,14 @@
 
 static uint8_t sector[FAT16_SECTOR_SIZE];
 static uint8_t sector2[FAT16_SECTOR_SIZE];
+
+/* Forward declarations pour LFN */
+static int fat16_write_root_slot(const fat16_volume_t* v, uint32_t index, const uint8_t* entry);
+static uint8_t fat16_lfn_checksum(const uint8_t* short_name);
+static void fat16_lfn_put(uint8_t* entry, uint32_t offset, uint32_t pos, const uint16_t* units, uint32_t length);
+static void fat16_lfn_get(uint8_t* entry, uint32_t offset, uint32_t pos, uint16_t* units, uint32_t max);
+static int fat16_lfn_query_valid(const char* name);
+static int fat16_lfn_name_equals_folded(const uint16_t* units, const char* name);
 static uint8_t fat_sector_cache[FAT16_SECTOR_SIZE];
 static uint32_t fat_sector_cache_lba;
 static uint8_t fat_sector_cache_valid;
@@ -278,41 +286,55 @@ static int fat16_release_chain(const fat16_volume_t* v, uint16_t first) {
  * libération de chaîne afin de ne jamais conserver un fichier référençant des
  * clusters déjà libérés si une écriture ultérieure échoue. */
 int fat16_unlink_file(const fat16_volume_t* v, const char* name) {
-    uint8_t short_name[11];
-    uint32_t index, byte_offset, lba, entry_offset;
+    uint8_t entry[FAT16_ENTRY_SIZE], short_name[11], lfn_sum = 0U, expected = 0U, valid = 0U;
+    uint16_t lfn_units[OS_NAME_MAX];
+    uint32_t lfn_start = 0U, i, j;
     uint16_t first;
     uint32_t size;
-    uint8_t lfn_pending = 0U;
-    int rc;
+    int short_valid;
     if (!v || !name || !fat16_is_mounted(v) || !v->write_sector) return OS_FAT16_NOT_MOUNTED;
-    if (make_short_name(name, short_name) != 0) return OS_FAT16_BAD_PATH;
-    for (index = 0U; index < v->root_entries; index++) {
-        byte_offset = index * FAT16_ENTRY_SIZE;
-        lba = v->root_lba + (byte_offset / FAT16_SECTOR_SIZE);
-        entry_offset = byte_offset % FAT16_SECTOR_SIZE;
-        if (read_at(v, lba, sector) != 0) return OS_FAT16_CORRUPT;
-        if (sector[entry_offset] == 0U) break;
-        if (sector[entry_offset] == 0xE5U) { lfn_pending = 0U; continue; }
-        if ((sector[entry_offset + 11U] & 0x0FU) == 0x0FU) { lfn_pending = 1U; continue; }
-        if (!entry_matches(sector + entry_offset, short_name)) { lfn_pending = 0U; continue; }
-        if (lfn_pending || (sector[entry_offset + 11U] & 0x18U) != 0U) return OS_FAT16_BAD_PATH;
-        first = le16(sector + entry_offset + 26U);
-        size = le32(sector + entry_offset + 28U);
+    short_valid = make_short_name(name, short_name) == 0;
+    if (!fat16_lfn_query_valid(name)) return OS_FAT16_BAD_PATH;
+    for (i = 0U; i < v->root_entries; i++) {
+        uint8_t ord;
+        if (read_root_entry(v, i, entry) != 0) return OS_FAT16_CORRUPT;
+        if (entry[0] == 0U) break;
+        if (entry[0] == 0xE5U) { valid = 0U; continue; }
+        if (entry[11] == 0x0FU) {
+            ord = entry[0] & 0x1FU;
+            if (entry[0] & 0x40U) {
+                if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
+                lfn_sum = entry[13]; expected = ord; lfn_start = i; valid = 1U;
+            }
+            if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; }
+            fat16_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
+            expected--; continue;
+        }
+        if (entry[11] & 0x08U) { valid = 0U; continue; }
+        { int same = short_valid; for (j = 0U; j < 11U && same; j++) if (entry[j] != short_name[j]) same = 0;
+        if ((!same) &&
+            !(valid && expected == 0U && fat16_lfn_checksum(entry) == lfn_sum && fat16_lfn_name_equals_folded(lfn_units, name))) { valid = 0U; continue; }
+        }
+        first = le16(entry + 26U);
+        size = le32(entry + 28U);
         if (first == 0U && size != 0U) return OS_FAT16_CORRUPT;
         if (first != 0U && (first < 2U || (uint32_t)first > v->cluster_count + 1U)) {
             return OS_FAT16_CORRUPT;
         }
-        sector[entry_offset] = 0xE5U;
-        rc = fat16_write_sector(v, lba, sector);
-        if (rc != 0) return rc;
+        for (j = valid && expected == 0U ? lfn_start : i; j <= i; j++) {
+            uint8_t deleted[FAT16_ENTRY_SIZE];
+            if (read_root_entry(v, j, deleted) != 0) return OS_FAT16_CORRUPT;
+            deleted[0] = 0xE5U;
+            if (fat16_write_root_slot(v, j, deleted) != 0) return OS_FAT16_CORRUPT;
+        }
         return first == 0U ? 0 : fat16_release_chain(v, first);
     }
     return OS_FAT16_NOT_FOUND;
 }
 
-/* Renommage limité à une entrée 8.3 classique. La recherche de collision
- * parcourt la racine entière avant d’écrire : un emplacement supprimé ou une
- * fin logique ne peut donc pas masquer une cible déjà présente plus loin. */
 int fat16_rename_file(const fat16_volume_t* v, const char* old_name, const char* new_name) {
     uint8_t old_short[11], new_short[11];
     uint32_t index, old_index, byte_offset, lba, entry_offset, i;
@@ -347,6 +369,60 @@ int fat16_rename_file(const fat16_volume_t* v, const char* old_name, const char*
     if (read_at(v, lba, sector) != 0) return OS_FAT16_CORRUPT;
     for (i = 0U; i < 11U; i++) sector[entry_offset + i] = new_short[i];
     return fat16_write_sector(v, lba, sector);
+}
+
+int fat16_rename_lfn_file(const fat16_volume_t* v, const char* old_name,
+                          const char* new_long_name, const char* new_short_name) {
+    uint8_t entry[FAT16_ENTRY_SIZE], old_short[11], new_short[11], sum = 0U, expected = 0U, valid = 0U;
+    uint16_t lfn_units[OS_NAME_MAX], units[OS_NAME_MAX];
+    uint32_t start = 0U, i, j, old_count = 0U, length = 0U, new_count;
+    int old_short_valid;
+    if (!v || !old_name || !new_long_name || !new_short_name || !fat16_is_mounted(v) || !v->write_sector) return OS_FAT16_NOT_MOUNTED;
+    old_short_valid = make_short_name(old_name, old_short) == 0;
+    if (make_short_name(new_short_name, new_short) != 0) return OS_FAT16_BAD_PATH;
+    if (lfn_utf8_to_utf16_bmp(new_long_name, units, OS_NAME_MAX, &length) != 0) return OS_FAT16_BAD_PATH;
+    new_count = (length + 12U) / 13U;
+    for (i = 0U; i < v->root_entries; i++) {
+        uint8_t ord;
+        if (read_root_entry(v, i, entry) != 0) return OS_FAT16_CORRUPT;
+        if (entry[0] == 0U) break;
+        if (entry[0] == 0xE5U) { valid = 0U; continue; }
+        if (entry[11] == 0x0FU) {
+            ord = entry[0] & 0x1FU;
+            if (entry[0] & 0x40U) {
+                if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
+                sum = entry[13]; expected = ord; start = i; old_count = ord; valid = 1U;
+            }
+            if (!valid || ord == 0U || ord != expected || entry[13] != sum) { valid = 0U; continue; }
+            fat16_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
+            expected--; continue;
+        }
+        if (entry[11] & 0x08U) { valid = 0U; continue; }
+        { int same = old_short_valid; for (j = 0U; j < 11U && same; j++) if (entry[j] != old_short[j]) same = 0;
+          if (!same && !(valid && expected == 0U && fat16_lfn_checksum(entry) == sum && fat16_lfn_name_equals_folded(lfn_units, old_name))) { valid = 0U; continue; } }
+        if (!valid || expected != 0U || old_count != new_count) return OS_FAT16_BAD_PATH;
+        for (j = 0U; j < new_count; j++) {
+            uint32_t ordinal = new_count - j;
+            uint32_t pos = (ordinal - 1U) * 13U;
+            uint32_t k;
+            for (k = 0U; k < 32U; k++) entry[k] = 0xFFU;
+            entry[0] = (uint8_t)ordinal | (j == 0U ? 0x40U : 0U);
+            entry[11] = 0x0FU; entry[12] = 0U; entry[13] = fat16_lfn_checksum(new_short);
+            entry[26] = 0U; entry[27] = 0U;
+            fat16_lfn_put(entry, 1U, pos, units, length);
+            fat16_lfn_put(entry, 14U, pos + 5U, units, length);
+            fat16_lfn_put(entry, 28U, pos + 11U, units, length);
+            if (fat16_write_root_slot(v, start + j, entry) != 0) return OS_FAT16_CORRUPT;
+        }
+        if (read_root_entry(v, i, entry) != 0) return OS_FAT16_CORRUPT;
+        for (j = 0U; j < 11U; j++) entry[j] = new_short[j];
+        if (fat16_write_root_slot(v, i, entry) != 0) return OS_FAT16_CORRUPT;
+        return 0;
+    }
+    return OS_FAT16_NOT_FOUND;
 }
 
 int fat16_create_file(const fat16_volume_t* v, const char* name, uint8_t attributes,
