@@ -48,6 +48,7 @@
 #define OS_IPC_VFS_WORKER_MOUNT      0x56465704U
 #define OS_IPC_VFS_WORKER_WRITE      0x56465705U
 #define OS_IPC_VFS_WORKER_REMOVE     0x56465706U
+#define OS_IPC_VFS_WORKER_RENAME     0x56465707U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -58,6 +59,7 @@
 #define OS_VFS_WORKER_MOUNT_REQUEST_SIZE (OS_VFS_PATH_MAX + 1U)
 #define OS_VFS_WORKER_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WORKER_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_RENAME_REQUEST_SIZE (OS_VFS_PATH_MAX * 2U)
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -432,6 +434,33 @@ static inline int os_vfs_parse_worker_remove_request(const os_ipc_message_t* mes
         message->size != OS_VFS_WORKER_REMOVE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
     if (!os_vfs_path_is_safe(path_out)) return OS_VFS_STATUS_INVALID;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_rename_request(os_ipc_payload_t* payload, const char* old_path,
+                                                     const char* new_path, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(old_path) || !os_vfs_path_is_safe(new_path))
+        return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_RENAME;
+    payload->size = OS_VFS_WORKER_RENAME_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)old_path[i];
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[OS_VFS_PATH_MAX + i] = (uint8_t)new_path[i];
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_rename_request(const os_ipc_message_t* message, char* old_path_out,
+                                                     char* new_path_out) {
+    uint32_t i;
+    if (!message || !old_path_out || !new_path_out || message->type != OS_IPC_VFS_WORKER_RENAME ||
+        message->size != OS_VFS_WORKER_RENAME_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        old_path_out[i] = (char)message->data[i];
+        new_path_out[i] = (char)message->data[OS_VFS_PATH_MAX + i];
+    }
+    if (!os_vfs_path_is_safe(old_path_out) || !os_vfs_path_is_safe(new_path_out))
+        return OS_VFS_STATUS_INVALID;
     return OS_VFS_STATUS_OK;
 }
 

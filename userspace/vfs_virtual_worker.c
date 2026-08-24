@@ -145,6 +145,18 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RENAME) {
+            char new_path[OS_VFS_PATH_MAX];
+            if (os_vfs_parse_worker_rename_request(&message, path, new_path) == OS_VFS_STATUS_OK) {
+                puts("vfsvirtual rename ");
+                puts(path);
+                puts(" -> ");
+                puts(new_path);
+                puts("\n");
+                if (os_vfs_make_rename_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
         }
         yield();
     }

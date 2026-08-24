@@ -731,6 +731,35 @@ static void test_worker_remove_request_is_bounded_and_decoded(void) {
                       os_vfs_parse_worker_remove_request(&message, path));
 }
 
+static void test_worker_rename_request_is_bounded_and_decoded(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char old_path[OS_VFS_PATH_MAX];
+    char new_path[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_rename_request(&payload, "virtual/old.txt", "virtual/new.txt", 144U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_RENAME, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_RENAME_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(144U, payload.request_id);
+    message.sender_pid = 9;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_rename_request(&message, old_path, new_path));
+    TEST_ASSERT_EQUAL_STRING("virtual/old.txt", old_path);
+    TEST_ASSERT_EQUAL_STRING("virtual/new.txt", new_path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_rename_request(&payload, "../old.txt", "virtual/new.txt", 144U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_rename_request(&payload, "virtual/old.txt", "../new.txt", 144U));
+    message.size = OS_VFS_WORKER_RENAME_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_rename_request(&message, old_path, new_path));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -764,6 +793,7 @@ int main(void) {
     RUN_TEST(test_worker_mount_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_write_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_remove_request_is_bounded_and_decoded);
+    RUN_TEST(test_worker_rename_request_is_bounded_and_decoded);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;
