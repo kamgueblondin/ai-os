@@ -782,11 +782,11 @@ int main(void) {
     RUN_TEST(test_list_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_list_accepts_subdirectory_and_rejects_non_directory_path);
     RUN_TEST(test_list_rejects_invalid_mount_and_reply);
+    RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     RUN_TEST(test_list_page_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_list_observe_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_mkdir_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_rmdir_request_and_reply_are_bounded_and_correlated);
-    RUN_TEST(test_stat_rejects_invalid_request_and_reply);
     RUN_TEST(test_backend_list_request_and_reply_are_bounded_and_correlated);
     RUN_TEST(test_worker_read_messages_are_bounded_and_correlated);
     RUN_TEST(test_worker_stats_snapshot_is_bounded_and_decoded);
