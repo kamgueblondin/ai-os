@@ -136,6 +136,15 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_REMOVE) {
+            if (os_vfs_parse_worker_remove_request(&message, path) == OS_VFS_STATUS_OK) {
+                puts("vfsvirtual remove ");
+                puts(path);
+                puts("\n");
+                if (os_vfs_make_remove_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
         }
         yield();
     }
