@@ -10,7 +10,7 @@ import socket
 import struct
 import threading
 
-from qemu_ne2k_tls12_server import LocalTls12Server
+from qemu_ne2k_tls12_server import CONTENT_ALERT, LocalTls12Server
 
 # Un record TLS peut s'assembler sur plusieurs segments ; au-dela de ~500 o
 # Ethernet, QEMU/NE2000 ISA laisse parfois la trame invisible au guest.
@@ -153,8 +153,9 @@ def _dns_reply(request_payload):
 class ControlledEthernetPeer:
     """Serveur socket QEMU non persistant avec compteurs de protocole publics."""
 
-    def __init__(self, full_tls=False):
+    def __init__(self, full_tls=False, peer_close_after_sse=False):
         self.full_tls = full_tls
+        self.peer_close_after_sse = peer_close_after_sse
         self.events = {"discover": 0, "offer": 0, "request": 0, "ack": 0,
                        "arp": 0, "dns": 0, "syn": 0, "syn_ack": 0, "client_hello": 0,
                        "server_hello": 0, "server_hello_ack": 0}
@@ -163,6 +164,7 @@ class ControlledEthernetPeer:
                 "certificate": 0, "server_key_exchange": 0, "server_hello_done": 0,
                 "client_flight": 0, "server_finished": 0, "http_request": 0,
                 "http_response": 0, "sse": 0, "sse_done": 0,
+                "peer_close_notify": 0, "client_close_notify": 0,
             })
         self.tls = LocalTls12Server() if full_tls else None
         self.tls_step = 0
@@ -366,6 +368,13 @@ class ControlledEthernetPeer:
                            sequence + len(payload), self.tls.change_cipher_spec_record())
             self.tls_step = 5
             return
+        if self.full_tls and payload and self.peer_close_after_sse and self.tls_step == 8:
+            content_type, plaintext = self.tls.open_record(payload)
+            if content_type != CONTENT_ALERT or plaintext != b"\x01\x00":
+                raise RuntimeError("close_notify client local attendu")
+            self.events["client_close_notify"] += 1
+            self.tls_step = 9
+            return
         if self.full_tls and payload and self.tls.ready and self.tls_step >= 6 and not self.sse_pending:
             # Premier POST apres Finished, ou second tour apres ai-next.
             request = self.tls.open_application(payload)
@@ -418,11 +427,17 @@ class ControlledEthernetPeer:
             self.tls_step = 6
             self.events["server_finished"] += 1
         elif self.tls_step == 7 and self.sse_pending:
-            # Differer le second record SSE : un ACK invite dans le meme
-            # tour fait perdre la trame cote QEMU.
-            self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
-                           self.tls.sse_done_record())
-            self.events["sse_done"] += 1
+            # Différer le record terminal : un ACK invité dans le même tour
+            # fait perdre la trame côté QEMU. Le contrat de fermeture peut
+            # remplacer `[DONE]` par un close_notify TLS authentifié.
+            if self.peer_close_after_sse:
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                               self.tls.close_notify_record())
+                self.events["peer_close_notify"] += 1
+            else:
+                self._send_tcp(connection, dest_mac, dest_ip, dest_port, guest_ack,
+                               self.tls.sse_done_record())
+                self.events["sse_done"] += 1
             self.sse_pending = False
             self.tls_step = 8
 

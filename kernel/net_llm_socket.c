@@ -101,7 +101,12 @@ int net_llm_socket_open_sse(int socket_id, net_tls_aes_gcm_session_t* session,
     if (net_socket_connection_snapshot(socket_id, &previous_connection) != 0) return -2;
     previous_session = *session; previous_response = *response;
     status = net_socket_receive_tls(socket_id, session, view, plaintext, plaintext_capacity, &record, consumed);
-    if (status != 0 || record.content_type != NET_TLS_CONTENT_APPLICATION_DATA) goto rollback;
+    if (status != 0) goto rollback;
+    if (record.content_type == NET_TLS_CONTENT_ALERT) {
+        if (net_tls_close_notify_parse(&record) == 0) return NET_HTTP_TLS_STATUS_CLOSE_NOTIFY;
+        goto rollback;
+    }
+    if (record.content_type != NET_TLS_CONTENT_APPLICATION_DATA) goto rollback;
     status = net_llm_sse_response_feed(response, provider, record.payload, record.payload_length,
                                        text, text_capacity, text_length);
     if (status >= 0) return status;

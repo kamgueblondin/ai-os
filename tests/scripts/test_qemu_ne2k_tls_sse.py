@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Contrat QEMU : TLS authentifie local puis flux SSE chunked sur pair controle."""
+import argparse
 import os
 import socket
 import subprocess
@@ -55,7 +56,9 @@ def keys(client, command):
     aliases = {" ": "spc", ".": "dot", "-": "minus", "/": "slash"}
     for char in command:
         client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.30)
+        # Le contrôleur PS/2 QEMU peut dupliquer ou perdre une frappe lors de
+        # séquences TLS longues ; cet intervalle garde les commandes atomiques.
+        time.sleep(0.55)
     client.sendall(b"sendkey ret\n")
 
 
@@ -96,35 +99,30 @@ def handshake_tls(client, proc, peer):
     progressions = 0
     for _ in range(32):
         start = len(text())
-        keys(client, "ai-tls-poll")
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            if proc.poll() is not None:
-                raise RuntimeError("QEMU stopped: %s" % text()[-2000:])
-            chunk = text()[start:]
-            if "ai-tls-poll: echec TLS" in chunk:
-                raise RuntimeError("TLS failed; peer events=%r sizes=%r peer error=%r log=%s" %
-                                   (peer.events, peer.sent_sizes, peer.error, chunk[-1500:]))
-            if "progression TLS publiee" in chunk:
-                progressions += 1
-                break
-            if "attente de trame TLS" in chunk:
-                break
-            time.sleep(0.15)
-        else:
-            raise RuntimeError("tls-poll mute; peer events=%r sizes=%r peer error=%r" %
-                               (peer.events, peer.sent_sizes, peer.error))
+        try:
+            needle = keys_retry_any(client, proc, "ai-tls-poll", (
+                "progression TLS publiee",
+                "attente de trame TLS",
+                "ai-tls-poll: echec TLS",
+            ), 30)
+        except RuntimeError as error:
+            raise RuntimeError("tls-poll mute; peer events=%r sizes=%r peer error=%r (%s)" %
+                               (peer.events, peer.sent_sizes, peer.error, error))
+        chunk = text()[start:]
+        if needle == "ai-tls-poll: echec TLS":
+            raise RuntimeError("TLS failed; peer events=%r sizes=%r peer error=%r log=%s" %
+                               (peer.events, peer.sent_sizes, peer.error, chunk[-1500:]))
+        if needle == "progression TLS publiee":
+            progressions += 1
         if progressions >= 7:
             start = len(text())
-            keys(client, "ai-runtime")
-            wait_for(proc, "Session LLM noyau", 20, start)
+            keys_retry(client, proc, "ai-runtime", "Session LLM noyau", 20)
             if "TLS_COMPLETE" in text()[start:]:
                 complete = True
                 break
     if not complete:
         start = len(text())
-        keys(client, "ai-runtime")
-        wait_for(proc, "Session LLM noyau", 20, start)
+        keys_retry(client, proc, "ai-runtime", "Session LLM noyau", 20)
         if "TLS_COMPLETE" in text()[start:]:
             complete = True
     if not complete:
@@ -166,14 +164,51 @@ def poll_sse(client, proc, peer):
                            (saw_delta, complete, peer.events, peer.sent_sizes, peer.error, text()[-2000:]))
 
 
-def main():
+def poll_sse_peer_close(client, proc, peer):
+    saw_delta = False
+    complete = False
+    needles = (
+        "SSE : ok",
+        "ai-sse-poll: flux SSE termine",
+        "ai-sse-poll: attente de delta SSE",
+        "ai-sse-poll: flux SSE non emis",
+        "lecture refusee",
+    )
+    for _ in range(12):
+        start = len(text())
+        needle = keys_retry_any(client, proc, "ai-sse-poll", needles, 30)
+        chunk = text()[start:]
+        if "ai-sse-poll: flux SSE non emis" in chunk or "lecture refusee" in chunk:
+            raise RuntimeError("fermeture TLS refusee; peer events=%r peer error=%r log=%s" %
+                               (peer.events, peer.error, chunk[-1500:]))
+        if "SSE : ok" in chunk:
+            saw_delta = True
+        if needle == "ai-sse-poll: flux SSE termine":
+            complete = True
+            wait_for(proc, "HTTP : 200", 10, start)
+            break
+    if not saw_delta or not complete:
+        raise RuntimeError("close_notify SSE incomplet delta=%s terminal=%s; peer events=%r sizes=%r peer error=%r log=%s" %
+                           (saw_delta, complete, peer.events, peer.sent_sizes, peer.error, text()[-2000:]))
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if peer.events.get("peer_close_notify", 0) and peer.events.get("client_close_notify", 0):
+            return
+        if peer.error is not None:
+            break
+        time.sleep(0.1)
+    raise RuntimeError("close_notify non confirme; peer events=%r peer error=%r" %
+                       (peer.events, peer.error))
+
+
+def main(peer_close=False):
     os.makedirs(LOG_DIR, exist_ok=True)
     for path in (LOG, ERR, MON):
         try:
             os.remove(path)
         except OSError:
             pass
-    peer = ControlledEthernetPeer(full_tls=True)
+    peer = ControlledEthernetPeer(full_tls=True, peer_close_after_sse=peer_close)
     peer.start()
     command = [
         "qemu-system-i386", "-kernel", os.path.join(ROOT, "build", "ai_os.bin"),
@@ -199,7 +234,10 @@ def main():
                 raise RuntimeError("%s; peer events=%r peer error=%r" %
                                    (error, peer.events, peer.error))
             try:
-                poll_sse(client, proc, peer)
+                if peer_close:
+                    poll_sse_peer_close(client, proc, peer)
+                else:
+                    poll_sse(client, proc, peer)
             except RuntimeError as error:
                 raise RuntimeError("%s; peer events=%r peer error=%r" %
                                    (error, peer.events, peer.error))
@@ -207,7 +245,11 @@ def main():
                 raise RuntimeError("controlled Ethernet peer failed: %s" % peer.error)
             required = ("client_hello", "certificate", "server_key_exchange",
                         "server_hello_done", "client_flight", "server_finished",
-                        "http_request", "sse", "sse_done")
+                        "http_request", "sse")
+            if peer_close:
+                required += ("peer_close_notify", "client_close_notify")
+            else:
+                required += ("sse_done",)
             missing = [name for name in required if peer.events.get(name, 0) == 0]
             if missing:
                 raise RuntimeError("missing controlled TLS/SSE events: %s" % ", ".join(missing))
@@ -230,8 +272,12 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--peer-close", action="store_true",
+                        help="remplace le terminateur SSE par un close_notify TLS distant")
+    args = parser.parse_args()
     try:
-        raise SystemExit(main())
+        raise SystemExit(main(peer_close=args.peer_close))
     except Exception as error:
         print("QEMU NE2000 TLS/SSE local contract failed: %s" % error)
         raise SystemExit(1)
