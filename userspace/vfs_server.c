@@ -146,8 +146,8 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT16 n’expose ici que création, suppression et renommage 8.3 à la racine.
- * Aucun remplacement, sous-répertoire ni LFN n’est publié par le VFS. */
+/* FAT16 expose à la racine création, suppression et renommage 8.3 ou LFN.
+ * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
 static int backend_fat16_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -204,8 +204,8 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT32 n'expose ici que creation, suppression et renommage 8.3 a la racine.
- * Aucun remplacement, sous-repertoire ni LFN n'est publie par le VFS. */
+/* FAT32 expose à la racine création, suppression et renommage 8.3 ou LFN.
+ * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
 static int backend_fat32_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;

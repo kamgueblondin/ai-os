@@ -116,7 +116,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Overlay ATA PIO V2, 64 nœuds et restauration V1
 - [x] Préemption IRQ0 sûre entre tâches Ring 3
 - [x] Stub OpenAI honnête et `net-status` dynamique (NIC absente ou NE2000 détectée)
-- [x] Volume FAT16 sur IDE (LBA 64) : lecture `fat16-list` / `fat16-cat`, puis creation/suppression/renommage 8.3 racine via VFS
+- [x] Volumes FAT16 et FAT32 sur IDE : lecture, création, suppression et renommage 8.3 ou LFN à la racine via VFS, sans écrasement ni sous-répertoire
 - [x] Console VGA : curseur bloc et historique Page Up/Down
 - [x] Pilote NE2000 ISA (sonde, anneaux, IRQ3, RX/TX PIO) et codecs ARP/IPv4/UDP/DHCP/DNS/TCP
 - [x] SHA-256, HMAC-SHA-256 et framing TLS record (sans handshake)
@@ -158,7 +158,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Flux SSE chunked Ollama sur le meme pair TLS local (`make qemu-ne2k-tls-sse`) ; deltas incrementaux puis `[DONE]`, sans hote public ni OpenAI
 - [x] Second tour LLM sur la meme session TLS via `ai-next` (`make qemu-ne2k-tls-next`) ; HTTP puis SSE, sans nouveau handshake ni hote public
 - [ ] Validation sur réseau physique/TAP ou bridge réel et client OpenAI effectif
-- [x] Ecriture FAT16 et FAT32 8.3 racine via VFS (`vfs-write` / `vfs-remove` / `vfs-rename`) ; LFN VFS, sous-repertoires et ecrasement hors contrat - [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
+- [x] Écriture FAT16 et FAT32 8.3 ou LFN racine via VFS (`vfs-write` / `vfs-remove` / `vfs-rename`) ; sous-répertoires, écrasement et remplacement atomique hors contrat - [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 
 ## Arborescence
 
