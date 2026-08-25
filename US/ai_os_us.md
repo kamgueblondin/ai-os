@@ -1,6 +1,6 @@
 # User stories AI-OS - backlog du prototype i386
 
-**Date :** 23 aout 2026  
+**Date :** 25 août 2026
 **Source de verite runtime :** [docs/ETAT_REEL.md](../docs/ETAT_REEL.md)  
 **Perimetre :** hobby OS i386 Multiboot, QEMU, shell Ring 3 et IA locale - pas une distribution Linux. Ce document ne constitue pas le plan MOHHOS a long terme. Lexique : [docs/vocabulaire.md](../docs/vocabulaire.md).
 
@@ -15,13 +15,13 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 | AOS-003 | Recevoir timer et clavier | PIC/PIT 100 Hz/i8042 ; prefixe `0xE0` (Page Up/Down, fleches) ; EOI IRQ0 avant le gestionnaire C |
 | AOS-004 | Lire un initrd | Archive TAR (ustar) en lecture seule, `SYS_LISTDIR`, `SYS_READFILE` |
 | AOS-005 | Executer un shell isole | Shell ELF utilisateur et retour Ring 3 par `iret` |
-| AOS-006 | Exposer une ABI de syscalls | ABI propre `int 0x80` ; aujourd'hui syscalls 0-118, `MAX_SYSCALLS = 119` |
+| AOS-006 | Exposer une ABI de syscalls | ABI propre `int 0x80` ; aujourd’hui syscalls 0-121, `MAX_SYSCALLS = 122` |
 | AOS-007 | Conserver de petits fichiers | Overlay ATA PIO persistant V2 et restauration V1/V2 |
 | AOS-008 | Gerer plusieurs taches | `spawn`, `yield`, `ps`, `kill`, plus preemption IRQ0 sure |
 | AOS-009 | Executer un ELF bloquant | `exec`, parent `TASK_WAITING`, reveil par `SYS_EXIT` |
 | AOS-010 | Completer localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
 | AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et decodage UTF-8 brut |
-| AOS-012 | Prevenir les regressions | 497 tests C et contrats QEMU versionnes, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http`, `qemu-ne2k-tls-sse`, `qemu-ne2k-tls-next` et `qemu-vfs-service` |
+| AOS-012 | Prévenir les régressions | 502 tests C et contrats QEMU versionnés, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http`, `qemu-ne2k-tls-sse`, `qemu-ne2k-tls-close`, `qemu-ne2k-tls-next` et `qemu-vfs-service` |
 
 ## Tranche AOS-020 à AOS-025 — livrée
 
@@ -73,11 +73,11 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison initiale.** `ai-provider openai` reste un profil explicite. `net-status` / `net-status json` publient la presence reelle d'une NIC NE2000 ISA (`SYS_NET_STATUS`). Sans carte, `nic=absent` ; avec `-device ne2k_isa`, `make qemu-ne2k-status` exige `nic=detected`.
 
-**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. `make qemu-ne2k-tls-http` complete le handshake TLS 1.2 authentifie local (`example.com`, ancre de test, `TLS_COMPLETE`) puis un POST ollama et l'extraction HTTP 200 `ok`. `make qemu-ne2k-tls-sse` enchaine `ai-stream-request` et `ai-sse-poll` sur un flux chunked local (`SSE : ok`, puis `flux SSE termine`). `make qemu-ne2k-tls-next` valide `ai-next` puis un second POST (HTTP puis SSE) sur la meme session TLS. Ce n'est pas Internet public, pas un TLS vers un hote reel, et pas OpenAI.
+**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. `make qemu-ne2k-tls-http` complete le handshake TLS 1.2 authentifie local (`example.com`, ancre de test, `TLS_COMPLETE`) puis un POST ollama et l'extraction HTTP 200 `ok`. `make qemu-ne2k-tls-sse` enchaîne `ai-stream-request` et `ai-sse-poll` sur un flux chunked local (`SSE : ok`, puis `flux SSE termine`). `make qemu-ne2k-tls-close` remplace le terminateur applicatif par un `close_notify` TLS chiffré du pair, exige son ACK TCP et vérifie la réponse `close_notify` authentifiée du noyau. `make qemu-ne2k-tls-next` valide `ai-next` puis un second POST (HTTP puis SSE) sur la même session TLS. Ce n’est pas Internet public, pas un TLS vers un hôte réel, et pas OpenAI.
 
 **Limite et suite.** Un client OpenAI reel exige encore un secret hors initrd et un hote public. QEMU peut relier `ne2k_isa` a un backend utilisateur [1] ; le guest a un pilote, un TLS local et un HTTP local, pas un client HTTPS public.
 
-**Verification.** `make qemu-ai-provider`, `make qemu-ne2k-status`, `make qemu-ne2k-acquire`, `make qemu-ne2k-tls-http`, `make qemu-ne2k-tls-sse` et `make qemu-ne2k-tls-next`.
+**Vérification.** `make qemu-ai-provider`, `make qemu-ne2k-status`, `make qemu-ne2k-acquire`, `make qemu-ne2k-tls-http`, `make qemu-ne2k-tls-sse`, `make qemu-ne2k-tls-close` et `make qemu-ne2k-tls-next`.
 
 ### AOS-026 — Volume FAT sur disque IDE (lot 68 livré)
 
@@ -85,7 +85,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison lecture seule (lot 68).** Le noyau monte un volume FAT16 prepare sur le disque IDE a partir du LBA 64, sans toucher aux 64 secteurs AIOV. `fat16-list` liste la racine 8.3 et `fat16-cat <8.3>` lit les fichiers chaines par la FAT. Note : [docs/mohhos_foundation_increment_68_fat16_volume.md](../docs/mohhos_foundation_increment_68_fat16_volume.md).
 
-**Livraison ulterieure (23 aout 2026).** Le VFS expose `fat16/` et `fat32/` en creation, suppression et renommage de fichiers 8.3 a la racine (`vfs-write`, `vfs-remove`, `vfs-rename`) sous capacite backend `mutate`. Pas de LFN VFS, pas de sous-repertoire, pas d'ecrasement, pas de remplacement transactionnel. Un second disque IDE porte le volume FAT32 ; LFN UTF-8 reste cote noyau seulement. **ext2 n'est pas une option.**
+**Livraison ultérieure (25 août 2026).** Le VFS expose `fat16/` et `fat32/` en création, suppression et renommage de fichiers 8.3 ou LFN à la racine (`vfs-write`, `vfs-remove`, `vfs-rename`) sous capacité backend `mutate`. Les contrats QEMU vérifient les cycles LFN sur les deux volumes IDE. Les sous-répertoires VFS, l’écrasement et le remplacement transactionnel restent hors contrat. Un second disque IDE porte le volume FAT32. **ext2 n’est pas une option.**
 
 **Verification.** `make test-all` et `make qemu-vfs-service` (creation, lecture, renommage `NEW.TXT` -> `RENAMED.TXT`, puis suppression).
 
@@ -103,7 +103,7 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 | AOS-124–125, AOS-147–154 | SYN, SYN-ACK, ACK, payload, séquence, retransmission bornée | `test_net_tcp` |
 | AOS-126–128 | SHA-256, HMAC-SHA-256, framing TLS 1.2 record | `test_sha256`, `test_net_tls_record` |
 
-**Limite commune des lots 113-154.** Ces lots ne livraient ni bail automatique, ni socket utilisateur, ni handshake TLS. Cela a change ensuite : voir AOS-025 ci-dessus. Il reste hors livraison : DHCP sur reseau public, TLS authentifie, X.509, HTTP et OpenAI reel.
+**Limite commune des lots 113-154.** Ces lots historiques ne livraient ni bail automatique, ni socket utilisateur, ni handshake TLS. Cela a changé ensuite : voir AOS-025 ci-dessus pour le parcours TLS/HTTP/SSE authentifié sur pair QEMU local. Il reste hors livraison : DHCP sur réseau public, TLS vers un hôte réel et OpenAI réel.
 
 ## ABI observable (23 aout 2026)
 
@@ -115,8 +115,8 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 | 109-110 | Generation GGUF locale et `ai-continue` |
 | 111-114 | Lecture et pagination FAT32 / pages FAT16 |
 | 115 | Liberation d'une capacite backend |
-| 116-118 | Creation, suppression et renommage FAT16 8.3 racine |
-| 119-121 | Creation, suppression et renommage FAT32 8.3 racine |
+| 116-118 | Création, suppression et renommage FAT16 8.3 ou LFN à la racine |
+| 119-121 | Création, suppression et renommage FAT32 8.3 ou LFN à la racine |
 
 `MAX_SYSCALLS = 122`.
 
@@ -124,9 +124,11 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 
 | Priorite | Sujet | Critere de sortie |
 |---|---|---|
-| 1 | TLS et HTTP | Handshake TLS authentifie, certificats, requete HTTP controlee, OpenAI optionnel hors image |
-| 2 | Latence locale | Mesure sous materiel/KVM jusqu'a l'objectif cible ; QEMU TCG reste ~48 s / ~23 s |
-| 3 | FAT etendu | LFN VFS, sous-repertoires ou ecrasement : hors contrat actuel |
+| 0 | Budget CI QEMU | Ramener durablement `make integration-qemu` sous 25 minutes sans retirer d’assertion métier ; plusieurs passages locaux et un run GitHub vert |
+| 1 | Sous-répertoires FAT VFS | Création, lecture, renommage et suppression sur FAT16/FAT32, sans écrasement et sans rejeu après mutation incertaine |
+| 2 | Frontière VFS Ring 3 | Délégation corrélée et à droit minimal des alias dynamiques et opérations de répertoire encore locales |
+| 3 | Réseau local étendu | TAP/bridge ou multi-pairs QEMU, sans clé, Internet public ni OpenAI |
+| 4 | Latence locale | Mesure sous matériel/KVM sur une plateforme de référence ; QEMU TCG reste ~48 s / ~23 s |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
 
