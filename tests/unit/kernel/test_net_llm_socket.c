@@ -117,6 +117,40 @@ void test_llm_socket_opens_http_response(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(socket_id));
 }
 
+void test_llm_socket_propagates_peer_close_notify(void) {
+    int socket_id, record_length, segment_length;
+    net_tls_aes_gcm_session_t client, server;
+    net_tls_aes128_gcm_key_block_t block;
+    net_tcp_view_t view;
+    net_llm_sse_response_t response;
+    uint8_t key_material[40], encrypted[48] = {0}, segment[80] = {0}, plaintext[8] = {0};
+    uint8_t http_buffer[32] = {0}, sse_buffer[32] = {0}, text[8] = {0};
+    uint16_t consumed = 0U, text_length = 7U;
+
+    init_socket_session(&socket_id, &client, key_material);
+    block = (net_tls_aes128_gcm_key_block_t){key_material, key_material + 16U,
+                                             key_material + 32U, key_material + 36U};
+    TEST_ASSERT_EQUAL(0, net_tls_aes_gcm_session_init(&server, &block, 0U));
+    record_length = net_tls_close_notify_build(&server, encrypted, sizeof(encrypted));
+    TEST_ASSERT_EQUAL(31, record_length);
+    segment_length = net_tcp_build_data(segment, sizeof(segment), 443U, 49152U, 701U, 101U,
+                                        encrypted, (uint16_t)record_length);
+    TEST_ASSERT_GREATER_THAN(0, segment_length);
+    TEST_ASSERT_EQUAL(0, net_tcp_parse(segment, (uint16_t)segment_length, &view));
+    TEST_ASSERT_EQUAL(0, net_llm_sse_response_init(&response, http_buffer, sizeof(http_buffer),
+                                                   sse_buffer, sizeof(sse_buffer)));
+    TEST_ASSERT_EQUAL(NET_HTTP_TLS_STATUS_CLOSE_NOTIFY,
+                      net_llm_socket_open_sse(socket_id, &client, &view, plaintext,
+                                              sizeof(plaintext), &response,
+                                              NET_LLM_SOCKET_PROVIDER_OPENAI, text, sizeof(text),
+                                              &text_length, &consumed));
+    TEST_ASSERT_EQUAL(1U, client.read_sequence);
+    TEST_ASSERT_EQUAL(31U, consumed);
+    TEST_ASSERT_EQUAL(7U, text_length);
+    TEST_ASSERT_EQUAL(0U, response.http.length);
+    TEST_ASSERT_EQUAL(0, net_socket_close(socket_id));
+}
+
 void test_llm_socket_opens_openai_sse(void) {
     int socket_id, record_length, segment_length; net_tls_aes_gcm_session_t client, server;
     net_tls_aes128_gcm_key_block_t block; net_tcp_view_t view; net_llm_sse_response_t response;
@@ -142,6 +176,7 @@ int main(void) {
     RUN_TEST(test_llm_socket_rejects_missing_openai_bearer);
     RUN_TEST(test_llm_socket_builds_sse_resume_request);
     RUN_TEST(test_llm_socket_opens_http_response);
+    RUN_TEST(test_llm_socket_propagates_peer_close_notify);
     RUN_TEST(test_llm_socket_opens_openai_sse);
     unity_print_results();
     unity_cleanup();

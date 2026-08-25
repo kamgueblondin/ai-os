@@ -666,6 +666,7 @@ help:
 	@echo "  qemu-ne2k-acquire - Exerce DHCP, DNS, ARP, SYN/SYN-ACK et ClientHello via NIC QEMU"
 	@echo "  qemu-ne2k-tls-http - TLS authentifie local puis HTTP 200 JSON sur pair QEMU"
 	@echo "  qemu-ne2k-tls-sse - TLS authentifie local puis flux SSE chunked sur pair QEMU"
+	@echo "  qemu-ne2k-tls-close - close_notify TLS distant et réponse authentifiée sur pair QEMU"
 	@echo "  qemu-ne2k-tls-next - Second tour LLM sur la meme session TLS via ai-next"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
@@ -701,7 +702,7 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # 497 tests de non-régression avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-next gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-close qemu-ne2k-tls-next gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
 
 
 gguf-disk:
@@ -721,6 +722,10 @@ qemu-ne2k-tls-http: $(OS_IMAGE) pack-initrd
 qemu-ne2k-tls-sse: $(OS_IMAGE) pack-initrd
 	@python3 tests/scripts/qemu_ne2k_tls12_server.py
 	@python3 tests/scripts/test_qemu_ne2k_tls_sse.py
+
+qemu-ne2k-tls-close: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/qemu_ne2k_tls12_server.py
+	@python3 tests/scripts/test_qemu_ne2k_tls_sse.py --peer-close
 
 qemu-ne2k-tls-next: $(OS_IMAGE) pack-initrd
 	@python3 tests/scripts/qemu_ne2k_tls12_server.py

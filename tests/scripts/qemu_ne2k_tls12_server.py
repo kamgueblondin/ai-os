@@ -19,6 +19,7 @@ from tls_test_material import LEAF_DER, LEAF_KEY_PEM
 
 TLS_VERSION = b"\x03\x03"
 CONTENT_CHANGE_CIPHER_SPEC = 20
+CONTENT_ALERT = 21
 CONTENT_HANDSHAKE = 22
 CONTENT_APPLICATION_DATA = 23
 HANDSHAKE_SERVER_HELLO = 2
@@ -225,17 +226,21 @@ class LocalTls12Server:
         self.transcript.extend(finished)
         return record
 
-    def open_application(self, payload):
+    def open_record(self, payload):
         if not self.ready:
             raise ValueError("session TLS incomplete")
         records = list(iter_tls_records(payload))
         if len(records) != 1:
-            raise ValueError("un record applicatif attendu")
+            raise ValueError("un unique record TLS attendu")
         content_type, plaintext = _aes_gcm_open(
             self.client_write_key, self.client_fixed_iv, self.client_read_sequence, records[0])
+        self.client_read_sequence += 1
+        return content_type, plaintext
+
+    def open_application(self, payload):
+        content_type, plaintext = self.open_record(payload)
         if content_type != CONTENT_APPLICATION_DATA:
             raise ValueError("application_data attendu")
-        self.client_read_sequence += 1
         return plaintext
 
     def application_record(self, plaintext):
@@ -253,6 +258,13 @@ class LocalTls12Server:
 
     def sse_done_record(self):
         return self.application_record(_http_chunk(SSE_DONE) + b"0\r\n\r\n")
+
+    def close_notify_record(self):
+        record = _aes_gcm_seal(
+            self.server_write_key, self.server_fixed_iv, self.server_write_sequence,
+            CONTENT_ALERT, b"\x01\x00")
+        self.server_write_sequence += 1
+        return record
 
 
 def _self_check():
@@ -326,6 +338,16 @@ def _self_check():
     _, body = _aes_gcm_open(server.server_write_key, server.server_fixed_iv, 4, reply2)
     if HTTP_JSON_OK not in body:
         raise RuntimeError("second HTTP local incomplet")
+    close_record = server.close_notify_record()
+    content_type, alert = _aes_gcm_open(
+        server.server_write_key, server.server_fixed_iv, 5, close_record)
+    if content_type != CONTENT_ALERT or alert != b"\x01\x00":
+        raise RuntimeError("close_notify local invalide")
+    client_close = _aes_gcm_seal(
+        key_block[0:16], key_block[32:36], 3, CONTENT_ALERT, b"\x01\x00")
+    content_type, alert = server.open_record(client_close)
+    if content_type != CONTENT_ALERT or alert != b"\x01\x00":
+        raise RuntimeError("close_notify client local invalide")
     print("local TLS 1.2 self-check passed.")
 
 
