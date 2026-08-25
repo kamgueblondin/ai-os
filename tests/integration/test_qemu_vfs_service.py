@@ -16,7 +16,10 @@ KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
 FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.20"))
+KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
+KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
+KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
 
@@ -28,6 +31,12 @@ def log_text():
         return ""
 
 
+def normalized_log(output):
+    """Retire uniquement les diagnostics noyau asynchrones hors contrat."""
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
+    return re.sub(r"\[SCHED\] switching to task \d+\s*", "", output)
+
+
 def wait_for(needle, proc, offset=0, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -35,7 +44,7 @@ def wait_for(needle, proc, offset=0, timeout=15):
             raise RuntimeError("QEMU s'est arrêté prématurément")
         # Les diagnostics timer asynchrones peuvent couper une ligne applicative
         # sans modifier le protocole VFS ; ils ne font pas partie du contrat testé.
-        output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[offset:])
+        output = normalized_log(log_text()[offset:])
         if needle in output:
             return
         time.sleep(0.1)
@@ -61,37 +70,84 @@ def connect_monitor():
     raise RuntimeError("moniteur QEMU indisponible")
 
 
-def send_command_once(client, command):
+class CommandEchoMismatch(RuntimeError):
+    """La ligne reçue par le shell diffère de la commande injectée."""
+
+
+def send_key(client, key):
+    client.sendall(("sendkey %s %d\n" % (key, KEY_HOLD_MS)).encode("ascii"))
+
+
+def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
+    """Injecte une ligne en vérifiant chaque caractère reçu par le shell.
+
+    QEMU TCG peut parfois doubler un scan-code PS/2. Un doublon est retiré
+    avant de poursuivre la ligne : aucune commande partielle n’est exécutée.
+    """
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
-        client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(KEY_DELAY)
-    client.sendall(b"sendkey ret\n")
+        count = 0
+        expected = "SYS_GETS: caractère ajouté: '%s'" % char
+        for _ in range(KEY_CHAR_RETRIES):
+            start = len(log_text())
+            send_key(client, special.get(char, char.lower()))
+            deadline = time.time() + KEY_ECHO_TIMEOUT
+            while time.time() < deadline:
+                if proc is not None and proc.poll() is not None:
+                    raise RuntimeError("QEMU s'est arrêté prématurément")
+                time.sleep(key_delay)
+                count = log_text()[start:].count(expected)
+                if count:
+                    time.sleep(key_delay)
+                    count = log_text()[start:].count(expected)
+                    break
+            if count:
+                break
+        if count == 0:
+            raise RuntimeError("caractère non reçu : %s" % char)
+        for _ in range(count - 1):
+            send_key(client, "backspace")
+            time.sleep(key_delay)
+    send_key(client, "ret")
 
 
-def send_command(client, command, proc=None):
-    """Send a complete command and, when possible, validate its guest echo.
+def command_echoed(output, command):
+    """Accepte les espaces redondants, mais aucune autre altération."""
+    expected = " ".join(command.split())
+    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", output):
+        if " ".join(received.split()) == expected:
+            return True
+    return False
 
-    QEMU TCG can occasionally duplicate a PS/2 scan-code. The echo guard
-    retries only the injection; business assertions remain handled by callers.
-    """
+
+def send_command(client, command, proc=None, key_delay=KEY_DELAY):
+    """Injecte une commande et ne répète que si le shell n'a rien reçu."""
     if proc is None:
-        send_command_once(client, command)
+        send_command_once(client, command, None, key_delay)
         return
-    echo = "SYS_GETS: ligne lue: " + command
     for attempt in range(1, KEY_RETRIES + 1):
         start = len(log_text())
-        send_command_once(client, command)
+        mismatched = False
+        output = ""
+        send_command_once(client, command, proc, key_delay)
         deadline = time.time() + 15
         while time.time() < deadline:
             if proc.poll() is not None:
                 raise RuntimeError("QEMU s'est arrêté prématurément")
-            output = log_text()[start:]
-            if echo in output:
+            output = normalized_log(log_text()[start:])
+            if command_echoed(output, command):
                 return
             if "SYS_GETS: ligne lue: " in output:
+                mismatched = True
+            if mismatched and ("Commande non trouvée" in output or
+                               "Commande non trouvee" in output):
+                # Le shell a refusé le nom altéré avant tout traitement : le
+                # rejet est sans effet métier et l’injection peut être refaite.
                 break
             time.sleep(0.1)
+        if mismatched and ("Commande non trouvée" not in output and
+                           "Commande non trouvee" not in output):
+            raise CommandEchoMismatch("echo commande altéré : %s" % command)
         if attempt < KEY_RETRIES:
             time.sleep(0.2)
     raise RuntimeError("echo commande instable : %s" % command)
@@ -102,7 +158,7 @@ def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
     start = len(log_text())
     send_command_until(client, "vfs-list %s" % directory, "vfsserver list request", proc)
     wait_for("vfs-list ", proc, start, timeout=first_page_timeout)
-    if name in re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[start:]):
+    if name in normalized_log(log_text()[start:]):
         return
     page = 0
     for _ in range(8):
@@ -111,7 +167,7 @@ def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
         send_command_until(client, "vfs-list-page %s %d" % (directory, page),
                            "vfsserver list page request", proc)
         wait_for("vfs-list-page ", proc, before)
-        chunk = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before:])
+        chunk = normalized_log(log_text()[before:])
         if name in chunk:
             return
         if "next end" in chunk:
@@ -119,14 +175,17 @@ def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
     raise RuntimeError("nom absent de %s : %s" % (directory, name))
 
 
-def send_command_until(client, command, needle, proc, attempts=3):
+def send_command_until(client, command, needle, proc, attempts=1, key_delay=KEY_DELAY):
+    """Exécute une commande une fois, sauf réessai explicitement demandé."""
     error = None
     for _ in range(attempts):
         start = len(log_text())
         try:
-            send_command(client, command, proc)
+            send_command(client, command, proc, key_delay)
             wait_for(needle, proc, start)
             return
+        except CommandEchoMismatch:
+            raise
         except RuntimeError as caught:
             error = caught
             time.sleep(0.2)
@@ -547,7 +606,8 @@ def main():
                                "vfsserver path outside mounts", proc)
             wait_for("vfs-read: chemin hors montage", proc, before_outside)
             before_pending = len(log_text())
-            send_command_until(monitor, "ipc-send 1 deferred", "ipc-send ok", proc)
+            send_command_until(monitor, "ipc-send 1 deferred", "ipc-send ok", proc,
+                               key_delay=0.55)
             before_read = len(log_text())
             send_command_until(monitor, "vfs-read initrd/hello.txt", "vfs-read ok", proc)
             wait_for("vfs-read ok 35 request", proc, before_read)
@@ -729,7 +789,7 @@ def main():
             wait_for("renames=", proc, before_final_stats)
             final_stats = re.search(
                 r"reads=(\d+)\s+writes=(\d+)\s+removes=(\d+)\s+renames=(\d+)",
-                re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", log_text()[before_final_stats:]),
+                normalized_log(log_text()[before_final_stats:]),
             )
             if not final_stats:
                 raise RuntimeError("compteurs vfs-stats finaux illisibles")
