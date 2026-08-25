@@ -437,6 +437,13 @@ int ne2k_socket_tls_close_notify(ne2k_device_t* device,const ne2k_io_t* io,const
                                  uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
                                  const uint8_t remote_ip[4],int socket_id,ne2k_tls_client_t* client,
                                  uint8_t* tls_record,uint32_t tls_capacity,uint8_t retransmit_limit);
+/* Variante pour une session AES-GCM déjà vérifiée par l’appelant, avec rollback
+ * du socket et de la séquence TLS en cas d’échec de l’émission. */
+int ne2k_socket_aes_gcm_close_notify(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
+                                     uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],
+                                     const uint8_t remote_ip[4],int socket_id,
+                                     net_tls_aes_gcm_session_t* session,uint8_t* tls_record,
+                                     uint32_t tls_capacity,uint8_t retransmit_limit);
 /* Accepte un SYN-ACK et transmet ClientHello ; socket et TLS sont restaurés si une étape échoue. */
 int ne2k_socket_tls_accept_syn_ack_start(ne2k_device_t* device,const ne2k_io_t* io,const net_arp_cache_t* cache,
                                          uint8_t* tx_frame,uint16_t tx_capacity,const uint8_t local_ip[4],const uint8_t remote_ip[4],
