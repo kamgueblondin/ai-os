@@ -594,7 +594,7 @@ gui-captures: $(OS_IMAGE) pack-initrd disk
 gui-record: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/gui_record_demo.py
 
-.PHONY: integration-qemu qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-next qemu-ipc-foundation qemu-vfs-service qemu-service-grant
+.PHONY: integration-qemu qemu-integration-plan qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-next qemu-ipc-foundation qemu-vfs-service qemu-service-grant
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
@@ -611,14 +611,14 @@ qemu-vfs-service: $(OS_IMAGE) pack-initrd disk
 qemu-service-grant: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_service_grant.py
 
+# Les sept contrats restent inchangés ; l’ordonnanceur les exécute dans un pool borne
+# a deux QEMU par defaut. QEMU_INTEGRATION_JOBS=1 conserve le mode strictement sequentiel.
 integration-qemu: $(OS_IMAGE) pack-initrd disk
-	@python3 tests/integration/test_qemu_core_contract.py
-	@python3 tests/scripts/test_qemu_ne2k_status.py
-	@python3 tests/integration/test_qemu_irq0_preemption.py
-	@python3 tests/scripts/test_ai_provider_commands.py
-	@python3 tests/integration/test_qemu_ipc_foundation.py
-	@python3 tests/integration/test_qemu_vfs_service.py
-	@python3 tests/integration/test_qemu_service_grant.py
+	@python3 tests/integration/run_qemu_contracts.py
+
+# Affiche la liste exacte des contrats et leur ordre sans demarrer QEMU.
+qemu-integration-plan: $(OS_IMAGE) pack-initrd disk
+	@QEMU_INTEGRATION_DRY_RUN=1 python3 tests/integration/run_qemu_contracts.py
 
 # Tests d'intégration réels GPT-2 : les poids locaux sous models/ sont requis.
 .PHONY: gpt2-recovery gpt2-benchmark gpt2-tests
@@ -660,7 +660,8 @@ help:
 	@echo "  test-userspace  - Tests des modules userspace uniquement"  
 	@echo "  test-all        - Suite complète de tests (< 5 min)"
 	@echo "  qemu-smoke      - Boots QEMU : overlay, extras, persist, spawn, exec"
-	@echo "  integration-qemu - Contrats QEMU : boot, shell/overlay, IRQ0 et fournisseur IA"
+	@echo "  integration-qemu - Sept contrats QEMU, deux workers bornes (QEMU_INTEGRATION_JOBS=1 pour le mode sequentiel)"
+	@echo "  qemu-integration-plan - Affiche les sept contrats sans demarrer QEMU"
 	@echo "  qemu-irq0-preemption - Prouve la reprise du shell après spawn spin"
 	@echo "  qemu-ai-provider - Vérifie le stub OpenAI/réseau explicite"
 	@echo "  qemu-ne2k-acquire - Exerce DHCP, DNS, ARP, SYN/SYN-ACK et ClientHello via NIC QEMU"
