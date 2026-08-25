@@ -116,7 +116,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Overlay ATA PIO V2, 64 nœuds et restauration V1
 - [x] Préemption IRQ0 sûre entre tâches Ring 3
 - [x] Stub OpenAI honnête et `net-status` dynamique (NIC absente ou NE2000 détectée)
-- [x] Volume FAT16 sur IDE (LBA 64) : lecture `fat16-list` / `fat16-cat`, puis creation/suppression/renommage 8.3 racine via VFS
+- [x] Volumes FAT16 et FAT32 sur IDE : lecture, création, suppression et renommage 8.3 ou LFN à la racine via VFS, sans écrasement ni sous-répertoire
 - [x] Console VGA : curseur bloc et historique Page Up/Down
 - [x] Pilote NE2000 ISA (sonde, anneaux, IRQ3, RX/TX PIO) et codecs ARP/IPv4/UDP/DHCP/DNS/TCP
 - [x] SHA-256, HMAC-SHA-256 et framing TLS record (sans handshake)
@@ -150,7 +150,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Inventaire médié de capacités backend VFS : `vfs-backend-list` affiche jusqu’à quatre délégations actives et leurs masques au propriétaire public de `vfs`
 - [x] Capabilities backend VFS : délégation, moindre privilège, révocation indépendante, identité issue de la tâche Ring 3 et routage général des réponses discordantes
 - [x] Externalisation locale du backend de chemins VFS : table statique d’opérations par source, droits de mutation explicites et alias dynamiques validés
-- [~] Migration microkernel réelle : première délégation `vfsserver` → `vfsvirtual` Ring 3 livrée et résiliente avant ou pendant une transaction privée pour `vfs-info`, `vfs-stats` et `vfs-mounts` ; backend de stockage processus séparé et transferts de données hors du noyau encore ouverts
+- [~] Migration microkernel réelle : `vfsserver` délègue à `vfsvirtual` Ring 3 les vues publiques et les mutations des montages fixes `overlay/`, `fat16/` et `fat32/`, sous capacité `mutate` minimale et corrélation PID/requête ; une vue peut se replier localement, tandis qu’une mutation en vol devenue incertaine échoue sans rejeu automatique ; les alias dynamiques, les répertoires FAT et une séparation complète du pilote de stockage restent ouverts
 - [x] Latence GGUF quantifiée sur QEMU : benchmark répétable, rapport JSON de médiane/dispersion et référence premier token/continuation
 - [ ] Optimisation supplémentaire de la latence GGUF sur une plateforme de référence stable, distincte de la variabilité QEMU TCG
 - [x] Bootstrap DHCP/OFFER/REQUEST/ACK, ARP, DNS A, SYN/SYN-ACK, ClientHello, ServerHello minimal et ACK LLM observé sur NE2000 QEMU avec pair Ethernet local contrôlé
@@ -158,7 +158,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Flux SSE chunked Ollama sur le meme pair TLS local (`make qemu-ne2k-tls-sse`) ; deltas incrementaux puis `[DONE]`, sans hote public ni OpenAI
 - [x] Second tour LLM sur la meme session TLS via `ai-next` (`make qemu-ne2k-tls-next`) ; HTTP puis SSE, sans nouveau handshake ni hote public
 - [ ] Validation sur réseau physique/TAP ou bridge réel et client OpenAI effectif
-- [x] Ecriture FAT16 et FAT32 8.3 racine via VFS (`vfs-write` / `vfs-remove` / `vfs-rename`) ; LFN VFS, sous-repertoires et ecrasement hors contrat - [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
+- [x] Écriture FAT16 et FAT32 8.3 ou LFN racine via VFS (`vfs-write` / `vfs-remove` / `vfs-rename`) ; sous-répertoires, écrasement et remplacement atomique hors contrat - [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 
 ## Arborescence
 

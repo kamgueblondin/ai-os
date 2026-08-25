@@ -146,8 +146,8 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT16 n’expose ici que création, suppression et renommage 8.3 à la racine.
- * Aucun remplacement, sous-répertoire ni LFN n’est publié par le VFS. */
+/* FAT16 expose à la racine création, suppression et renommage 8.3 ou LFN.
+ * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
 static int backend_fat16_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -204,8 +204,8 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT32 n'expose ici que creation, suppression et renommage 8.3 a la racine.
- * Aucun remplacement, sous-repertoire ni LFN n'est publie par le VFS. */
+/* FAT32 expose à la racine création, suppression et renommage 8.3 ou LFN.
+ * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
 static int backend_fat32_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -348,6 +348,15 @@ static int string_equal(const char* left, const char* right) {
     return left[i] == right[i];
 }
 
+static int string_has_prefix(const char* text, const char* prefix) {
+    uint32_t i = 0U;
+    while (prefix[i] != '\0') {
+        if (text[i] != prefix[i]) return 0;
+        i++;
+    }
+    return 1;
+}
+
 /* Table locale de montages : les entrées de démarrage sont protégées ; quatre
  * alias dynamiques restent possibles. Les noms dynamiques sont bornés pour
  * que la source virtuelle `vfs-mounts` tienne toujours dans 80 octets. */
@@ -432,6 +441,9 @@ static uint32_t vfs_list_generation = 1U;
 #define VFS_VIRTUAL_PENDING_MOUNTS 1U
 #define VFS_VIRTUAL_PENDING_MOUNT_PAGE 2U
 #define VFS_VIRTUAL_PENDING_MOUNT_OBSERVE 3U
+#define VFS_VIRTUAL_PENDING_WRITE 4U
+#define VFS_VIRTUAL_PENDING_REMOVE 5U
+#define VFS_VIRTUAL_PENDING_RENAME 6U
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
@@ -440,6 +452,9 @@ static uint32_t vfs_list_generation = 1U;
 static int read_virtual(const char* path, uint8_t* data, uint32_t* size);
 static int list_virtual_mounts_page(uint32_t start, uint8_t* data, uint32_t data_max,
                                     uint32_t* size, uint32_t* count, uint32_t* next_start);
+static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size);
+static int remove_mounted_backend(const char* path);
+static int rename_mounted_backend(const char* oldpath, const char* newpath);
 
 typedef struct {
     uint32_t active;
@@ -452,6 +467,10 @@ typedef struct {
     uint32_t mount_start;
     uint32_t mount_written;
     uint32_t turns;
+    char mutation_path[OS_VFS_PATH_MAX];
+    char mutation_new_path[OS_VFS_PATH_MAX];
+    uint32_t mutation_size;
+    uint8_t mutation_data[OS_VFS_WRITE_MAX];
     uint8_t mount_data[OS_VFS_READ_MAX];
 } vfs_virtual_pending_t;
 static vfs_virtual_pending_t vfs_virtual_pending;
@@ -467,6 +486,9 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.mount_start = 0U;
     vfs_virtual_pending.mount_written = 0U;
     vfs_virtual_pending.turns = 0U;
+    vfs_virtual_pending.mutation_path[0] = '\0';
+    vfs_virtual_pending.mutation_new_path[0] = '\0';
+    vfs_virtual_pending.mutation_size = 0U;
 }
 
 static int vfs_virtual_lookup(void) {
@@ -487,6 +509,9 @@ static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id
     vfs_virtual_pending.mount_start = 0U;
     vfs_virtual_pending.mount_written = 0U;
     vfs_virtual_pending.turns = 0U;
+    vfs_virtual_pending.mutation_path[0] = '\0';
+    vfs_virtual_pending.mutation_new_path[0] = '\0';
+    vfs_virtual_pending.mutation_size = 0U;
     return 0;
 }
 
@@ -500,6 +525,53 @@ static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request
     if (ipc_send(worker_pid, &payload) != 0) return -4;
     return vfs_virtual_begin(worker_pid, client_pid, request_id, VFS_VIRTUAL_PENDING_SIMPLE,
                              VFS_VIRTUAL_VIEW_INFO);
+}
+
+static int vfs_virtual_mutation_path_is_fixed(const char* path) {
+    return path && (string_has_prefix(path, "overlay/") ||
+                    string_has_prefix(path, "fat16/") ||
+                    string_has_prefix(path, "fat32/"));
+}
+
+static void vfs_virtual_store_mutation(uint32_t kind, const char* path, const char* new_path,
+                                       const uint8_t* data, uint32_t size) {
+    uint32_t i;
+    vfs_virtual_pending.kind = kind;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) {
+        vfs_virtual_pending.mutation_path[i] = path[i];
+        vfs_virtual_pending.mutation_new_path[i] = new_path ? new_path[i] : '\0';
+    }
+    vfs_virtual_pending.mutation_size = size;
+    for (i = 0U; i < size; i++) vfs_virtual_pending.mutation_data[i] = data[i];
+}
+
+static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const char* new_path,
+                                       const uint8_t* data, uint32_t size, int client_pid,
+                                       uint32_t request_id) {
+    os_ipc_payload_t payload;
+    int worker_pid;
+    int status;
+    if (vfs_virtual_pending.active) return -1;
+    worker_pid = vfs_virtual_lookup();
+    if (worker_pid < 0) return -2;
+    status = service_backend_grant_scoped("vfs", worker_pid, OS_VFS_BACKEND_RIGHT_MUTATE);
+    if (status != 0) return -3;
+    if (kind == VFS_VIRTUAL_PENDING_WRITE) {
+        status = os_vfs_make_worker_write_request(&payload, path, data, size, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_REMOVE) {
+        status = os_vfs_make_worker_remove_request(&payload, path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_RENAME) {
+        status = os_vfs_make_worker_rename_request(&payload, path, new_path, request_id);
+    } else return -4;
+    if (status != OS_VFS_STATUS_OK) return -5;
+    if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
+        return -6;
+    vfs_virtual_store_mutation(kind, path, new_path, data, size);
+    if (ipc_send(worker_pid, &payload) != 0) {
+        vfs_virtual_reset();
+        return -7;
+    }
+    return 0;
 }
 
 static int vfs_virtual_submit_stats(int client_pid, uint32_t request_id) {
@@ -575,6 +647,28 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
     uint32_t size = 0U;
     const char* path = info_path;
     if (!reply_payload || !vfs_virtual_pending.active) return 0;
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_WRITE ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_REMOVE ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RENAME) {
+        /* Une mutation a déjà été envoyée au worker. Après disparition ou délai,
+         * son effet est inconnu : ne jamais la rejouer localement, sous peine de
+         * doubler une écriture, suppression ou renommage. Le client reçoit un
+         * échec borné et peut vérifier l’état avant toute nouvelle requête. */
+        if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_WRITE) {
+            if (os_vfs_make_write_reply(reply_payload, OS_VFS_STATUS_INVALID,
+                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        } else if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_REMOVE) {
+            if (os_vfs_make_remove_reply(reply_payload, OS_VFS_STATUS_INVALID,
+                                         vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        } else if (os_vfs_make_rename_reply(reply_payload, OS_VFS_STATUS_INVALID,
+                                            vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE) {
         uint32_t count = 0U;
         uint32_t next_start = OS_VFS_LIST_PAGE_END;
@@ -647,8 +741,41 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
     int32_t status = OS_VFS_STATUS_INVALID;
     int parsed;
     if (!message || !reply_payload || !vfs_virtual_pending.active ||
-        message->sender_pid != vfs_virtual_pending.worker_pid ||
-        message->type != OS_IPC_VFS_WORKER_READ_REPLY) return 0;
+        message->sender_pid != vfs_virtual_pending.worker_pid) return 0;
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_WRITE) {
+        os_vfs_write_reply_t worker_reply;
+        if (os_vfs_parse_write_reply(message, &worker_reply,
+                                     vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (worker_reply.status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (os_vfs_make_write_reply(reply_payload, worker_reply.status,
+                                    vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_REMOVE) {
+        os_vfs_remove_reply_t worker_reply;
+        if (os_vfs_parse_remove_reply(message, &worker_reply,
+                                      vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (worker_reply.status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (os_vfs_make_remove_reply(reply_payload, worker_reply.status,
+                                     vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RENAME) {
+        os_vfs_rename_reply_t worker_reply;
+        if (os_vfs_parse_rename_reply(message, &worker_reply,
+                                      vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (worker_reply.status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (os_vfs_make_rename_reply(reply_payload, worker_reply.status,
+                                     vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (message->type != OS_IPC_VFS_WORKER_READ_REPLY) return 0;
     parsed = os_vfs_parse_worker_read_reply(message, &status, data, &size,
                                             vfs_virtual_pending.request_id);
     /* Un worker repris peut vider après coup une requête expirée. Le PID et le
@@ -1223,6 +1350,14 @@ void main(void) {
             vfs_write_requests++;
             puts("vfsserver write request\n");
             status = os_vfs_parse_write_request(&message, path, write_data, &size);
+            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+                vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_WRITE, path, (const char*)0,
+                                            write_data, size, message.sender_pid,
+                                            message.request_id) == 0) {
+                puts("vfsserver delegated write\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = write_mounted_backend(path, write_data, size);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) {
@@ -1262,6 +1397,14 @@ void main(void) {
             vfs_remove_requests++;
             puts("vfsserver remove request\n");
             status = os_vfs_parse_remove_request(&message, path);
+            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+                vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_REMOVE, path, (const char*)0,
+                                            (const uint8_t*)0, 0U, message.sender_pid,
+                                            message.request_id) == 0) {
+                puts("vfsserver delegated remove\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = remove_mounted_backend(path);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) {
@@ -1277,6 +1420,15 @@ void main(void) {
             vfs_rename_requests++;
             puts("vfsserver rename request\n");
             status = os_vfs_parse_rename_request(&message, path, new_path);
+            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+                vfs_virtual_mutation_path_is_fixed(new_path) &&
+                vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_RENAME, path, new_path,
+                                            (const uint8_t*)0, 0U, message.sender_pid,
+                                            message.request_id) == 0) {
+                puts("vfsserver delegated rename\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = rename_mounted_backend(path, new_path);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) {

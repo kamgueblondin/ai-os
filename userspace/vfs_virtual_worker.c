@@ -27,6 +27,74 @@ static int service_register(const char* name) {
     return result;
 }
 
+/* Le worker ne reçoit que des chemins VFS globaux contrôlés par le médiateur.
+ * Il extrait un suffixe pour les trois montages fixes mutables ; les alias
+ * dynamiques et initrd restent au médiateur et ne lui donnent aucun droit. */
+static const char* path_after_prefix(const char* path, const char* prefix) {
+    uint32_t index = 0U;
+    if (!path || !prefix) return (const char*)0;
+    while (prefix[index] != '\0') {
+        if (path[index] != prefix[index]) return (const char*)0;
+        index++;
+    }
+    return path[index] != '\0' ? path + index : (const char*)0;
+}
+
+static int syscall_write(int number, const char* path, const uint8_t* data, uint32_t size) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(number), "b"(path), "c"(data), "d"(size));
+    return result < 0 ? result : OS_VFS_STATUS_OK;
+}
+
+static int syscall_remove(int number, const char* path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(number), "b"(path));
+    return result;
+}
+
+static int syscall_rename(int number, const char* old_path, const char* new_path) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(number), "b"(old_path), "c"(new_path));
+    return result;
+}
+
+static int mutate_write(const char* path, const uint8_t* data, uint32_t size) {
+    const char* relative;
+    if ((relative = path_after_prefix(path, "overlay/")) != (const char*)0)
+        return syscall_write(SYS_VFS_BACKEND_WRITE, relative, data, size);
+    if ((relative = path_after_prefix(path, "fat16/")) != (const char*)0)
+        return syscall_write(SYS_VFS_FAT16_CREATE, relative, data, size);
+    if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
+        return syscall_write(SYS_VFS_FAT32_CREATE, relative, data, size);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int mutate_remove(const char* path) {
+    const char* relative;
+    if ((relative = path_after_prefix(path, "overlay/")) != (const char*)0)
+        return syscall_remove(SYS_VFS_OVERLAY_UNLINK, relative);
+    if ((relative = path_after_prefix(path, "fat16/")) != (const char*)0)
+        return syscall_remove(SYS_VFS_FAT16_UNLINK, relative);
+    if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
+        return syscall_remove(SYS_VFS_FAT32_UNLINK, relative);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int mutate_rename(const char* old_path, const char* new_path) {
+    const char* old_relative;
+    const char* new_relative;
+    if ((old_relative = path_after_prefix(old_path, "overlay/")) != (const char*)0 &&
+        (new_relative = path_after_prefix(new_path, "overlay/")) != (const char*)0)
+        return syscall_rename(SYS_VFS_OVERLAY_RENAME, old_relative, new_relative);
+    if ((old_relative = path_after_prefix(old_path, "fat16/")) != (const char*)0 &&
+        (new_relative = path_after_prefix(new_path, "fat16/")) != (const char*)0)
+        return syscall_rename(SYS_VFS_FAT16_RENAME, old_relative, new_relative);
+    if ((old_relative = path_after_prefix(old_path, "fat32/")) != (const char*)0 &&
+        (new_relative = path_after_prefix(new_path, "fat32/")) != (const char*)0)
+        return syscall_rename(SYS_VFS_FAT32_RENAME, old_relative, new_relative);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -129,31 +197,34 @@ void main(void) {
             uint8_t write_buf[OS_VFS_WRITE_MAX];
             uint32_t write_len = 0U;
             if (os_vfs_parse_worker_write_request(&message, path, write_buf, &write_len) == OS_VFS_STATUS_OK) {
+                int32_t status = mutate_write(path, write_buf, write_len);
                 puts("vfsvirtual write ");
                 puts(path);
                 puts("\n");
-                if (os_vfs_make_write_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                if (os_vfs_make_write_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_REMOVE) {
             if (os_vfs_parse_worker_remove_request(&message, path) == OS_VFS_STATUS_OK) {
+                int32_t status = mutate_remove(path);
                 puts("vfsvirtual remove ");
                 puts(path);
                 puts("\n");
-                if (os_vfs_make_remove_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                if (os_vfs_make_remove_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RENAME) {
             char new_path[OS_VFS_PATH_MAX];
             if (os_vfs_parse_worker_rename_request(&message, path, new_path) == OS_VFS_STATUS_OK) {
+                int32_t status = mutate_rename(path, new_path);
                 puts("vfsvirtual rename ");
                 puts(path);
                 puts(" -> ");
                 puts(new_path);
                 puts("\n");
-                if (os_vfs_make_rename_reply(&reply, OS_VFS_STATUS_OK, message.request_id) == OS_VFS_STATUS_OK) {
+                if (os_vfs_make_rename_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
