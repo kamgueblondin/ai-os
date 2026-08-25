@@ -14,6 +14,7 @@ ERR = os.path.join(LOG_DIR, "ipc-foundation.err")
 MON = os.path.join(LOG_DIR, "ipc-foundation-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
+KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 
 
 def log_text():
@@ -57,9 +58,10 @@ def connect_monitor():
 def send_command(client, command):
     special = {" ": "spc", "-": "minus"}
     for char in command:
-        client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.55)
-    client.sendall(b"sendkey ret\n")
+        client.sendall(("sendkey %s %d\n" %
+                        (special.get(char, char.lower()), KEY_HOLD_MS)).encode("ascii"))
+        time.sleep(0.35)
+    client.sendall(("sendkey ret %d\n" % KEY_HOLD_MS).encode("ascii"))
 
 
 def send_command_until(client, command, marker, proc, attempts=3):
@@ -101,7 +103,10 @@ def main():
             if not spawned:
                 raise RuntimeError("PID du serveur IPC absent")
             server_pid = spawned.group(1)
-            wait_for("ipc_server ready", proc, before_spawn)
+            # spawn retourne le PID avant le premier tour coopératif de
+            # l’enfant : céder le CPU rend le signal de disponibilité stable.
+            send_command_until(monitor, "yield", "yield ok", proc)
+            wait_for("ipc_server ready", proc, before_spawn, timeout=30)
             before_send = send_command_until(monitor, "ipc-send %s bonjour" % server_pid,
                                              "ipc-send ok %s 7" % server_pid, proc)
             wait_for("ipc recv from 1 type 0 data bonjour", proc, before_send)
