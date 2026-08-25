@@ -14,6 +14,8 @@ ERR = os.path.join(LOG_DIR, "service-grant.err")
 MON = os.path.join(LOG_DIR, "service-grant-monitor.sock")
 KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
+KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
 
 def log_text():
@@ -65,25 +67,79 @@ def connect_monitor():
     raise RuntimeError("moniteur QEMU indisponible")
 
 
-def send_command(client, command):
+def send_command_once(client, command):
     special = {" ": "spc", "-": "minus", ".": "dot"}
     for char in command:
         client.sendall(("sendkey %s\n" % special.get(char, char.lower())).encode("ascii"))
-        time.sleep(0.55)
+        time.sleep(KEY_DELAY)
     client.sendall(b"sendkey ret\n")
 
 
-def send_command_until(client, command, marker, proc, attempts=3):
-    failure = None
-    for _ in range(attempts):
+def command_echoed(output, command):
+    """Retourne vrai si le shell a reçu la même commande après normalisation.
+
+    Le parseur du shell accepte plusieurs espaces entre les arguments. Cette
+    normalisation évite de réinjecter une commande déjà exécutée lorsque QEMU
+    duplique uniquement un scancode d’espace.
+    """
+    expected = " ".join(command.split())
+    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", output):
+        if " ".join(received.split()) == expected:
+            return True
+    return False
+
+
+def send_command(client, command, proc=None):
+    """Injecte une commande et vérifie son écho sans rejouer un effet métier."""
+    if proc is None:
+        send_command_once(client, command)
+        return
+    for attempt in range(1, KEY_RETRIES + 1):
         start = len(log_text())
-        send_command(client, command)
+        send_command_once(client, command)
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError("QEMU s'est arrêté prématurément")
+            output = log_text()[start:]
+            if command_echoed(output, command):
+                return
+            if "SYS_GETS: ligne lue: " in output:
+                break
+            time.sleep(0.1)
+        if attempt < KEY_RETRIES:
+            time.sleep(0.2)
+    raise RuntimeError("echo commande instable : %s" % command)
+
+
+def send_command_until(client, command, marker, proc, attempts=1):
+    """Exécute une commande une seule fois, puis vérifie son résultat métier.
+
+    Une répétition après un écho valide pourrait doubler un envoi IPC ou une
+    mutation de registre ; les réessais sont donc réservés à la phase d’écho.
+    """
+    start = len(log_text())
+    send_command(client, command, proc)
+    wait_for(marker, proc, start)
+
+
+def receive_service_event(client, proc, pattern, description):
+    """Lit la FIFO jusqu’à l’événement de service attendu.
+
+    La terminaison d’un enfant publie aussi un événement de tâche best-effort
+    dans la même FIFO. Il est donc normal que cet événement précède la purge
+    du service ; il ne doit pas être confondu avec une absence de purge.
+    """
+    failure = None
+    for _ in range(KEY_RETRIES):
+        start = len(log_text())
         try:
-            wait_for(marker, proc, start)
+            send_command(client, "ipc-recv", proc)
+            wait_for_pattern(pattern, description, proc, start)
             return
         except RuntimeError as error:
             failure = error
-            time.sleep(0.4)
+            time.sleep(0.2)
     raise failure
 
 
@@ -109,66 +165,68 @@ def main():
             monitor = connect_monitor()
             time.sleep(0.5)
             before_publish = len(log_text())
-            send_command(monitor, "service-publish demo")
+            send_command(monitor, "service-publish demo", proc)
             wait_for("service-publish ok demo", proc, before_publish)
             before_status_empty = len(log_text())
-            send_command(monitor, "service-status demo")
+            send_command(monitor, "service-status demo", proc)
             wait_for("service-status ok demo pid 1 queued 0 client-capacity 2 endpoint-capacity 4",
                      proc, before_status_empty)
             send_command_until(monitor, "ipc-send 1 one", "ipc-send ok 1 3", proc)
             send_command_until(monitor, "ipc-send 1 two", "ipc-send ok 1 3", proc)
             before_status_full = len(log_text())
-            send_command(monitor, "service-status demo")
+            send_command(monitor, "service-status demo", proc)
             wait_for("service-status ok demo pid 1 queued 2 client-capacity 2 endpoint-capacity 4",
                      proc, before_status_full)
             send_command_until(monitor, "ipc-send 1 three",
                                "ipc-send: capacite du service atteinte", proc)
             before_capacity_drain_one = len(log_text())
-            send_command(monitor, "ipc-recv")
+            send_command(monitor, "ipc-recv", proc)
             wait_for("ipc-recv from 1 type 0 data one", proc, before_capacity_drain_one)
             before_capacity_drain_two = len(log_text())
-            send_command(monitor, "ipc-recv")
+            send_command(monitor, "ipc-recv", proc)
             wait_for("ipc-recv from 1 type 0 data two", proc, before_capacity_drain_two)
             before_status_drained = len(log_text())
-            send_command(monitor, "service-status demo")
+            send_command(monitor, "service-status demo", proc)
             wait_for("service-status ok demo pid 1 queued 0 client-capacity 2 endpoint-capacity 4",
                      proc, before_status_drained)
             before_watch = len(log_text())
-            send_command(monitor, "service-watch demo")
+            send_command(monitor, "service-watch demo", proc)
             wait_for("service-watch ok demo", proc, before_watch)
             before_spawn = len(log_text())
-            send_command(monitor, "spawn serviceclaim")
+            send_command(monitor, "spawn serviceclaim", proc)
             wait_for("spawn ok pid", proc, before_spawn)
             spawned = re.search(r"spawn ok pid (\d+) serviceclaim", log_text()[before_spawn:])
             if not spawned:
                 raise RuntimeError("client de revendication non lance")
             claimant_pid = spawned.group(1)
-            send_command(monitor, "yield")
+            send_command(monitor, "yield", proc)
             wait_for("serviceclaim waiting demo", proc, before_spawn)
             before_grant = len(log_text())
-            send_command(monitor, "service-grant demo %s" % claimant_pid)
+            send_command(monitor, "service-grant demo %s" % claimant_pid, proc)
             wait_for("service-grant ok demo %s" % claimant_pid, proc, before_grant)
-            send_command(monitor, "yield")
+            send_command(monitor, "yield", proc)
             wait_for("serviceclaim notified demo", proc, before_grant)
             wait_for("serviceclaim claimed demo", proc, before_grant)
-            before_grant_event = len(log_text())
-            send_command(monitor, "ipc-recv")
-            wait_for_pattern(r"service-event demo old 1 new[\s\S]{0,160}?%s reason 2" % claimant_pid,
-                             "service-event demo old 1 new %s reason 2" % claimant_pid,
-                             proc, before_grant_event)
+            receive_service_event(
+                monitor,
+                proc,
+                r"service-event demo old 1 new[\s\S]{0,160}?%s reason 2" % claimant_pid,
+                "service-event demo old 1 new %s reason 2" % claimant_pid,
+            )
             before_lookup = len(log_text())
-            send_command(monitor, "service-find demo")
+            send_command(monitor, "service-find demo", proc)
             wait_for("service-find ok demo %s" % claimant_pid, proc, before_lookup)
             before_kill = len(log_text())
-            send_command(monitor, "kill %s" % claimant_pid)
+            send_command(monitor, "kill %s" % claimant_pid, proc)
             wait_for("Processus %s termine" % claimant_pid, proc, before_kill)
-            before_purge_event = len(log_text())
-            send_command(monitor, "ipc-recv")
-            wait_for_pattern(r"service-event demo old %s new[\s\S]{0,160}?0 reason 4" % claimant_pid,
-                             "service-event demo old %s new 0 reason 4" % claimant_pid,
-                             proc, before_purge_event)
+            receive_service_event(
+                monitor,
+                proc,
+                r"service-event demo old %s new[\s\S]{0,160}?0 reason 4" % claimant_pid,
+                "service-event demo old %s new 0 reason 4" % claimant_pid,
+            )
             before_missing = len(log_text())
-            send_command(monitor, "service-find demo")
+            send_command(monitor, "service-find demo", proc)
             wait_for("service-find: service indisponible", proc, before_missing)
             print("MOHHOS Foundation service grant contract passed")
             return 0
