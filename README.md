@@ -150,7 +150,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Inventaire médié de capacités backend VFS : `vfs-backend-list` affiche jusqu’à quatre délégations actives et leurs masques au propriétaire public de `vfs`
 - [x] Capabilities backend VFS : délégation, moindre privilège, révocation indépendante, identité issue de la tâche Ring 3 et routage général des réponses discordantes
 - [x] Externalisation locale du backend de chemins VFS : table statique d’opérations par source, droits de mutation explicites et alias dynamiques validés
-- [~] Migration microkernel réelle : première délégation `vfsserver` → `vfsvirtual` Ring 3 livrée et résiliente avant ou pendant une transaction privée pour `vfs-info`, `vfs-stats` et `vfs-mounts` ; backend de stockage processus séparé et transferts de données hors du noyau encore ouverts
+- [~] Migration microkernel réelle : `vfsserver` délègue à `vfsvirtual` Ring 3 les vues publiques et les mutations des montages fixes `overlay/`, `fat16/` et `fat32/`, sous capacité `mutate` minimale et corrélation PID/requête ; une vue peut se replier localement, tandis qu’une mutation en vol devenue incertaine échoue sans rejeu automatique ; les alias dynamiques, les répertoires FAT et une séparation complète du pilote de stockage restent ouverts
 - [x] Latence GGUF quantifiée sur QEMU : benchmark répétable, rapport JSON de médiane/dispersion et référence premier token/continuation
 - [ ] Optimisation supplémentaire de la latence GGUF sur une plateforme de référence stable, distincte de la variabilité QEMU TCG
 - [x] Bootstrap DHCP/OFFER/REQUEST/ACK, ARP, DNS A, SYN/SYN-ACK, ClientHello, ServerHello minimal et ACK LLM observé sur NE2000 QEMU avec pair Ethernet local contrôlé
