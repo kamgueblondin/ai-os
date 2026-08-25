@@ -1,6 +1,6 @@
 # État réel d’AI-OS
 
-**Date de constat :** 23 août 2026
+**Date de constat :** 25 août 2026
 
 **Référence :** hobby OS pédagogique i386 32-bit, BIOS/Multiboot, QEMU et Ring 3. Ce n’est pas une distribution Linux.
 
@@ -14,10 +14,14 @@
 | LFN FAT32 | Le checksum 8.3, la publication multi-entrée, la reconstruction, la lecture par nom long, le renommage et la suppression sont livrés. La conversion UTF-8/UTF-16LE couvre les caractères BMP et les paires substituts ; le VFS expose FAT32 en lecture, listage et statut. |
 | Réseau utilisateur | Le registre TCP statique expose les cycles actif et passif ; les syscalls 99–108 valident les requêtes et buffers page-par-page dans l’espace utilisateur VMM. Sur une NE2000 QEMU et un pair Ethernet local déterministe, `ai-acquire` puis `ai-tls-poll` valident DHCP/DNS/ARP, SYN, SYN-ACK, ClientHello et ServerHello minimal (`TLS_STARTED`). `make qemu-ne2k-tls-http` prolonge ce pair : handshake TLS 1.2 authentifié (`0xc02f`, X25519, RSA/SHA-256, ancre de test `example.com`), `TLS_COMPLETE`, POST ollama chiffre et extraction HTTP 200 `{"response":"ok"}`. `make qemu-ne2k-tls-sse` envoie ensuite un POST `"stream":true` et lit un flux HTTP chunked : premier record `data: {"response":"ok"}`, second record `data: [DONE]` puis le terminateur chunked 0. Le decodeur SSE reste ouvert tant que le chunked n'est pas clos et que `[DONE]` n'est pas vu. `make qemu-ne2k-tls-next` rearme la session (`ai-next`) puis envoie un second POST chiffre (HTTP 200 puis flux SSE) sans refaire le handshake. Le pair distingue le vol client (`ClientKeyExchange`) d'une retransmission `ClientHello` ; l'invite emet ce vol sur un sondage sans ACK pour eviter une perte QEMU. Ce n'est pas Internet public, ni un TLS vers un hote reel, ni OpenAI. |
 | Latence GGUF QEMU | Le benchmark local répète `ai bonjour` puis `ai-continue`, sérialise minimum/médiane/maximum/dispersion en JSON et isole le temps de commande du boot. La campagne de trois échantillons obtient une médiane de **48,739 s** pour le premier token et **22,781 s** pour la continuation ; ces valeurs sont propres à QEMU TCG. |
-| Validation | La suite complete passe **497/497** ; les validations ciblees passent **21/21 FAT16** et **64/64 syscall**. Le contrat QEMU VFS valide les fixtures FAT16 et FAT32 sur deux disques IDE, puis les cycles creation/lecture/renommage/suppression 8.3 racine de `NEW.TXT` vers `RENAMED.TXT` sur les deux volumes. `make qemu-ne2k-tls-http` couvre le TLS/HTTP local ; `make qemu-ne2k-tls-sse` couvre le flux SSE chunked local ; `make qemu-ne2k-tls-next` couvre le second tour via `ai-next`. |
+| Validation | La suite complète passe **501/501** ; les validations ciblées passent **21/21 FAT16** et **64/64 syscall**. Le contrat QEMU VFS valide les fixtures FAT16 et FAT32 sur deux disques IDE, puis les cycles création/lecture/renommage/suppression 8.3 racine de `NEW.TXT` vers `RENAMED.TXT` sur les deux volumes. `make qemu-ne2k-tls-http` couvre le TLS/HTTP local ; `make qemu-ne2k-tls-sse` couvre le flux SSE chunked local ; `make qemu-ne2k-tls-next` couvre le second tour via `ai-next`. `make integration-qemu` a repassé après réalignement du catalogue IA et fiabilisation de l’injection clavier du contrat de transfert de service. |
 | Mémoire | Les lots concernés n’introduisent aucune allocation dynamique ; les buffers restent statiques ou caller-owned. |
 
 AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, lance un shell ELF en Ring 3 et peut exécuter localement GPT-2 124M si les deux actifs binaires sont intégrés à l’image. Il demeure un **prototype de noyau**, non un système d’exploitation généraliste.
+
+### Maintenance des gates — 25 août 2026
+
+Le contrat de contrôle IA vérifie désormais le catalogue réellement déclaré par le shell (`gpt2_124M.bin` et `gpt2.gguf`) ainsi que son diagnostic de sélection de profil. Le contrat de transfert de service vérifie l’écho de chaque commande injectée via le moniteur QEMU, normalise les espaces redondants acceptés par le shell et ne répète jamais une commande ayant déjà produit un effet IPC. Lors de la terminaison d’un enfant, il consomme aussi l’événement de tâche best-effort qui peut précéder l’événement de purge du service dans la FIFO du shell. Ces garde-fous empêchent que des scancodes PS/2 dupliqués ou une FIFO mixte soient interprétés comme des régressions noyau.
 
 | Périmètre | État vérifié |
 |---|---|
