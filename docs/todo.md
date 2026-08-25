@@ -1,6 +1,6 @@
 # TODO - Correction AI-OS Shell Utilisateur
 
-> **État réel (août 2026).** Le shell utilisateur Ring 3 **se lance** et le clavier **répond** (correctif EOI IRQ0). Les cases des phases 5-6 ci-dessous sont mises à jour. Le diagnostic d'origine (phases 1-4) est **conservé** : il décrit correctement un état antérieur. Référence : [ETAT_REEL.md](ETAT_REEL.md).
+> **État réel et pilotage (25 août 2026).** Le shell utilisateur Ring 3 **se lance** et le clavier **répond** (correctif EOI IRQ0). Le périmètre courant validé, les limites et les prochaines tranches priorisées sont dans [ETAT_REEL.md](ETAT_REEL.md) ; la suite compte **502/502** tests et le gate GitHub QEMU est vert. Les phases et incréments ci-dessous restent un **journal de livraison** : leurs compteurs et limites décrivent l’état de leur date, sauf lorsqu’une note les actualise explicitement.
 
 ## Phase 1: Récupération et configuration du projet ✅
 - [x] Cloner le projet depuis GitHub
@@ -58,10 +58,10 @@
 - [x] AOS-020…026 : sonde GGUF, BPE UTF-8, contrats QEMU, overlay V2, IRQ0, stub OpenAI, FAT16 lecture seule
 - [x] Kernels GGUF Q3_K/Q4_K/Q6_K, index, mapping, génération shell et échantillonnage local FAT16
 - [x] Réduire la latence locale GGUF ; le forward Q3_K réel sans branche, le cache KV, les lectures FAT16 inter-clusters et la session locale coopérative sont validés. Les essais supplémentaires de cache paresseux de constantes et de spécialisation Q3_K top-k n’ayant pas dépassé la variabilité QEMU TCG, l’axe est clôturé avec mesures et critères dans [aos1641_1648_gguf_latency_closure.md](aos1641_1648_gguf_latency_closure.md).
-- [x] Écriture FAT16 8.3, création de fichiers FAT32, écriture/chaînage FAT32, extension de racine et LFN FAT32 UTF-8 avec lecture, renommage et suppression — [aos_fat_volume.md](aos_fat_volume.md) ; l’intégration FAT32 au VFS reste distincte ; pas ext2
+- [x] Écriture FAT16/FAT32 8.3 ou LFN à la racine via le VFS, avec création, lecture, renommage et suppression sous capacité `mutate` — [aos_fat_volume.md](aos_fat_volume.md) ; sous-répertoires VFS, écrasement et remplacement atomique restent ouverts ; pas ext2
 - [x] Pilote NE2000 ISA et codecs ARP/IPv4/UDP/DHCP/DNS/TCP/TLS record (lots 113–154)
 - [x] Validation page-par-page des pointeurs socket utilisateur dans le VMM
-- [x] Reprise SSE fine avec `Last-Event-ID` et client OpenAI Chat Completions activable dans le shell ; campagne d’intégration réelle suspendue jusqu’à une clé API valide hors CI
+- [x] Reprise SSE fine avec `Last-Event-ID`, TLS/HTTP/SSE et fermeture `close_notify` authentifiés sur pair QEMU local contrôlé ; toute campagne OpenAI réelle reste suspendue jusqu’à un accord explicite et une clé API valide hors CI
 - [x] AOS-1345…1352 : exposition TLS caller-owned par le registre socket (`send_tls`/`receive_tls`), sans allocation dynamique — [aos1345_1352_socket_tls_adapter.md](aos1345_1352_socket_tls_adapter.md)
 - [x] AOS-1353…1364 : construction LLM Ollama/OpenAI sur socket TLS et pont de segment TCP vers TX NE2000 ; polling HTTP/SSE socket et orchestration complète encore ouverts — [aos1353_1364_llm_socket_ne2k_bridge.md](aos1353_1364_llm_socket_ne2k_bridge.md)
 - [x] AOS-1365…1372 : renouvellement DHCP live caller-owned avec REQUEST `ciaddr`, ACK borné et publication transactionnelle ; planification périodique et réacquisition après expiration encore ouvertes — [aos1365_1372_dhcp_live_renewal.md](aos1365_1372_dhcp_live_renewal.md)
@@ -168,7 +168,7 @@
 - [x] Contrats QEMU dans `tests/integration` (cœur, IRQ0, fournisseur, NE2000, acquisition LLM contrôlée jusqu’au ServerHello, IPC, VFS et vues virtuelles déléguées Ring 3, services)
 
 ## Phase 6: Tests finaux et soumission sur GitHub ✅ (août 2026)
-- [x] Tests complets du système corrigé (`make test-all` : 489 tests exécutés avec succès ; `make qemu-smoke`, `make qemu-gguf-smoke`, `make integration-qemu`, `make qemu-vfs-service` et `make qemu-ne2k-acquire` jusqu’au ServerHello et son ACK sur pair Ethernet local contrôlé, et `make qemu-vfs-service` avec worker VFS Ring 3)
+- [x] **Constat historique de livraison :** 489 tests et les smokes alors disponibles. L’état courant est **502/502**, avec `make integration-qemu` vert, les cycles VFS LFN FAT16/FAT32 et les contrats TLS/HTTP/SSE/`close_notify`/`ai-next` locaux ; voir [ETAT_REEL.md](ETAT_REEL.md).
 - [x] Validation du fonctionnement en mode utilisateur (QEMU GTK + `sendkey`)
 - [x] Commit et push des corrections sur GitHub
 - [x] Documentation des corrections apportées ([ETAT_REEL.md](ETAT_REEL.md))
