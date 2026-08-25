@@ -141,6 +141,8 @@ def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
     send_command_until(client, "vfs-write %s %s" % (path, payload),
                        "vfsserver write request", proc)
     wait_for("vfs-write ok request", proc, before_write)
+    wait_for("vfsserver delegated write", proc, before_write)
+    wait_for("vfsvirtual write %s" % path, proc, before_write)
     before_collision = len(log_text())
     send_command_until(client, "vfs-write %s collision" % path,
                        "vfsserver write request", proc)
@@ -152,6 +154,8 @@ def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
     send_command_until(client, "vfs-rename %s %s" % (path, renamed_path),
                        "vfsserver rename request", proc)
     wait_for("vfs-rename ok request", proc, before_rename)
+    wait_for("vfsserver delegated rename", proc, before_rename)
+    wait_for("vfsvirtual rename %s -> %s" % (path, renamed_path), proc, before_rename)
     before_old_read = len(log_text())
     send_command_until(client, "vfs-read %s" % path, "vfsserver read request", proc)
     wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_old_read)
@@ -162,6 +166,8 @@ def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
     send_command_until(client, "vfs-remove %s" % renamed_path,
                        "vfsserver remove request", proc)
     wait_for("vfs-remove ok request", proc, before_remove)
+    wait_for("vfsserver delegated remove", proc, before_remove)
+    wait_for("vfsvirtual remove %s" % renamed_path, proc, before_remove)
     before_removed_read = len(log_text())
     send_command_until(client, "vfs-read %s" % renamed_path,
                        "vfsserver read request", proc)
