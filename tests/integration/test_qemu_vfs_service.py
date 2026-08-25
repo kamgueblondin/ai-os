@@ -16,7 +16,10 @@ KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
 FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.20"))
+# Chaque caractère reste confirmé par le shell avant la suite de la ligne. Un
+# délai de 150 ms conserve une marge sous charge de deux QEMU, tout en évitant
+# que ce protocole défensif ne consomme seul la quasi-totalité du budget CI.
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.15"))
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
 KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
