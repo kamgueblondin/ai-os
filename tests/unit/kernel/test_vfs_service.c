@@ -731,6 +731,62 @@ static void test_worker_remove_request_is_bounded_and_decoded(void) {
                       os_vfs_parse_worker_remove_request(&message, path));
 }
 
+static void test_worker_directory_requests_and_replies_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char path[OS_VFS_PATH_MAX];
+    int32_t status;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_MKDIR,
+                                                           "fat16/qdir", 145U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_MKDIR, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_MKDIR_REQUEST_SIZE, payload.size);
+    TEST_ASSERT_EQUAL(145U, payload.request_id);
+    message.sender_pid = 9;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_MKDIR, path));
+    TEST_ASSERT_EQUAL_STRING("fat16/qdir", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_RMDIR,
+                                                           "fat32/qdir", 146U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_RMDIR, path));
+    TEST_ASSERT_EQUAL_STRING("fat32/qdir", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_MKDIR,
+                                                           "../unsafe", 145U));
+    message.size = OS_VFS_WORKER_RMDIR_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_RMDIR, path));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_mkdir_reply(&payload, OS_VFS_STATUS_INVALID, 145U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_mkdir_reply(&message, &status, 145U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, status);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_mkdir_reply(&message, &status, 146U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_rmdir_reply(&payload, OS_VFS_STATUS_OK, 146U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_rmdir_reply(&message, &status, 146U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, status);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_rmdir_reply(&message, &status, 145U));
+}
+
 static void test_worker_rename_request_is_bounded_and_decoded(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -793,6 +849,7 @@ int main(void) {
     RUN_TEST(test_worker_mount_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_write_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_remove_request_is_bounded_and_decoded);
+    RUN_TEST(test_worker_directory_requests_and_replies_are_bounded_and_correlated);
     RUN_TEST(test_worker_rename_request_is_bounded_and_decoded);
     unity_print_results();
     unity_cleanup();

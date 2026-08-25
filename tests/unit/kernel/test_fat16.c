@@ -1309,6 +1309,50 @@ static void test_unlinks_and_renames_lfn_file(void) {
     TEST_ASSERT_EQUAL(OS_FAT16_NOT_FOUND, fat16_read_file(&volume, "renamed-file-26.txt", readback, sizeof(readback)));
 }
 
+static void test_mutates_one_level_subdirectory_without_overwrite(void) {
+    fat16_volume_t volume;
+    os_fat16_dirent_t entries[4];
+    uint8_t alpha[5] = {'a', 'l', 'p', 'h', 'a'};
+    uint8_t beta[4] = {'b', 'e', 't', 'a'};
+    char readback[5] = {0};
+    uint16_t first = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_directory(&volume, "DIR"));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_directory(&volume, "DIR"));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR/CHILD.TXT", alpha,
+                                                sizeof(alpha), &first));
+    TEST_ASSERT_TRUE(first >= 2U);
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_create_path_file(&volume, "DIR/CHILD.TXT", beta,
+                                                                 sizeof(beta), &first));
+    TEST_ASSERT_EQUAL(1, fat16_list_path_page(&volume, "DIR/", 0U, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("CHILD.TXT", entries[0].name);
+    TEST_ASSERT_EQUAL(5, fat16_read_path(&volume, "DIR/CHILD.TXT", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(alpha, readback, sizeof(alpha));
+    TEST_ASSERT_EQUAL(0, fat16_rename_path_file(&volume, "DIR/CHILD.TXT", "DIR/RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR/OTHER.TXT", beta,
+                                                sizeof(beta), &first));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_rename_path_file(&volume, "DIR/RENAMED.TXT",
+                                                                 "DIR/OTHER.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR/ONE.TXT", beta,
+                                                sizeof(beta), &first));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR/TWO.TXT", beta,
+                                                sizeof(beta), &first));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR/THREE.TXT", beta,
+                                                sizeof(beta), &first));
+    TEST_ASSERT_EQUAL(4, fat16_list_path_page(&volume, "DIR/", 0U, entries, 4U));
+    TEST_ASSERT_EQUAL(1, fat16_list_path_page(&volume, "DIR/", 4U, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("THREE.TXT", entries[0].name);
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_remove_directory(&volume, "DIR"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR/RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR/OTHER.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR/ONE.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR/TWO.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR/THREE.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "DIR"));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
@@ -1333,6 +1377,7 @@ int main(void) {
     RUN_TEST(test_creates_utf8_lfn_file);
     RUN_TEST(test_creates_non_bmp_lfn_file);
     RUN_TEST(test_unlinks_and_renames_lfn_file);
+    RUN_TEST(test_mutates_one_level_subdirectory_without_overwrite);
     unity_print_results();
     unity_cleanup();
     return 0;

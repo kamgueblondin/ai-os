@@ -236,6 +236,58 @@ def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
     wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_removed_read)
 
 
+def assert_fat_subdirectory_lifecycle(client, proc, mount, payload):
+    """Valide un niveau FAT 8.3 sans écrasement ni rejeu local ambigu."""
+    directory = "%s/qdir" % mount
+    path = "%s/child.txt" % directory
+    renamed = "%s/renamed.txt" % directory
+    before_mkdir = len(log_text())
+    send_command_until(client, "vfs-mkdir %s" % directory, "vfsserver mkdir request", proc)
+    wait_for("vfs-mkdir ok request", proc, before_mkdir)
+    wait_for("vfsserver delegated mkdir", proc, before_mkdir)
+    wait_for("vfsvirtual mkdir %s" % directory, proc, before_mkdir)
+    before_duplicate = len(log_text())
+    send_command_until(client, "vfs-mkdir %s" % directory, "vfsserver mkdir request", proc)
+    wait_for("vfs-mkdir: creation refusee", proc, before_duplicate)
+    before_write = len(log_text())
+    send_command_until(client, "vfs-write %s %s" % (path, payload),
+                       "vfsserver write request", proc)
+    wait_for("vfs-write ok request", proc, before_write)
+    wait_for("vfsvirtual write %s" % path, proc, before_write)
+    before_stat = len(log_text())
+    send_command_until(client, "vfs-stat %s" % path,
+                       "vfs-stat ok size %d flags file" % len(payload), proc)
+    wait_for("vfs-stat ok size %d flags file" % len(payload), proc, before_stat)
+    before_collision = len(log_text())
+    send_command_until(client, "vfs-write %s collision" % path,
+                       "vfsserver write request", proc)
+    wait_for("vfs-write: ecriture refusee", proc, before_collision)
+    before_list = len(log_text())
+    send_command_until(client, "vfs-list %s/" % directory, "vfsserver list request", proc)
+    wait_for("vfs-list ok count 1", proc, before_list)
+    wait_for("CHILD.TXT", proc, before_list)
+    before_read = len(log_text())
+    send_command_until(client, "vfs-read %s" % path, "vfs-read ok", proc)
+    wait_for(payload, proc, before_read)
+    before_rename = len(log_text())
+    send_command_until(client, "vfs-rename %s %s" % (path, renamed),
+                       "vfsserver rename request", proc)
+    wait_for("vfs-rename ok request", proc, before_rename)
+    wait_for("vfsvirtual rename %s -> %s" % (path, renamed), proc, before_rename)
+    before_rmdir_refused = len(log_text())
+    send_command_until(client, "vfs-rmdir %s" % directory, "vfsserver rmdir request", proc)
+    wait_for("vfs-rmdir: suppression refusee", proc, before_rmdir_refused)
+    before_remove = len(log_text())
+    send_command_until(client, "vfs-remove %s" % renamed, "vfsserver remove request", proc)
+    wait_for("vfs-remove ok request", proc, before_remove)
+    wait_for("vfsvirtual remove %s" % renamed, proc, before_remove)
+    before_rmdir = len(log_text())
+    send_command_until(client, "vfs-rmdir %s" % directory, "vfsserver rmdir request", proc)
+    wait_for("vfs-rmdir ok request", proc, before_rmdir)
+    wait_for("vfsserver delegated rmdir", proc, before_rmdir)
+    wait_for("vfsvirtual rmdir %s" % directory, proc, before_rmdir)
+
+
 def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     for path in (LOG, ERR, MON, DISK, FAT32_DISK):
@@ -559,6 +611,7 @@ def main():
                 raise RuntimeError("RENAMED.TXT reste visible apres vfs-remove FAT16")
             assert_lfn_lifecycle(monitor, proc, "fat16", "long-fichier-fat16.txt",
                                  "renomme-lfn-fat16.txt", "qemu-lfn16")
+            assert_fat_subdirectory_lifecycle(monitor, proc, "fat16", "qemu-sub16")
             before_fat32_list = len(log_text())
             send_command_until(monitor, "vfs-list media32/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 1", proc, before_fat32_list)
@@ -604,6 +657,7 @@ def main():
                 raise RuntimeError("RENAMED.TXT reste visible apres vfs-remove FAT32")
             assert_lfn_lifecycle(monitor, proc, "fat32", "long-fichier-fat32.txt",
                                  "renomme-lfn-fat32.txt", "qemu-lfn32")
+            assert_fat_subdirectory_lifecycle(monitor, proc, "fat32", "qemu-sub32")
             before_outside = len(log_text())
             send_command_until(monitor, "vfs-read hello.txt",
                                "vfsserver path outside mounts", proc)

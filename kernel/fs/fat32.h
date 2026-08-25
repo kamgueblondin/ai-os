@@ -45,6 +45,19 @@ int fat32_list_root(const fat32_volume_t* volume, os_fat16_dirent_t* out, uint32
 /* Retourne une page de racine à partir d’un index logique, sans allocation. */
 int fat32_list_root_page(const fat32_volume_t* volume, uint32_t start,
                          os_fat16_dirent_t* out, uint32_t capacity);
+/* Sous-répertoires FAT32 bornés à un niveau : noms 8.3 pour le répertoire
+ * et son enfant ; les LFN racine restent compatibles et inchangées. */
+int fat32_list_path_page(const fat32_volume_t* volume, const char* path, uint32_t start,
+                         os_fat16_dirent_t* out, uint32_t capacity);
+int fat32_read_path(const fat32_volume_t* volume, const char* path,
+                    uint8_t* buffer, uint32_t max);
+int fat32_create_path_file(const fat32_volume_t* volume, const char* path,
+                           const uint8_t* data, uint32_t size, uint32_t* out_first_cluster);
+int fat32_unlink_path_file(const fat32_volume_t* volume, const char* path);
+int fat32_rename_path_file(const fat32_volume_t* volume, const char* old_path,
+                           const char* new_path);
+int fat32_create_directory(const fat32_volume_t* volume, const char* name);
+int fat32_remove_directory(const fat32_volume_t* volume, const char* name);
 /* Lit un fichier FAT32 8.3 dans un buffer caller-owned, sans allocation dynamique. */
 int fat32_read_file(const fat32_volume_t* volume, const char* name, uint8_t* buffer, uint32_t max);
 /* Supprime un alias 8.3 ou une séquence LFN ASCII validée et libère sa chaîne. */

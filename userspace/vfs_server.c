@@ -120,25 +120,48 @@ static int backend_fat16_read(const char* path, char* buffer, uint32_t max) {
 }
 static int backend_fat16_listdir(const char* path, os_dirent_t* out, int max_n) {
     int result;
-    if (!path || path[0] != '/' || path[1] != '\0') return -1;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST), "b"(out), "c"(max_n));
+    if (!path || !out || max_n <= 0) return -1;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PATH),
+                 "b"(path), "c"(out), "d"(max_n), "S"(0U));
     return result;
 }
 static int backend_fat16_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
     int result;
-    if (!path || path[0] != '/' || path[1] != '\0') return -1;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PAGE), "b"(out),
-                 "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+    if (!path || !out) return -1;
+    if (path[0] == '/' && path[1] == '\0') {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PAGE), "b"(out),
+                     "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+        return result;
+    }
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PATH),
+                 "b"(path), "c"(out), "d"(OS_VFS_LIST_ENTRY_MAX + 1U), "S"(start));
     return result;
 }
 static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
-    uint32_t start = 0U;
-    int count, i;
+    char directory[OS_VFS_PATH_MAX];
+    const char* list_path = "/";
+    const char* leaf = path;
+    uint32_t start = 0U, i, slash = OS_VFS_LIST_PAGE_END;
+    int count;
     if (!path || !out || path[0] == '\0' || path[0] == '/') return -1;
-    while ((count = backend_fat16_listdir_page("/", entries, start)) > 0) {
-        for (i = 0; i < count && i < (int)OS_VFS_LIST_ENTRY_MAX; i++) {
-            if (string_equal_ascii_fold(entries[i].name, path)) { *out = entries[i]; return 0; }
+    for (i = 0U; path[i] != '\0'; i++) {
+        if (i + 1U >= OS_VFS_PATH_MAX) return -1;
+        if (path[i] == '/') {
+            if (slash != OS_VFS_LIST_PAGE_END) return -1;
+            slash = i;
+        }
+    }
+    if (slash != OS_VFS_LIST_PAGE_END) {
+        if (slash == 0U || path[slash + 1U] == '\0') return -1;
+        for (i = 0U; i <= slash; i++) directory[i] = path[i];
+        directory[slash + 1U] = '\0';
+        list_path = directory;
+        leaf = path + slash + 1U;
+    }
+    while ((count = backend_fat16_listdir_page(list_path, entries, start)) > 0) {
+        for (i = 0U; i < (uint32_t)count; i++) {
+            if (string_equal_ascii_fold(entries[i].name, leaf)) { *out = entries[i]; return 0; }
         }
         if (count < (int)OS_VFS_LIST_ENTRY_MAX) break;
         start += (uint32_t)count;
@@ -146,8 +169,7 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT16 expose à la racine création, suppression et renommage 8.3 ou LFN.
- * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
+/* FAT16 publie la racine 8.3/LFN et un sous-répertoire 8.3, sans remplacement. */
 static int backend_fat16_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -178,25 +200,48 @@ static int backend_fat32_read(const char* path, char* buffer, uint32_t max) {
 }
 static int backend_fat32_listdir(const char* path, os_dirent_t* out, int max_n) {
     int result;
-    if (!path || path[0] != '/' || path[1] != '\0') return -1;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST), "b"(out), "c"(max_n));
+    if (!path || !out || max_n <= 0) return -1;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PATH),
+                 "b"(path), "c"(out), "d"(max_n), "S"(0U));
     return result;
 }
 static int backend_fat32_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
     int result;
-    if (!path || path[0] != '/' || path[1] != '\0') return -1;
-    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PAGE), "b"(out),
-                 "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+    if (!path || !out) return -1;
+    if (path[0] == '/' && path[1] == '\0') {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PAGE), "b"(out),
+                     "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+        return result;
+    }
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PATH),
+                 "b"(path), "c"(out), "d"(OS_VFS_LIST_ENTRY_MAX + 1U), "S"(start));
     return result;
 }
 static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
-    uint32_t start = 0U;
-    int count, i;
+    char directory[OS_VFS_PATH_MAX];
+    const char* list_path = "/";
+    const char* leaf = path;
+    uint32_t start = 0U, i, slash = OS_VFS_LIST_PAGE_END;
+    int count;
     if (!path || !out || path[0] == '\0' || path[0] == '/') return -1;
-    while ((count = backend_fat32_listdir_page("/", entries, start)) > 0) {
-        for (i = 0; i < count && i < (int)OS_VFS_LIST_ENTRY_MAX; i++) {
-            if (string_equal_ascii_fold(entries[i].name, path)) { *out = entries[i]; return 0; }
+    for (i = 0U; path[i] != '\0'; i++) {
+        if (i + 1U >= OS_VFS_PATH_MAX) return -1;
+        if (path[i] == '/') {
+            if (slash != OS_VFS_LIST_PAGE_END) return -1;
+            slash = i;
+        }
+    }
+    if (slash != OS_VFS_LIST_PAGE_END) {
+        if (slash == 0U || path[slash + 1U] == '\0') return -1;
+        for (i = 0U; i <= slash; i++) directory[i] = path[i];
+        directory[slash + 1U] = '\0';
+        list_path = directory;
+        leaf = path + slash + 1U;
+    }
+    while ((count = backend_fat32_listdir_page(list_path, entries, start)) > 0) {
+        for (i = 0U; i < (uint32_t)count; i++) {
+            if (string_equal_ascii_fold(entries[i].name, leaf)) { *out = entries[i]; return 0; }
         }
         if (count < (int)OS_VFS_LIST_ENTRY_MAX) break;
         start += (uint32_t)count;
@@ -204,8 +249,7 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     return -1;
 }
 
-/* FAT32 expose à la racine création, suppression et renommage 8.3 ou LFN.
- * Aucun remplacement ni sous-répertoire n’est publié par le VFS. */
+/* FAT32 publie la racine 8.3/LFN et un sous-répertoire 8.3, sans remplacement. */
 static int backend_fat32_create(const char* path, const uint8_t* data, uint32_t size) {
     os_dirent_t existing;
     int result;
@@ -227,6 +271,46 @@ static int backend_fat32_rename(const char* oldpath, const char* newpath) {
         oldpath[0] == '/' || newpath[0] == '/') return OS_VFS_STATUS_INVALID;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_RENAME),
                  "b"(oldpath), "c"(newpath));
+    return result;
+}
+
+static int backend_fat16_mkdir(const char* path) {
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT16_CREATE),
+                 "b"(path), "c"(0), "d"(0));
+    return result;
+}
+
+static int backend_fat32_mkdir(const char* path) {
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_CREATE),
+                 "b"(path), "c"(0), "d"(0));
+    return result;
+}
+
+static int backend_fat16_rmdir(const char* path) {
+    char directory[OS_VFS_PATH_MAX];
+    uint32_t i;
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i + 2U < OS_VFS_PATH_MAX && path[i] != '\0'; i++) directory[i] = path[i];
+    if (path[i] != '\0') return OS_VFS_STATUS_INVALID;
+    directory[i++] = '/'; directory[i] = '\0';
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT16_UNLINK), "b"(directory));
+    return result;
+}
+
+static int backend_fat32_rmdir(const char* path) {
+    char directory[OS_VFS_PATH_MAX];
+    uint32_t i;
+    int result;
+    if (!path || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i + 2U < OS_VFS_PATH_MAX && path[i] != '\0'; i++) directory[i] = path[i];
+    if (path[i] != '\0') return OS_VFS_STATUS_INVALID;
+    directory[i++] = '/'; directory[i] = '\0';
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_FAT32_UNLINK), "b"(directory));
     return result;
 }
 
@@ -320,11 +404,11 @@ static const vfs_backend_ops_t vfs_backend_ops[] = {
       backend_overlay_listdir, backend_overlay_listdir_page, backend_write, backend_mkdir,
       backend_rmdir, backend_remove, backend_rename },
     { OS_VFS_MOUNT_SOURCE_FAT16, backend_fat16_read, backend_fat16_stat,
-      backend_fat16_listdir, backend_fat16_listdir_page, backend_fat16_create, 0, 0,
-      backend_fat16_remove, backend_fat16_rename },
+      backend_fat16_listdir, backend_fat16_listdir_page, backend_fat16_create, backend_fat16_mkdir,
+      backend_fat16_rmdir, backend_fat16_remove, backend_fat16_rename },
     { OS_VFS_MOUNT_SOURCE_FAT32, backend_fat32_read, backend_fat32_stat,
-      backend_fat32_listdir, backend_fat32_listdir_page, backend_fat32_create, 0, 0,
-      backend_fat32_remove, backend_fat32_rename },
+      backend_fat32_listdir, backend_fat32_listdir_page, backend_fat32_create, backend_fat32_mkdir,
+      backend_fat32_rmdir, backend_fat32_remove, backend_fat32_rename },
 };
 
 static const vfs_backend_ops_t* vfs_backend_ops_for(uint32_t source) {
@@ -444,6 +528,8 @@ static uint32_t vfs_list_generation = 1U;
 #define VFS_VIRTUAL_PENDING_WRITE 4U
 #define VFS_VIRTUAL_PENDING_REMOVE 5U
 #define VFS_VIRTUAL_PENDING_RENAME 6U
+#define VFS_VIRTUAL_PENDING_MKDIR 7U
+#define VFS_VIRTUAL_PENDING_RMDIR 8U
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
@@ -562,6 +648,12 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
         status = os_vfs_make_worker_remove_request(&payload, path, request_id);
     } else if (kind == VFS_VIRTUAL_PENDING_RENAME) {
         status = os_vfs_make_worker_rename_request(&payload, path, new_path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_MKDIR) {
+        status = os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_MKDIR,
+                                                      path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_RMDIR) {
+        status = os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_RMDIR,
+                                                      path, request_id);
     } else return -4;
     if (status != OS_VFS_STATUS_OK) return -5;
     if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
@@ -649,10 +741,13 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
     if (!reply_payload || !vfs_virtual_pending.active) return 0;
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_WRITE ||
         vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_REMOVE ||
-        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RENAME) {
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RENAME ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MKDIR ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RMDIR) {
         /* Une mutation a déjà été envoyée au worker. Après disparition ou délai,
          * son effet est inconnu : ne jamais la rejouer localement, sous peine de
-         * doubler une écriture, suppression ou renommage. Le client reçoit un
+         * doubler une écriture, création, suppression, renommage ou dossier.
+         * Le client reçoit un
          * échec borné et peut vérifier l’état avant toute nouvelle requête. */
         if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_WRITE) {
             if (os_vfs_make_write_reply(reply_payload, OS_VFS_STATUS_INVALID,
@@ -662,7 +757,15 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
             if (os_vfs_make_remove_reply(reply_payload, OS_VFS_STATUS_INVALID,
                                          vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
                 (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
-        } else if (os_vfs_make_rename_reply(reply_payload, OS_VFS_STATUS_INVALID,
+        } else if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RENAME) {
+            if (os_vfs_make_rename_reply(reply_payload, OS_VFS_STATUS_INVALID,
+                                         vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        } else if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MKDIR) {
+            if (os_vfs_make_mkdir_reply(reply_payload, OS_VFS_STATUS_INVALID,
+                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        } else if (os_vfs_make_rmdir_reply(reply_payload, OS_VFS_STATUS_INVALID,
                                             vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
             (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
         }
@@ -771,6 +874,28 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
         if (worker_reply.status == OS_VFS_STATUS_OK) vfs_list_generation++;
         if (os_vfs_make_rename_reply(reply_payload, worker_reply.status,
                                      vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MKDIR) {
+        int32_t status;
+        if (os_vfs_parse_mkdir_reply(message, &status,
+                                     vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (os_vfs_make_mkdir_reply(reply_payload, status,
+                                    vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_RMDIR) {
+        int32_t status;
+        if (os_vfs_parse_rmdir_reply(message, &status,
+                                     vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (os_vfs_make_rmdir_reply(reply_payload, status,
+                                    vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
             (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
         vfs_virtual_reset();
         return 1;
@@ -1372,6 +1497,14 @@ void main(void) {
             int status;
             puts("vfsserver mkdir request\n");
             status = os_vfs_parse_mkdir_request(&message, path);
+            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+                vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_MKDIR, path, (const char*)0,
+                                            (const uint8_t*)0, 0U, message.sender_pid,
+                                            message.request_id) == 0) {
+                puts("vfsserver delegated mkdir\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = mkdir_mounted_backend(path);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver mkdir outside mounts\n");
@@ -1384,6 +1517,14 @@ void main(void) {
             int status;
             puts("vfsserver rmdir request\n");
             status = os_vfs_parse_rmdir_request(&message, path);
+            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+                vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_RMDIR, path, (const char*)0,
+                                            (const uint8_t*)0, 0U, message.sender_pid,
+                                            message.request_id) == 0) {
+                puts("vfsserver delegated rmdir\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = rmdir_mounted_backend(path);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver rmdir outside mounts\n");

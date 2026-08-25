@@ -49,6 +49,8 @@
 #define OS_IPC_VFS_WORKER_WRITE      0x56465705U
 #define OS_IPC_VFS_WORKER_REMOVE     0x56465706U
 #define OS_IPC_VFS_WORKER_RENAME     0x56465707U
+#define OS_IPC_VFS_WORKER_MKDIR      0x56465708U
+#define OS_IPC_VFS_WORKER_RMDIR      0x56465709U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -60,6 +62,8 @@
 #define OS_VFS_WORKER_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WORKER_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WORKER_RENAME_REQUEST_SIZE (OS_VFS_PATH_MAX * 2U)
+#define OS_VFS_WORKER_MKDIR_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_RMDIR_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -435,6 +439,30 @@ static inline int os_vfs_parse_worker_remove_request(const os_ipc_message_t* mes
     for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
     if (!os_vfs_path_is_safe(path_out)) return OS_VFS_STATUS_INVALID;
     return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_directory_request(os_ipc_payload_t* payload, uint32_t type,
+                                                        const char* path, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(path) ||
+        (type != OS_IPC_VFS_WORKER_MKDIR && type != OS_IPC_VFS_WORKER_RMDIR)) {
+        return OS_VFS_STATUS_INVALID;
+    }
+    payload->type = type;
+    payload->size = OS_VFS_PATH_MAX;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_directory_request(const os_ipc_message_t* message,
+                                                         uint32_t type, char* path_out) {
+    uint32_t i;
+    if (!message || !path_out || message->type != type ||
+        (type != OS_IPC_VFS_WORKER_MKDIR && type != OS_IPC_VFS_WORKER_RMDIR) ||
+        message->size != OS_VFS_PATH_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_path_is_safe(path_out) ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
 }
 
 static inline int os_vfs_make_worker_rename_request(os_ipc_payload_t* payload, const char* old_path,
