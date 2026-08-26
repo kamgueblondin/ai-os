@@ -73,11 +73,11 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison initiale.** `ai-provider openai` reste un profil explicite. `net-status` / `net-status json` publient la presence reelle d'une NIC NE2000 ISA (`SYS_NET_STATUS`). Sans carte, `nic=absent` ; avec `-device ne2k_isa`, `make qemu-ne2k-status` exige `nic=detected`.
 
-**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. `make qemu-ne2k-tls-http` complete le handshake TLS 1.2 authentifie local (`example.com`, ancre de test, `TLS_COMPLETE`) puis un POST ollama et l'extraction HTTP 200 `ok`. `make qemu-ne2k-tls-sse` enchaîne `ai-stream-request` et `ai-sse-poll` sur un flux chunked local (`SSE : ok`, puis `flux SSE termine`). `make qemu-ne2k-tls-close` remplace le terminateur applicatif par un `close_notify` TLS chiffré du pair, exige son ACK TCP et vérifie la réponse `close_notify` authentifiée du noyau. `make qemu-ne2k-tls-next` valide `ai-next` puis un second POST (HTTP puis SSE) sur la même session TLS. Ce n’est pas Internet public, pas un TLS vers un hôte réel, et pas OpenAI.
+**Livraison ulterieure (23 aout 2026).** Les lots suivants ont raccorde un registre TCP utilisateur (syscalls 99-108), une session LLM noyau (90-98) et les commandes `ai-acquire` / `ai-tls-poll` / `ai-request`. `net-status` annonce alors `ethernet=configured`, `arp=on-demand`, `ipv4=dhcp`, `dns=on-demand`, `tcp=socket`, `tls=authenticated` et `openai=credential-required`. `make qemu-ne2k-acquire` observe DHCP, ARP, DNS A, SYN, SYN-ACK, ClientHello, ServerHello minimal et ACK contre un pair Ethernet local controle. `make qemu-ne2k-tls-http` complete le handshake TLS 1.2 authentifie local (`example.com`, ancre de test, `TLS_COMPLETE`) puis un POST ollama et l'extraction HTTP 200 `ok`. `make qemu-ne2k-tls-sse` enchaîne `ai-stream-request` et `ai-sse-poll` sur un flux chunked local (`SSE : ok`, puis `flux SSE termine`). `make qemu-ne2k-tls-close` remplace le terminateur applicatif par un `close_notify` TLS chiffré du pair, exige son ACK TCP et vérifie la réponse `close_notify` authentifiée du noyau. `make qemu-ne2k-tls-next` valide `ai-next` puis un second POST (HTTP puis SSE) sur la même session TLS. `make qemu-ne2k-tls-multipair` exécute deux cycles TLS/HTTP indépendants et séquentiels : chaque pair utilise seulement `127.0.0.1`, une MAC et un journal distincts, et valide DHCP, ARP, DNS, TCP, TLS authentifié et HTTP 200. La saisie confirme chaque caractère avant l’entrée et ne rejoue aucune ligne réseau. Ce n’est pas Internet public, pas un TLS vers un hôte réel, et pas OpenAI.
 
 **Limite et suite.** Un client OpenAI reel exige encore un secret hors initrd et un hote public. QEMU peut relier `ne2k_isa` a un backend utilisateur [1] ; le guest a un pilote, un TLS local et un HTTP local, pas un client HTTPS public.
 
-**Vérification.** `make qemu-ai-provider`, `make qemu-ne2k-status`, `make qemu-ne2k-acquire`, `make qemu-ne2k-tls-http`, `make qemu-ne2k-tls-sse`, `make qemu-ne2k-tls-close` et `make qemu-ne2k-tls-next`.
+**Vérification.** `make qemu-ai-provider`, `make qemu-ne2k-status`, `make qemu-ne2k-acquire`, `make qemu-ne2k-tls-http`, `make qemu-ne2k-tls-sse`, `make qemu-ne2k-tls-close`, `make qemu-ne2k-tls-next` et `make qemu-ne2k-tls-multipair`.
 
 ### AOS-026 — Volume FAT sur disque IDE (lot 68 livré)
 
@@ -125,9 +125,9 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 
 | Priorite | Sujet | Critere de sortie |
 |---|---|---|
-| 0 | Réseau local étendu | TAP/bridge ou multi-pairs QEMU, sans clé, Internet public ni OpenAI |
-| 1 | Routage I/O VFS Ring 3 optionnel | Décider puis, si nécessaire, déléguer les I/O des aliases au worker ; l’autorité add/remove corrélée et le miroir volatil sont déjà livrés |
-| 2 | Budget CI QEMU | Conserver les sept contrats sous 25 minutes dans GitHub Actions, sans retirer d’assertion métier ni rejouer de mutation ; la dernière mesure locale est 417,1 s |
+| 0 | Routage I/O VFS Ring 3 optionnel | Décider puis, si nécessaire, déléguer les I/O des aliases au worker ; l’autorité add/remove corrélée et le miroir volatil sont déjà livrés |
+| 1 | Budget CI QEMU | Conserver les sept contrats d’intégration sous 25 minutes et le smoke multi-pairs dans GitHub Actions, sans retirer d’assertion métier ni rejouer de mutation ; la dernière mesure locale est 416,8 s |
+| 2 | Topologie réseau locale partagée optionnelle | Seulement après une injection PS/2 démontrée avec plusieurs QEMU simultanés ; sans TAP, clé, Internet public ni OpenAI |
 | 3 | Latence locale | Mesure sous matériel/KVM sur une plateforme de référence ; QEMU TCG reste ~48 s / ~23 s |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
