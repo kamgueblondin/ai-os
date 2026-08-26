@@ -594,7 +594,7 @@ gui-captures: $(OS_IMAGE) pack-initrd disk
 gui-record: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/gui_record_demo.py
 
-.PHONY: integration-qemu qemu-integration-plan qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-next qemu-ipc-foundation qemu-vfs-service qemu-service-grant
+.PHONY: integration-qemu qemu-integration-plan qemu-irq0-preemption qemu-ai-provider qemu-ne2k-status qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-next qemu-ne2k-tls-multipair qemu-ipc-foundation qemu-vfs-service qemu-service-grant
 qemu-irq0-preemption: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_irq0_preemption.py
 
@@ -602,6 +602,9 @@ qemu-ai-provider: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/test_ai_provider_commands.py
 qemu-ne2k-status: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/scripts/test_qemu_ne2k_status.py
+
+qemu-ne2k-tls-multipair: $(OS_IMAGE) pack-initrd
+	@python3 tests/scripts/test_qemu_ne2k_tls_multipair.py
 qemu-ipc-foundation: $(OS_IMAGE) pack-initrd disk
 	@python3 tests/integration/test_qemu_ipc_foundation.py
 
@@ -632,8 +635,8 @@ gpt2-tests: gpt2-recovery gpt2-benchmark
 	@echo "=== Vérifications GPT-2 QEMU terminées ==="
 
 # Gate CI local : image + tests unitaires + smoke QEMU
-ci: all test-all qemu-smoke
-	@echo "=== CI locale OK (build + tests + QEMU smoke) ==="
+ci: all test-all qemu-smoke qemu-ne2k-tls-multipair
+	@echo "=== CI locale OK (build + tests + smokes QEMU locaux) ==="
 
 # Cible pour afficher l'aide
 help:
@@ -669,6 +672,7 @@ help:
 	@echo "  qemu-ne2k-tls-sse - TLS authentifie local puis flux SSE chunked sur pair QEMU"
 	@echo "  qemu-ne2k-tls-close - close_notify TLS distant et réponse authentifiée sur pair QEMU"
 	@echo "  qemu-ne2k-tls-next - Second tour LLM sur la meme session TLS via ai-next"
+	@echo "  qemu-ne2k-tls-multipair - Deux liens NE2000/TLS locaux séquentiels, MAC et journaux séparés"
 	@echo "  qemu-ipc-foundation - Vérifie l’IPC entre tâches Ring 3"
 	@echo "  qemu-vfs-service - Vérifie une lecture via le médiateur VFS Ring 3"
 	@echo "  gguf-benchmark  - Mesure répétée du premier token et de ai-continue GGUF sous QEMU"
@@ -679,7 +683,7 @@ help:
 	@echo "  gpt2-recovery   - Modèle requis : réponse GPT-2 puis reprise shell (rc)"
 	@echo "  gpt2-benchmark  - Modèle requis : mesure de latence QEMU SSE2"
 	@echo "  gpt2-tests      - Modèle requis : recovery + benchmark GPT-2"
-	@echo "  ci              - make all + test-all + qemu-smoke (gate PR)"
+	@echo "  ci              - make all + test-all + smokes QEMU locaux (gate PR)"
 	@echo "  test-performance - Benchmarks et tests de performance"
 	@echo "  test-valgrind   - Tests avec détection fuites mémoire"
 	@echo "  pre-commit-tests - Tests rapides avant commit"
@@ -703,7 +707,7 @@ help:
 	@echo "  make test-quick           # Tests pendant développement"
 	@echo "  make test-all             # 497 tests de non-régression avant push"
 
-.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-close qemu-ne2k-tls-next gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
+.PHONY: all kernel-only run run-gui test-build info-initrd info-user user-program userspace-all clean distclean help pack-initrd test-setup test-quick test-kernel test-userspace test-all test-performance test-valgrind test-clean pre-commit-tests ci-tests qemu-smoke qemu-ne2k-acquire qemu-ne2k-tls-http qemu-ne2k-tls-sse qemu-ne2k-tls-close qemu-ne2k-tls-next qemu-ne2k-tls-multipair gpt2-recovery gpt2-benchmark gpt2-tests qemu-gguf-smoke gguf-benchmark gguf-benchmark-check ci deps disk gui-captures gui-record
 
 
 gguf-disk:

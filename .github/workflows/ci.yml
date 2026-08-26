@@ -53,8 +53,8 @@ jobs:
       - name: Run unit tests (make test-all)
         run: make test-all
 
-      - name: QEMU smoke (overlay + extras + persist + spawn + exec)
-        run: make qemu-smoke
+      - name: QEMU smokes (système + topologie NE2000 locale)
+        run: make qemu-smoke qemu-ne2k-tls-multipair
 
       - name: Upload logs
         if: always()

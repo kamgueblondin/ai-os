@@ -44,16 +44,19 @@ def normalized_log(output):
     """Retire les diagnostics noyau asynchrones sans recoller les réponses."""
     # Un timer peut couper un mot, y compris à travers sa fin de ligne ; la
     # première règle recolle alors les deux moitiés avant de retirer le reste.
-    # L’ordonnanceur peut couper deux champs ; son séparateur évite `4next`.
     output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
     # Après un espace, retirer aussi le retour ligne du diagnostic : l’espace
     # applicatif préexistant sépare déjà les deux fragments de la réponse.
     output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
     output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\s+\w)", "", output)
     output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
-    output = re.sub(r"\[SCHED\] switching to task \d+\s*", "\0", output)
-    return re.sub(r"\0+", " ", output)
-
+    # L’ordonnanceur peut couper deux champs. S’il est joint à deux mots,
+    # garder un séparateur ; s’il suit déjà un espace applicatif, le retirer
+    # sans en ajouter un second qui casserait une assertion textuelle.
+    scheduler = r"\[SCHED\] switching to task \d+\s*"
+    output = re.sub(r"(?<=\w)" + scheduler + r"(?=\w)", " ", output)
+    output = re.sub(scheduler, "", output)
+    return re.sub(r"[ \t]{2,}", " ", output)
 
 def wait_for(needle, proc, offset=0, timeout=15):
     deadline = time.time() + timeout
