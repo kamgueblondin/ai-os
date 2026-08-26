@@ -22,6 +22,11 @@ FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.15"))
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
+# Sous TCG, les scan-codes `.` et `s` ont été observés une seconde fois après
+# leur premier écho. Eux seuls reçoivent une fenêtre de stabilisation, ce qui
+# conserve le budget des milliers de caractères ordinaires du contrat.
+KEY_DUPLICATE_SETTLE_CHARS = os.environ.get("KEY_DUPLICATE_SETTLE_CHARS", ".s")
+KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.35"))
 KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
@@ -35,9 +40,14 @@ def log_text():
 
 
 def normalized_log(output):
-    """Retire uniquement les diagnostics noyau asynchrones hors contrat."""
+    """Retire les diagnostics noyau asynchrones sans recoller les réponses."""
+    # Un timer peut couper un mot, y compris à travers sa fin de ligne ; la
+    # première règle recolle alors les deux moitiés avant de retirer le reste.
+    # L’ordonnanceur peut couper deux champs ; son séparateur évite `4next`.
+    output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
     output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
-    return re.sub(r"\[SCHED\] switching to task \d+\s*", "", output)
+    output = re.sub(r"\[SCHED\] switching to task \d+\s*", "\0", output)
+    return re.sub(r"\0+", " ", output)
 
 
 def wait_for(needle, proc, offset=0, timeout=15):
@@ -81,6 +91,12 @@ def send_key(client, key):
     client.sendall(("sendkey %s %d\n" % (key, KEY_HOLD_MS)).encode("ascii"))
 
 
+def key_echo_count(output, char):
+    """Compte un écho caractère malgré les diagnostics noyau intercalés."""
+    pattern = r"SYS_GETS: caractère ajouté:\s*'%s'" % re.escape(char)
+    return len(re.findall(pattern, normalized_log(output)))
+
+
 def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
     """Injecte une ligne en vérifiant chaque caractère reçu par le shell.
 
@@ -90,7 +106,6 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
         count = 0
-        expected = "SYS_GETS: caractère ajouté: '%s'" % char
         for _ in range(KEY_CHAR_RETRIES):
             start = len(log_text())
             send_key(client, special.get(char, char.lower()))
@@ -99,10 +114,11 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
                 if proc is not None and proc.poll() is not None:
                     raise RuntimeError("QEMU s'est arrêté prématurément")
                 time.sleep(key_delay)
-                count = log_text()[start:].count(expected)
+                count = key_echo_count(log_text()[start:], char)
                 if count:
-                    time.sleep(key_delay)
-                    count = log_text()[start:].count(expected)
+                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY
+                               if char in KEY_DUPLICATE_SETTLE_CHARS else key_delay)
+                    count = key_echo_count(log_text()[start:], char)
                     break
             if count:
                 break
@@ -117,7 +133,7 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
 def command_echoed(output, command):
     """Accepte les espaces redondants, mais aucune autre altération."""
     expected = " ".join(command.split())
-    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", output):
+    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", normalized_log(output)):
         if " ".join(received.split()) == expected:
             return True
     return False
@@ -140,16 +156,20 @@ def send_command(client, command, proc=None, key_delay=KEY_DELAY):
             output = normalized_log(log_text()[start:])
             if command_echoed(output, command):
                 return
-            if "SYS_GETS: ligne lue: " in output:
+            if "SYS_GETS: ligne lue: " in normalized_log(output):
                 mismatched = True
-            if mismatched and ("Commande non trouvée" in output or
-                               "Commande non trouvee" in output):
-                # Le shell a refusé le nom altéré avant tout traitement : le
-                # rejet est sans effet métier et l’injection peut être refaite.
+            rejected_name = ("Commande non trouvée" in output or
+                             "Commande non trouvee" in output)
+            failed_spawn = (command.startswith("spawn ") and
+                            "spawn: programme introuvable" in output)
+            if mismatched and (rejected_name or failed_spawn):
+                # Le shell a refusé le nom altéré ou un `spawn` altéré a
+                # confirmé l’absence du programme : aucun effet métier n’est
+                # possible, donc l’injection peut être refaite. Les mutations
+                # VFS ne satisfont jamais cette condition de rejeu.
                 break
             time.sleep(0.1)
-        if mismatched and ("Commande non trouvée" not in output and
-                           "Commande non trouvee" not in output):
+        if mismatched and not (rejected_name or failed_spawn):
             raise CommandEchoMismatch("echo commande altéré : %s" % command)
         if attempt < KEY_RETRIES:
             time.sleep(0.2)
