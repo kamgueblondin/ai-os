@@ -16,17 +16,18 @@ KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
 FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
-# Chaque caractère reste confirmé par le shell avant la suite de la ligne. Un
-# délai de 150 ms conserve une marge sous charge de deux QEMU, tout en évitant
-# que ce protocole défensif ne consomme seul la quasi-totalité du budget CI.
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.15"))
+# Chaque caractère reste confirmé par le shell avant la suite de la ligne. Le
+# poll d’écho de 50 ms ne ralentit plus deux fois chaque caractère ordinaire :
+# la commande suivante n’est envoyée qu’après réception confirmée de la
+# précédente, même sous charge de deux QEMU.
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.05"))
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
 # Sous TCG, les scan-codes `.` et `s` ont été observés une seconde fois après
 # leur premier écho. Eux seuls reçoivent une fenêtre de stabilisation, ce qui
 # conserve le budget des milliers de caractères ordinaires du contrat.
 KEY_DUPLICATE_SETTLE_CHARS = os.environ.get("KEY_DUPLICATE_SETTLE_CHARS", ".s")
-KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.35"))
+KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.30"))
 KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
@@ -45,6 +46,10 @@ def normalized_log(output):
     # première règle recolle alors les deux moitiés avant de retirer le reste.
     # L’ordonnanceur peut couper deux champs ; son séparateur évite `4next`.
     output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    # Après un espace, retirer aussi le retour ligne du diagnostic : l’espace
+    # applicatif préexistant sépare déjà les deux fragments de la réponse.
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\s+\w)", "", output)
     output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
     output = re.sub(r"\[SCHED\] switching to task \d+\s*", "\0", output)
     return re.sub(r"\0+", " ", output)
@@ -116,9 +121,13 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
                 time.sleep(key_delay)
                 count = key_echo_count(log_text()[start:], char)
                 if count:
-                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY
-                               if char in KEY_DUPLICATE_SETTLE_CHARS else key_delay)
-                    count = key_echo_count(log_text()[start:], char)
+                    # La fenêtre supplémentaire ne concerne que les
+                    # scan-codes explicitement observés en doublon. Les autres
+                    # passent immédiatement à la touche suivante après écho,
+                    # sans perdre la confirmation caractère par caractère.
+                    if char in KEY_DUPLICATE_SETTLE_CHARS:
+                        time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+                        count = key_echo_count(log_text()[start:], char)
                     break
             if count:
                 break
@@ -530,10 +539,14 @@ def main():
             before_add_assets = len(log_text())
             send_command_until(monitor, "vfs-mount-add assets/ initrd",
                                "vfsserver mount added assets/ initrd", proc)
+            wait_for("vfsserver delegated mount add", proc, before_add_assets)
+            wait_for("vfsvirtual mount add assets/", proc, before_add_assets)
             wait_for("vfs-mount-add ok request", proc, before_add_assets)
             before_add_work = len(log_text())
             send_command_until(monitor, "vfs-mount-add work/ overlay",
                                "vfsserver mount added work/ overlay", proc)
+            wait_for("vfsserver delegated mount add", proc, before_add_work)
+            wait_for("vfsvirtual mount add work/", proc, before_add_work)
             wait_for("vfs-mount-add ok request", proc, before_add_work)
             before_add_fat32 = len(log_text())
             send_command_until(monitor, "vfs-mount-add media32/ fat32",
@@ -546,6 +559,8 @@ def main():
             before_full = len(log_text())
             send_command_until(monitor, "vfs-mount-add full/ overlay",
                                "vfsserver mount add rc -62", proc)
+            wait_for("vfsserver delegated mount add", proc, before_full)
+            wait_for("vfsvirtual mount add full/", proc, before_full)
             wait_for("vfs-mount-add: table de montages pleine", proc, before_full)
             before_protected = len(log_text())
             send_command_until(monitor, "vfs-mount-remove initrd/",
@@ -586,6 +601,39 @@ def main():
             before_alias_read = len(log_text())
             send_command_until(monitor, "vfs-read assets/hello.txt", "vfs-read ok", proc)
             wait_for("Un autre fichier de demonstration.", proc, before_alias_read)
+            before_alias_write = len(log_text())
+            send_command_until(monitor, "vfs-write work/alias.txt workok",
+                               "vfs-write ok request", proc)
+            before_alias_list = len(log_text())
+            send_command_until(monitor, "vfs-list work/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 1", proc, before_alias_list)
+            wait_for("alias.txt", proc, before_alias_list)
+            before_alias_written_read = len(log_text())
+            send_command_until(monitor, "vfs-read work/alias.txt", "vfs-read ok", proc)
+            wait_for("workok", proc, before_alias_written_read)
+            before_alias_rename = len(log_text())
+            send_command_until(monitor, "vfs-rename work/alias.txt work/renamed.txt",
+                               "vfs-rename ok request", proc)
+            before_alias_renamed_read = len(log_text())
+            send_command_until(monitor, "vfs-read work/renamed.txt", "vfs-read ok", proc)
+            wait_for("workok", proc, before_alias_renamed_read)
+            before_alias_file_remove = len(log_text())
+            send_command_until(monitor, "vfs-remove work/renamed.txt", "vfs-remove ok request", proc)
+            before_alias_empty_list = len(log_text())
+            send_command_until(monitor, "vfs-list work/", "vfsserver list request", proc)
+            wait_for("vfs-list ok count 0", proc, before_alias_empty_list)
+            before_alias_remove = len(log_text())
+            send_command_until(monitor, "vfs-mount-remove work/",
+                               "vfsserver mount removed work/", proc)
+            wait_for("vfsserver delegated mount remove", proc, before_alias_remove)
+            wait_for("vfsvirtual mount remove work/", proc, before_alias_remove)
+            wait_for("vfs-mount-remove ok request", proc, before_alias_remove)
+            before_alias_revoked = len(log_text())
+            send_command_until(monitor, "vfs-read work/alias.txt",
+                               "vfs-read: chemin hors montage", proc)
+            before_alias_missing = len(log_text())
+            send_command_until(monitor, "vfs-mount-remove work/",
+                               "vfs-mount-remove: montage absent", proc)
             before_fat16_list = len(log_text())
             send_command_until(monitor, "vfs-list media/", "vfsserver list request", proc)
             wait_for("vfs-list ok count 2", proc, before_fat16_list)
@@ -678,6 +726,10 @@ def main():
             assert_lfn_lifecycle(monitor, proc, "fat32", "long-fichier-fat32.txt",
                                  "renomme-lfn-fat32.txt", "qemu-lfn32")
             assert_fat_subdirectory_lifecycle(monitor, proc, "fat32", "qemu-sub32")
+            before_worker_mutate_only = len(log_text())
+            send_command_until(monitor, "vfs-backend-status %s" % worker_pid,
+                               "vfsserver backend status request", proc)
+            wait_for("vfs-backend-status ok rights mutate", proc, before_worker_mutate_only)
             before_outside = len(log_text())
             send_command_until(monitor, "vfs-read hello.txt",
                                "vfsserver path outside mounts", proc)
@@ -709,6 +761,11 @@ def main():
             wait_for("fat32/ ro", proc, before_virtual_mounts)
             if log_text()[before_virtual_mounts:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage sequentiel des montages incomplet")
+            before_stale_alias_add = len(log_text())
+            send_command_until(monitor, "vfs-mount-add stale/ overlay",
+                               "vfsserver mount added stale/ overlay", proc)
+            wait_for("vfsserver delegated mount add", proc, before_stale_alias_add)
+            wait_for("vfsvirtual mount add stale/", proc, before_stale_alias_add)
             before_worker_stop = len(log_text())
             send_command_until(monitor, "kill %s" % worker_pid, "Processus %s termine" % worker_pid, proc)
             before_worker_missing = len(log_text())
@@ -735,6 +792,9 @@ def main():
             send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
             wait_for("vfsvirtual ready pid=%s recoveries=0" % worker_pid, proc,
                      before_worker_restart_health)
+            before_stale_alias_purged = len(log_text())
+            send_command_until(monitor, "vfs-read stale/alias.txt",
+                               "vfs-read: chemin hors montage", proc)
             before_worker_recovered = len(log_text())
             send_command_until(monitor, "vfs-read vfs-info", "vfsserver delegated vfs-info", proc)
             wait_for("vfsvirtual read vfs-info", proc, before_worker_recovered)
@@ -795,37 +855,6 @@ def main():
             send_command_until(monitor, "vfs-rename initrd/no.txt overlay/moved.txt",
                                "vfsserver rename outside mounts", proc)
             wait_for("vfs-rename: chemins hors montage ecriture", proc, before_readonly_rename)
-            before_alias_write = len(log_text())
-            send_command_until(monitor, "vfs-write work/alias.txt workok",
-                               "vfs-write ok request", proc)
-            before_alias_list = len(log_text())
-            send_command_until(monitor, "vfs-list work/", "vfsserver list request", proc)
-            wait_for("vfs-list ok count 1", proc, before_alias_list)
-            wait_for("alias.txt", proc, before_alias_list)
-            before_alias_written_read = len(log_text())
-            send_command_until(monitor, "vfs-read work/alias.txt", "vfs-read ok", proc)
-            wait_for("workok", proc, before_alias_written_read)
-            before_alias_rename = len(log_text())
-            send_command_until(monitor, "vfs-rename work/alias.txt work/renamed.txt",
-                               "vfs-rename ok request", proc)
-            before_alias_renamed_read = len(log_text())
-            send_command_until(monitor, "vfs-read work/renamed.txt", "vfs-read ok", proc)
-            wait_for("workok", proc, before_alias_renamed_read)
-            before_alias_file_remove = len(log_text())
-            send_command_until(monitor, "vfs-remove work/renamed.txt", "vfs-remove ok request", proc)
-            before_alias_empty_list = len(log_text())
-            send_command_until(monitor, "vfs-list work/", "vfsserver list request", proc)
-            wait_for("vfs-list ok count 0", proc, before_alias_empty_list)
-            before_alias_remove = len(log_text())
-            send_command_until(monitor, "vfs-mount-remove work/",
-                               "vfsserver mount removed work/", proc)
-            wait_for("vfs-mount-remove ok request", proc, before_alias_remove)
-            before_alias_revoked = len(log_text())
-            send_command_until(monitor, "vfs-read work/alias.txt",
-                               "vfs-read: chemin hors montage", proc)
-            before_alias_missing = len(log_text())
-            send_command_until(monitor, "vfs-mount-remove work/",
-                               "vfs-mount-remove: montage absent", proc)
             before_write = len(log_text())
             send_command_until(monitor, "vfs-write overlay/note.txt vfsok",
                                "vfsserver write request", proc)

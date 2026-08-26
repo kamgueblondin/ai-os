@@ -21,7 +21,7 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 | AOS-009 | Executer un ELF bloquant | `exec`, parent `TASK_WAITING`, reveil par `SYS_EXIT` |
 | AOS-010 | Completer localement avec GPT-2 | `SYS_GPT2_GENERATE`, GPT-2 124M optionnel, cache KV et SSE2 |
 | AOS-011 | Tokeniser BPE GPT-2 | Vocabulaire/fusions BPE et decodage UTF-8 brut |
-| AOS-012 | Prévenir les régressions | 505 tests C et sept contrats QEMU versionnés, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http`, `qemu-ne2k-tls-sse`, `qemu-ne2k-tls-close`, `qemu-ne2k-tls-next` et `qemu-vfs-service` |
+| AOS-012 | Prévenir les régressions | 506 tests C et sept contrats QEMU versionnés, dont `qemu-ne2k-status`, `qemu-ne2k-acquire`, `qemu-ne2k-tls-http`, `qemu-ne2k-tls-sse`, `qemu-ne2k-tls-close`, `qemu-ne2k-tls-next` et `qemu-vfs-service` |
 
 ## Tranche AOS-020 à AOS-025 — livrée
 
@@ -85,9 +85,9 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison lecture seule (lot 68).** Le noyau monte un volume FAT16 prepare sur le disque IDE a partir du LBA 64, sans toucher aux 64 secteurs AIOV. `fat16-list` liste la racine 8.3 et `fat16-cat <8.3>` lit les fichiers chaines par la FAT. Note : [docs/mohhos_foundation_increment_68_fat16_volume.md](../docs/mohhos_foundation_increment_68_fat16_volume.md).
 
-**Livraison ultérieure (26 août 2026).** Le VFS expose `fat16/` et `fat32/` en création, suppression et renommage de fichiers 8.3 ou LFN à la racine, puis en `mkdir`, écriture, statut, listage paginé, renommage, suppression et `rmdir` vide dans **un seul** sous-répertoire 8.3. Les mutations des montages fixes sont déléguées à `vfsvirtual` sous le seul droit `mutate` ; après disparition ou expiration du worker, une mutation déjà envoyée échoue sans rejeu local. Les contrats QEMU vérifient les cycles racine LFN et le cycle sous-répertoire sur les deux volumes IDE. L’écrasement, le second niveau, les LFN enfants, le renommage inter-répertoire et le remplacement transactionnel restent hors contrat. Un second disque IDE porte FAT32. **ext2 n’est pas une option.**
+**Livraison ultérieure (26 août 2026).** Le VFS expose `fat16/` et `fat32/` en création, suppression et renommage de fichiers 8.3 ou LFN à la racine, puis en `mkdir`, écriture, statut, listage paginé, renommage, suppression et `rmdir` vide dans **un seul** sous-répertoire 8.3. Les mutations des montages fixes sont déléguées à `vfsvirtual` sous le seul droit `mutate`. Les ajouts et retraits d’alias dynamiques sont maintenant validés et stockés par ce worker Ring 3, sans droit backend `read` ; il n’accepte ces mutations privées que du médiateur `vfs`. Le médiateur ne conserve qu’un miroir de routage, actualisé après réponse corrélée et purgé au remplacement, à la disparition ou à l’expiration incertaine du worker, avec échec client sans rejeu. Les contrats QEMU vérifient les cycles racine LFN et le cycle sous-répertoire sur les deux volumes IDE, la délégation d’alias et la purge après redémarrage worker. L’écrasement, le second niveau, les LFN enfants, le renommage inter-répertoire et le remplacement transactionnel restent hors contrat. Un second disque IDE porte FAT32. **ext2 n’est pas une option.**
 
-**Verification.** `make test-all` (**505/505**), `make qemu-vfs-service`, puis `make integration-qemu` (sept contrats, **23 min 30 s** en validation locale).
+**Verification.** `make test-all` (**506/506**), `make qemu-vfs-service`, puis `make integration-qemu` (sept contrats, **417,1 s** en validation locale, sans assertion retirée).
 
 ## Tranche reseau AOS-113 a AOS-154 - primitives, puis raccordement local
 
@@ -125,9 +125,9 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 
 | Priorite | Sujet | Critere de sortie |
 |---|---|---|
-| 0 | Frontière VFS Ring 3 | Délégation corrélée et à droit minimal des alias dynamiques encore locaux ; le worker de mutation ne reçoit aucun droit lecture |
-| 1 | Budget CI QEMU | Conserver les sept contrats sous 25 minutes dans GitHub Actions, sans retirer d’assertion métier |
-| 2 | Réseau local étendu | TAP/bridge ou multi-pairs QEMU, sans clé, Internet public ni OpenAI |
+| 0 | Réseau local étendu | TAP/bridge ou multi-pairs QEMU, sans clé, Internet public ni OpenAI |
+| 1 | Routage I/O VFS Ring 3 optionnel | Décider puis, si nécessaire, déléguer les I/O des aliases au worker ; l’autorité add/remove corrélée et le miroir volatil sont déjà livrés |
+| 2 | Budget CI QEMU | Conserver les sept contrats sous 25 minutes dans GitHub Actions, sans retirer d’assertion métier ni rejouer de mutation ; la dernière mesure locale est 417,1 s |
 | 3 | Latence locale | Mesure sous matériel/KVM sur une plateforme de référence ; QEMU TCG reste ~48 s / ~23 s |
 
 La vision MOHHOS (microkernel, P2P, économie, multi-plateforme, etc.) reste une collection de spécifications dans `US/`. Elle ne doit pas être utilisée comme indicateur d’implémentation du prototype.
