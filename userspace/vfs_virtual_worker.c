@@ -95,6 +95,33 @@ static int mutate_rename(const char* old_path, const char* new_path) {
     return OS_VFS_STATUS_NOT_MOUNTED;
 }
 
+static int mutate_mkdir(const char* path) {
+    const char* relative;
+    if ((relative = path_after_prefix(path, "overlay/")) != (const char*)0)
+        return syscall_remove(SYS_VFS_OVERLAY_MKDIR, relative);
+    if ((relative = path_after_prefix(path, "fat16/")) != (const char*)0)
+        return syscall_write(SYS_VFS_FAT16_CREATE, relative, (const uint8_t*)0, 0U);
+    if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
+        return syscall_write(SYS_VFS_FAT32_CREATE, relative, (const uint8_t*)0, 0U);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int mutate_rmdir(const char* path) {
+    const char* relative;
+    char directory[OS_VFS_PATH_MAX];
+    uint32_t i = 0U;
+    int number;
+    if ((relative = path_after_prefix(path, "overlay/")) != (const char*)0)
+        return syscall_remove(SYS_VFS_OVERLAY_RMDIR, relative);
+    if ((relative = path_after_prefix(path, "fat16/")) != (const char*)0) number = SYS_VFS_FAT16_UNLINK;
+    else if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0) number = SYS_VFS_FAT32_UNLINK;
+    else return OS_VFS_STATUS_NOT_MOUNTED;
+    while (relative[i] != '\0' && i + 2U < OS_VFS_PATH_MAX) { directory[i] = relative[i]; i++; }
+    if (relative[i] != '\0' || i == 0U) return OS_VFS_STATUS_INVALID;
+    directory[i++] = '/'; directory[i] = '\0';
+    return syscall_remove(number, directory);
+}
+
 static void yield(void) {
     asm volatile("int $0x80" : : "a"(SYS_YIELD));
 }
@@ -227,6 +254,22 @@ void main(void) {
                 if (os_vfs_make_rename_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MKDIR) {
+            if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_MKDIR, path)
+                == OS_VFS_STATUS_OK) {
+                int32_t status = mutate_mkdir(path);
+                puts("vfsvirtual mkdir "); puts(path); puts("\n");
+                if (os_vfs_make_mkdir_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK)
+                    (void)ipc_send(message.sender_pid, &reply);
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RMDIR) {
+            if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_RMDIR, path)
+                == OS_VFS_STATUS_OK) {
+                int32_t status = mutate_rmdir(path);
+                puts("vfsvirtual rmdir "); puts(path); puts("\n");
+                if (os_vfs_make_rmdir_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK)
+                    (void)ipc_send(message.sender_pid, &reply);
             }
         }
         yield();

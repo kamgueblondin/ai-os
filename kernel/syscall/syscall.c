@@ -330,6 +330,17 @@ void syscall_handler(cpu_state_t* cpu) {
         case SYS_FAT32_LIST_PAGE:
             cpu->eax = (uint32_t)sys_fat32_list_page((os_fat16_dirent_t*)cpu->ebx, cpu->ecx, cpu->edx);
             break;
+        case SYS_FAT16_LIST_PATH:
+            cpu->eax = (uint32_t)sys_fat16_list_path((const char*)cpu->ebx,
+                                                       (os_fat16_dirent_t*)cpu->ecx, cpu->edx,
+                                                       cpu->esi);
+            break;
+        case SYS_FAT32_LIST_PATH:
+            cpu->eax = (uint32_t)sys_fat32_list_path((const char*)cpu->ebx,
+                                                       (os_fat16_dirent_t*)cpu->ecx, cpu->edx,
+                                                       cpu->esi);
+            break;
+
         case SYS_SERVICE_BACKEND_RELEASE:
             cpu->eax = (uint32_t)sys_service_backend_release((const char*)cpu->ebx);
             break;
@@ -653,7 +664,7 @@ int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_
 int sys_fat16_read(const char* name, char* buffer, uint32_t max) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
     if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
-    return fat16_read_file(fat16_root(), name, buffer, max);
+    return fat16_read_path(fat16_root(), name, buffer, max);
 }
 
 int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
@@ -668,10 +679,17 @@ int sys_fat16_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t star
     return fat16_list_root_page(fat16_root(), start, out, capacity);
 }
 
+int sys_fat16_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
+                        uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!path || !out || capacity == 0U) return OS_FAT16_BAD_PATH;
+    return fat16_list_path_page(fat16_root(), path, start, out, capacity);
+}
+
 int sys_fat32_read(const char* name, char* buffer, uint32_t max) {
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
     if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
-    return fat32_read_file(fat32_root(), name, (uint8_t*)buffer, max);
+    return fat32_read_path(fat32_root(), name, (uint8_t*)buffer, max);
 }
 
 int sys_fat32_list(os_fat16_dirent_t* out, uint32_t capacity) {
@@ -684,6 +702,13 @@ int sys_fat32_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t star
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat32_list_root_page(fat32_root(), start, out, capacity);
+}
+
+int sys_fat32_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
+                        uint32_t start) {
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!path || !out || capacity == 0U) return OS_FAT16_BAD_PATH;
+    return fat32_list_path_page(fat32_root(), path, start, out, capacity);
 }
 static int syscall_user_range(const void* pointer, uint32_t length, int write) {
     uint32_t start, end, address;
@@ -972,6 +997,35 @@ static int is_strict_short_83(const char* name) {
     return base > 0U;
 }
 
+static int fat_path_has_separator(const char* path) {
+    uint32_t i = 0U;
+    if (!path) return 0;
+    while (path[i] != '\0') {
+        if (path[i++] == '/') return 1;
+    }
+    return 0;
+}
+
+static int fat_path_is_directory_request(const char* path) {
+    uint32_t i = 0U;
+    if (!path || path[0] == '\0') return 0;
+    while (path[i] != '\0') i++;
+    return i > 0U && path[i - 1U] == '/';
+}
+
+static int fat_directory_name(const char* path, char* out) {
+    uint32_t i = 0U;
+    if (!path || !out || !fat_path_is_directory_request(path)) return OS_FAT16_BAD_PATH;
+    while (path[i] != '\0' && path[i + 1U] != '\0') {
+        if (i >= OS_NAME_MAX - 1U) return OS_FAT16_BAD_PATH;
+        out[i] = path[i];
+        i++;
+    }
+    if (i == 0U) return OS_FAT16_BAD_PATH;
+    out[i] = '\0';
+    return 0;
+}
+
 /* Création FAT16 explicite : gère à la fois le format 8.3 classique et les noms longs LFN. */
 int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
     uint16_t first_cluster = 0U;
@@ -980,6 +1034,13 @@ int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
+    /* Le worker encode `mkdir` par un buffer nul et une taille nulle : une
+     * écriture vide garde un buffer non nul et reste donc un fichier. */
+    if (!data && size == 0U) return fat16_create_directory(fat16_root(), name);
+    if (fat_path_has_separator(name)) {
+        return fat16_create_path_file(fat16_root(), name, (const uint8_t*)data, size,
+                                      &first_cluster);
+    }
     if (is_strict_short_83(name)) {
         return fat16_create_file(fat16_root(), name, 0x20U, (const uint8_t*)data, size,
                                  &first_cluster);
@@ -995,7 +1056,12 @@ int sys_vfs_fat16_unlink(const char* name) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name) return OS_FAT16_BAD_PATH;
-    return fat16_unlink_file(fat16_root(), name);
+    if (fat_path_is_directory_request(name)) {
+        char directory[OS_NAME_MAX];
+        int rc = fat_directory_name(name, directory);
+        return rc == 0 ? fat16_remove_directory(fat16_root(), directory) : rc;
+    }
+    return fat16_unlink_path_file(fat16_root(), name);
 }
 
 /* Renommage FAT16 explicite : supporte 8.3 et LFN. */
@@ -1005,6 +1071,9 @@ int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
+    if (fat_path_has_separator(old_name) || fat_path_has_separator(new_name)) {
+        return fat16_rename_path_file(fat16_root(), old_name, new_name);
+    }
     if (is_strict_short_83(old_name) && is_strict_short_83(new_name)) {
         return fat16_rename_file(fat16_root(), old_name, new_name);
     }
@@ -1019,6 +1088,11 @@ int sys_vfs_fat32_create(const char* name, const char* data, uint32_t size) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
+    if (!data && size == 0U) return fat32_create_directory(fat32_root(), name);
+    if (fat_path_has_separator(name)) {
+        return fat32_create_path_file(fat32_root(), name, (const uint8_t*)data, size,
+                                      &first_cluster);
+    }
     if (is_strict_short_83(name)) {
         return fat32_create_file(fat32_root(), name, 0x20U, (const uint8_t*)data, size,
                                  &first_cluster);
@@ -1033,7 +1107,12 @@ int sys_vfs_fat32_unlink(const char* name) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name) return OS_FAT16_BAD_PATH;
-    return fat32_unlink_file(fat32_root(), name);
+    if (fat_path_is_directory_request(name)) {
+        char directory[OS_NAME_MAX];
+        int rc = fat_directory_name(name, directory);
+        return rc == 0 ? fat32_remove_directory(fat32_root(), directory) : rc;
+    }
+    return fat32_unlink_path_file(fat32_root(), name);
 }
 
 int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
@@ -1042,6 +1121,9 @@ int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
+    if (fat_path_has_separator(old_name) || fat_path_has_separator(new_name)) {
+        return fat32_rename_path_file(fat32_root(), old_name, new_name);
+    }
     if (is_strict_short_83(old_name) && is_strict_short_83(new_name)) {
         return fat32_rename_file(fat32_root(), old_name, new_name);
     }

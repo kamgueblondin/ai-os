@@ -216,19 +216,23 @@
 #define SYS_FAT32_LIST_PAGE 114
 /* EBX = nom de service ; le bénéficiaire courant abandonne sa capacité backend. */
 #define SYS_SERVICE_BACKEND_RELEASE 115
-/* EBX = nom FAT16 8.3 sans séparateur, ECX = données, EDX = taille ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = chemin FAT16 : racine 8.3/LFN ou DIR/8.3, ECX = données (nul+0 pour mkdir), EDX = taille ; réservé à `vfs` mutate. */
 #define SYS_VFS_FAT16_CREATE 116
-/* EBX = nom FAT16 8.3 sans séparateur ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = chemin FAT16 : racine 8.3/LFN, DIR/8.3 ou DIR/ pour rmdir ; réservé à `vfs` mutate. */
 #define SYS_VFS_FAT16_UNLINK 117
-/* EBX = ancien nom FAT16 8.3, ECX = nouveau nom 8.3 ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = ancien chemin FAT16, ECX = nouveau chemin ; racine 8.3/LFN ou même DIR/8.3, réservé à `vfs` mutate. */
 #define SYS_VFS_FAT16_RENAME 118
-/* EBX = nom FAT32 8.3 sans séparateur, ECX = données, EDX = taille ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = chemin FAT32 : racine 8.3/LFN ou DIR/8.3, ECX = données (nul+0 pour mkdir), EDX = taille ; réservé à `vfs` mutate. */
 #define SYS_VFS_FAT32_CREATE 119
-/* EBX = nom FAT32 8.3 sans séparateur ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = chemin FAT32 : racine 8.3/LFN, DIR/8.3 ou DIR/ pour rmdir ; réservé à `vfs` mutate. */
 #define SYS_VFS_FAT32_UNLINK 120
-/* EBX = ancien nom FAT32 8.3, ECX = nouveau nom 8.3 ; réservé aux droits backend mutate de `vfs`. */
+/* EBX = ancien chemin FAT32, ECX = nouveau chemin ; racine 8.3/LFN ou même DIR/8.3, réservé à `vfs` mutate. */
 #define SYS_VFS_FAT32_RENAME 121
-#define MAX_SYSCALLS 122
+/* EBX = chemin de répertoire FAT16, ECX = os_dirent_t*, EDX = capacité, ESI = départ ; lecture Ring 3 comme SYS_FAT16_READ. */
+#define SYS_FAT16_LIST_PATH 122
+/* EBX = chemin de répertoire FAT32, ECX = os_dirent_t*, EDX = capacité, ESI = départ ; lecture Ring 3 comme SYS_FAT32_READ. */
+#define SYS_FAT32_LIST_PATH 123
+#define MAX_SYSCALLS 124
 
 typedef struct {
     uint16_t source_port;

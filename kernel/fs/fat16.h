@@ -86,6 +86,19 @@ int fat16_list_root(const fat16_volume_t* volume, os_fat16_dirent_t* out,
 /* Retourne une page de racine à partir d’un index logique, sans allocation. */
 int fat16_list_root_page(const fat16_volume_t* volume, uint32_t start,
                          os_fat16_dirent_t* out, uint32_t capacity);
+/* Sous-répertoires FAT16 bornés à un niveau : les noms de répertoire et de
+ * fichier enfant sont 8.3. Les LFN racine existants restent inchangés. */
+int fat16_list_path_page(const fat16_volume_t* volume, const char* path, uint32_t start,
+                         os_fat16_dirent_t* out, uint32_t capacity);
+int fat16_read_path(const fat16_volume_t* volume, const char* path,
+                    char* buffer, uint32_t max);
+int fat16_create_path_file(const fat16_volume_t* volume, const char* path,
+                           const uint8_t* data, uint32_t size, uint16_t* out_first_cluster);
+int fat16_unlink_path_file(const fat16_volume_t* volume, const char* path);
+int fat16_rename_path_file(const fat16_volume_t* volume, const char* old_path,
+                           const char* new_path);
+int fat16_create_directory(const fat16_volume_t* volume, const char* name);
+int fat16_remove_directory(const fat16_volume_t* volume, const char* name);
 int fat16_read_file(const fat16_volume_t* volume, const char* name,
                     char* buffer, uint32_t max);
 /* Lit au plus max octets à partir d’un offset sans charger tout le fichier. */

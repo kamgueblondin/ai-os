@@ -73,6 +73,10 @@ int sys_fat16_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t star
 int sys_fat32_read(const char* name, char* buffer, uint32_t max);
 int sys_fat32_list(os_fat16_dirent_t* out, uint32_t capacity);
 int sys_fat32_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t start);
+int sys_fat16_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
+                        uint32_t start);
+int sys_fat32_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
+                        uint32_t start);
 int sys_socket_open(uint16_t local_port, uint16_t remote_port, uint32_t local_sequence);
 int sys_socket_listen(uint16_t local_port, uint32_t local_sequence);
 int sys_socket_accept_syn(int socket_id, const os_socket_passive_view_t* view);
