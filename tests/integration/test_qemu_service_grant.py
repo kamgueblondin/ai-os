@@ -136,6 +136,10 @@ def receive_service_event(client, proc, pattern, description):
         try:
             send_command(client, "ipc-recv", proc)
             wait_for_pattern(pattern, description, proc, start)
+            # L’événement est imprimé avant le retour au shell. Attendre le
+            # prompt évite d’injecter la commande suivante pendant la fin de
+            # traitement de l’IRQ série, sans réessayer d’effet métier.
+            wait_for("(-.-)", proc, start)
             return
         except RuntimeError as error:
             failure = error
