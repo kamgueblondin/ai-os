@@ -215,6 +215,10 @@ def send_command_until(client, command, needle, proc, attempts=1, key_delay=KEY_
         try:
             send_command(client, command, proc, key_delay)
             wait_for(needle, proc, start)
+            # La réponse VFS peut précéder le retour du shell pendant une
+            # rafale IRQ0. Synchroniser le prompt évite de concaténer la
+            # commande suivante, sans jamais réinjecter une mutation VFS.
+            wait_for("(-.-)", proc, start)
             return
         except CommandEchoMismatch:
             raise
