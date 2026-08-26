@@ -51,6 +51,12 @@
 #define OS_IPC_VFS_WORKER_RENAME     0x56465707U
 #define OS_IPC_VFS_WORKER_MKDIR      0x56465708U
 #define OS_IPC_VFS_WORKER_RMDIR      0x56465709U
+/* Les alias dynamiques sont mutés dans le worker ; le médiateur conserve
+ * seulement un miroir volatil de routage, invalidé au remplacement du PID. */
+#define OS_IPC_VFS_WORKER_MOUNT_ADD       0x5646570aU
+#define OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY 0x5646570bU
+#define OS_IPC_VFS_WORKER_MOUNT_REMOVE       0x5646570cU
+#define OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY 0x5646570dU
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -64,6 +70,9 @@
 #define OS_VFS_WORKER_RENAME_REQUEST_SIZE (OS_VFS_PATH_MAX * 2U)
 #define OS_VFS_WORKER_MKDIR_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WORKER_RMDIR_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U)
+#define OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_MOUNT_REPLY_SIZE 4U
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -388,6 +397,76 @@ static inline int os_vfs_parse_worker_mount_request(const os_ipc_message_t* mess
     if (!os_vfs_mount_prefix_is_valid(prefix_out) || message->data[OS_VFS_PATH_MAX] > 1U)
         return OS_VFS_STATUS_INVALID;
     *writable_out = (uint32_t)message->data[OS_VFS_PATH_MAX];
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_mount_add_request(os_ipc_payload_t* payload,
+                                                        const char* prefix, uint32_t source,
+                                                        uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_mount_prefix_is_valid(prefix) || !os_vfs_mount_source_is_valid(source))
+        return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_MOUNT_ADD;
+    payload->size = OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)prefix[i];
+    os_vfs_encode_u32(&payload->data[OS_VFS_PATH_MAX], source);
+    for (i = OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_mount_add_request(const os_ipc_message_t* message,
+                                                         char* prefix_out, uint32_t* source_out) {
+    uint32_t i;
+    if (!message || !prefix_out || !source_out || message->type != OS_IPC_VFS_WORKER_MOUNT_ADD ||
+        message->size != OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) prefix_out[i] = (char)message->data[i];
+    *source_out = os_vfs_decode_u32(&message->data[OS_VFS_PATH_MAX]);
+    return os_vfs_mount_prefix_is_valid(prefix_out) && os_vfs_mount_source_is_valid(*source_out)
+           ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_worker_mount_remove_request(os_ipc_payload_t* payload,
+                                                           const char* prefix, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_mount_prefix_is_valid(prefix)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_MOUNT_REMOVE;
+    payload->size = OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)prefix[i];
+    for (i = OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_mount_remove_request(const os_ipc_message_t* message,
+                                                            char* prefix_out) {
+    uint32_t i;
+    if (!message || !prefix_out || message->type != OS_IPC_VFS_WORKER_MOUNT_REMOVE ||
+        message->size != OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) prefix_out[i] = (char)message->data[i];
+    return os_vfs_mount_prefix_is_valid(prefix_out) ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_worker_mount_reply(os_ipc_payload_t* payload, uint32_t type,
+                                                  int32_t status, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || (type != OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY &&
+                     type != OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY)) return OS_VFS_STATUS_INVALID;
+    payload->type = type;
+    payload->size = OS_VFS_WORKER_MOUNT_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(payload->data, status);
+    for (i = OS_VFS_WORKER_MOUNT_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_mount_reply(const os_ipc_message_t* message, uint32_t type,
+                                                   int32_t* status_out, uint32_t expected_request_id) {
+    if (!message || !status_out || (type != OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY &&
+                                   type != OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY) ||
+        message->type != type || message->size != OS_VFS_WORKER_MOUNT_REPLY_SIZE ||
+        message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
+    *status_out = os_vfs_decode_i32(message->data);
     return OS_VFS_STATUS_OK;
 }
 

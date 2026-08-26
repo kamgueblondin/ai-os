@@ -681,6 +681,72 @@ static void test_worker_mount_request_is_bounded_and_decoded(void) {
                       os_vfs_parse_worker_mount_request(&message, prefix, &writable));
 }
 
+static void test_worker_mount_mutations_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    char prefix[OS_VFS_PATH_MAX];
+    uint32_t source;
+    int32_t status;
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_mount_add_request(&payload, "work/",
+                                                           OS_VFS_MOUNT_SOURCE_OVERLAY, 147U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_MOUNT_ADD, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE, payload.size);
+    message.sender_pid = 9;
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_mount_add_request(&message, prefix, &source));
+    TEST_ASSERT_EQUAL_STRING("work/", prefix);
+    TEST_ASSERT_EQUAL(OS_VFS_MOUNT_SOURCE_OVERLAY, source);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_mount_add_request(&payload, "work/", 99U, 147U));
+    message.size = OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_mount_add_request(&message, prefix, &source));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_mount_remove_request(&payload, "work/", 148U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_MOUNT_REMOVE, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE, payload.size);
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_mount_remove_request(&message, prefix));
+    TEST_ASSERT_EQUAL_STRING("work/", prefix);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_mount_remove_request(&payload, "work", 148U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_mount_reply(&payload, OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY,
+                                                     OS_VFS_STATUS_MOUNT_FULL, 147U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_mount_reply(&message, OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY,
+                                                      &status, 147U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_MOUNT_FULL, status);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_mount_reply(&message, OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY,
+                                                      &status, 148U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_mount_reply(&payload, OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY,
+                                                     OS_VFS_STATUS_OK, 148U));
+    message.type = payload.type;
+    message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_mount_reply(&message, OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY,
+                                                      &status, 148U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, status);
+}
+
 static void test_worker_write_request_is_bounded_and_decoded(void) {
     os_ipc_payload_t payload;
     os_ipc_message_t message;
@@ -847,6 +913,7 @@ int main(void) {
     RUN_TEST(test_worker_read_messages_are_bounded_and_correlated);
     RUN_TEST(test_worker_stats_snapshot_is_bounded_and_decoded);
     RUN_TEST(test_worker_mount_request_is_bounded_and_decoded);
+    RUN_TEST(test_worker_mount_mutations_are_bounded_and_correlated);
     RUN_TEST(test_worker_write_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_remove_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_directory_requests_and_replies_are_bounded_and_correlated);

@@ -27,9 +27,40 @@ static int service_register(const char* name) {
     return result;
 }
 
+static int service_lookup(const char* name) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_LOOKUP), "b"(name));
+    return result;
+}
+
 /* Le worker ne reçoit que des chemins VFS globaux contrôlés par le médiateur.
- * Il extrait un suffixe pour les trois montages fixes mutables ; les alias
- * dynamiques et initrd restent au médiateur et ne lui donnent aucun droit. */
+ * Il extrait un suffixe pour les trois montages fixes mutables. La politique
+ * des alias dynamiques est aussi conservée ici ; elle ne confère aucun droit
+ * backend puisque le worker ne fait que valider la table publiée par `vfs`. */
+#define VFS_WORKER_MOUNT_MAX 8U
+#define VFS_WORKER_BOOT_MOUNT_COUNT 4U
+#define VFS_WORKER_DYNAMIC_MOUNT_MAX 13U
+typedef struct {
+    char prefix[OS_VFS_PATH_MAX];
+    uint32_t source;
+    uint32_t protected_mount;
+} worker_mount_t;
+static worker_mount_t worker_mounts[VFS_WORKER_MOUNT_MAX] = {
+    { "initrd/", OS_VFS_MOUNT_SOURCE_INITRD, 1U },
+    { "overlay/", OS_VFS_MOUNT_SOURCE_OVERLAY, 1U },
+    { "fat16/", OS_VFS_MOUNT_SOURCE_FAT16, 1U },
+    { "fat32/", OS_VFS_MOUNT_SOURCE_FAT32, 1U },
+};
+static uint32_t worker_mount_count = VFS_WORKER_BOOT_MOUNT_COUNT;
+
+/* Les requêtes de mutation sont privées : sans ce contrôle, un client pourrait
+ * utiliser le worker comme suppléant de ses droits backend ou désynchroniser
+ * directement l’autorité des alias et le miroir du médiateur. */
+static int worker_mutation_sender_is_vfs(const os_ipc_message_t* message) {
+    int vfs_pid = service_lookup("vfs");
+    return message && vfs_pid > 0 && message->sender_pid == vfs_pid;
+}
+
 static const char* path_after_prefix(const char* path, const char* prefix) {
     uint32_t index = 0U;
     if (!path || !prefix) return (const char*)0;
@@ -135,6 +166,53 @@ static int string_equal(const char* left, const char* right) {
     return left[index] == right[index];
 }
 
+static uint32_t string_length(const char* text) {
+    uint32_t index = 0U;
+    while (text[index] != '\0') index++;
+    return index;
+}
+
+static int mount_prefixes_overlap(const char* left, const char* right) {
+    uint32_t index = 0U;
+    while (left[index] != '\0' && right[index] != '\0' && left[index] == right[index]) index++;
+    return left[index] == '\0' || right[index] == '\0';
+}
+
+static int worker_mount_add(const char* prefix, uint32_t source) {
+    uint32_t index;
+    if (string_length(prefix) > VFS_WORKER_DYNAMIC_MOUNT_MAX) return OS_VFS_STATUS_INVALID;
+    for (index = 0U; index < worker_mount_count; index++) {
+        if (string_equal(prefix, worker_mounts[index].prefix)) return OS_VFS_STATUS_MOUNT_EXISTS;
+        if (mount_prefixes_overlap(prefix, worker_mounts[index].prefix)) return OS_VFS_STATUS_INVALID;
+    }
+    if (worker_mount_count >= VFS_WORKER_MOUNT_MAX) return OS_VFS_STATUS_MOUNT_FULL;
+    for (index = 0U; index < OS_VFS_PATH_MAX; index++) {
+        worker_mounts[worker_mount_count].prefix[index] = prefix[index];
+    }
+    worker_mounts[worker_mount_count].source = source;
+    worker_mounts[worker_mount_count].protected_mount = 0U;
+    worker_mount_count++;
+    return OS_VFS_STATUS_OK;
+}
+
+static int worker_mount_remove(const char* prefix) {
+    uint32_t index;
+    for (index = 0U; index < worker_mount_count; index++) {
+        uint32_t next;
+        if (!string_equal(prefix, worker_mounts[index].prefix)) continue;
+        if (worker_mounts[index].protected_mount) return OS_VFS_STATUS_INVALID;
+        for (next = index; next + 1U < worker_mount_count; next++) {
+            worker_mounts[next] = worker_mounts[next + 1U];
+        }
+        worker_mount_count--;
+        worker_mounts[worker_mount_count].prefix[0] = '\0';
+        worker_mounts[worker_mount_count].source = 0U;
+        worker_mounts[worker_mount_count].protected_mount = 0U;
+        return OS_VFS_STATUS_OK;
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
 static uint32_t append_text(uint8_t* data, uint32_t offset, const char* text) {
     uint32_t index = 0U;
     while (text[index] != '\0' && offset < OS_VFS_READ_MAX) data[offset++] = (uint8_t)text[index++];
@@ -220,7 +298,29 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_WRITE) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT_ADD &&
+                   worker_mutation_sender_is_vfs(&message)) {
+            uint32_t source;
+            if (os_vfs_parse_worker_mount_add_request(&message, path, &source) == OS_VFS_STATUS_OK) {
+                int32_t status = worker_mount_add(path, source);
+                puts("vfsvirtual mount add "); puts(path); puts("\n");
+                if (os_vfs_make_worker_mount_reply(&reply, OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY,
+                                                   status, message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT_REMOVE &&
+                   worker_mutation_sender_is_vfs(&message)) {
+            if (os_vfs_parse_worker_mount_remove_request(&message, path) == OS_VFS_STATUS_OK) {
+                int32_t status = worker_mount_remove(path);
+                puts("vfsvirtual mount remove "); puts(path); puts("\n");
+                if (os_vfs_make_worker_mount_reply(&reply, OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY,
+                                                   status, message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_WRITE &&
+                   worker_mutation_sender_is_vfs(&message)) {
             uint8_t write_buf[OS_VFS_WRITE_MAX];
             uint32_t write_len = 0U;
             if (os_vfs_parse_worker_write_request(&message, path, write_buf, &write_len) == OS_VFS_STATUS_OK) {
@@ -232,7 +332,8 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_REMOVE) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_REMOVE &&
+                   worker_mutation_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_remove_request(&message, path) == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_remove(path);
                 puts("vfsvirtual remove ");
@@ -242,7 +343,8 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RENAME) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RENAME &&
+                   worker_mutation_sender_is_vfs(&message)) {
             char new_path[OS_VFS_PATH_MAX];
             if (os_vfs_parse_worker_rename_request(&message, path, new_path) == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_rename(path, new_path);
@@ -255,7 +357,8 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MKDIR) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MKDIR &&
+                   worker_mutation_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_MKDIR, path)
                 == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_mkdir(path);
@@ -263,7 +366,8 @@ void main(void) {
                 if (os_vfs_make_mkdir_reply(&reply, status, message.request_id) == OS_VFS_STATUS_OK)
                     (void)ipc_send(message.sender_pid, &reply);
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RMDIR) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RMDIR &&
+                   worker_mutation_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_RMDIR, path)
                 == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_rmdir(path);
