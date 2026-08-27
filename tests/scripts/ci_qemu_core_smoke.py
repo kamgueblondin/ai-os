@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -18,7 +19,14 @@ MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-core-moni
 TEST_DISK = os.environ.get("OVERLAY_DISK", os.path.join(LOG_DIR, "qemu-core-overlay.img"))
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "75"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "20"))
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.65"))
+# Sous TCG, chaque scan-code est confirmé par le shell. La fenêtre de
+# stabilité couvre tous les caractères afin de retirer un éventuel doublon
+# avant `ret` plutôt que de rejouer une ligne après son exécution.
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.05"))
+KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
+KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
+KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.25"))
+KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
 
 
 def say(message):
@@ -81,27 +89,85 @@ def qemu_disk_args():
     return ["-drive", "file=%s,format=raw,if=ide,cache=writethrough" % TEST_DISK]
 
 
-def send_command(client, command):
-    aliases = {" ": "spc", "-": "minus", ".": "dot"}
+class CommandEchoMismatch(RuntimeError):
+    """La ligne reçue par le shell diffère de celle injectée."""
+
+
+def normalized_log(output):
+    """Retire seulement les diagnostics asynchrones entre deux fragments."""
+    output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\s+\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
+    return output
+
+
+def send_key(client, key):
+    client.sendall(("sendkey %s %d\n" % (key, KEY_HOLD_MS)).encode("ascii"))
+
+
+def key_echo_count(output, char):
+    pattern = r"SYS_GETS: caractère ajouté:\s*'%s'" % re.escape(char)
+    return len(re.findall(pattern, normalized_log(output)))
+
+
+def send_command_once(client, command, proc):
+    """Prépare exactement une ligne ; aucun caractère partiel n’est exécuté."""
+    aliases = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
-        client.sendall(("sendkey %s\n" % aliases.get(char, char.lower())).encode("ascii"))
-        time.sleep(KEY_DELAY)
-    time.sleep(KEY_DELAY)
-    client.sendall(b"sendkey ret\n")
+        count = 0
+        for _ in range(KEY_CHAR_RETRIES):
+            start = len(log_text())
+            send_key(client, aliases.get(char, char.lower()))
+            deadline = time.monotonic() + KEY_ECHO_TIMEOUT
+            while time.monotonic() < deadline:
+                if proc.poll() is not None:
+                    raise RuntimeError("QEMU stopped unexpectedly; log tail:\n%s" % log_text()[-2000:])
+                time.sleep(KEY_DELAY)
+                count = key_echo_count(log_text()[start:], char.lower())
+                if count:
+                    # Ne jamais envoyer `ret` tant qu’un second scan-code peut
+                    # encore arriver : un doublon est effacé dans le buffer local.
+                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+                    count = key_echo_count(log_text()[start:], char.lower())
+                    break
+            if count:
+                break
+        if count == 0:
+            raise RuntimeError("character not received: %s" % char)
+        for _ in range(count - 1):
+            send_key(client, "backspace")
+            time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+    send_key(client, "ret")
 
 
-def send_command_until(client, command, marker, proc, attempts=3):
-    failure = None
-    for _ in range(attempts):
-        start = len(log_text())
-        send_command(client, command)
-        try:
+def command_echoed(output, command):
+    expected = " ".join(command.lower().split())
+    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", normalized_log(output)):
+        if " ".join(received.lower().split()) == expected:
+            return True
+    return False
+
+
+def send_command_until(client, command, marker, proc):
+    """Exécute une commande une fois et échoue sur tout écho incertain."""
+    start = len(log_text())
+    send_command_once(client, command, proc)
+    deadline = time.monotonic() + CMD_TIMEOUT
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("QEMU stopped unexpectedly; log tail:\n%s" % log_text()[-2000:])
+        output = normalized_log(log_text()[start:])
+        if command_echoed(output, command):
             wait_for(proc, marker, CMD_TIMEOUT, start)
+            # Synchronise le prochain prompt sans rejouer une opération déjà
+            # entrée, qu’elle soit une mutation ou une I/O.
+            wait_for(proc, "(-.-)", CMD_TIMEOUT, start)
             return
-        except RuntimeError as error:
-            failure = error
-            time.sleep(0.4)
-    raise failure
+        if "SYS_GETS: ligne lue: " in output:
+            raise CommandEchoMismatch("command echo altered: %s" % command)
+        time.sleep(0.1)
+    raise RuntimeError("timeout waiting for command echo: %s" % command)
 
 
 def terminate(proc):
