@@ -376,6 +376,7 @@ pack-initrd: userspace-all
 	@cp -f userspace/vfsserver $(BIN_DEST_DIR)/vfsserver
 	@cp -f userspace/vfsvirtual $(BIN_DEST_DIR)/vfsvirtual
 	@cp -f userspace/vfsflight $(BIN_DEST_DIR)/vfsflight
+	@cp -f userspace/vfsaliasflight $(BIN_DEST_DIR)/vfsaliasflight
 	@cp -f userspace/serviceclaim $(BIN_DEST_DIR)/serviceclaim
 	@cp -f userspace/vfsclaim $(BIN_DEST_DIR)/vfsclaim
 	@cp -f userspace/vfscapclaim $(BIN_DEST_DIR)/vfscapclaim

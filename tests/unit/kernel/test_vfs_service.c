@@ -882,6 +882,101 @@ static void test_worker_rename_request_is_bounded_and_decoded(void) {
                       os_vfs_parse_worker_rename_request(&message, old_path, new_path));
 }
 
+static void test_worker_alias_stat_messages_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_stat_reply_t reply;
+    char path[OS_VFS_PATH_MAX];
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_stat_request(&payload, "assets/shell", 151U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_STAT, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_STAT_REQUEST_SIZE, payload.size);
+    message.sender_pid = 9; message.type = payload.type; message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_worker_stat_request(&message, path));
+    TEST_ASSERT_EQUAL_STRING("assets/shell", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_stat_reply(&payload, OS_VFS_STATUS_OK, 42U,
+                                                    OS_DIRENT_FILE, 151U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_STAT_REPLY, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_STAT_REPLY_SIZE, payload.size);
+    message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_worker_stat_reply(&message, &reply, 151U));
+    TEST_ASSERT_EQUAL(42U, reply.size); TEST_ASSERT_EQUAL(OS_DIRENT_FILE, reply.flags);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_worker_stat_reply(&message, &reply, 152U));
+    message.type = OS_IPC_VFS_STAT_REPLY;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_worker_stat_reply(&message, &reply, 151U));
+}
+
+static void test_worker_alias_list_messages_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_list_reply_t reply;
+    char path[OS_VFS_PATH_MAX];
+    uint8_t data[7] = {'s', 'h', 'e', 'l', 'l', '\n', 0U};
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_list_request(&payload, "assets/", 153U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_LIST, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_LIST_REQUEST_SIZE, payload.size);
+    message.sender_pid = 9; message.type = payload.type; message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_worker_list_request(&message, path));
+    TEST_ASSERT_EQUAL_STRING("assets/", path);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_list_reply(&payload, OS_VFS_STATUS_OK, 1U, data, 6U, 153U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_LIST_REPLY, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_LIST_REPLY_SIZE, payload.size);
+    message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK, os_vfs_parse_worker_list_reply(&message, &reply, 153U));
+    TEST_ASSERT_EQUAL(1U, reply.count); TEST_ASSERT_EQUAL('s', reply.data[0]);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_make_worker_list_request(&payload, "assets/file", 153U));
+    message.size = OS_VFS_LIST_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID, os_vfs_parse_worker_list_reply(&message, &reply, 153U));
+}
+
+static void test_worker_alias_list_page_messages_are_bounded_and_correlated(void) {
+    os_ipc_payload_t payload;
+    os_ipc_message_t message;
+    os_vfs_list_page_reply_t reply;
+    char path[OS_VFS_PATH_MAX];
+    uint32_t start;
+    uint8_t data[4] = {'o', 'k', '\n', 0U};
+    uint32_t i;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_list_page_request(&payload, "assets/", 4U, 154U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_LIST_PAGE, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_WORKER_LIST_PAGE_REQUEST_SIZE, payload.size);
+    message.sender_pid = 9; message.type = payload.type; message.size = payload.size;
+    message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_list_page_request(&message, path, &start));
+    TEST_ASSERT_EQUAL_STRING("assets/", path); TEST_ASSERT_EQUAL(4U, start);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_make_worker_list_page_reply(&payload, OS_VFS_STATUS_TRUNCATED,
+                                                         1U, 5U, data, 3U, 154U));
+    TEST_ASSERT_EQUAL(OS_IPC_VFS_WORKER_LIST_PAGE_REPLY, payload.type);
+    TEST_ASSERT_EQUAL(OS_VFS_LIST_PAGE_REPLY_SIZE, payload.size);
+    message.type = payload.type; message.size = payload.size; message.request_id = payload.request_id;
+    for (i = 0U; i < OS_IPC_MAX_DATA; i++) message.data[i] = payload.data[i];
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_OK,
+                      os_vfs_parse_worker_list_page_reply(&message, &reply, 154U));
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_TRUNCATED, reply.status);
+    TEST_ASSERT_EQUAL(5U, reply.next_start);
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_list_page_reply(&message, &reply, 155U));
+    message.size = OS_VFS_LIST_PAGE_REPLY_SIZE - 1U;
+    TEST_ASSERT_EQUAL(OS_VFS_STATUS_INVALID,
+                      os_vfs_parse_worker_list_page_reply(&message, &reply, 154U));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_read_request_is_bounded_and_zero_padded);
@@ -918,6 +1013,9 @@ int main(void) {
     RUN_TEST(test_worker_remove_request_is_bounded_and_decoded);
     RUN_TEST(test_worker_directory_requests_and_replies_are_bounded_and_correlated);
     RUN_TEST(test_worker_rename_request_is_bounded_and_decoded);
+    RUN_TEST(test_worker_alias_stat_messages_are_bounded_and_correlated);
+    RUN_TEST(test_worker_alias_list_messages_are_bounded_and_correlated);
+    RUN_TEST(test_worker_alias_list_page_messages_are_bounded_and_correlated);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

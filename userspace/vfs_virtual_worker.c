@@ -56,10 +56,17 @@ static uint32_t worker_mount_count = VFS_WORKER_BOOT_MOUNT_COUNT;
 /* Les requêtes de mutation sont privées : sans ce contrôle, un client pourrait
  * utiliser le worker comme suppléant de ses droits backend ou désynchroniser
  * directement l’autorité des alias et le miroir du médiateur. */
-static int worker_mutation_sender_is_vfs(const os_ipc_message_t* message) {
+static int worker_sender_is_vfs(const os_ipc_message_t* message) {
     int vfs_pid = service_lookup("vfs");
     return message && vfs_pid > 0 && message->sender_pid == vfs_pid;
 }
+
+static int worker_dynamic_path(const char* path, uint32_t* source_out, const char** relative_out);
+static int worker_dynamic_mutate_write(const char* path, const uint8_t* data, uint32_t size);
+static int worker_dynamic_mutate_remove(const char* path);
+static int worker_dynamic_mutate_rename(const char* old_path, const char* new_path);
+static int worker_dynamic_mutate_mkdir(const char* path);
+static int worker_dynamic_mutate_rmdir(const char* path);
 
 static const char* path_after_prefix(const char* path, const char* prefix) {
     uint32_t index = 0U;
@@ -97,7 +104,7 @@ static int mutate_write(const char* path, const uint8_t* data, uint32_t size) {
         return syscall_write(SYS_VFS_FAT16_CREATE, relative, data, size);
     if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
         return syscall_write(SYS_VFS_FAT32_CREATE, relative, data, size);
-    return OS_VFS_STATUS_NOT_MOUNTED;
+    return worker_dynamic_mutate_write(path, data, size);
 }
 
 static int mutate_remove(const char* path) {
@@ -108,7 +115,7 @@ static int mutate_remove(const char* path) {
         return syscall_remove(SYS_VFS_FAT16_UNLINK, relative);
     if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
         return syscall_remove(SYS_VFS_FAT32_UNLINK, relative);
-    return OS_VFS_STATUS_NOT_MOUNTED;
+    return worker_dynamic_mutate_remove(path);
 }
 
 static int mutate_rename(const char* old_path, const char* new_path) {
@@ -123,7 +130,7 @@ static int mutate_rename(const char* old_path, const char* new_path) {
     if ((old_relative = path_after_prefix(old_path, "fat32/")) != (const char*)0 &&
         (new_relative = path_after_prefix(new_path, "fat32/")) != (const char*)0)
         return syscall_rename(SYS_VFS_FAT32_RENAME, old_relative, new_relative);
-    return OS_VFS_STATUS_NOT_MOUNTED;
+    return worker_dynamic_mutate_rename(old_path, new_path);
 }
 
 static int mutate_mkdir(const char* path) {
@@ -134,7 +141,7 @@ static int mutate_mkdir(const char* path) {
         return syscall_write(SYS_VFS_FAT16_CREATE, relative, (const uint8_t*)0, 0U);
     if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0)
         return syscall_write(SYS_VFS_FAT32_CREATE, relative, (const uint8_t*)0, 0U);
-    return OS_VFS_STATUS_NOT_MOUNTED;
+    return worker_dynamic_mutate_mkdir(path);
 }
 
 static int mutate_rmdir(const char* path) {
@@ -146,7 +153,7 @@ static int mutate_rmdir(const char* path) {
         return syscall_remove(SYS_VFS_OVERLAY_RMDIR, relative);
     if ((relative = path_after_prefix(path, "fat16/")) != (const char*)0) number = SYS_VFS_FAT16_UNLINK;
     else if ((relative = path_after_prefix(path, "fat32/")) != (const char*)0) number = SYS_VFS_FAT32_UNLINK;
-    else return OS_VFS_STATUS_NOT_MOUNTED;
+    else return worker_dynamic_mutate_rmdir(path);
     while (relative[i] != '\0' && i + 2U < OS_VFS_PATH_MAX) { directory[i] = relative[i]; i++; }
     if (relative[i] != '\0' || i == 0U) return OS_VFS_STATUS_INVALID;
     directory[i++] = '/'; directory[i] = '\0';
@@ -249,6 +256,277 @@ static uint32_t format_stats(uint8_t* data, uint32_t reads, uint32_t writes,
     return size;
 }
 
+/* Les I/O physiques ne sont routées qu’après une correspondance avec une
+ * entrée dynamique détenue par ce worker. Les quatre montages fixes ne sont
+ * volontairement pas parcourus ici : le grant backend global est compensé par
+ * cette politique d’entrée étroite, vérifiée avant chaque syscall. */
+static int worker_dynamic_path(const char* path, uint32_t* source_out, const char** relative_out) {
+    uint32_t index;
+    const char* relative;
+    if (!path || !source_out || !relative_out) return 0;
+    for (index = VFS_WORKER_BOOT_MOUNT_COUNT; index < worker_mount_count; index++) {
+        if (os_vfs_match_mount(path, worker_mounts[index].prefix, &relative)) {
+            *source_out = worker_mounts[index].source;
+            *relative_out = relative;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int worker_dynamic_list_path(const char* path, uint32_t* source_out, const char** relative_out) {
+    uint32_t index = 0U;
+    if (!path || !source_out || !relative_out || !os_vfs_list_path_is_valid(path)) return 0;
+    for (index = VFS_WORKER_BOOT_MOUNT_COUNT; index < worker_mount_count; index++) {
+        uint32_t at = 0U;
+        const char* mount = worker_mounts[index].prefix;
+        while (mount[at] != '\0' && path[at] == mount[at]) at++;
+        if (mount[at] != '\0') continue;
+        *source_out = worker_mounts[index].source;
+        *relative_out = path[at] == '\0' ? "/" : path + at;
+        return 1;
+    }
+    return 0;
+}
+
+static int worker_syscall_read(int number, const char* path, uint8_t* data, uint32_t max) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(number), "b"(path), "c"(data), "d"(max));
+    return result;
+}
+
+static int worker_syscall_stat(int number, const char* path, os_dirent_t* out) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(number), "b"(path), "c"(out));
+    return result;
+}
+
+static int worker_list_source(uint32_t source, const char* path, os_dirent_t* out, int max_n) {
+    int result;
+    if (!path || !out || max_n <= 0) return OS_VFS_STATUS_INVALID;
+    if (source == OS_VFS_MOUNT_SOURCE_INITRD) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_LISTDIR), "b"(path), "c"(out), "d"(max_n));
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_LISTDIR), "b"(path), "c"(out), "d"(max_n));
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PATH), "b"(path), "c"(out), "d"(max_n), "S"(0U));
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PATH), "b"(path), "c"(out), "d"(max_n), "S"(0U));
+        return result;
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_list_source_page(uint32_t source, const char* path, os_dirent_t* out,
+                                   uint32_t start) {
+    int result;
+    if (!path || !out) return OS_VFS_STATUS_INVALID;
+    if (source == OS_VFS_MOUNT_SOURCE_INITRD) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_INITRD_LISTDIR_PAGE), "b"(path), "c"(out), "d"(start));
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) {
+        asm volatile("int $0x80" : "=a"(result) : "a"(SYS_VFS_OVERLAY_LISTDIR_PAGE), "b"(path), "c"(out), "d"(start));
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) {
+        if (path[0] == '/' && path[1] == '\0') {
+            asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PAGE), "b"(out),
+                         "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+        } else {
+            asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT16_LIST_PATH), "b"(path),
+                         "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "S"(start));
+        }
+        return result;
+    }
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) {
+        if (path[0] == '/' && path[1] == '\0') {
+            asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PAGE), "b"(out),
+                         "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "d"(start));
+        } else {
+            asm volatile("int $0x80" : "=a"(result) : "a"(SYS_FAT32_LIST_PATH), "b"(path),
+                         "c"(OS_VFS_LIST_ENTRY_MAX + 1U), "S"(start));
+        }
+        return result;
+    }
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_ascii_fold_equal(const char* left, const char* right) {
+    uint32_t i = 0U;
+    while (left[i] != '\0' && right[i] != '\0') {
+        char a = left[i];
+        char b = right[i];
+        if (a >= 'a' && a <= 'z') a = (char)(a - ('a' - 'A'));
+        if (b >= 'a' && b <= 'z') b = (char)(b - ('a' - 'A'));
+        if (a != b) return 0;
+        i++;
+    }
+    return left[i] == right[i];
+}
+
+static int worker_fat_stat(uint32_t source, const char* path, os_dirent_t* out) {
+    os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
+    char directory[OS_VFS_PATH_MAX];
+    const char* list_path = "/";
+    const char* leaf = path;
+    uint32_t start = 0U;
+    uint32_t i;
+    uint32_t slash = OS_VFS_LIST_PAGE_END;
+    int count;
+    if (!path || !out || path[0] == '\0' || path[0] == '/') return OS_VFS_STATUS_INVALID;
+    for (i = 0U; path[i] != '\0'; i++) {
+        if (i + 1U >= OS_VFS_PATH_MAX) return OS_VFS_STATUS_INVALID;
+        if (path[i] == '/') {
+            if (slash != OS_VFS_LIST_PAGE_END) return OS_VFS_STATUS_INVALID;
+            slash = i;
+        }
+    }
+    if (slash != OS_VFS_LIST_PAGE_END) {
+        if (slash == 0U || path[slash + 1U] == '\0') return OS_VFS_STATUS_INVALID;
+        for (i = 0U; i <= slash; i++) directory[i] = path[i];
+        directory[slash + 1U] = '\0';
+        list_path = directory;
+        leaf = path + slash + 1U;
+    }
+    while ((count = worker_list_source_page(source, list_path, entries, start)) > 0) {
+        for (i = 0U; i < (uint32_t)count; i++) {
+            if (worker_ascii_fold_equal(entries[i].name, leaf)) { *out = entries[i]; return OS_VFS_STATUS_OK; }
+        }
+        if (count < (int)OS_VFS_LIST_ENTRY_MAX) break;
+        start += (uint32_t)count;
+    }
+    return count < 0 ? count : OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_dynamic_mutate_write(const char* path, const uint8_t* data, uint32_t size) {
+    uint32_t source;
+    const char* relative;
+    if (!worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return syscall_write(SYS_VFS_BACKEND_WRITE, relative, data, size);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) return syscall_write(SYS_VFS_FAT16_CREATE, relative, data, size);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) return syscall_write(SYS_VFS_FAT32_CREATE, relative, data, size);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_dynamic_mutate_remove(const char* path) {
+    uint32_t source;
+    const char* relative;
+    if (!worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return syscall_remove(SYS_VFS_OVERLAY_UNLINK, relative);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) return syscall_remove(SYS_VFS_FAT16_UNLINK, relative);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) return syscall_remove(SYS_VFS_FAT32_UNLINK, relative);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_dynamic_mutate_rename(const char* old_path, const char* new_path) {
+    uint32_t old_source;
+    uint32_t new_source;
+    const char* old_relative;
+    const char* new_relative;
+    if (!worker_dynamic_path(old_path, &old_source, &old_relative) ||
+        !worker_dynamic_path(new_path, &new_source, &new_relative) || old_source != new_source)
+        return OS_VFS_STATUS_NOT_MOUNTED;
+    if (old_source == OS_VFS_MOUNT_SOURCE_OVERLAY) return syscall_rename(SYS_VFS_OVERLAY_RENAME, old_relative, new_relative);
+    if (old_source == OS_VFS_MOUNT_SOURCE_FAT16) return syscall_rename(SYS_VFS_FAT16_RENAME, old_relative, new_relative);
+    if (old_source == OS_VFS_MOUNT_SOURCE_FAT32) return syscall_rename(SYS_VFS_FAT32_RENAME, old_relative, new_relative);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_dynamic_mutate_mkdir(const char* path) {
+    uint32_t source;
+    const char* relative;
+    if (!worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return syscall_remove(SYS_VFS_OVERLAY_MKDIR, relative);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) return syscall_write(SYS_VFS_FAT16_CREATE, relative, (const uint8_t*)0, 0U);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) return syscall_write(SYS_VFS_FAT32_CREATE, relative, (const uint8_t*)0, 0U);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_dynamic_mutate_rmdir(const char* path) {
+    uint32_t source;
+    const char* relative;
+    char directory[OS_VFS_PATH_MAX];
+    uint32_t i = 0U;
+    int number;
+    if (!worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return syscall_remove(SYS_VFS_OVERLAY_RMDIR, relative);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) number = SYS_VFS_FAT16_UNLINK;
+    else if (source == OS_VFS_MOUNT_SOURCE_FAT32) number = SYS_VFS_FAT32_UNLINK;
+    else return OS_VFS_STATUS_NOT_MOUNTED;
+    while (relative[i] != '\0' && i + 2U < OS_VFS_PATH_MAX) { directory[i] = relative[i]; i++; }
+    if (relative[i] != '\0' || i == 0U) return OS_VFS_STATUS_INVALID;
+    directory[i++] = '/'; directory[i] = '\0';
+    return syscall_remove(number, directory);
+}
+
+static int worker_alias_read(const char* path, uint8_t* data, uint32_t* size_out) {
+    uint32_t source;
+    const char* relative;
+    int read;
+    if (!data || !size_out || !worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_INITRD) read = worker_syscall_read(SYS_VFS_INITRD_READ, relative, data, OS_VFS_READ_MAX);
+    else if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) read = worker_syscall_read(SYS_VFS_OVERLAY_READ, relative, data, OS_VFS_READ_MAX);
+    else if (source == OS_VFS_MOUNT_SOURCE_FAT16) read = worker_syscall_read(SYS_FAT16_READ, relative, data, OS_VFS_READ_MAX);
+    else if (source == OS_VFS_MOUNT_SOURCE_FAT32) read = worker_syscall_read(SYS_FAT32_READ, relative, data, OS_VFS_READ_MAX);
+    else return OS_VFS_STATUS_NOT_MOUNTED;
+    if (read < 0) return read;
+    *size_out = (uint32_t)read;
+    return OS_VFS_STATUS_OK;
+}
+
+static int worker_alias_stat(const char* path, os_dirent_t* out) {
+    uint32_t source;
+    const char* relative;
+    if (!out || !worker_dynamic_path(path, &source, &relative)) return OS_VFS_STATUS_NOT_MOUNTED;
+    if (source == OS_VFS_MOUNT_SOURCE_INITRD) return worker_syscall_stat(SYS_VFS_INITRD_STAT, relative, out);
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return worker_syscall_stat(SYS_VFS_OVERLAY_STAT, relative, out);
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16 || source == OS_VFS_MOUNT_SOURCE_FAT32)
+        return worker_fat_stat(source, relative, out);
+    return OS_VFS_STATUS_NOT_MOUNTED;
+}
+
+static int worker_alias_list(const char* path, uint32_t start, uint8_t* data, uint32_t data_max,
+                             uint32_t* size_out, uint32_t* count_out, uint32_t* next_out) {
+    os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
+    uint32_t source;
+    const char* relative;
+    uint32_t written = 0U;
+    uint32_t emitted = 0U;
+    uint32_t entry_index;
+    int listed;
+    int status = OS_VFS_STATUS_OK;
+    if (!data || !size_out || !count_out || !next_out || !worker_dynamic_list_path(path, &source, &relative))
+        return OS_VFS_STATUS_NOT_MOUNTED;
+    *next_out = OS_VFS_LIST_PAGE_END;
+    listed = start == OS_VFS_LIST_PAGE_END
+        ? worker_list_source(source, relative, entries, (int)(OS_VFS_LIST_ENTRY_MAX + 1U))
+        : worker_list_source_page(source, relative, entries, start);
+    if (listed < 0) return listed;
+    for (entry_index = 0U; entry_index < (uint32_t)listed && entry_index < OS_VFS_LIST_ENTRY_MAX; entry_index++) {
+        uint32_t name_size = string_length(entries[entry_index].name);
+        if (written + name_size + 1U > data_max) { status = OS_VFS_STATUS_TRUNCATED; break; }
+        for (uint32_t j = 0U; j < name_size; j++) data[written++] = (uint8_t)entries[entry_index].name[j];
+        data[written++] = (uint8_t)'\n';
+        emitted++;
+    }
+    if (start != OS_VFS_LIST_PAGE_END && (uint32_t)listed > emitted) {
+        status = OS_VFS_STATUS_TRUNCATED;
+        *next_out = start + (emitted == 0U ? 1U : emitted);
+    } else if (start == OS_VFS_LIST_PAGE_END && (uint32_t)listed > OS_VFS_LIST_ENTRY_MAX) {
+        status = OS_VFS_STATUS_TRUNCATED;
+    }
+    *size_out = written;
+    *count_out = emitted;
+    return status;
+}
+
 void main(void) {
     static const uint8_t info[] = "vfsserver ring3 policy\n";
     os_ipc_message_t message;
@@ -263,20 +541,27 @@ void main(void) {
     for (;;) {
         int received = ipc_receive(&message);
         if (received == 0 && message.type == OS_IPC_VFS_WORKER_READ &&
+            worker_sender_is_vfs(&message) &&
             os_vfs_parse_worker_read_request(&message, path) == OS_VFS_STATUS_OK) {
+            const uint8_t* reply_data = (const uint8_t*)0;
             uint32_t size = 0U;
             int32_t status = OS_VFS_STATUS_NOT_MOUNTED;
             if (string_equal(path, "vfs-info")) {
                 puts("vfsvirtual read vfs-info\n");
+                reply_data = info;
                 size = (uint32_t)(sizeof(info) - 1U);
                 status = OS_VFS_STATUS_OK;
+            } else {
+                status = worker_alias_read(path, data, &size);
+                if (status == OS_VFS_STATUS_OK) {
+                    reply_data = data;
+                    puts("vfsvirtual alias read "); puts(path); puts("\n");
+                }
             }
-            if (os_vfs_make_worker_read_reply(&reply, status,
-                                              status == OS_VFS_STATUS_OK ? info : (const uint8_t*)0,
-                                              size, message.request_id) == OS_VFS_STATUS_OK) {
-                (void)ipc_send(message.sender_pid, &reply);
-            }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_STATS) {
+            if (os_vfs_make_worker_read_reply(&reply, status, reply_data, size, message.request_id)
+                == OS_VFS_STATUS_OK) (void)ipc_send(message.sender_pid, &reply);
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_STATS &&
+                   worker_sender_is_vfs(&message)) {
             uint32_t reads, writes, removes, renames;
             if (os_vfs_parse_worker_stats_request(&message, &reads, &writes, &removes, &renames)
                 == OS_VFS_STATUS_OK) {
@@ -287,7 +572,8 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
-        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT) {
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT &&
+                   worker_sender_is_vfs(&message)) {
             uint32_t writable;
             if (os_vfs_parse_worker_mount_request(&message, path, &writable) == OS_VFS_STATUS_OK) {
                 uint32_t size = append_text(data, 0U, path);
@@ -298,8 +584,58 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
                 }
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_STAT &&
+                   worker_sender_is_vfs(&message)) {
+            os_dirent_t entry;
+            if (os_vfs_parse_worker_stat_request(&message, path) == OS_VFS_STATUS_OK) {
+                int32_t status = worker_alias_stat(path, &entry);
+                puts("vfsvirtual alias stat "); puts(path); puts("\n");
+                if (os_vfs_make_worker_stat_reply(&reply, status,
+                                                   status == OS_VFS_STATUS_OK ? entry.size : 0U,
+                                                   status == OS_VFS_STATUS_OK ? entry.flags : 0U,
+                                                   message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_LIST &&
+                   worker_sender_is_vfs(&message)) {
+            uint32_t size = 0U;
+            uint32_t count = 0U;
+            uint32_t ignored_next = OS_VFS_LIST_PAGE_END;
+            if (os_vfs_parse_worker_list_request(&message, path) == OS_VFS_STATUS_OK) {
+                int32_t status = worker_alias_list(path, OS_VFS_LIST_PAGE_END, data,
+                                                    OS_VFS_LIST_DATA_MAX, &size, &count,
+                                                    &ignored_next);
+                puts("vfsvirtual alias list "); puts(path); puts("\n");
+                if (os_vfs_make_worker_list_reply(&reply, status, count,
+                                                  status < 0 ? (const uint8_t*)0 : data,
+                                                  status < 0 ? 0U : size,
+                                                  message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
+        } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_LIST_PAGE &&
+                   worker_sender_is_vfs(&message)) {
+            uint32_t size = 0U;
+            uint32_t count = 0U;
+            uint32_t start = 0U;
+            uint32_t next = OS_VFS_LIST_PAGE_END;
+            if (os_vfs_parse_worker_list_page_request(&message, path, &start) == OS_VFS_STATUS_OK) {
+                int32_t status = OS_VFS_STATUS_OK;
+                if (start != OS_VFS_LIST_PAGE_END) {
+                    status = worker_alias_list(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
+                                               &size, &count, &next);
+                }
+                puts("vfsvirtual alias list page "); puts(path); puts("\n");
+                if (os_vfs_make_worker_list_page_reply(&reply, status, count, next,
+                                                       status < 0 ? (const uint8_t*)0 : data,
+                                                       status < 0 ? 0U : size,
+                                                       message.request_id) == OS_VFS_STATUS_OK) {
+                    (void)ipc_send(message.sender_pid, &reply);
+                }
+            }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT_ADD &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             uint32_t source;
             if (os_vfs_parse_worker_mount_add_request(&message, path, &source) == OS_VFS_STATUS_OK) {
                 int32_t status = worker_mount_add(path, source);
@@ -310,7 +646,7 @@ void main(void) {
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MOUNT_REMOVE &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_mount_remove_request(&message, path) == OS_VFS_STATUS_OK) {
                 int32_t status = worker_mount_remove(path);
                 puts("vfsvirtual mount remove "); puts(path); puts("\n");
@@ -320,7 +656,7 @@ void main(void) {
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_WRITE &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             uint8_t write_buf[OS_VFS_WRITE_MAX];
             uint32_t write_len = 0U;
             if (os_vfs_parse_worker_write_request(&message, path, write_buf, &write_len) == OS_VFS_STATUS_OK) {
@@ -333,7 +669,7 @@ void main(void) {
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_REMOVE &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_remove_request(&message, path) == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_remove(path);
                 puts("vfsvirtual remove ");
@@ -344,7 +680,7 @@ void main(void) {
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RENAME &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             char new_path[OS_VFS_PATH_MAX];
             if (os_vfs_parse_worker_rename_request(&message, path, new_path) == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_rename(path, new_path);
@@ -358,7 +694,7 @@ void main(void) {
                 }
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_MKDIR &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_MKDIR, path)
                 == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_mkdir(path);
@@ -367,7 +703,7 @@ void main(void) {
                     (void)ipc_send(message.sender_pid, &reply);
             }
         } else if (received == 0 && message.type == OS_IPC_VFS_WORKER_RMDIR &&
-                   worker_mutation_sender_is_vfs(&message)) {
+                   worker_sender_is_vfs(&message)) {
             if (os_vfs_parse_worker_directory_request(&message, OS_IPC_VFS_WORKER_RMDIR, path)
                 == OS_VFS_STATUS_OK) {
                 int32_t status = mutate_rmdir(path);
