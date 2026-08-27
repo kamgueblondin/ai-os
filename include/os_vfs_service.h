@@ -57,6 +57,14 @@
 #define OS_IPC_VFS_WORKER_MOUNT_ADD_REPLY 0x5646570bU
 #define OS_IPC_VFS_WORKER_MOUNT_REMOVE       0x5646570cU
 #define OS_IPC_VFS_WORKER_MOUNT_REMOVE_REPLY 0x5646570dU
+/* I/O d’alias dynamique : messages privés, strictement corrélés au client.
+ * Les réponses reprennent les bornes des réponses VFS publiques. */
+#define OS_IPC_VFS_WORKER_STAT       0x5646570eU
+#define OS_IPC_VFS_WORKER_STAT_REPLY 0x5646570fU
+#define OS_IPC_VFS_WORKER_LIST       0x56465710U
+#define OS_IPC_VFS_WORKER_LIST_REPLY 0x56465711U
+#define OS_IPC_VFS_WORKER_LIST_PAGE       0x56465712U
+#define OS_IPC_VFS_WORKER_LIST_PAGE_REPLY 0x56465713U
 
 #define OS_VFS_PATH_MAX 48U
 #define OS_VFS_GRANT_REQUEST_SIZE 4U
@@ -73,6 +81,9 @@
 #define OS_VFS_WORKER_MOUNT_ADD_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U)
 #define OS_VFS_WORKER_MOUNT_REMOVE_REQUEST_SIZE OS_VFS_PATH_MAX
 #define OS_VFS_WORKER_MOUNT_REPLY_SIZE 4U
+#define OS_VFS_WORKER_STAT_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_LIST_REQUEST_SIZE OS_VFS_PATH_MAX
+#define OS_VFS_WORKER_LIST_PAGE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U)
 #define OS_VFS_WRITE_MAX 44U
 #define OS_VFS_WRITE_REQUEST_SIZE (OS_VFS_PATH_MAX + 4U + OS_VFS_WRITE_MAX)
 #define OS_VFS_WRITE_REPLY_SIZE 4U
@@ -1458,6 +1469,162 @@ static inline int os_vfs_parse_read_reply(const os_ipc_message_t* message,
     if (reply_out->size > OS_VFS_READ_MAX) return OS_VFS_STATUS_INVALID;
     for (i = 0U; i < OS_VFS_READ_MAX; i++) reply_out->data[i] = message->data[8U + i];
     return 0;
+}
+
+static inline int os_vfs_make_worker_stat_request(os_ipc_payload_t* payload, const char* path,
+                                                   uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_path_is_safe(path)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_STAT;
+    payload->size = OS_VFS_WORKER_STAT_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    for (i = OS_VFS_PATH_MAX; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_stat_request(const os_ipc_message_t* message, char* path_out) {
+    uint32_t i;
+    if (!message || !path_out || message->type != OS_IPC_VFS_WORKER_STAT ||
+        message->size != OS_VFS_WORKER_STAT_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_path_is_safe(path_out) ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_worker_stat_reply(os_ipc_payload_t* payload, int32_t status,
+                                                 uint32_t size, uint32_t flags,
+                                                 uint32_t request_id) {
+    uint32_t i;
+    if (!payload) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_STAT_REPLY;
+    payload->size = OS_VFS_STAT_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    os_vfs_encode_u32(&payload->data[4], size);
+    os_vfs_encode_u32(&payload->data[8], flags);
+    for (i = OS_VFS_STAT_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_stat_reply(const os_ipc_message_t* message,
+                                                  os_vfs_stat_reply_t* reply_out,
+                                                  uint32_t expected_request_id) {
+    if (!message || !reply_out || message->type != OS_IPC_VFS_WORKER_STAT_REPLY ||
+        message->size != OS_VFS_STAT_REPLY_SIZE || message->request_id != expected_request_id)
+        return OS_VFS_STATUS_INVALID;
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    reply_out->size = os_vfs_decode_u32(&message->data[4]);
+    reply_out->flags = os_vfs_decode_u32(&message->data[8]);
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_list_request(os_ipc_payload_t* payload, const char* path,
+                                                   uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_list_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_LIST;
+    payload->size = OS_VFS_WORKER_LIST_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    for (i = OS_VFS_PATH_MAX; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_list_request(const os_ipc_message_t* message, char* path_out) {
+    uint32_t i;
+    if (!message || !path_out || message->type != OS_IPC_VFS_WORKER_LIST ||
+        message->size != OS_VFS_WORKER_LIST_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    return os_vfs_list_path_is_valid(path_out) ? OS_VFS_STATUS_OK : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_worker_list_reply(os_ipc_payload_t* payload, int32_t status,
+                                                 uint32_t count, const uint8_t* data,
+                                                 uint32_t size, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || count > OS_VFS_LIST_ENTRY_MAX || size > OS_VFS_LIST_DATA_MAX ||
+        (size > 0U && !data)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_LIST_REPLY;
+    payload->size = OS_VFS_LIST_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    os_vfs_encode_u32(&payload->data[4], count);
+    for (i = 0U; i < size; i++) payload->data[8U + i] = data[i];
+    for (; i < OS_VFS_LIST_DATA_MAX; i++) payload->data[8U + i] = 0U;
+    for (i = OS_VFS_LIST_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_list_reply(const os_ipc_message_t* message,
+                                                  os_vfs_list_reply_t* reply_out,
+                                                  uint32_t expected_request_id) {
+    uint32_t i;
+    if (!message || !reply_out || message->type != OS_IPC_VFS_WORKER_LIST_REPLY ||
+        message->size != OS_VFS_LIST_REPLY_SIZE || message->request_id != expected_request_id)
+        return OS_VFS_STATUS_INVALID;
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    reply_out->count = os_vfs_decode_u32(&message->data[4]);
+    if (reply_out->count > OS_VFS_LIST_ENTRY_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_LIST_DATA_MAX; i++) reply_out->data[i] = message->data[8U + i];
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_list_page_request(os_ipc_payload_t* payload, const char* path,
+                                                        uint32_t start, uint32_t request_id) {
+    uint32_t i;
+    if (!payload || !os_vfs_list_page_path_is_valid(path)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_LIST_PAGE;
+    payload->size = OS_VFS_WORKER_LIST_PAGE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) payload->data[i] = (uint8_t)path[i];
+    os_vfs_encode_u32(&payload->data[OS_VFS_PATH_MAX], start);
+    for (i = OS_VFS_WORKER_LIST_PAGE_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_list_page_request(const os_ipc_message_t* message,
+                                                         char* path_out, uint32_t* start_out) {
+    uint32_t i;
+    if (!message || !path_out || !start_out || message->type != OS_IPC_VFS_WORKER_LIST_PAGE ||
+        message->size != OS_VFS_WORKER_LIST_PAGE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_PATH_MAX; i++) path_out[i] = (char)message->data[i];
+    if (!os_vfs_list_page_path_is_valid(path_out)) return OS_VFS_STATUS_INVALID;
+    *start_out = os_vfs_decode_u32(&message->data[OS_VFS_PATH_MAX]);
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_make_worker_list_page_reply(os_ipc_payload_t* payload, int32_t status,
+                                                      uint32_t count, uint32_t next_start,
+                                                      const uint8_t* data, uint32_t size,
+                                                      uint32_t request_id) {
+    uint32_t i;
+    if (!payload || count > OS_VFS_LIST_ENTRY_MAX || size > OS_VFS_LIST_PAGE_DATA_MAX ||
+        (size > 0U && !data)) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_WORKER_LIST_PAGE_REPLY;
+    payload->size = OS_VFS_LIST_PAGE_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    os_vfs_encode_u32(&payload->data[4], count);
+    os_vfs_encode_u32(&payload->data[8], next_start);
+    for (i = 0U; i < size; i++) payload->data[12U + i] = data[i];
+    for (; i < OS_VFS_LIST_PAGE_DATA_MAX; i++) payload->data[12U + i] = 0U;
+    for (i = OS_VFS_LIST_PAGE_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return OS_VFS_STATUS_OK;
+}
+
+static inline int os_vfs_parse_worker_list_page_reply(const os_ipc_message_t* message,
+                                                       os_vfs_list_page_reply_t* reply_out,
+                                                       uint32_t expected_request_id) {
+    uint32_t i;
+    if (!message || !reply_out || message->type != OS_IPC_VFS_WORKER_LIST_PAGE_REPLY ||
+        message->size != OS_VFS_LIST_PAGE_REPLY_SIZE || message->request_id != expected_request_id)
+        return OS_VFS_STATUS_INVALID;
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    reply_out->count = os_vfs_decode_u32(&message->data[4]);
+    reply_out->next_start = os_vfs_decode_u32(&message->data[8]);
+    if (reply_out->count > OS_VFS_LIST_ENTRY_MAX) return OS_VFS_STATUS_INVALID;
+    for (i = 0U; i < OS_VFS_LIST_PAGE_DATA_MAX; i++) reply_out->data[i] = message->data[12U + i];
+    return OS_VFS_STATUS_OK;
 }
 
 #endif

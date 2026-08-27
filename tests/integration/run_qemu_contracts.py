@@ -16,8 +16,11 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PYTHON = sys.executable
 
-# Long-running, isolated scenarios start first so a two-slot worker pool keeps
-# the critical path short while remaining small enough for standard CI runners.
+# Les scénarios restent isolés mais partagent le contrôleur PS/2 émulé. Une
+# exécution séquentielle est donc le défaut CI : elle évite qu’une frappe d’un
+# contrat soit perdue par une autre instance QEMU tout en conservant les sept
+# assertions sous le budget de 25 minutes. Une concurrence explicite reste
+# disponible via QEMU_INTEGRATION_JOBS pour le diagnostic local.
 CONTRACTS = (
     ("vfs-service", (PYTHON, "tests/integration/test_qemu_vfs_service.py")),
     ("service-grant", (PYTHON, "tests/integration/test_qemu_service_grant.py")),
@@ -30,7 +33,7 @@ CONTRACTS = (
 
 
 def configured_jobs():
-    raw = os.environ.get("QEMU_INTEGRATION_JOBS", "2")
+    raw = os.environ.get("QEMU_INTEGRATION_JOBS", "1")
     try:
         jobs = int(raw)
     except ValueError:

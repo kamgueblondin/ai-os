@@ -559,6 +559,13 @@ static uint32_t vfs_virtual_timeouts;
 #define VFS_VIRTUAL_PENDING_RMDIR 8U
 #define VFS_VIRTUAL_PENDING_MOUNT_ADD 9U
 #define VFS_VIRTUAL_PENDING_MOUNT_REMOVE 10U
+/* I/O d’alias : chaque réponse privée est recodée vers le client avec le
+ * request_id initial. En cas d’incertitude, aucune ne repasse par le miroir. */
+#define VFS_VIRTUAL_PENDING_ALIAS_READ 11U
+#define VFS_VIRTUAL_PENDING_ALIAS_STAT 12U
+#define VFS_VIRTUAL_PENDING_ALIAS_LIST 13U
+#define VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE 14U
+#define VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE 15U
 #define VFS_VIRTUAL_VIEW_INFO 0U
 #define VFS_VIRTUAL_VIEW_STATS 1U
 #define VFS_VIRTUAL_VIEW_MOUNTS 2U
@@ -586,12 +593,26 @@ typedef struct {
     char mutation_new_path[OS_VFS_PATH_MAX];
     uint32_t mutation_size;
     uint32_t mount_source;
+    /* Droit backend présent avant une I/O de lecture d’alias. Il est restauré
+     * ou révoqué dès la terminaison corrélée pour réduire la fenêtre READ. */
+    uint32_t backend_rights_restore;
+    uint32_t backend_rights_active;
     uint8_t mutation_data[OS_VFS_WRITE_MAX];
     uint8_t mount_data[OS_VFS_READ_MAX];
 } vfs_virtual_pending_t;
 static vfs_virtual_pending_t vfs_virtual_pending;
 
 static void vfs_virtual_reset(void) {
+    if (vfs_virtual_pending.active && vfs_virtual_pending.backend_rights_active &&
+        vfs_virtual_pending.backend_rights_restore != 0U &&
+        service_lookup("vfs-virtual") == vfs_virtual_pending.worker_pid) {
+        (void)service_backend_grant_scoped("vfs", vfs_virtual_pending.worker_pid,
+                                           vfs_virtual_pending.backend_rights_restore);
+    } else if (vfs_virtual_pending.active && vfs_virtual_pending.backend_rights_active &&
+               vfs_virtual_pending.backend_rights_restore == 0U &&
+               service_lookup("vfs-virtual") == vfs_virtual_pending.worker_pid) {
+        (void)service_backend_revoke("vfs", vfs_virtual_pending.worker_pid);
+    }
     vfs_virtual_pending.active = 0U;
     vfs_virtual_pending.kind = VFS_VIRTUAL_PENDING_SIMPLE;
     vfs_virtual_pending.view = VFS_VIRTUAL_VIEW_INFO;
@@ -606,6 +627,8 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.mutation_new_path[0] = '\0';
     vfs_virtual_pending.mutation_size = 0U;
     vfs_virtual_pending.mount_source = 0U;
+    vfs_virtual_pending.backend_rights_restore = 0U;
+    vfs_virtual_pending.backend_rights_active = 0U;
 }
 
 static int vfs_virtual_lookup(void) {
@@ -636,6 +659,8 @@ static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id
     vfs_virtual_pending.mutation_new_path[0] = '\0';
     vfs_virtual_pending.mutation_size = 0U;
     vfs_virtual_pending.mount_source = 0U;
+    vfs_virtual_pending.backend_rights_restore = 0U;
+    vfs_virtual_pending.backend_rights_active = 0U;
     return 0;
 }
 
@@ -651,10 +676,70 @@ static int vfs_virtual_submit(const char* path, int client_pid, uint32_t request
                              VFS_VIRTUAL_VIEW_INFO);
 }
 
+/* Le miroir ne décide que si le chemin doit être délégué. Il ne résout jamais
+ * l’I/O : le worker revalide le préfixe dans sa table d’autorité avant syscall. */
+static int vfs_path_is_dynamic_alias(const char* path, int list_path) {
+    uint32_t index;
+    if (!path || !vfs_mount_worker_trusted) return 0;
+    for (index = VFS_BOOT_MOUNT_COUNT; index < vfs_mount_count; index++) {
+        const char* relative = (const char*)0;
+        if (!list_path && os_vfs_match_mount(path, vfs_mounts[index].prefix, &relative)) return 1;
+        if (list_path && os_vfs_list_path_is_valid(path)) {
+            uint32_t offset = 0U;
+            while (vfs_mounts[index].prefix[offset] != '\0' &&
+                   path[offset] == vfs_mounts[index].prefix[offset]) offset++;
+            if (vfs_mounts[index].prefix[offset] == '\0') return 1;
+        }
+    }
+    return 0;
+}
+
+static int vfs_virtual_submit_alias_io(uint32_t kind, const char* path, uint32_t start,
+                                       int client_pid, uint32_t request_id) {
+    os_ipc_payload_t payload;
+    uint32_t restore_rights = 0U;
+    int worker_pid;
+    int status;
+    if (vfs_virtual_pending.active) return -1;
+    worker_pid = vfs_virtual_lookup();
+    if (worker_pid < 0 || !vfs_path_is_dynamic_alias(path,
+        kind == VFS_VIRTUAL_PENDING_ALIAS_LIST || kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
+        kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE)) return -2;
+    if (kind == VFS_VIRTUAL_PENDING_ALIAS_READ) {
+        status = os_vfs_make_worker_read_request(&payload, path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_ALIAS_STAT) {
+        status = os_vfs_make_worker_stat_request(&payload, path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_ALIAS_LIST) {
+        status = os_vfs_make_worker_list_request(&payload, path, request_id);
+    } else if (kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
+               kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE) {
+        status = os_vfs_make_worker_list_page_request(&payload, path, start, request_id);
+    } else return -3;
+    if (status != OS_VFS_STATUS_OK) return -4;
+    if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
+        return -5;
+    /* Le registre n’offre pas de scope chemin/source. La lecture est donc
+     * accordée seulement pendant cette transaction ; le worker la réduit encore
+     * à un alias dynamique détenu et le médiateur restaure le droit antérieur. */
+    status = service_backend_status("vfs", worker_pid, &restore_rights);
+    if (status != 0) restore_rights = 0U;
+    status = service_backend_grant_scoped("vfs", worker_pid, OS_VFS_BACKEND_RIGHT_READ);
+    if (status != 0) { vfs_virtual_reset(); return -6; }
+    vfs_virtual_pending.backend_rights_restore = restore_rights;
+    vfs_virtual_pending.backend_rights_active = 1U;
+    vfs_virtual_pending.mount_start = start;
+    if (ipc_send(worker_pid, &payload) != 0) { vfs_virtual_reset(); return -7; }
+    return 0;
+}
+
 static int vfs_virtual_mutation_path_is_fixed(const char* path) {
     return path && (string_has_prefix(path, "overlay/") ||
                     string_has_prefix(path, "fat16/") ||
                     string_has_prefix(path, "fat32/"));
+}
+
+static int vfs_virtual_mutation_path_is_routed(const char* path) {
+    return vfs_virtual_mutation_path_is_fixed(path) || vfs_path_is_dynamic_alias(path, 0);
 }
 
 static void vfs_virtual_store_mutation(uint32_t kind, const char* path, const char* new_path,
@@ -850,6 +935,44 @@ static int vfs_virtual_reply_local(os_ipc_payload_t* reply_payload) {
         vfs_virtual_reset();
         return 1;
     }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_READ) {
+        if (os_vfs_make_read_reply(reply_payload, OS_VFS_STATUS_INVALID, (const uint8_t*)0, 0U,
+                                   vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_STAT) {
+        if (os_vfs_make_stat_reply(reply_payload, OS_VFS_STATUS_INVALID, 0U, 0U,
+                                   vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST) {
+        if (os_vfs_make_list_reply(reply_payload, OS_VFS_STATUS_INVALID, 0U, (const uint8_t*)0, 0U,
+                                   vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE) {
+        if (os_vfs_make_list_page_reply(reply_payload, OS_VFS_STATUS_INVALID, 0U,
+                                        OS_VFS_LIST_PAGE_END, (const uint8_t*)0, 0U,
+                                        vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE) {
+        if (os_vfs_make_list_observe_reply(reply_payload, OS_VFS_STATUS_INVALID, 0U,
+                                           OS_VFS_LIST_PAGE_END, vfs_list_generation,
+                                           (const uint8_t*)0, 0U,
+                                           vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE) {
         uint32_t count = 0U;
         uint32_t next_start = OS_VFS_LIST_PAGE_END;
@@ -1024,6 +1147,52 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
         vfs_virtual_reset();
         return 1;
     }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_STAT) {
+        os_vfs_stat_reply_t worker_reply;
+        if (os_vfs_parse_worker_stat_reply(message, &worker_reply,
+                                           vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (os_vfs_make_stat_reply(reply_payload, worker_reply.status, worker_reply.size,
+                                   worker_reply.flags, vfs_virtual_pending.request_id)
+            == OS_VFS_STATUS_OK) (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST) {
+        os_vfs_list_reply_t worker_reply;
+        if (os_vfs_parse_worker_list_reply(message, &worker_reply,
+                                           vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (os_vfs_make_list_reply(reply_payload, worker_reply.status, worker_reply.count,
+                                   worker_reply.status < 0 ? (const uint8_t*)0 : worker_reply.data,
+                                   worker_reply.status < 0 ? 0U : OS_VFS_LIST_DATA_MAX,
+                                   vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
+        vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE) {
+        os_vfs_list_page_reply_t worker_reply;
+        if (os_vfs_parse_worker_list_page_reply(message, &worker_reply,
+                                                vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
+        if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE) {
+            if (os_vfs_make_list_observe_reply(reply_payload, worker_reply.status, worker_reply.count,
+                                               worker_reply.next_start, vfs_list_generation,
+                                               worker_reply.status < 0 ? (const uint8_t*)0 : worker_reply.data,
+                                               worker_reply.status < 0 ? 0U : OS_VFS_LIST_OBSERVE_DATA_MAX,
+                                               vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+                (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+            }
+        } else if (os_vfs_make_list_page_reply(reply_payload, worker_reply.status, worker_reply.count,
+                                                worker_reply.next_start,
+                                                worker_reply.status < 0 ? (const uint8_t*)0 : worker_reply.data,
+                                                worker_reply.status < 0 ? 0U : OS_VFS_LIST_PAGE_DATA_MAX,
+                                                vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
     if (message->type != OS_IPC_VFS_WORKER_READ_REPLY) return 0;
     parsed = os_vfs_parse_worker_read_reply(message, &status, data, &size,
                                             vfs_virtual_pending.request_id);
@@ -1031,6 +1200,16 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
      * type sont valides, mais un request_id discordant ne doit jamais terminer
      * la nouvelle transaction : il est simplement écarté. */
     if (parsed != OS_VFS_STATUS_OK) return 0;
+    if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_ALIAS_READ) {
+        if (os_vfs_make_read_reply(reply_payload, status,
+                                   status < 0 ? (const uint8_t*)0 : data,
+                                   status < 0 ? 0U : size,
+                                   vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK) {
+            (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
+        }
+        vfs_virtual_reset();
+        return 1;
+    }
     if (vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_PAGE ||
         vfs_virtual_pending.kind == VFS_VIRTUAL_PENDING_MOUNT_OBSERVE) {
         os_ipc_payload_t payload;
@@ -1469,6 +1648,13 @@ void main(void) {
             uint32_t count = 0U;
             puts("vfsserver list request\n");
             status = os_vfs_parse_list_request(&message, path);
+            if (status == 0 && vfs_path_is_dynamic_alias(path, 1) &&
+                vfs_virtual_submit_alias_io(VFS_VIRTUAL_PENDING_ALIAS_LIST, path, 0U,
+                                            message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated alias list\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = list_mounted_backend(path, data, &size, &count);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) puts("vfsserver list outside mounts\n");
@@ -1495,6 +1681,12 @@ void main(void) {
                 status = list_virtual_mounts_page(start, data, OS_VFS_LIST_PAGE_DATA_MAX,
                                                   &size, &count, &next_start);
                 puts("vfsserver virtual mount page local\n");
+            } else if (status == 0 && vfs_path_is_dynamic_alias(path, 1) &&
+                       vfs_virtual_submit_alias_io(VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE, path, start,
+                                                   message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated alias list page\n");
+                yield();
+                continue;
             } else if (status == 0) {
                 status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_PAGE_DATA_MAX,
                                                    &size, &count, &next_start);
@@ -1526,6 +1718,12 @@ void main(void) {
                 status = list_virtual_mounts_page(start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
                                                   &size, &count, &next_start);
                 puts("vfsserver virtual mount observe local\n");
+            } else if (status == 0 && vfs_path_is_dynamic_alias(path, 1) &&
+                       vfs_virtual_submit_alias_io(VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE, path, start,
+                                                   message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated alias list observe\n");
+                yield();
+                continue;
             } else if (status == 0) {
                 status = list_mounted_backend_page(path, start, data, OS_VFS_LIST_OBSERVE_DATA_MAX,
                                                    &size, &count, &next_start);
@@ -1540,6 +1738,13 @@ void main(void) {
             int status;
             puts("vfsserver stat request\n");
             status = os_vfs_parse_stat_request(&message, path);
+            if (status == 0 && vfs_path_is_dynamic_alias(path, 0) &&
+                vfs_virtual_submit_alias_io(VFS_VIRTUAL_PENDING_ALIAS_STAT, path, 0U,
+                                            message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated alias stat\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 status = stat_mounted_backend(path, &metadata);
                 if (status == OS_VFS_STATUS_NOT_MOUNTED) {
@@ -1576,6 +1781,13 @@ void main(void) {
                 yield();
                 continue;
             }
+            if (status == 0 && vfs_path_is_dynamic_alias(path, 0) &&
+                vfs_virtual_submit_alias_io(VFS_VIRTUAL_PENDING_ALIAS_READ, path, 0U,
+                                            message.sender_pid, message.request_id) == 0) {
+                puts("vfsserver delegated alias read\n");
+                yield();
+                continue;
+            }
             if (status == 0) {
                 if (read_virtual(path, data, &size)) {
                     if (string_equal(path, "vfs-info")) puts("vfsserver virtual vfs-info local\n");
@@ -1599,7 +1811,7 @@ void main(void) {
             vfs_write_requests++;
             puts("vfsserver write request\n");
             status = os_vfs_parse_write_request(&message, path, write_data, &size);
-            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+            if (status == 0 && vfs_virtual_mutation_path_is_routed(path) &&
                 vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_WRITE, path, (const char*)0,
                                             write_data, size, message.sender_pid,
                                             message.request_id) == 0) {
@@ -1621,7 +1833,7 @@ void main(void) {
             int status;
             puts("vfsserver mkdir request\n");
             status = os_vfs_parse_mkdir_request(&message, path);
-            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+            if (status == 0 && vfs_virtual_mutation_path_is_routed(path) &&
                 vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_MKDIR, path, (const char*)0,
                                             (const uint8_t*)0, 0U, message.sender_pid,
                                             message.request_id) == 0) {
@@ -1641,7 +1853,7 @@ void main(void) {
             int status;
             puts("vfsserver rmdir request\n");
             status = os_vfs_parse_rmdir_request(&message, path);
-            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+            if (status == 0 && vfs_virtual_mutation_path_is_routed(path) &&
                 vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_RMDIR, path, (const char*)0,
                                             (const uint8_t*)0, 0U, message.sender_pid,
                                             message.request_id) == 0) {
@@ -1662,7 +1874,7 @@ void main(void) {
             vfs_remove_requests++;
             puts("vfsserver remove request\n");
             status = os_vfs_parse_remove_request(&message, path);
-            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
+            if (status == 0 && vfs_virtual_mutation_path_is_routed(path) &&
                 vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_REMOVE, path, (const char*)0,
                                             (const uint8_t*)0, 0U, message.sender_pid,
                                             message.request_id) == 0) {
@@ -1685,8 +1897,8 @@ void main(void) {
             vfs_rename_requests++;
             puts("vfsserver rename request\n");
             status = os_vfs_parse_rename_request(&message, path, new_path);
-            if (status == 0 && vfs_virtual_mutation_path_is_fixed(path) &&
-                vfs_virtual_mutation_path_is_fixed(new_path) &&
+            if (status == 0 && vfs_virtual_mutation_path_is_routed(path) &&
+                vfs_virtual_mutation_path_is_routed(new_path) &&
                 vfs_virtual_submit_mutation(VFS_VIRTUAL_PENDING_RENAME, path, new_path,
                                             (const uint8_t*)0, 0U, message.sender_pid,
                                             message.request_id) == 0) {
