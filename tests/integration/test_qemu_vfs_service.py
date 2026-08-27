@@ -643,7 +643,7 @@ def main():
             before_alias_read_revoked = len(log_text())
             send_command_until(monitor, "vfs-backend-status %s" % worker_pid,
                                "vfsserver backend status request", proc)
-            wait_for("vfs-backend-status ok rights mutate", proc, before_alias_read_revoked)
+            wait_for("vfs-backend-status: capacite absente ou refusee", proc, before_alias_read_revoked)
             before_alias_write = len(log_text())
             send_command_until(monitor, "vfs-write work/alias.txt workok",
                                "vfs-write ok request", proc)
@@ -772,7 +772,7 @@ def main():
             before_worker_mutate_only = len(log_text())
             send_command_until(monitor, "vfs-backend-status %s" % worker_pid,
                                "vfsserver backend status request", proc)
-            wait_for("vfs-backend-status ok rights mutate", proc, before_worker_mutate_only)
+            wait_for("vfs-backend-status: capacite absente ou refusee", proc, before_worker_mutate_only)
             before_outside = len(log_text())
             send_command_until(monitor, "vfs-read hello.txt",
                                "vfsserver path outside mounts", proc)
@@ -898,11 +898,17 @@ def main():
             if not alias_flight_spawned:
                 raise RuntimeError("client alias VFS en vol non lance")
             alias_flight_pid = alias_flight_spawned.group(1)
-            send_command(monitor, "yield", proc)
-            send_command(monitor, "yield", proc)
+            # Une seule bascule suffit à exécuter le client et à publier son
+            # attente. La bascule suivante est confirmée ci-dessous avant de
+            # poursuivre le timeout ; aucune requête applicative n’est renvoyée.
             send_command(monitor, "yield", proc)
             wait_for("vfsaliasflight waiting assets/hello.txt", proc, before_alias_flight_spawn)
-            wait_for("vfsserver delegated alias read", proc, before_alias_flight_spawn)
+            # Le client a envoyé une seule lecture d’alias et attend. Le grant
+            # source-scopé du médiateur cède lui-même le CPU avant l’envoi IPC :
+            # une seconde bascule confirmée achève ce grant, puis une troisième
+            # reprend le médiateur. Aucune requête VFS ni mutation n’est rejouée.
+            send_command_until(monitor, "yield", "yield ok", proc)
+            send_command_until(monitor, "yield", "vfsserver delegated alias read", proc)
             before_alias_worker_timeout = len(log_text())
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)

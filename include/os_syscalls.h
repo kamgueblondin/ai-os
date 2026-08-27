@@ -232,7 +232,11 @@
 #define SYS_FAT16_LIST_PATH 122
 /* EBX = chemin de répertoire FAT32, ECX = os_dirent_t*, EDX = capacité, ESI = départ ; lecture Ring 3 comme SYS_FAT32_READ. */
 #define SYS_FAT32_LIST_PATH 123
-#define MAX_SYSCALLS 124
+/* EBX = service, ECX = PID, EDX = droits, ESI = sources ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE 124
+/* EBX = service, ECX = PID, EDX = os_service_backend_scope_t* ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_SCOPE_STATUS 125
+#define MAX_SYSCALLS 126
 
 typedef struct {
     uint16_t source_port;
@@ -370,6 +374,15 @@ typedef struct {
 #define OS_SERVICE_WATCH_FULL  (-56)
 #define OS_SERVICE_STALE        (-57)
 #define OS_VFS_BACKEND_DENIED (-61)
+/* Sources de backend pour le scope de lecture, sous forme de bitmask. */
+#define OS_SERVICE_BACKEND_SOURCE_INITRD  (1U << 0)
+#define OS_SERVICE_BACKEND_SOURCE_OVERLAY (1U << 1)
+#define OS_SERVICE_BACKEND_SOURCE_FAT16   (1U << 2)
+#define OS_SERVICE_BACKEND_SOURCE_FAT32   (1U << 3)
+#define OS_SERVICE_BACKEND_SOURCE_ALL     (OS_SERVICE_BACKEND_SOURCE_INITRD | \
+                                           OS_SERVICE_BACKEND_SOURCE_OVERLAY | \
+                                           OS_SERVICE_BACKEND_SOURCE_FAT16 | \
+                                           OS_SERVICE_BACKEND_SOURCE_FAT32)
 #define OS_TASK_NOT_FOUND    (-62)
 #define OS_TASK_BAD_PRIORITY    (-63)
 /* Le demandeur n’est ni la tâche cible ni son parent direct. */
@@ -470,6 +483,13 @@ typedef struct {
     int32_t pid;
     uint32_t rights;
 } os_service_backend_entry_t;
+
+/* Statut interne borné de capacité backend. Le détail des sources n’est pas
+ * exposé dans les réponses IPC publiques de vfs-backend-status. */
+typedef struct {
+    uint32_t rights;
+    uint32_t sources;
+} os_service_backend_scope_t;
 
 typedef struct {
     uint32_t count;

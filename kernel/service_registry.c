@@ -2,7 +2,7 @@
 
 static service_registry_entry_t service_entries[SERVICE_REGISTRY_CAPACITY];
 static service_registry_watch_t service_watches[SERVICE_REGISTRY_WATCH_CAPACITY];
-typedef struct { int32_t owner_pid; int32_t grantee_pid; uint32_t rights; char name[OS_SERVICE_NAME_MAX]; } service_backend_cap_t;
+typedef struct { int32_t owner_pid; int32_t grantee_pid; uint32_t rights; uint32_t sources; char name[OS_SERVICE_NAME_MAX]; } service_backend_cap_t;
 static service_backend_cap_t service_backend_caps[SERVICE_REGISTRY_BACKEND_CAPACITY];
 
 static int name_equal(const char* left, const char* right) {
@@ -23,6 +23,10 @@ static void service_registry_backend_generation_bump(const char* name) {
             return;
         }
     }
+}
+
+static int service_registry_backend_sources_valid(uint32_t sources) {
+    return sources != 0U && (sources & ~OS_SERVICE_BACKEND_SOURCE_ALL) == 0U;
 }
 
 static uint32_t service_registry_backend_generation_of(const char* name) {
@@ -73,6 +77,7 @@ void service_registry_init(void) {
         service_backend_caps[i].owner_pid = 0;
         service_backend_caps[i].grantee_pid = 0;
         service_backend_caps[i].rights = 0U;
+        service_backend_caps[i].sources = 0U;
         service_backend_caps[i].name[0] = '\0';
     }
 }
@@ -202,15 +207,25 @@ void service_registry_backend_remove_pid(int32_t pid) {
     }
 }
 
-int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right) {
+int service_registry_backend_allowed_for_source(const char* name, int32_t pid, uint32_t right,
+                                                uint32_t source) {
     uint32_t i;
-    if (right == 0U || (right & ~SERVICE_BACKEND_RIGHT_ALL) != 0U) return 0;
+    if (right == 0U || (right & ~SERVICE_BACKEND_RIGHT_ALL) != 0U ||
+        !service_registry_backend_sources_valid(source)) return 0;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].grantee_pid == pid && name_equal(service_backend_caps[i].name, name) &&
             service_registry_lookup(name) == service_backend_caps[i].owner_pid &&
-            (service_backend_caps[i].rights & right) == right) return 1;
+            (service_backend_caps[i].rights & right) == right &&
+            (service_backend_caps[i].sources & source) == source) return 1;
     }
     return 0;
+}
+
+/* Les appels backend génériques restent compatibles, mais exigent explicitement
+ * le scope toutes sources : une capacité source-scopée ne peut pas les utiliser. */
+int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right) {
+    return service_registry_backend_allowed_for_source(name, pid, right,
+                                                       OS_SERVICE_BACKEND_SOURCE_ALL);
 }
 
 int service_registry_backend_allowed(const char* name, int32_t pid) {
@@ -222,14 +237,22 @@ int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t 
 }
 
 int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights) {
+    return service_registry_backend_grant_scoped_source(name, owner_pid, grantee_pid, rights,
+                                                        OS_SERVICE_BACKEND_SOURCE_ALL);
+}
+
+int service_registry_backend_grant_scoped_source(const char* name, int32_t owner_pid, int32_t grantee_pid,
+                                                 uint32_t rights, uint32_t sources) {
     uint32_t i; int free_slot = -1;
     if (!service_registry_name_valid(name) || owner_pid <= 0 || grantee_pid <= 0 || rights == 0U ||
-        (rights & ~SERVICE_BACKEND_RIGHT_ALL) != 0U) return OS_SERVICE_BAD_NAME;
+        (rights & ~SERVICE_BACKEND_RIGHT_ALL) != 0U || !service_registry_backend_sources_valid(sources))
+        return OS_SERVICE_BAD_NAME;
     if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid && name_equal(service_backend_caps[i].name, name)) {
-            if (service_backend_caps[i].rights != rights) {
+            if (service_backend_caps[i].rights != rights || service_backend_caps[i].sources != sources) {
                 service_backend_caps[i].rights = rights;
+                service_backend_caps[i].sources = sources;
                 service_registry_backend_generation_bump(name);
             }
             return 0;
@@ -238,7 +261,8 @@ int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, i
     }
     if (free_slot < 0) return OS_SERVICE_FULL;
     service_backend_caps[free_slot].owner_pid = owner_pid; service_backend_caps[free_slot].grantee_pid = grantee_pid;
-    service_backend_caps[free_slot].rights = rights; copy_name(service_backend_caps[free_slot].name, name);
+    service_backend_caps[free_slot].rights = rights; service_backend_caps[free_slot].sources = sources;
+    copy_name(service_backend_caps[free_slot].name, name);
     service_registry_backend_generation_bump(name);
     return 0;
 }
@@ -283,6 +307,25 @@ int service_registry_backend_rights(const char* name, int32_t owner_pid, int32_t
         if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid &&
             name_equal(service_backend_caps[i].name, name)) {
             *out_rights = service_backend_caps[i].rights;
+            return 0;
+        }
+    }
+    return OS_SERVICE_NOT_FOUND;
+}
+
+int service_registry_backend_scope(const char* name, int32_t owner_pid, int32_t grantee_pid,
+                                   os_service_backend_scope_t* out_scope) {
+    uint32_t i;
+    if (!out_scope) return OS_SERVICE_BAD_NAME;
+    out_scope->rights = 0U;
+    out_scope->sources = 0U;
+    if (!service_registry_name_valid(name) || owner_pid <= 0 || grantee_pid <= 0) return OS_SERVICE_BAD_NAME;
+    if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
+    for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
+        if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid &&
+            name_equal(service_backend_caps[i].name, name)) {
+            out_scope->rights = service_backend_caps[i].rights;
+            out_scope->sources = service_backend_caps[i].sources;
             return 0;
         }
     }

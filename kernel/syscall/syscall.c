@@ -475,6 +475,16 @@ void syscall_handler(cpu_state_t* cpu) {
             cpu->eax = (uint32_t)sys_service_backend_grant_scoped((const char*)cpu->ebx, (int)cpu->ecx, cpu->edx);
             if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
             break;
+        case SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE:
+            cpu->eax = (uint32_t)sys_service_backend_grant_scoped_source((const char*)cpu->ebx,
+                                                                          (int)cpu->ecx, cpu->edx, cpu->esi);
+            if ((int)cpu->eax == 0 && task_has_other_ready_user()) schedule(cpu);
+            break;
+        case SYS_SERVICE_BACKEND_SCOPE_STATUS:
+            cpu->eax = (uint32_t)sys_service_backend_scope_status((const char*)cpu->ebx,
+                                                                    (int)cpu->ecx,
+                                                                    (os_service_backend_scope_t*)cpu->edx);
+            break;
         case SYS_SERVICE_BACKEND_STATUS:
             cpu->eax = (uint32_t)sys_service_backend_status((const char*)cpu->ebx, (int)cpu->ecx, (uint32_t*)cpu->edx);
             break;
@@ -661,52 +671,62 @@ int sys_task_supervision_notify_budget_status(os_task_supervision_notify_budget_
     return task_fill_supervision_notify_budget_status(current_task->id, out);
 }
 
+static int vfs_backend_allowed_for_source(uint32_t right, uint32_t source);
+
 int sys_fat16_read(const char* name, char* buffer, uint32_t max) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16))
+        return OS_VFS_BACKEND_DENIED;
     if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
     return fat16_read_path(fat16_root(), name, buffer, max);
 }
 
 int sys_fat16_list(os_fat16_dirent_t* out, uint32_t capacity) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16))
+        return OS_VFS_BACKEND_DENIED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat16_list_root(fat16_root(), out, capacity);
 }
 
 int sys_fat16_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16))
+        return OS_VFS_BACKEND_DENIED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat16_list_root_page(fat16_root(), start, out, capacity);
 }
 
 int sys_fat16_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
                         uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16))
+        return OS_VFS_BACKEND_DENIED;
     if (!path || !out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat16_list_path_page(fat16_root(), path, start, out, capacity);
 }
 
 int sys_fat32_read(const char* name, char* buffer, uint32_t max) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT32))
+        return OS_VFS_BACKEND_DENIED;
     if (!name || !buffer || max == 0U) return OS_FAT16_BAD_PATH;
     return fat32_read_path(fat32_root(), name, (uint8_t*)buffer, max);
 }
 
 int sys_fat32_list(os_fat16_dirent_t* out, uint32_t capacity) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT32))
+        return OS_VFS_BACKEND_DENIED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat32_list_root(fat32_root(), out, capacity);
 }
 
 int sys_fat32_list_page(os_fat16_dirent_t* out, uint32_t capacity, uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT32))
+        return OS_VFS_BACKEND_DENIED;
     if (!out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat32_list_root_page(fat32_root(), start, out, capacity);
 }
 
 int sys_fat32_list_path(const char* path, os_fat16_dirent_t* out, uint32_t capacity,
                         uint32_t start) {
-    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_FAT16_NOT_MOUNTED;
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT32))
+        return OS_VFS_BACKEND_DENIED;
     if (!path || !out || capacity == 0U) return OS_FAT16_BAD_PATH;
     return fat32_list_path_page(fat32_root(), path, start, out, capacity);
 }
@@ -865,6 +885,15 @@ int sys_service_backend_grant_scoped(const char* name, int target_pid, uint32_t 
     return service_registry_backend_grant_scoped(name, current_task->id, target_pid, rights);
 }
 
+int sys_service_backend_grant_scoped_source(const char* name, int target_pid, uint32_t rights,
+                                            uint32_t sources) {
+    task_t* target;
+    if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
+    return service_registry_backend_grant_scoped_source(name, current_task->id, target_pid, rights, sources);
+}
+
 int sys_service_backend_revoke(const char* name, int target_pid) {
     task_t* target;
     if (!current_task || current_task->type != TASK_TYPE_USER) return OS_SERVICE_BAD_NAME;
@@ -884,6 +913,15 @@ int sys_service_backend_status(const char* name, int target_pid, uint32_t* out_r
     target = get_task_by_id(target_pid);
     if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
     return service_registry_backend_rights(name, current_task->id, target_pid, out_rights);
+}
+
+int sys_service_backend_scope_status(const char* name, int target_pid,
+                                     os_service_backend_scope_t* out_scope) {
+    task_t* target;
+    if (!current_task || current_task->type != TASK_TYPE_USER || !out_scope) return OS_SERVICE_BAD_NAME;
+    target = get_task_by_id(target_pid);
+    if (!target || target->type != TASK_TYPE_USER || target->state == TASK_TERMINATED) return OS_SERVICE_BAD_GRANTEE;
+    return service_registry_backend_scope(name, current_task->id, target_pid, out_scope);
 }
 
 int sys_service_backend_list(const char* name, os_service_backend_list_t* out_list) {
@@ -921,10 +959,16 @@ int sys_service_status(const char* name, os_service_status_t* out) {
     return 0;
 }
 
-static int vfs_backend_allowed(uint32_t right) {
+static int vfs_backend_allowed_for_source(uint32_t right, uint32_t source) {
     return current_task && current_task->type == TASK_TYPE_USER &&
         (service_registry_lookup("vfs") == current_task->id ||
-         service_registry_backend_allowed_for("vfs", current_task->id, right));
+         service_registry_backend_allowed_for_source("vfs", current_task->id, right, source));
+}
+
+/* La lecture générique peut consulter overlay puis initrd : elle exige donc
+ * toutes les sources. L’écriture générique est une primitive overlay seule. */
+static int vfs_backend_allowed(uint32_t right) {
+    return vfs_backend_allowed_for_source(right, OS_SERVICE_BACKEND_SOURCE_ALL);
 }
 
 int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
@@ -935,7 +979,7 @@ int sys_vfs_backend_read(const char* path, char* buffer, uint32_t max) {
 }
 
 int sys_vfs_backend_write(const char* path, const char* data, uint32_t size) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     return sys_writefile(path, data, size);
@@ -1030,7 +1074,7 @@ static int fat_directory_name(const char* path, char* out) {
 int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
     uint16_t first_cluster = 0U;
     char short_alias[16];
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
@@ -1052,7 +1096,7 @@ int sys_vfs_fat16_create(const char* name, const char* data, uint32_t size) {
 
 /* Suppression FAT16 explicite : supporte 8.3 et LFN. */
 int sys_vfs_fat16_unlink(const char* name) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name) return OS_FAT16_BAD_PATH;
@@ -1067,7 +1111,7 @@ int sys_vfs_fat16_unlink(const char* name) {
 /* Renommage FAT16 explicite : supporte 8.3 et LFN. */
 int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
     char new_short[16];
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
@@ -1084,7 +1128,7 @@ int sys_vfs_fat16_rename(const char* old_name, const char* new_name) {
 int sys_vfs_fat32_create(const char* name, const char* data, uint32_t size) {
     uint32_t first_cluster = 0U;
     char short_alias[16];
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT32)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name || (size != 0U && !data)) return OS_FAT16_BAD_PATH;
@@ -1103,7 +1147,7 @@ int sys_vfs_fat32_create(const char* name, const char* data, uint32_t size) {
 }
 
 int sys_vfs_fat32_unlink(const char* name) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT32)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!name) return OS_FAT16_BAD_PATH;
@@ -1117,7 +1161,7 @@ int sys_vfs_fat32_unlink(const char* name) {
 
 int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
     char new_short[16];
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT32)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!old_name || !new_name) return OS_FAT16_BAD_PATH;
@@ -1132,7 +1176,7 @@ int sys_vfs_fat32_rename(const char* old_name, const char* new_name) {
 }
 
 int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_INITRD)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !buffer || max == 0U) return -1;
@@ -1140,7 +1184,7 @@ int sys_vfs_initrd_read(const char* path, char* buffer, uint32_t max) {
 }
 
 int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !buffer || max == 0U) return -1;
@@ -1148,7 +1192,7 @@ int sys_vfs_overlay_read(const char* path, char* buffer, uint32_t max) {
 }
 
 int sys_vfs_overlay_unlink(const char* path) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path) return -1;
@@ -1156,7 +1200,7 @@ int sys_vfs_overlay_unlink(const char* path) {
 }
 
 int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!oldpath || !newpath) return -1;
@@ -1164,7 +1208,7 @@ int sys_vfs_overlay_rename(const char* oldpath, const char* newpath) {
 }
 
 int sys_vfs_initrd_stat(const char* path, os_dirent_t* out) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_INITRD)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out) return -1;
@@ -1172,7 +1216,7 @@ int sys_vfs_initrd_stat(const char* path, os_dirent_t* out) {
 }
 
 int sys_vfs_overlay_stat(const char* path, os_dirent_t* out) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out) return -1;
@@ -1180,7 +1224,7 @@ int sys_vfs_overlay_stat(const char* path, os_dirent_t* out) {
 }
 
 int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_INITRD)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || max_n <= 0 || !initrd_is_dir(path)) return -1;
@@ -1188,7 +1232,7 @@ int sys_vfs_initrd_listdir(const char* path, os_dirent_t* out, int max_n) {
 }
 
 int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || max_n <= 0 || !overlay_is_dir(path)) return -1;
@@ -1196,7 +1240,7 @@ int sys_vfs_overlay_listdir(const char* path, os_dirent_t* out, int max_n) {
 }
 
 int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_INITRD)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || !initrd_is_dir(path)) return -1;
@@ -1204,7 +1248,7 @@ int sys_vfs_initrd_listdir_page(const char* path, os_dirent_t* out, uint32_t sta
 }
 
 int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t start) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_READ)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !out || !overlay_is_dir(path)) return -1;
@@ -1212,7 +1256,7 @@ int sys_vfs_overlay_listdir_page(const char* path, os_dirent_t* out, uint32_t st
 }
 
 int sys_vfs_overlay_mkdir(const char* path) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path) return -1;
@@ -1220,7 +1264,7 @@ int sys_vfs_overlay_mkdir(const char* path) {
 }
 
 int sys_vfs_overlay_rmdir(const char* path) {
-    if (!vfs_backend_allowed(SERVICE_BACKEND_RIGHT_MUTATE)) {
+    if (!vfs_backend_allowed_for_source(SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_OVERLAY)) {
         return OS_VFS_BACKEND_DENIED;
     }
     if (!path || !overlay_is_dir(path)) return -1;
