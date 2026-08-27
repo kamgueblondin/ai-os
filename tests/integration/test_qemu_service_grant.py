@@ -26,12 +26,24 @@ def log_text():
         return ""
 
 
+def normalized_log(output):
+    """Retire uniquement les diagnostics asynchrones hors contrat métier."""
+    output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\s+\w)", "", output)
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
+    scheduler = r"\[SCHED\] switching to task \d+\s*"
+    output = re.sub(r"(?<=\w)" + scheduler + r"(?=\w)", " ", output)
+    output = re.sub(scheduler, "", output)
+    return re.sub(r"[ \t]{2,}", " ", output)
+
+
 def wait_for(needle, proc, offset=0, timeout=15):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
             raise RuntimeError("QEMU s'est arrêté prématurément")
-        if needle in log_text()[offset:]:
+        if needle in normalized_log(log_text()[offset:]):
             return
         time.sleep(0.1)
     raise RuntimeError("sortie manquante : %s" % needle)
@@ -42,7 +54,7 @@ def wait_for_pattern(pattern, description, proc, offset=0, timeout=15):
     while time.time() < deadline:
         if proc.poll() is not None:
             raise RuntimeError("QEMU s'est arrêté prématurément")
-        if re.search(pattern, log_text()[offset:]):
+        if re.search(pattern, normalized_log(log_text()[offset:])):
             return
         time.sleep(0.1)
     raise RuntimeError("sortie manquante : %s" % description)
@@ -83,7 +95,7 @@ def command_echoed(output, command):
     duplique uniquement un scancode d’espace.
     """
     expected = " ".join(command.split())
-    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", output):
+    for received in re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", normalized_log(output)):
         if " ".join(received.split()) == expected:
             return True
     return False
@@ -101,7 +113,7 @@ def send_command(client, command, proc=None):
         while time.time() < deadline:
             if proc.poll() is not None:
                 raise RuntimeError("QEMU s'est arrêté prématurément")
-            output = log_text()[start:]
+            output = normalized_log(log_text()[start:])
             if command_echoed(output, command):
                 return
             if "SYS_GETS: ligne lue: " in output:
@@ -199,7 +211,7 @@ def main():
             before_spawn = len(log_text())
             send_command(monitor, "spawn serviceclaim", proc)
             wait_for("spawn ok pid", proc, before_spawn)
-            spawned = re.search(r"spawn ok pid (\d+) serviceclaim", log_text()[before_spawn:])
+            spawned = re.search(r"spawn ok pid (\d+) serviceclaim", normalized_log(log_text()[before_spawn:]))
             if not spawned:
                 raise RuntimeError("client de revendication non lance")
             claimant_pid = spawned.group(1)
