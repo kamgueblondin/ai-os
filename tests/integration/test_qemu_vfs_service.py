@@ -277,6 +277,23 @@ def wait_for_cooperative_client(client, proc, needle, start, rounds=4):
         raise error or caught
 
 
+def wait_for_single_io_delivery(client, proc, needle, start, rounds=4):
+    """Laisse progresser une unique I/O déjà envoyée sans jamais la rejouer."""
+    error = None
+    for _ in range(rounds):
+        try:
+            wait_for(needle, proc, start, timeout=1)
+            return
+        except RuntimeError as caught:
+            error = caught
+        send_command_until(client, "yield", "yield ok", proc)
+    try:
+        wait_for(needle, proc, start, timeout=2)
+        return
+    except RuntimeError as caught:
+        raise error or caught
+
+
 def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
     """Valide les mutations LFN racine via le VFS, sans écrasement implicite."""
     path = "%s/%s" % (mount, name)
@@ -962,7 +979,8 @@ def main():
             # corrélé est donc l’arrivée de son unique lecture au médiateur.
             # Aucune requête applicative n’est renvoyée.
             send_command(monitor, "yield", proc)
-            wait_for("vfsserver read request", proc, before_alias_flight_spawn)
+            wait_for_single_io_delivery(monitor, proc, "vfsserver read request",
+                                        before_alias_flight_spawn)
             # Le client a envoyé une seule lecture d’alias et le médiateur est
             # engagé. Le grant source-scopé cède lui-même le CPU avant l’envoi
             # IPC : une seconde bascule confirmée achève ce grant, puis une
@@ -974,6 +992,10 @@ def main():
             send_command_until(monitor, "vfs-backend-scope %s" % worker_pid,
                                "vfsserver backend scope request", proc)
             wait_for("vfs-backend-scope ok rights read sources initrd", proc, before_alias_scope)
+            scope_line = re.search(r"(?m)^vfs-backend-scope ok rights read sources initrd request \d+\r?$",
+                                   normalized_log(log_text()[before_alias_scope:]))
+            if not scope_line:
+                raise RuntimeError("diagnostic de scope divulgue un prefixe interne")
             before_alias_worker_timeout = len(log_text())
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
@@ -1000,7 +1022,7 @@ def main():
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
-            if "vfsvirtual alias read assets/hello.txt" in log_text()[before_alias_worker_resume:]:
+            if "vfsvirtual alias read assets/bin/shell" in log_text()[before_alias_worker_resume:]:
                 raise RuntimeError("lecture alias rejouee apres expiration du worker")
             send_command_until(monitor, "kill %s" % alias_flight_pid,
                                "Processus %s termine" % alias_flight_pid, proc)

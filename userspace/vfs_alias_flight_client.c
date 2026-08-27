@@ -38,12 +38,12 @@ void main(void) {
     os_vfs_read_reply_t reply;
     int server_pid = service_lookup("vfs");
     if (server_pid <= 0 ||
-        os_vfs_make_read_request(&request, "assets/hello.txt", request_id) != OS_VFS_STATUS_OK ||
+        os_vfs_make_read_request(&request, "assets/bin/shell", request_id) != OS_VFS_STATUS_OK ||
         ipc_send(server_pid, &request) != 0) {
         puts("vfsaliasflight request failed\n");
         for (;;) yield();
     }
-    puts("vfsaliasflight waiting assets/hello.txt\n");
+    puts("vfsaliasflight waiting assets/bin/shell\n");
     for (;;) {
         if (ipc_receive(&message) == 0 && message.sender_pid == server_pid &&
             message.type == OS_IPC_VFS_READ_REPLY &&
