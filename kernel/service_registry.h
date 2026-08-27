@@ -38,6 +38,10 @@ int service_registry_backend_grant(const char* name, int32_t owner_pid, int32_t 
 int service_registry_backend_grant_scoped(const char* name, int32_t owner_pid, int32_t grantee_pid, uint32_t rights);
 int service_registry_backend_grant_scoped_source(const char* name, int32_t owner_pid, int32_t grantee_pid,
                                                  uint32_t rights, uint32_t sources);
+/* `prefix` est relatif à la source ; la chaîne vide désigne sa racine entière. */
+int service_registry_backend_grant_scoped_source_prefix(const char* name, int32_t owner_pid,
+                                                        int32_t grantee_pid, uint32_t rights,
+                                                        uint32_t sources, const char* prefix);
 int service_registry_backend_revoke(const char* name, int32_t owner_pid, int32_t grantee_pid);
 /* Libération autonome : seul le PID actuellement porteur peut retirer sa propre capacité. */
 int service_registry_backend_release(const char* name, int32_t grantee_pid);
@@ -51,6 +55,9 @@ int service_registry_backend_allowed(const char* name, int32_t pid);
 int service_registry_backend_allowed_for(const char* name, int32_t pid, uint32_t right);
 int service_registry_backend_allowed_for_source(const char* name, int32_t pid, uint32_t right,
                                                 uint32_t source);
+/* Une voie sans chemin ne passe que sous le préfixe racine. */
+int service_registry_backend_allowed_for_source_path(const char* name, int32_t pid, uint32_t right,
+                                                     uint32_t source, const char* path);
 void service_registry_backend_remove_name(const char* name);
 void service_registry_backend_remove_pid(int32_t pid);
 

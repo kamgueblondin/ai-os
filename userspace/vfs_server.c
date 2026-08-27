@@ -60,6 +60,15 @@ static int service_backend_grant_scoped_source(const char* name, int target_pid,
     return result;
 }
 
+static int service_backend_grant_scoped_source_prefix(const char* name, int target_pid,
+                                                      uint32_t rights, uint32_t sources,
+                                                      const char* prefix) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE_PREFIX),
+                 "b"(name), "c"(target_pid), "d"(rights), "S"(sources), "D"(prefix));
+    return result;
+}
+
 static int service_backend_revoke(const char* name, int target_pid) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_REVOKE), "b"(name), "c"(target_pid));
@@ -737,18 +746,54 @@ static uint32_t vfs_mount_source_for_path(const char* path, int list_path) {
     return 0U;
 }
 
+/* Le noyau ne voit que le suffixe relatif de la source. Pour un fichier ou une
+ * mutation, le scope minimal est son parent ; pour un listage, il est le
+ * répertoire observé. La racine est codée par la chaîne vide. */
+static int vfs_relative_backend_prefix(const char* relative, int list_path, char* out) {
+    uint32_t index = 0U;
+    uint32_t parent_end = 0U;
+    if (!relative || !out) return 0;
+    if (list_path && relative[0] == '/' && relative[1] == '\0') {
+        out[0] = '\0';
+        return 1;
+    }
+    while (relative[index] != '\0') {
+        if (index + 1U >= OS_SERVICE_BACKEND_PREFIX_MAX) return 0;
+        if (relative[index] == '/') parent_end = index + 1U;
+        index++;
+    }
+    if (list_path) parent_end = index;
+    for (index = 0U; index < parent_end; index++) out[index] = relative[index];
+    out[parent_end] = '\0';
+    return 1;
+}
+
+static int vfs_backend_prefix_for_path(const char* path, int list_path, char* out) {
+    uint32_t index;
+    if (!path || !out) return 0;
+    for (index = 0U; index < vfs_mount_count; index++) {
+        const char* relative = (const char*)0;
+        if (!list_path && os_vfs_match_mount(path, vfs_mounts[index].prefix, &relative))
+            return vfs_relative_backend_prefix(relative, 0, out);
+        if (list_path && list_path_matches_mount(path, vfs_mounts[index].prefix, &relative))
+            return vfs_relative_backend_prefix(relative, 1, out);
+    }
+    return 0;
+}
+
 /* Les transactions worker utilisent une unique source. Une capacité déjà
  * présente est refusée plutôt que fusionnée : son union pourrait élargir les
  * droits de lecture ou mutation au-delà de l’alias résolu. */
-static int vfs_virtual_prepare_worker_source(int worker_pid, uint32_t rights, uint32_t source) {
+static int vfs_virtual_prepare_worker_source(int worker_pid, uint32_t rights, uint32_t source,
+                                             const char* prefix) {
     os_service_backend_scope_t scope;
     uint32_t sources = vfs_backend_source_mask(source);
     int status;
-    if (sources == 0U) return -1;
+    if (sources == 0U || !prefix) return -1;
     status = service_backend_scope_status("vfs", worker_pid, &scope);
     if (status == 0 && scope.rights != 0U) return -2;
     if (status != 0 && status != OS_SERVICE_NOT_FOUND) return -3;
-    status = service_backend_grant_scoped_source("vfs", worker_pid, rights, sources);
+    status = service_backend_grant_scoped_source_prefix("vfs", worker_pid, rights, sources, prefix);
     if (status != 0) return -4;
     vfs_virtual_pending.backend_rights_restore = scope.rights;
     vfs_virtual_pending.backend_sources_restore = scope.sources;
@@ -759,6 +804,7 @@ static int vfs_virtual_prepare_worker_source(int worker_pid, uint32_t rights, ui
 static int vfs_virtual_submit_alias_io(uint32_t kind, const char* path, uint32_t start,
                                        int client_pid, uint32_t request_id) {
     os_ipc_payload_t payload;
+    char backend_prefix[OS_SERVICE_BACKEND_PREFIX_MAX];
     uint32_t source;
     int worker_pid;
     int status;
@@ -783,8 +829,15 @@ static int vfs_virtual_submit_alias_io(uint32_t kind, const char* path, uint32_t
     source = vfs_mount_source_for_path(path, kind == VFS_VIRTUAL_PENDING_ALIAS_LIST ||
                                        kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
                                        kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE);
-    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_READ, source);
-    if (status != 0) { vfs_virtual_reset(); return -6; }
+    if (!vfs_backend_prefix_for_path(path, kind == VFS_VIRTUAL_PENDING_ALIAS_LIST ||
+                                     kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
+                                     kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE, backend_prefix)) {
+        vfs_virtual_reset();
+        return -6;
+    }
+    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_READ, source,
+                                               backend_prefix);
+    if (status != 0) { vfs_virtual_reset(); return -7; }
     vfs_virtual_pending.mount_start = start;
     if (ipc_send(worker_pid, &payload) != 0) { vfs_virtual_reset(); return -7; }
     return 0;
@@ -816,6 +869,7 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
                                        const uint8_t* data, uint32_t size, int client_pid,
                                        uint32_t request_id) {
     os_ipc_payload_t payload;
+    char backend_prefix[OS_SERVICE_BACKEND_PREFIX_MAX];
     uint32_t source;
     int worker_pid;
     int status;
@@ -824,6 +878,7 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
     if (worker_pid < 0) return -2;
     source = vfs_mount_source_for_path(path, 0);
     if (source == 0U || (new_path && vfs_mount_source_for_path(new_path, 0) != source)) return -3;
+    if (!vfs_backend_prefix_for_path(path, 0, backend_prefix)) return -4;
     if (kind == VFS_VIRTUAL_PENDING_WRITE) {
         status = os_vfs_make_worker_write_request(&payload, path, data, size, request_id);
     } else if (kind == VFS_VIRTUAL_PENDING_REMOVE) {
@@ -836,16 +891,17 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
     } else if (kind == VFS_VIRTUAL_PENDING_RMDIR) {
         status = os_vfs_make_worker_directory_request(&payload, OS_IPC_VFS_WORKER_RMDIR,
                                                       path, request_id);
-    } else return -4;
-    if (status != OS_VFS_STATUS_OK) return -5;
+    } else return -5;
+    if (status != OS_VFS_STATUS_OK) return -6;
     if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
-        return -6;
-    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_MUTATE, source);
-    if (status != 0) { vfs_virtual_reset(); return -7; }
+        return -7;
+    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_MUTATE, source,
+                                               backend_prefix);
+    if (status != 0) { vfs_virtual_reset(); return -8; }
     vfs_virtual_store_mutation(kind, path, new_path, data, size);
     if (ipc_send(worker_pid, &payload) != 0) {
         vfs_virtual_reset();
-        return -8;
+        return -9;
     }
     return 0;
 }
