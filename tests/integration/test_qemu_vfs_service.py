@@ -23,12 +23,11 @@ FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.05"))
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
-# Sous TCG, un scan-code peut encore être délivré après son premier écho.
-# Chaque caractère reçoit donc une fenêtre de stabilité ; un doublon est
-# effacé dans le buffer local avant `ret`, sans rejouer la ligne exécutée.
-KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.10"))
+# La ligne entière est réconciliée avant `ret`. Cette courte fenêtre absorbe
+# les scan-codes tardifs sans imposer une attente longue à chaque caractère.
+KEY_LINE_SETTLE_DELAY = float(os.environ.get("KEY_LINE_SETTLE_DELAY", "0.50"))
 KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
-KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
+KEY_PRE_RET_RETRIES = int(os.environ.get("KEY_PRE_RET_RETRIES", "3"))
 
 
 def log_text():
@@ -41,14 +40,10 @@ def log_text():
 
 def normalized_log(output):
     """Retire les diagnostics noyau asynchrones sans recoller les réponses."""
-    # Un timer peut couper un mot, y compris à travers sa fin de ligne ; la
-    # première règle recolle alors les deux moitiés avant de retirer le reste.
-    output = re.sub(r"(?<=\w)TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
-    # Après un espace, retirer aussi le retour ligne du diagnostic : l’espace
-    # applicatif préexistant sépare déjà les deux fragments de la réponse.
-    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\w)", "", output)
-    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n(?=\s+\w)", "", output)
-    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?", "", output)
+    # Un timer peut couper une réponse au milieu d’un mot ou juste avant une
+    # ponctuation. Retirer toute sa ligne recolle ces fragments sans toucher
+    # aux sauts de ligne qui appartiennent aux messages applicatifs.
+    output = re.sub(r"TIMER_ALIVE: tick=\d+\+?\r?\n?", "", output)
     # L’ordonnanceur peut couper deux champs. S’il est joint à deux mots,
     # garder un séparateur ; s’il suit déjà un espace applicatif, le retirer
     # sans en ajouter un second qui casserait une assertion textuelle.
@@ -98,21 +93,42 @@ def send_key(client, key):
     client.sendall(("sendkey %s %d\n" % (key, KEY_HOLD_MS)).encode("ascii"))
 
 
-def key_echo_count(output, char):
-    """Compte un écho caractère malgré les diagnostics noyau intercalés."""
-    pattern = r"SYS_GETS: caractère ajouté:\s*'%s'" % re.escape(char)
-    return len(re.findall(pattern, normalized_log(output)))
+def key_echoes(output):
+    """Retourne la séquence exacte reçue par le buffer de la ligne courante."""
+    pattern = r"SYS_GETS: caractère ajouté:\s*'(.)'"
+    return re.findall(pattern, normalized_log(output))
+
+
+def prepared_line_matches(output, command):
+    return key_echoes(output) == [char.lower() for char in command]
+
+
+def verify_pre_ret_reconciliation_parser():
+    """Vérifie que la réconciliation refuse tout écho non exactement préparé."""
+    command = "vfs-read overlay/note.txt"
+    exact = "\n".join(
+        "SYS_GETS: caractère ajouté: '%s'" % char
+        for char in command
+    )
+    exact = exact.replace(
+        "SYS_GETS: caractère ajouté: 'o'\nSYS_GETS: caractère ajouté: 'v'",
+        "SYS_GETS: caractère ajouté: 'o'\nTIMER_ALIVE: tick=99+\n"
+        "[SCHED] switching to task 3\nSYS_GETS: caractère ajouté: 'v'",
+        1,
+    )
+    if not prepared_line_matches(exact, command):
+        raise RuntimeError("sonde pre-ret: echos exacts refuses")
+    if prepared_line_matches(exact + "\nSYS_GETS: caractère ajouté: 't'", command):
+        raise RuntimeError("sonde pre-ret: doublon accepte")
+    if prepared_line_matches(exact[:-32], command):
+        raise RuntimeError("sonde pre-ret: ligne partielle acceptee")
 
 
 def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
-    """Injecte une ligne en vérifiant chaque caractère reçu par le shell.
-
-    QEMU TCG peut parfois doubler un scan-code PS/2. Un doublon est retiré
-    avant de poursuivre la ligne : aucune commande partielle n’est exécutée.
-    """
+    """Prépare une ligne, sans jamais la soumettre au shell."""
     special = {" ": "spc", "-": "minus", ".": "dot", "/": "slash"}
     for char in command:
-        count = 0
+        received = False
         for _ in range(KEY_CHAR_RETRIES):
             start = len(log_text())
             send_key(client, special.get(char, char.lower()))
@@ -121,22 +137,21 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
                 if proc is not None and proc.poll() is not None:
                     raise RuntimeError("QEMU s'est arrêté prématurément")
                 time.sleep(key_delay)
-                count = key_echo_count(log_text()[start:], char)
-                if count:
-                    # Ne jamais poursuivre ni envoyer `ret` tant qu’un second
-                    # scan-code peut encore arriver. La fenêtre couvre chaque
-                    # caractère et laisse la purge locale retirer tout doublon.
-                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
-                    count = key_echo_count(log_text()[start:], char)
+                if char.lower() in key_echoes(log_text()[start:]):
+                    received = True
                     break
-            if count:
+            if received:
                 break
-        if count == 0:
+        if not received:
             raise RuntimeError("caractère non reçu : %s" % char)
-        for _ in range(count - 1):
-            send_key(client, "backspace")
-            time.sleep(key_delay)
-    send_key(client, "ret")
+
+
+def clear_prepared_line(client, output, key_delay=KEY_DELAY):
+    """Efface localement une ligne non soumise après un écho divergent."""
+    for _ in key_echoes(output):
+        send_key(client, "backspace")
+        time.sleep(key_delay)
+    time.sleep(KEY_LINE_SETTLE_DELAY)
 
 
 def command_echoed(output, command):
@@ -149,53 +164,45 @@ def command_echoed(output, command):
 
 
 def send_command(client, command, proc=None, key_delay=KEY_DELAY):
-    """Injecte une commande et ne répète que si le shell n'a rien reçu."""
+    """Réconcilie la ligne avant `ret`, puis n’exécute jamais de rejeu."""
     if proc is None:
         send_command_once(client, command, None, key_delay)
         return
-    for attempt in range(1, KEY_RETRIES + 1):
+    for _ in range(KEY_PRE_RET_RETRIES):
         start = len(log_text())
-        mismatched = False
-        output = ""
         send_command_once(client, command, proc, key_delay)
-        deadline = time.time() + 15
-        while time.time() < deadline:
-            if proc.poll() is not None:
-                raise RuntimeError("QEMU s'est arrêté prématurément")
-            output = normalized_log(log_text()[start:])
-            if command_echoed(output, command):
-                return
-            if "SYS_GETS: ligne lue: " in normalized_log(output):
-                mismatched = True
-            rejected_name = ("Commande non trouvée" in output or
-                             "Commande non trouvee" in output)
-            failed_spawn = (command.startswith("spawn ") and
-                            "spawn: programme introuvable" in output)
-            if mismatched and (rejected_name or failed_spawn):
-                # Le shell a refusé le nom altéré ou un `spawn` altéré a
-                # confirmé l’absence du programme : aucun effet métier n’est
-                # possible, donc l’injection peut être refaite. Les mutations
-                # VFS ne satisfont jamais cette condition de rejeu.
-                break
-            time.sleep(0.1)
-        if mismatched and not (rejected_name or failed_spawn):
-            raise CommandEchoMismatch("echo commande altéré : %s" % command)
-        if attempt < KEY_RETRIES:
-            time.sleep(0.2)
-    raise RuntimeError("echo commande instable : %s" % command)
+        time.sleep(KEY_LINE_SETTLE_DELAY)
+        prepared = normalized_log(log_text()[start:])
+        if prepared_line_matches(prepared, command):
+            send_key(client, "ret")
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    raise RuntimeError("QEMU s'est arrêté prématurément")
+                output = normalized_log(log_text()[start:])
+                if command_echoed(output, command):
+                    return
+                if "SYS_GETS: ligne lue: " in output:
+                    raise CommandEchoMismatch("echo commande altéré : %s" % command)
+                time.sleep(0.1)
+            raise RuntimeError("echo commande absent : %s" % command)
+        clear_prepared_line(client, prepared, key_delay)
+    raise CommandEchoMismatch("echo pre-ret instable : %s" % command)
 
 
 def wait_for_mount_add_worker(proc, alias, source, offset=0, timeout=15, terminal=None):
     """Prouve l’exécution worker malgré les traces asynchrones intercalées.
 
-    Le worker, le médiateur et le shell écrivent sur la même sortie série. La
-    preuve conserve donc leur ordre corrélé : traitement worker, délégation
-    médiateur, puis publication du montage avec l’alias attendu.
+    Le worker, le médiateur et le shell écrivent sur la même sortie série et
+    leur ordre de trace est coopérativement variable. La fenêtre commence à
+    la requête unique et exige donc les trois preuves : worker, délégation et
+    résultat corrélé avec l’alias et la source attendus.
     """
     if terminal is None:
         terminal = r"vfsserver mount added " + re.escape(alias) + r" " + re.escape(source)
-    pattern = (r"vfsvirtual mount add[\s\S]{0,320}?"
-               r"vfsserver delegated mount add[\s\S]{0,320}?" + terminal)
+    pattern = (r"(?=[\s\S]{0,800}?vfsvirtual mount add)"
+               r"(?=[\s\S]{0,800}?vfsserver delegated mount add)"
+               r"(?=[\s\S]{0,800}?" + terminal + r")")
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -377,6 +384,9 @@ def assert_fat_subdirectory_lifecycle(client, proc, mount, payload):
 
 
 def main():
+    verify_pre_ret_reconciliation_parser()
+    if os.environ.get("VFS_INPUT_PROBE_ONLY") == "1":
+        return 0
     os.makedirs(LOG_DIR, exist_ok=True)
     for path in (LOG, ERR, MON, DISK, FAT32_DISK):
         try:
@@ -943,19 +953,21 @@ def main():
             before_alias_flight_spawn = len(log_text())
             send_command_until(monitor, "spawn vfsaliasflight", "spawn ok pid", proc)
             alias_flight_spawned = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsaliasflight",
-                                             log_text()[before_alias_flight_spawn:])
+                                             normalized_log(log_text()[before_alias_flight_spawn:]))
             if not alias_flight_spawned:
                 raise RuntimeError("client alias VFS en vol non lance")
             alias_flight_pid = alias_flight_spawned.group(1)
-            # Une seule bascule suffit à exécuter le client et à publier son
-            # attente. La bascule suivante est confirmée ci-dessous avant de
-            # poursuivre le timeout ; aucune requête applicative n’est renvoyée.
+            # Une seule bascule suffit à exécuter le client. Son traceur est
+            # postérieur au relais IPC qui peut être suspendu ; le vrai jalon
+            # corrélé est donc l’arrivée de son unique lecture au médiateur.
+            # Aucune requête applicative n’est renvoyée.
             send_command(monitor, "yield", proc)
-            wait_for("vfsaliasflight waiting assets/hello.txt", proc, before_alias_flight_spawn)
-            # Le client a envoyé une seule lecture d’alias et attend. Le grant
-            # source-scopé du médiateur cède lui-même le CPU avant l’envoi IPC :
-            # une seconde bascule confirmée achève ce grant, puis une troisième
-            # reprend le médiateur. Aucune requête VFS ni mutation n’est rejouée.
+            wait_for("vfsserver read request", proc, before_alias_flight_spawn)
+            # Le client a envoyé une seule lecture d’alias et le médiateur est
+            # engagé. Le grant source-scopé cède lui-même le CPU avant l’envoi
+            # IPC : une seconde bascule confirmée achève ce grant, puis une
+            # troisième reprend le médiateur. Aucune requête VFS ni mutation
+            # n’est rejouée.
             send_command_until(monitor, "yield", "yield ok", proc)
             send_command_until(monitor, "yield", "vfsserver delegated alias read", proc)
             before_alias_scope = len(log_text())
