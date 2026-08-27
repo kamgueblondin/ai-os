@@ -2056,6 +2056,20 @@ void main(void) {
             if (os_vfs_make_backend_status_reply(&reply_payload, status, rights, message.request_id) == 0) {
                 (void)ipc_send(message.sender_pid, &reply_payload);
             }
+        } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_SCOPE) {
+            int target_pid;
+            int status;
+            os_service_backend_scope_t scope;
+            scope.rights = 0U;
+            scope.sources = 0U;
+            puts("vfsserver backend scope request\n");
+            status = os_vfs_parse_backend_scope_request(&message, &target_pid);
+            if (status == 0) status = service_backend_scope_status("vfs", target_pid, &scope);
+            if (status != 0) { scope.rights = 0U; scope.sources = 0U; }
+            if (os_vfs_make_backend_scope_reply(&reply_payload, status, scope.rights,
+                                                scope.sources, message.request_id) == 0) {
+                (void)ipc_send(message.sender_pid, &reply_payload);
+            }
         } else if (received == 0 && message.type == OS_IPC_VFS_BACKEND_OBSERVE) {
             os_service_backend_snapshot_t snapshot;
             uint32_t expected_generation;

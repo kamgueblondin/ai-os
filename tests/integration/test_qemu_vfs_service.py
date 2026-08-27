@@ -909,6 +909,10 @@ def main():
             # reprend le médiateur. Aucune requête VFS ni mutation n’est rejouée.
             send_command_until(monitor, "yield", "yield ok", proc)
             send_command_until(monitor, "yield", "vfsserver delegated alias read", proc)
+            before_alias_scope = len(log_text())
+            send_command_until(monitor, "vfs-backend-scope %s" % worker_pid,
+                               "vfsserver backend scope request", proc)
+            wait_for("vfs-backend-scope ok rights read sources initrd", proc, before_alias_scope)
             before_alias_worker_timeout = len(log_text())
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)

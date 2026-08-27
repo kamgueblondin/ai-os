@@ -3269,6 +3269,54 @@ static void cmd_vfs_backend_status(shell_context_t* ctx, char args[][128], int a
     print_string(" request "); print_int((int)request_id); print_string("\n");
 }
 
+static void cmd_vfs_backend_scope(shell_context_t* ctx, char args[][128], int arg_count) {
+    os_ipc_payload_t request;
+    os_ipc_message_t message;
+    os_vfs_backend_scope_reply_t reply;
+    int pid;
+    int rc;
+    int target_pid;
+    uint32_t request_id;
+    uint32_t emitted = 0U;
+    if (arg_count != 1 || (target_pid = parse_int(args[0])) <= 0) {
+        print_error("Usage: vfs-backend-scope <pid>");
+        return;
+    }
+    pid = sys_service_lookup("vfs");
+    if (pid <= 0) { print_error("vfs-backend-scope: service vfs indisponible"); ctx->last_rc = pid; return; }
+    request_id = next_vfs_request_id();
+    rc = os_vfs_make_backend_scope_request(&request, target_pid, request_id);
+    if (rc == 0) rc = sys_ipc_send(pid, &request);
+    if (rc != 0) { print_error("vfs-backend-scope: demande refusee"); ctx->last_rc = rc; return; }
+    rc = wait_ipc_reply(pid, OS_IPC_VFS_BACKEND_SCOPE_REPLY, request_id, &message);
+    if (rc == 0) rc = os_vfs_parse_backend_scope_reply(&message, &reply, request_id);
+    if (rc != 0 || reply.status != 0) {
+        print_error("vfs-backend-scope: capacite absente ou refusee");
+        ctx->last_rc = rc != 0 ? rc : reply.status;
+        return;
+    }
+    ctx->last_rc = 0;
+    print_string("vfs-backend-scope ok rights ");
+    if (reply.rights == OS_VFS_BACKEND_RIGHT_READ) print_string("read");
+    else if (reply.rights == OS_VFS_BACKEND_RIGHT_MUTATE) print_string("mutate");
+    else if (reply.rights == OS_VFS_BACKEND_RIGHT_ALL) print_string("full");
+    else { print_error("vfs-backend-scope: masque droits invalide"); ctx->last_rc = OS_VFS_STATUS_INVALID; return; }
+    print_string(" sources ");
+    if (reply.sources & OS_SERVICE_BACKEND_SOURCE_INITRD) {
+        print_string("initrd"); emitted = 1U;
+    }
+    if (reply.sources & OS_SERVICE_BACKEND_SOURCE_OVERLAY) {
+        if (emitted) print_string(","); print_string("overlay"); emitted = 1U;
+    }
+    if (reply.sources & OS_SERVICE_BACKEND_SOURCE_FAT16) {
+        if (emitted) print_string(","); print_string("fat16"); emitted = 1U;
+    }
+    if (reply.sources & OS_SERVICE_BACKEND_SOURCE_FAT32) {
+        if (emitted) print_string(","); print_string("fat32");
+    }
+    print_string(" request "); print_int((int)request_id); print_string("\n");
+}
+
 static void cmd_vfs_backend_list(shell_context_t* ctx, char args[][128], int arg_count) {
     os_ipc_payload_t request; os_ipc_message_t message; os_vfs_backend_list_reply_t reply;
     int pid, rc; uint32_t request_id, i;
@@ -5199,6 +5247,9 @@ int execute_builtin_command(shell_context_t* ctx, const char* command,
         return 1;
     } else if (strcmp(command, "vfs-backend-status") == 0) {
         cmd_vfs_backend_status(ctx, args, arg_count);
+        return 1;
+    } else if (strcmp(command, "vfs-backend-scope") == 0) {
+        cmd_vfs_backend_scope(ctx, args, arg_count);
         return 1;
     } else if (strcmp(command, "vfs-backend-observe") == 0) {
         cmd_vfs_backend_observe(ctx, args, arg_count);

@@ -41,6 +41,10 @@
 #define OS_IPC_VFS_BACKEND_LIST_REPLY 0x56465323U
 #define OS_IPC_VFS_BACKEND_OBSERVE       0x56465324U
 #define OS_IPC_VFS_BACKEND_OBSERVE_REPLY 0x56465325U
+/* Consultation réservée au propriétaire courant de vfs : droit et sources
+ * d’un seul bénéficiaire, sans dévoiler de chemin ou d’alias. */
+#define OS_IPC_VFS_BACKEND_SCOPE       0x56465326U
+#define OS_IPC_VFS_BACKEND_SCOPE_REPLY 0x56465327U
 /* Canal privé entre le médiateur `vfs` et le worker Ring 3 `vfs-virtual`. */
 #define OS_IPC_VFS_WORKER_READ       0x56465701U
 #define OS_IPC_VFS_WORKER_READ_REPLY 0x56465702U
@@ -103,6 +107,8 @@
 #define OS_VFS_BACKEND_LIST_REPLY_SIZE (8U + OS_SERVICE_BACKEND_CAPACITY * 8U)
 #define OS_VFS_BACKEND_OBSERVE_REQUEST_SIZE 4U
 #define OS_VFS_BACKEND_OBSERVE_REPLY_SIZE (12U + OS_SERVICE_BACKEND_CAPACITY * 8U)
+#define OS_VFS_BACKEND_SCOPE_REQUEST_SIZE 4U
+#define OS_VFS_BACKEND_SCOPE_REPLY_SIZE 12U
 #define OS_VFS_BACKEND_RIGHT_READ 1U
 #define OS_VFS_BACKEND_RIGHT_MUTATE 2U
 #define OS_VFS_BACKEND_RIGHT_ALL (OS_VFS_BACKEND_RIGHT_READ | OS_VFS_BACKEND_RIGHT_MUTATE)
@@ -160,6 +166,12 @@ typedef struct {
     uint32_t count;
     os_service_backend_entry_t entries[OS_SERVICE_BACKEND_CAPACITY];
 } os_vfs_backend_list_reply_t;
+
+typedef struct {
+    int32_t status;
+    uint32_t rights;
+    uint32_t sources;
+} os_vfs_backend_scope_reply_t;
 
 typedef struct {
     int32_t status;
@@ -1254,6 +1266,61 @@ static inline int os_vfs_parse_backend_status_reply(const os_ipc_message_t* mess
         message->size != OS_VFS_BACKEND_STATUS_REPLY_SIZE || message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
     *status_out = os_vfs_decode_i32(&message->data[0]); *rights_out = os_vfs_decode_u32(&message->data[4]);
     if (*status_out == 0 && (*rights_out == 0U || (*rights_out & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U)) return OS_VFS_STATUS_INVALID;
+    return 0;
+}
+
+static inline int os_vfs_make_backend_scope_request(os_ipc_payload_t* payload, int32_t target_pid,
+                                                     uint32_t request_id) {
+    uint32_t i;
+    if (!payload || target_pid <= 0) return OS_VFS_STATUS_INVALID;
+    payload->type = OS_IPC_VFS_BACKEND_SCOPE;
+    payload->size = OS_VFS_BACKEND_SCOPE_REQUEST_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], target_pid);
+    for (i = OS_VFS_BACKEND_SCOPE_REQUEST_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_backend_scope_request(const os_ipc_message_t* message,
+                                                      int32_t* target_pid_out) {
+    if (!message || !target_pid_out || message->type != OS_IPC_VFS_BACKEND_SCOPE ||
+        message->size != OS_VFS_BACKEND_SCOPE_REQUEST_SIZE) return OS_VFS_STATUS_INVALID;
+    *target_pid_out = os_vfs_decode_i32(&message->data[0]);
+    return *target_pid_out > 0 ? 0 : OS_VFS_STATUS_INVALID;
+}
+
+static inline int os_vfs_make_backend_scope_reply(os_ipc_payload_t* payload, int32_t status,
+                                                   uint32_t rights, uint32_t sources,
+                                                   uint32_t request_id) {
+    uint32_t i;
+    if (!payload || (status == 0 && (rights == 0U ||
+        (rights & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U || sources == 0U ||
+        (sources & ~OS_SERVICE_BACKEND_SOURCE_ALL) != 0U))) return OS_VFS_STATUS_INVALID;
+    if (status != 0) { rights = 0U; sources = 0U; }
+    payload->type = OS_IPC_VFS_BACKEND_SCOPE_REPLY;
+    payload->size = OS_VFS_BACKEND_SCOPE_REPLY_SIZE;
+    payload->request_id = request_id;
+    os_vfs_encode_i32(&payload->data[0], status);
+    os_vfs_encode_u32(&payload->data[4], rights);
+    os_vfs_encode_u32(&payload->data[8], sources);
+    for (i = OS_VFS_BACKEND_SCOPE_REPLY_SIZE; i < OS_IPC_MAX_DATA; i++) payload->data[i] = 0U;
+    return 0;
+}
+
+static inline int os_vfs_parse_backend_scope_reply(const os_ipc_message_t* message,
+                                                    os_vfs_backend_scope_reply_t* reply_out,
+                                                    uint32_t expected_request_id) {
+    if (!message || !reply_out || message->type != OS_IPC_VFS_BACKEND_SCOPE_REPLY ||
+        message->size != OS_VFS_BACKEND_SCOPE_REPLY_SIZE ||
+        message->request_id != expected_request_id) return OS_VFS_STATUS_INVALID;
+    reply_out->status = os_vfs_decode_i32(&message->data[0]);
+    reply_out->rights = os_vfs_decode_u32(&message->data[4]);
+    reply_out->sources = os_vfs_decode_u32(&message->data[8]);
+    if (reply_out->status == 0 && (reply_out->rights == 0U ||
+        (reply_out->rights & ~OS_VFS_BACKEND_RIGHT_ALL) != 0U || reply_out->sources == 0U ||
+        (reply_out->sources & ~OS_SERVICE_BACKEND_SOURCE_ALL) != 0U)) return OS_VFS_STATUS_INVALID;
+    if (reply_out->status != 0 && (reply_out->rights != 0U || reply_out->sources != 0U))
+        return OS_VFS_STATUS_INVALID;
     return 0;
 }
 
