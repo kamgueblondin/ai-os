@@ -234,6 +234,43 @@ static void test_backend_capability_source_scope_blocks_other_sources_and_generi
     TEST_ASSERT_TRUE(service_registry_backend_allowed_for("vfs", 8, SERVICE_BACKEND_RIGHT_READ));
 }
 
+static void test_backend_capability_prefix_scope_blocks_siblings_and_pathless_calls(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/demo.txt"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/bin/demo.txt"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "appstore/demo.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/demo.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/demo.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT32, "apps/demo.txt"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "/apps/"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps//bin/"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/../other/"));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/demo.txt"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/demo.txt"));
+}
+
 static void test_backend_capability_rights_are_owner_scoped_and_revocable(void) {
     uint32_t rights = 0U;
     service_registry_init();
@@ -324,6 +361,7 @@ int main(void) {
     RUN_TEST(test_backend_capability_can_be_explicitly_revoked_without_name_transfer);
     RUN_TEST(test_backend_capability_scoped_read_only_enforces_least_privilege);
     RUN_TEST(test_backend_capability_source_scope_blocks_other_sources_and_generic_calls);
+    RUN_TEST(test_backend_capability_prefix_scope_blocks_siblings_and_pathless_calls);
     RUN_TEST(test_backend_capability_rights_are_owner_scoped_and_revocable);
     RUN_TEST(test_backend_capability_list_is_owner_scoped_and_tracks_revocation);
     RUN_TEST(test_backend_capability_can_be_released_by_its_grantee);

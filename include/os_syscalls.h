@@ -236,7 +236,9 @@
 #define SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE 124
 /* EBX = service, ECX = PID, EDX = os_service_backend_scope_t* ; réservé au propriétaire. */
 #define SYS_SERVICE_BACKEND_SCOPE_STATUS 125
-#define MAX_SYSCALLS 126
+/* EBX = service, ECX = PID, EDX = droits, ESI = sources, EDI = préfixe relatif NUL-termine ; réservé au propriétaire. */
+#define SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE_PREFIX 126
+#define MAX_SYSCALLS 127
 
 typedef struct {
     uint16_t source_port;
@@ -365,6 +367,8 @@ typedef struct {
 /* Registre Foundation : simple découverte de nom, pas une capability. */
 #define OS_SERVICE_NAME_MAX 16U
 #define OS_SERVICE_BACKEND_CAPACITY 4U
+/* Préfixe relatif d’une source ; la chaîne vide représente la racine entière. */
+#define OS_SERVICE_BACKEND_PREFIX_MAX 48U
 #define OS_SERVICE_BAD_NAME  (-50)
 #define OS_SERVICE_FULL      (-51)
 #define OS_SERVICE_TAKEN     (-52)
