@@ -49,7 +49,7 @@ make run
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make gguf-disk` | Construit un disque FAT16 de déploiement contenant le modèle sous l’alias `GPT2.GGU` |
 | `make qemu-gguf-smoke` | Démarre le disque GGUF, sélectionne `gpt2.gguf`, valide le premier token local réel puis `ai-continue` et affiche les deux latences |
-| `make integration-qemu` | Sept contrats QEMU AOS-022, AOS-024, AOS-025, NE2000, IPC, VFS avec montages dynamiques, I/O d’alias médiées, diagnostic droit–source, révocation, notifications, cycle de vie et transfert Foundation ; l’ordonnanceur est séquentiel par défaut pour éviter la contention PS/2 ; le smoke cœur confirme chaque caractère, efface les doublons locaux avant `ret` et a validé les sept contrats en 750,3 s, sans assertion retirée |
+| `make integration-qemu` | Sept contrats QEMU AOS-022, AOS-024, AOS-025, NE2000, IPC, VFS avec montages dynamiques, I/O d’alias médiées, diagnostic droit–source, refus backend corrélé d’une mutation hors préfixe, révocation, notifications, cycle de vie et transfert Foundation ; l’ordonnanceur est séquentiel par défaut pour éviter la contention PS/2 ; le smoke cœur confirme chaque caractère, efface les doublons locaux avant `ret` et a validé les sept contrats en 1 141,7 s, sans assertion retirée |
 | `make qemu-irq0-preemption` | Lance `spin` puis exige un shell toujours réactif |
 | `make qemu-ai-provider` | Vérifie le diagnostic réseau et le blocage OpenAI |
 | `make qemu-ne2k-status` | Vérifie `nic=detected` avec `-device ne2k_isa` |
@@ -60,7 +60,7 @@ make run
 | `make qemu-ne2k-tls-next` | Apres HTTP 200, valide `ai-next` puis un flux SSE sur la meme session TLS (`TLS_COMPLETE` conserve, sans nouveau handshake) |
 | `make qemu-ne2k-tls-multipair` | Exécute deux paires TLS/HTTP QEMU locales, séquentielles et isolées, avec MAC et journaux distincts ; chacune valide DHCP, ARP, DNS, TCP, TLS authentifié et HTTP 200 sans clé ni réseau public |
 | `make qemu-ipc-foundation` | Lance `ipcserver`, envoie un message et vérifie sa réception |
-| `make qemu-vfs-service` | Lance `vfsvirtual` puis `vfsserver`, vérifie l’autorité Ring 3 corrélée des alias add/remove et I/O (`read`, `stat`, liste, pages et observation), la révocation complète de la capacité mono-source après chaque transaction, la purge du miroir après remplacement worker, l’échec `INVALID` sans rejeu d’une lecture d’alias expirée, deux volumes IDE FAT16/FAT32, les capacités et refus, les mutations overlay et les cycles FAT racine/LFN ainsi que `mkdir`, écriture, `stat`, liste, renommage, refus `rmdir` non vide, suppression et `rmdir` d’un sous-répertoire 8.3 |
+| `make qemu-vfs-service` | Lance `vfsvirtual` puis `vfsserver`, vérifie l’autorité Ring 3 corrélée des alias add/remove et I/O (`read`, `stat`, liste, pages et observation), la révocation complète de la capacité mono-source après chaque transaction, la purge du miroir après remplacement worker, l’échec `INVALID` sans rejeu d’une lecture d’alias expirée, deux volumes IDE FAT16/FAT32, les capacités et refus, les mutations overlay et les cycles FAT racine/LFN ainsi que `mkdir`, écriture, `stat`, liste, renommage, refus `rmdir` non vide, suppression et `rmdir` d’un sous-répertoire 8.3 ; un renommage tenté vers son voisin hors préfixe est refusé par le backend avant mutation, sans divulguer la borne interne |
 | `make qemu-service-grant` | Publie `demo`, observe l’événement de transfert et de purge, puis vérifie son nettoyage |
 | `make iso` | Produit l’ISO BIOS/GRUB bootable |
 | `make run` / `make run-gui` | Session QEMU interactive curses ou GTK |
@@ -156,7 +156,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Externalisation locale du backend de chemins VFS : table statique d’opérations par source, droits de mutation explicites et alias dynamiques validés
 - [~] Migration microkernel réelle : `vfsserver` délègue à `vfsvirtual` Ring 3 les vues publiques, les mutations fixes et les I/O `read`/`stat`/liste/pages/observation des alias dynamiques sous capacité backend temporaire droit–source–préfixe relatif, corrélation PID/requête et absence de rejeu ; la séparation complète du pilote de stockage reste ouverte
 - [x] Latence GGUF quantifiée sur QEMU : benchmark répétable, rapport JSON de médiane/dispersion et référence premier token/continuation
-- [x] Tenir `make integration-qemu` sous 25 minutes sans relâcher les assertions métier : sept contrats complets séquentiels en 12 min 30 s en validation locale
+- [x] Tenir `make integration-qemu` sous 25 minutes sans relâcher les assertions métier : sept contrats complets séquentiels en 19 min 2 s en validation locale
 - [x] Étendre le VFS aux sous-répertoires FAT à un niveau, sous un contrat de non-écrasement et de non-rejeu des mutations incertaines
 - [x] Externaliser les I/O des alias VFS au worker Ring 3, avec droit–source–préfixe temporaire, corrélation stricte, diagnostic de scope non divulguant et absence de rejeu après issue incertaine
 - [ ] Optimisation supplémentaire de la latence GGUF sur une plateforme de référence stable, distincte de la variabilité QEMU TCG

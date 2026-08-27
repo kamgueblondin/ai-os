@@ -23,11 +23,10 @@ FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.05"))
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 KEY_ECHO_TIMEOUT = float(os.environ.get("KEY_ECHO_TIMEOUT", "3"))
-# Sous TCG, les scan-codes `.` et `s` ont été observés une seconde fois après
-# leur premier écho. Eux seuls reçoivent une fenêtre de stabilisation, ce qui
-# conserve le budget des milliers de caractères ordinaires du contrat.
-KEY_DUPLICATE_SETTLE_CHARS = os.environ.get("KEY_DUPLICATE_SETTLE_CHARS", ".s")
-KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.30"))
+# Sous TCG, un scan-code peut encore être délivré après son premier écho.
+# Chaque caractère reçoit donc une fenêtre de stabilité ; un doublon est
+# effacé dans le buffer local avant `ret`, sans rejouer la ligne exécutée.
+KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.10"))
 KEY_CHAR_RETRIES = int(os.environ.get("KEY_CHAR_RETRIES", "3"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 
@@ -124,13 +123,11 @@ def send_command_once(client, command, proc=None, key_delay=KEY_DELAY):
                 time.sleep(key_delay)
                 count = key_echo_count(log_text()[start:], char)
                 if count:
-                    # La fenêtre supplémentaire ne concerne que les
-                    # scan-codes explicitement observés en doublon. Les autres
-                    # passent immédiatement à la touche suivante après écho,
-                    # sans perdre la confirmation caractère par caractère.
-                    if char in KEY_DUPLICATE_SETTLE_CHARS:
-                        time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
-                        count = key_echo_count(log_text()[start:], char)
+                    # Ne jamais poursuivre ni envoyer `ret` tant qu’un second
+                    # scan-code peut encore arriver. La fenêtre couvre chaque
+                    # caractère et laisse la purge locale retirer tout doublon.
+                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+                    count = key_echo_count(log_text()[start:], char)
                     break
             if count:
                 break
@@ -188,6 +185,27 @@ def send_command(client, command, proc=None, key_delay=KEY_DELAY):
     raise RuntimeError("echo commande instable : %s" % command)
 
 
+def wait_for_mount_add_worker(proc, alias, source, offset=0, timeout=15, terminal=None):
+    """Prouve l’exécution worker malgré les traces asynchrones intercalées.
+
+    Le worker, le médiateur et le shell écrivent sur la même sortie série. La
+    preuve conserve donc leur ordre corrélé : traitement worker, délégation
+    médiateur, puis publication du montage avec l’alias attendu.
+    """
+    if terminal is None:
+        terminal = r"vfsserver mount added " + re.escape(alias) + r" " + re.escape(source)
+    pattern = (r"vfsvirtual mount add[\s\S]{0,320}?"
+               r"vfsserver delegated mount add[\s\S]{0,320}?" + terminal)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError("QEMU s'est arrêté prématurément")
+        if re.search(pattern, normalized_log(log_text()[offset:])):
+            return
+        time.sleep(0.1)
+    raise RuntimeError("montage worker manquant : %s" % alias)
+
+
 def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
     """Parcourt les pages VFS de 4 noms jusqu'a trouver `name`."""
     start = len(log_text())
@@ -229,6 +247,27 @@ def send_command_until(client, command, needle, proc, attempts=1, key_delay=KEY_
             error = caught
             time.sleep(0.2)
     raise error
+
+
+def wait_for_cooperative_client(client, proc, needle, start, rounds=4):
+    """Accorde au client nouvellement créé des tours bornés avant son I/O.
+
+    Seuls des `yield` shell sont injectés ici et le client n’a encore reçu
+    aucun grant ; aucune mutation ni I/O VFS ne peut donc être rejouée.
+    """
+    error = None
+    for _ in range(rounds):
+        try:
+            wait_for(needle, proc, start, timeout=1)
+            return
+        except RuntimeError as caught:
+            error = caught
+        send_command_until(client, "yield", "yield ok", proc)
+    try:
+        wait_for(needle, proc, start, timeout=2)
+        return
+    except RuntimeError as caught:
+        raise error or caught
 
 
 def assert_lfn_lifecycle(client, proc, mount, name, renamed, payload):
@@ -310,6 +349,19 @@ def assert_fat_subdirectory_lifecycle(client, proc, mount, payload):
                        "vfsserver rename request", proc)
     wait_for("vfs-rename ok request", proc, before_rename)
     wait_for("vfsvirtual rename %s -> %s" % (path, renamed), proc, before_rename)
+    escaped = "%s/escaped.txt" % mount
+    before_escape = len(log_text())
+    send_command_until(client, "vfs-rename %s %s" % (renamed, escaped),
+                       "vfsserver rename request", proc)
+    wait_for("vfsvirtual rename %s -> %s" % (renamed, escaped), proc, before_escape)
+    wait_for("vfsserver backend prefix denied", proc, before_escape)
+    wait_for("vfs-rename: chemins hors montage ecriture", proc, before_escape)
+    before_source_intact = len(log_text())
+    send_command_until(client, "vfs-read %s" % renamed, "vfs-read ok", proc)
+    wait_for(payload, proc, before_source_intact)
+    before_escape_absent = len(log_text())
+    send_command_until(client, "vfs-read %s" % escaped, "vfsserver read request", proc)
+    wait_for("vfs-read: lecture refusee ou fichier absent", proc, before_escape_absent)
     before_rmdir_refused = len(log_text())
     send_command_until(client, "vfs-rmdir %s" % directory, "vfsserver rmdir request", proc)
     wait_for("vfs-rmdir: suppression refusee", proc, before_rmdir_refused)
@@ -382,12 +434,11 @@ def main():
             wait_for("vfsserver mount overlay/ rw", proc, before_spawn)
             before_cap_claim = len(log_text())
             send_command_until(monitor, "spawn vfscapclaim", "spawn ok pid", proc)
-            cap_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfscapclaim", log_text()[before_cap_claim:])
+            cap_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfscapclaim", normalized_log(log_text()[before_cap_claim:]))
             if not cap_claimed:
                 raise RuntimeError("beneficiaire de capacite VFS non lance")
             cap_claim_pid = cap_claimed.group(1)
-            send_command(monitor, "yield", proc)
-            wait_for("vfscapclaim waiting backend", proc, before_cap_claim)
+            wait_for_cooperative_client(monitor, proc, "vfscapclaim waiting backend", before_cap_claim)
             before_cap_grant = len(log_text())
             send_command_until(monitor, "vfs-backend-grant %s" % cap_claim_pid,
                                "vfsserver backend grant request", proc)
@@ -426,12 +477,11 @@ def main():
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_release_claim = len(log_text())
             send_command_until(monitor, "spawn vfsreleaseclaim", "spawn ok pid", proc)
-            release_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreleaseclaim", log_text()[before_release_claim:])
+            release_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreleaseclaim", normalized_log(log_text()[before_release_claim:]))
             if not release_claimed:
                 raise RuntimeError("beneficiaire de liberation autonome non lance")
             release_claim_pid = release_claimed.group(1)
-            send_command(monitor, "yield", proc)
-            wait_for("vfsreleaseclaim waiting backend", proc, before_release_claim)
+            wait_for_cooperative_client(monitor, proc, "vfsreleaseclaim waiting backend", before_release_claim)
             before_release_grant = len(log_text())
             send_command_until(monitor, "vfs-backend-grant %s" % release_claim_pid,
                                "vfsserver backend grant request", proc)
@@ -447,12 +497,11 @@ def main():
             # scénario IPC différé qui suit et masquerait la réponse VFS concernée.
             before_read_claim = len(log_text())
             send_command_until(monitor, "spawn vfsreadclaim", "spawn ok pid", proc)
-            read_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreadclaim", log_text()[before_read_claim:])
+            read_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsreadclaim", normalized_log(log_text()[before_read_claim:]))
             if not read_claimed:
                 raise RuntimeError("beneficiaire lecture seule VFS non lance")
             read_claim_pid = read_claimed.group(1)
-            send_command(monitor, "yield", proc)
-            wait_for("vfsreadclaim waiting read", proc, before_read_claim)
+            wait_for_cooperative_client(monitor, proc, "vfsreadclaim waiting read", before_read_claim)
             before_read_grant = len(log_text())
             send_command_until(monitor, "vfs-backend-grant-read %s" % read_claim_pid,
                                "vfsserver backend scoped grant request", proc)
@@ -471,12 +520,11 @@ def main():
             send_command_until(monitor, "service-find vfs", "service-find ok vfs %s" % server_pid, proc)
             before_mutate_claim = len(log_text())
             send_command_until(monitor, "spawn vfsmutateclaim", "spawn ok pid", proc)
-            mutate_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsmutateclaim", log_text()[before_mutate_claim:])
+            mutate_claimed = re.search(r"spawn ok pid[\s\S]*?(\d+) vfsmutateclaim", normalized_log(log_text()[before_mutate_claim:]))
             if not mutate_claimed:
                 raise RuntimeError("beneficiaire mutation seule VFS non lance")
             mutate_claim_pid = mutate_claimed.group(1)
-            send_command(monitor, "yield", proc)
-            wait_for("vfsmutateclaim waiting mutate", proc, before_mutate_claim)
+            wait_for_cooperative_client(monitor, proc, "vfsmutateclaim waiting mutate", before_mutate_claim)
             before_mutate_grant = len(log_text())
             send_command_until(monitor, "vfs-backend-grant-mutate %s" % mutate_claim_pid,
                                "vfsserver backend scoped grant request", proc)
@@ -547,13 +595,13 @@ def main():
             send_command_until(monitor, "vfs-mount-add assets/ initrd",
                                "vfsserver mount added assets/ initrd", proc)
             wait_for("vfsserver delegated mount add", proc, before_add_assets)
-            wait_for("vfsvirtual mount add assets/", proc, before_add_assets)
+            wait_for_mount_add_worker(proc, "assets/", "initrd", before_add_assets)
             wait_for("vfs-mount-add ok request", proc, before_add_assets)
             before_add_work = len(log_text())
             send_command_until(monitor, "vfs-mount-add work/ overlay",
                                "vfsserver mount added work/ overlay", proc)
             wait_for("vfsserver delegated mount add", proc, before_add_work)
-            wait_for("vfsvirtual mount add work/", proc, before_add_work)
+            wait_for_mount_add_worker(proc, "work/", "overlay", before_add_work)
             wait_for("vfs-mount-add ok request", proc, before_add_work)
             before_add_fat32 = len(log_text())
             send_command_until(monitor, "vfs-mount-add media32/ fat32",
@@ -567,7 +615,8 @@ def main():
             send_command_until(monitor, "vfs-mount-add full/ overlay",
                                "vfsserver mount add rc -62", proc)
             wait_for("vfsserver delegated mount add", proc, before_full)
-            wait_for("vfsvirtual mount add full/", proc, before_full)
+            wait_for_mount_add_worker(proc, "full/", "overlay", before_full,
+                                       terminal=r"vfsserver mount add rc -62")
             wait_for("vfs-mount-add: table de montages pleine", proc, before_full)
             before_protected = len(log_text())
             send_command_until(monitor, "vfs-mount-remove initrd/",
@@ -808,7 +857,7 @@ def main():
             send_command_until(monitor, "vfs-mount-add stale/ overlay",
                                "vfsserver mount added stale/ overlay", proc)
             wait_for("vfsserver delegated mount add", proc, before_stale_alias_add)
-            wait_for("vfsvirtual mount add stale/", proc, before_stale_alias_add)
+            wait_for_mount_add_worker(proc, "stale/", "overlay", before_stale_alias_add)
             before_worker_stop = len(log_text())
             send_command_until(monitor, "kill %s" % worker_pid, "Processus %s termine" % worker_pid, proc)
             before_worker_missing = len(log_text())
@@ -887,7 +936,7 @@ def main():
             send_command_until(monitor, "vfs-mount-add assets/ initrd",
                                "vfsserver mount added assets/ initrd", proc)
             wait_for("vfsserver delegated mount add", proc, before_alias_timeout_mount)
-            wait_for("vfsvirtual mount add assets/", proc, before_alias_timeout_mount)
+            wait_for_mount_add_worker(proc, "assets/", "initrd", before_alias_timeout_mount)
             before_alias_worker_suspend = len(log_text())
             send_command_until(monitor, "task-suspend %s" % worker_pid,
                                "task-suspend ok %s" % worker_pid, proc)

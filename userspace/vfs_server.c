@@ -1190,6 +1190,8 @@ static int vfs_virtual_complete(const os_ipc_message_t* message, os_ipc_payload_
         if (os_vfs_parse_rename_reply(message, &worker_reply,
                                       vfs_virtual_pending.request_id) != OS_VFS_STATUS_OK) return 0;
         if (worker_reply.status == OS_VFS_STATUS_OK) vfs_list_generation++;
+        if (worker_reply.status == OS_VFS_BACKEND_DENIED)
+            puts("vfsserver backend prefix denied\n");
         if (os_vfs_make_rename_reply(reply_payload, worker_reply.status,
                                      vfs_virtual_pending.request_id) == OS_VFS_STATUS_OK)
             (void)ipc_send(vfs_virtual_pending.client_pid, reply_payload);
