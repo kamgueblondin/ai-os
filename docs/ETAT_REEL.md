@@ -21,7 +21,7 @@ AI-OS démarre sans OS préinstallé dans QEMU, charge une archive initrd TAR, l
 
 ### Maintenance des gates — 25 août 2026
 
-Le contrat de contrôle IA vérifie désormais le catalogue réellement déclaré par le shell (`gpt2_124M.bin` et `gpt2.gguf`) ainsi que son diagnostic de sélection de profil. Les contrats IPC et VFS attendent le premier tour coopératif des serveurs Ring 3, filtrent uniquement les diagnostics d’ordonnancement asynchrones et vérifient l’écho d’une saisie PS/2 contrôlée avant l’exécution. Le contrat TLS réutilise la même discipline pour chaque ligne réseau : un doublon est effacé avant `ret`, mais une ligne entrée n’est jamais rejouée. Une frappe rejetée comme commande inconnue peut être corrigée avant l’entrée ; une opération IPC ou VFS déjà envoyée n’est jamais rejouée. Le contrat de transfert de service consomme aussi l’événement de tâche best-effort qui peut précéder l’événement de purge du service dans la FIFO du shell. Ces garde-fous empêchent que des scancodes PS/2 dupliqués ou une FIFO mixte soient interprétés comme des régressions noyau.
+Le contrat de contrôle IA vérifie désormais le catalogue réellement déclaré par le shell (`gpt2_124M.bin` et `gpt2.gguf`) ainsi que son diagnostic de sélection de profil. Les contrats IPC, VFS et le smoke cœur attendent le premier tour coopératif nécessaire, filtrent uniquement les diagnostics d’ordonnancement asynchrones et vérifient l’écho d’une saisie PS/2 contrôlée caractère par caractère avant l’exécution ; tout doublon est effacé localement avant `ret`. Le contrat TLS réutilise la même discipline pour chaque ligne réseau : un doublon est effacé avant `ret`, mais une ligne entrée n’est jamais rejouée. Une frappe rejetée comme commande inconnue peut être corrigée avant l’entrée ; une opération IPC ou VFS déjà envoyée n’est jamais rejouée. Le contrat de transfert de service consomme aussi l’événement de tâche best-effort qui peut précéder l’événement de purge du service dans la FIFO du shell. Ces garde-fous empêchent que des scancodes PS/2 dupliqués ou une FIFO mixte soient interprétés comme des régressions noyau.
 
 | Périmètre | État vérifié |
 |---|---|
@@ -44,7 +44,7 @@ Le contrat de contrôle IA vérifie désormais le catalogue réellement déclar�
 | 2 | Topologie réseau locale partagée optionnelle | Seulement après une solution d’injection PS/2 démontrée avec plusieurs QEMU simultanés ; rester sans TAP, hôte Internet, OpenAI ni secret. |
 | 3 | Réseau public optionnel | Uniquement après accord explicite et secret fourni hors image, logs et dépôt ; validation de certificat et de l’endpoint réel séparées de la CI. |
 
-> La validation locale la plus récente conserve les sept contrats et termine en **787,2 s** (13 min 7 s) en séquentiel ; la stabilité reste à confirmer par la CI de cette branche avant fusion. Les attentes d’injection ne retirent aucune assertion : l’écho PS/2 reste vérifié caractère par caractère, avec stabilisation seulement des scan-codes observés en doublon, et une ligne réseau n’est jamais rejouée après son entrée.
+> La validation locale la plus récente conserve les sept contrats et termine en **748,2 s** (12 min 28 s) en séquentiel ; la stabilité reste à confirmer par la CI de cette branche avant fusion. Les attentes d’injection ne retirent aucune assertion : l’écho PS/2 reste vérifié caractère par caractère, avec stabilisation de chaque scan-code jusqu’à confirmation, et une ligne réseau n’est jamais rejouée après son entrée.
 
 ## Fonctions livrées
 
