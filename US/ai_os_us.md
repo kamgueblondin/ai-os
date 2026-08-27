@@ -85,9 +85,9 @@ La mention **fait** signifie que le comportement est observable dans le code et 
 
 **Livraison lecture seule (lot 68).** Le noyau monte un volume FAT16 prepare sur le disque IDE a partir du LBA 64, sans toucher aux 64 secteurs AIOV. `fat16-list` liste la racine 8.3 et `fat16-cat <8.3>` lit les fichiers chaines par la FAT. Note : [docs/mohhos_foundation_increment_68_fat16_volume.md](../docs/mohhos_foundation_increment_68_fat16_volume.md).
 
-**Livraison ultérieure (26 août 2026).** Le VFS expose `fat16/` et `fat32/` en création, suppression et renommage de fichiers 8.3 ou LFN à la racine, puis en `mkdir`, écriture, statut, listage paginé, renommage, suppression et `rmdir` vide dans **un seul** sous-répertoire 8.3. Les mutations fixes sont déléguées à `vfsvirtual` sous `mutate`. Les ajouts, retraits et I/O (`read`, `stat`, liste, pages et observation) des alias dynamiques sont validés, stockés et résolus par ce worker Ring 3 après messages privés corrélés ; le médiateur ne conserve qu’un miroir volatile de sélection. Le worker revalide l’alias avant syscall. Comme `read` est encore global dans le registre, le médiateur le concède seulement pendant l’I/O puis restaure `mutate` ou révoque la capacité. Au remplacement, à la disparition ou à l’expiration incertaine du worker, le miroir est purgé, le client reçoit `INVALID` et aucune I/O ou mutation n’est rejouée. Les contrats QEMU vérifient les cycles racine LFN et sous-répertoire des deux volumes IDE, la délégation complète d’alias, la restauration/révocation de droits et l’absence de rejeu après expiration. L’écrasement, le second niveau, les LFN enfants, le renommage inter-répertoire et le remplacement transactionnel restent hors contrat. Un second disque IDE porte FAT32. **ext2 n’est pas une option.**
+**Livraison ultérieure (27 août 2026).** Le VFS expose `fat16/` et `fat32/` en création, suppression et renommage de fichiers 8.3 ou LFN à la racine, puis en `mkdir`, écriture, statut, listage paginé, renommage, suppression et `rmdir` vide dans **un seul** sous-répertoire 8.3. Les mutations fixes ainsi que les ajouts, retraits et I/O (`read`, `stat`, liste, pages et observation) des alias dynamiques sont validés et résolus par `vfsvirtual` Ring 3 après messages privés corrélés ; le médiateur ne conserve qu’un miroir volatil. Chaque transaction worker reçoit désormais un scope backend d’une **seule source** (`initrd`, `overlay`, `fat16` ou `fat32`) avec `read` ou `mutate`, puis il est révoqué. Les syscalls FAT bruts sont eux aussi backend-protégés ; `fat16-list` et `fat16-cat` passent donc par le médiateur VFS. Une lecture générique exige toutes les sources et ne contourne pas ce scope. Au remplacement, à la disparition ou à l’expiration incertaine du worker, le miroir est purgé, le client reçoit `INVALID` et aucune I/O ou mutation n’est rejouée. Les contrats unitaires prouvent les refus inter-sources et le contrat QEMU valide les cycles FAT, la délégation d’alias, la révocation mono-source et l’absence de rejeu. Le scope par préfixe à l’intérieur d’une source, l’écrasement, le second niveau, les LFN enfants, le renommage inter-répertoire et le remplacement transactionnel restent hors contrat. Un second disque IDE porte FAT32. **ext2 n’est pas une option.**
 
-**Verification.** `make test-all` (**509/509**), `make qemu-vfs-service`, `make integration-qemu` (sept contrats séquentiels, **786,7 s** en validation locale, sans assertion retirée) puis `make qemu-ne2k-tls-multipair`.
+**Verification.** `make test-all` (**510/510**), `make qemu-vfs-service`, `make integration-qemu` (sept contrats séquentiels, sans assertion retirée) puis `make qemu-ne2k-tls-multipair`.
 
 ## Tranche reseau AOS-113 a AOS-154 - primitives, puis raccordement local
 
@@ -118,15 +118,17 @@ Les lots 113-154 sont **faits** au sens caller-owned / Unity / smoke NIC. Les lo
 | 116-118 | Création, suppression et renommage FAT16 8.3 ou LFN à la racine |
 | 119-121 | Création, suppression et renommage FAT32 8.3 ou LFN à la racine, ou 8.3 sous un niveau |
 | 122-123 | Listage FAT16/FAT32 par chemin, avec capacité en EDX et départ de page en ESI |
+| 124 | Grant backend VFS source-scopé : droits en EDX, masque de sources en ESI |
+| 125 | Statut interne borné du couple droits–sources backend |
 
-`MAX_SYSCALLS = 124`.
+`MAX_SYSCALLS = 126`.
 
 ## Prochaines tranches, hors livraison actuelle
 
 | Priorite | Sujet | Critere de sortie |
 |---|---|---|
 | 0 | Budget CI QEMU | Conserver les sept contrats séquentiels sous 25 minutes et le smoke multi-pairs dans GitHub Actions, sans retirer d’assertion métier ni rejouer une mutation ou I/O incertaine ; la dernière mesure locale est 786,7 s |
-| 1 | Granularité backend VFS | Évaluer une ACL noyau par préfixe/source avant d’étendre les délégations ; le droit `read` actuel est global et ne doit pas être présenté comme une capability chemin |
+| 1 | Granularité backend par préfixe | Évaluer une ACL noyau par préfixe à l’intérieur d’une source ; le scope actuel de source entière ne doit pas être présenté comme une capability chemin |
 | 2 | Topologie réseau locale partagée optionnelle | Seulement après une injection PS/2 démontrée avec plusieurs QEMU simultanés ; sans TAP, clé, Internet public ni OpenAI |
 | 3 | Latence locale | Mesure sous matériel/KVM sur une plateforme de référence ; QEMU TCG reste ~48 s / ~23 s |
 

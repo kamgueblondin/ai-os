@@ -52,6 +52,14 @@ static int service_backend_grant_scoped(const char* name, int target_pid, uint32
     return result;
 }
 
+static int service_backend_grant_scoped_source(const char* name, int target_pid, uint32_t rights,
+                                               uint32_t sources) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_GRANT_SCOPED_SOURCE),
+                 "b"(name), "c"(target_pid), "d"(rights), "S"(sources));
+    return result;
+}
+
 static int service_backend_revoke(const char* name, int target_pid) {
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_REVOKE), "b"(name), "c"(target_pid));
@@ -62,6 +70,22 @@ static int service_backend_status(const char* name, int target_pid, uint32_t* ri
     int result;
     asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_STATUS), "b"(name), "c"(target_pid), "d"(rights));
     return result;
+}
+
+static int service_backend_scope_status(const char* name, int target_pid,
+                                        os_service_backend_scope_t* scope) {
+    int result;
+    asm volatile("int $0x80" : "=a"(result) : "a"(SYS_SERVICE_BACKEND_SCOPE_STATUS),
+                 "b"(name), "c"(target_pid), "d"(scope));
+    return result;
+}
+
+static uint32_t vfs_backend_source_mask(uint32_t source) {
+    if (source == OS_VFS_MOUNT_SOURCE_INITRD) return OS_SERVICE_BACKEND_SOURCE_INITRD;
+    if (source == OS_VFS_MOUNT_SOURCE_OVERLAY) return OS_SERVICE_BACKEND_SOURCE_OVERLAY;
+    if (source == OS_VFS_MOUNT_SOURCE_FAT16) return OS_SERVICE_BACKEND_SOURCE_FAT16;
+    if (source == OS_VFS_MOUNT_SOURCE_FAT32) return OS_SERVICE_BACKEND_SOURCE_FAT32;
+    return 0U;
 }
 
 static int service_backend_list(const char* name, os_service_backend_list_t* list) {
@@ -577,6 +601,8 @@ static int list_virtual_mounts_page(uint32_t start, uint8_t* data, uint32_t data
 static int write_mounted_backend(const char* path, const uint8_t* data, uint32_t size);
 static int remove_mounted_backend(const char* path);
 static int rename_mounted_backend(const char* oldpath, const char* newpath);
+static int list_path_matches_mount(const char* path, const char* mount,
+                                   const char** relative_out);
 
 typedef struct {
     uint32_t active;
@@ -596,6 +622,7 @@ typedef struct {
     /* Droit backend présent avant une I/O de lecture d’alias. Il est restauré
      * ou révoqué dès la terminaison corrélée pour réduire la fenêtre READ. */
     uint32_t backend_rights_restore;
+    uint32_t backend_sources_restore;
     uint32_t backend_rights_active;
     uint8_t mutation_data[OS_VFS_WRITE_MAX];
     uint8_t mount_data[OS_VFS_READ_MAX];
@@ -606,8 +633,9 @@ static void vfs_virtual_reset(void) {
     if (vfs_virtual_pending.active && vfs_virtual_pending.backend_rights_active &&
         vfs_virtual_pending.backend_rights_restore != 0U &&
         service_lookup("vfs-virtual") == vfs_virtual_pending.worker_pid) {
-        (void)service_backend_grant_scoped("vfs", vfs_virtual_pending.worker_pid,
-                                           vfs_virtual_pending.backend_rights_restore);
+        (void)service_backend_grant_scoped_source("vfs", vfs_virtual_pending.worker_pid,
+                                                  vfs_virtual_pending.backend_rights_restore,
+                                                  vfs_virtual_pending.backend_sources_restore);
     } else if (vfs_virtual_pending.active && vfs_virtual_pending.backend_rights_active &&
                vfs_virtual_pending.backend_rights_restore == 0U &&
                service_lookup("vfs-virtual") == vfs_virtual_pending.worker_pid) {
@@ -628,6 +656,7 @@ static void vfs_virtual_reset(void) {
     vfs_virtual_pending.mutation_size = 0U;
     vfs_virtual_pending.mount_source = 0U;
     vfs_virtual_pending.backend_rights_restore = 0U;
+    vfs_virtual_pending.backend_sources_restore = 0U;
     vfs_virtual_pending.backend_rights_active = 0U;
 }
 
@@ -660,6 +689,7 @@ static int vfs_virtual_begin(int worker_pid, int client_pid, uint32_t request_id
     vfs_virtual_pending.mutation_size = 0U;
     vfs_virtual_pending.mount_source = 0U;
     vfs_virtual_pending.backend_rights_restore = 0U;
+    vfs_virtual_pending.backend_sources_restore = 0U;
     vfs_virtual_pending.backend_rights_active = 0U;
     return 0;
 }
@@ -694,10 +724,42 @@ static int vfs_path_is_dynamic_alias(const char* path, int list_path) {
     return 0;
 }
 
+static uint32_t vfs_mount_source_for_path(const char* path, int list_path) {
+    uint32_t index;
+    if (!path) return 0U;
+    for (index = 0U; index < vfs_mount_count; index++) {
+        const char* relative = (const char*)0;
+        if (!list_path && os_vfs_match_mount(path, vfs_mounts[index].prefix, &relative))
+            return vfs_mounts[index].source;
+        if (list_path && list_path_matches_mount(path, vfs_mounts[index].prefix, &relative))
+            return vfs_mounts[index].source;
+    }
+    return 0U;
+}
+
+/* Les transactions worker utilisent une unique source. Une capacité déjà
+ * présente est refusée plutôt que fusionnée : son union pourrait élargir les
+ * droits de lecture ou mutation au-delà de l’alias résolu. */
+static int vfs_virtual_prepare_worker_source(int worker_pid, uint32_t rights, uint32_t source) {
+    os_service_backend_scope_t scope;
+    uint32_t sources = vfs_backend_source_mask(source);
+    int status;
+    if (sources == 0U) return -1;
+    status = service_backend_scope_status("vfs", worker_pid, &scope);
+    if (status == 0 && scope.rights != 0U) return -2;
+    if (status != 0 && status != OS_SERVICE_NOT_FOUND) return -3;
+    status = service_backend_grant_scoped_source("vfs", worker_pid, rights, sources);
+    if (status != 0) return -4;
+    vfs_virtual_pending.backend_rights_restore = scope.rights;
+    vfs_virtual_pending.backend_sources_restore = scope.sources;
+    vfs_virtual_pending.backend_rights_active = 1U;
+    return 0;
+}
+
 static int vfs_virtual_submit_alias_io(uint32_t kind, const char* path, uint32_t start,
                                        int client_pid, uint32_t request_id) {
     os_ipc_payload_t payload;
-    uint32_t restore_rights = 0U;
+    uint32_t source;
     int worker_pid;
     int status;
     if (vfs_virtual_pending.active) return -1;
@@ -718,15 +780,11 @@ static int vfs_virtual_submit_alias_io(uint32_t kind, const char* path, uint32_t
     if (status != OS_VFS_STATUS_OK) return -4;
     if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
         return -5;
-    /* Le registre n’offre pas de scope chemin/source. La lecture est donc
-     * accordée seulement pendant cette transaction ; le worker la réduit encore
-     * à un alias dynamique détenu et le médiateur restaure le droit antérieur. */
-    status = service_backend_status("vfs", worker_pid, &restore_rights);
-    if (status != 0) restore_rights = 0U;
-    status = service_backend_grant_scoped("vfs", worker_pid, OS_VFS_BACKEND_RIGHT_READ);
+    source = vfs_mount_source_for_path(path, kind == VFS_VIRTUAL_PENDING_ALIAS_LIST ||
+                                       kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_PAGE ||
+                                       kind == VFS_VIRTUAL_PENDING_ALIAS_LIST_OBSERVE);
+    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_READ, source);
     if (status != 0) { vfs_virtual_reset(); return -6; }
-    vfs_virtual_pending.backend_rights_restore = restore_rights;
-    vfs_virtual_pending.backend_rights_active = 1U;
     vfs_virtual_pending.mount_start = start;
     if (ipc_send(worker_pid, &payload) != 0) { vfs_virtual_reset(); return -7; }
     return 0;
@@ -758,13 +816,14 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
                                        const uint8_t* data, uint32_t size, int client_pid,
                                        uint32_t request_id) {
     os_ipc_payload_t payload;
+    uint32_t source;
     int worker_pid;
     int status;
     if (vfs_virtual_pending.active) return -1;
     worker_pid = vfs_virtual_lookup();
     if (worker_pid < 0) return -2;
-    status = service_backend_grant_scoped("vfs", worker_pid, OS_VFS_BACKEND_RIGHT_MUTATE);
-    if (status != 0) return -3;
+    source = vfs_mount_source_for_path(path, 0);
+    if (source == 0U || (new_path && vfs_mount_source_for_path(new_path, 0) != source)) return -3;
     if (kind == VFS_VIRTUAL_PENDING_WRITE) {
         status = os_vfs_make_worker_write_request(&payload, path, data, size, request_id);
     } else if (kind == VFS_VIRTUAL_PENDING_REMOVE) {
@@ -781,10 +840,12 @@ static int vfs_virtual_submit_mutation(uint32_t kind, const char* path, const ch
     if (status != OS_VFS_STATUS_OK) return -5;
     if (vfs_virtual_begin(worker_pid, client_pid, request_id, kind, VFS_VIRTUAL_VIEW_INFO) != 0)
         return -6;
+    status = vfs_virtual_prepare_worker_source(worker_pid, OS_VFS_BACKEND_RIGHT_MUTATE, source);
+    if (status != 0) { vfs_virtual_reset(); return -7; }
     vfs_virtual_store_mutation(kind, path, new_path, data, size);
     if (ipc_send(worker_pid, &payload) != 0) {
         vfs_virtual_reset();
-        return -7;
+        return -8;
     }
     return 0;
 }

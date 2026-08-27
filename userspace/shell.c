@@ -1804,30 +1804,75 @@ void cmd_task_events_budget(shell_context_t* ctx, char args[][128], int arg_coun
     print_string("\n");
 }
 
-static void cmd_fat16_list(shell_context_t* ctx, char args[][128], int arg_count) {
-    os_fat16_dirent_t entries[8];
-    int rc;
-    int i;
-    (void)ctx;
-    if (arg_count != 0) { print_error("Usage: fat16-list"); return; }
-    rc = sys_fat16_list(entries, 8U);
-    if (rc < 0) { print_error("fat16-list: volume indisponible"); return; }
-    print_string("fat16-list ok "); print_uint((uint32_t)rc); print_string("\n");
-    for (i = 0; i < rc; i++) {
-        print_string(entries[i].name); print_string(" "); print_uint(entries[i].size); print_string("\n");
+/* Les commandes FAT héritées passent par vfs : les syscalls FAT bruts sont
+ * désormais backend-protégés et ne doivent pas devenir une voie de contournement. */
+static void cmd_vfs_read(shell_context_t* ctx, char args[][128], int arg_count);
+static void cmd_vfs_list(shell_context_t* ctx, char args[][128], int arg_count);
+
+/* Les commandes FAT restent utilisables dans une image qui lance seulement le
+ * shell. Elles démarrent un couple VFS uniquement pour la requête de lecture,
+ * attendent une publication bornée, puis libèrent leurs enfants transitoires. */
+static int start_transient_vfs(int* worker_out, int* server_out) {
+    int worker_pid;
+    int server_pid;
+    uint32_t turns;
+    if (sys_service_lookup("vfs") > 0) return 0;
+    worker_pid = spawn("vfsvirtual", 0);
+    if (worker_pid < 0) return -1;
+    server_pid = spawn("vfsserver", 0);
+    if (server_pid < 0) { (void)sys_kill_pid(worker_pid); return -2; }
+    for (turns = 0U; turns < 24U; turns++) {
+        if (sys_service_lookup("vfs") > 0) {
+            if (worker_out) *worker_out = worker_pid;
+            if (server_out) *server_out = server_pid;
+            return 1;
+        }
+        yield();
     }
+    (void)sys_kill_pid(server_pid);
+    (void)sys_kill_pid(worker_pid);
+    return -3;
+}
+
+static void stop_transient_vfs(int started, int worker_pid, int server_pid) {
+    if (!started) return;
+    (void)sys_kill_pid(server_pid);
+    (void)sys_kill_pid(worker_pid);
+    yield();
+    yield();
+}
+
+static void cmd_fat16_list(shell_context_t* ctx, char args[][128], int arg_count) {
+    char vfs_args[1][128] = { "fat16/" };
+    int worker_pid = 0;
+    int server_pid = 0;
+    int started;
+    if (arg_count != 0) { print_error("Usage: fat16-list"); return; }
+    started = start_transient_vfs(&worker_pid, &server_pid);
+    if (started < 0) { print_error("fat16-list: mediatrice VFS indisponible"); return; }
+    cmd_vfs_list(ctx, vfs_args, 1);
+    stop_transient_vfs(started, worker_pid, server_pid);
 }
 
 static void cmd_fat16_cat(shell_context_t* ctx, char args[][128], int arg_count) {
-    char buffer[4096];
-    int rc;
-    (void)ctx;
+    char vfs_args[1][128];
+    int worker_pid = 0;
+    int server_pid = 0;
+    int started;
+    uint32_t i = 0U;
     if (arg_count != 1) { print_error("Usage: fat16-cat <8.3>"); return; }
-    rc = sys_fat16_read(args[0], buffer, sizeof(buffer));
-    if (rc < 0) { print_error("fat16-cat: lecture impossible"); return; }
-    print_string("fat16-cat ok "); print_uint((uint32_t)rc); print_string("\n");
-    for (int i = 0; i < rc; i++) putc(buffer[i]);
-    if (rc == 0 || buffer[rc - 1] != '\n') print_string("\n");
+    vfs_args[0][i++] = 'f'; vfs_args[0][i++] = 'a'; vfs_args[0][i++] = 't';
+    vfs_args[0][i++] = '1'; vfs_args[0][i++] = '6'; vfs_args[0][i++] = '/';
+    while (args[0][i - 6U] != '\0' && i + 1U < OS_VFS_PATH_MAX) {
+        vfs_args[0][i] = args[0][i - 6U];
+        i++;
+    }
+    if (args[0][i - 6U] != '\0') { print_error("fat16-cat: chemin trop long"); return; }
+    vfs_args[0][i] = '\0';
+    started = start_transient_vfs(&worker_pid, &server_pid);
+    if (started < 0) { print_error("fat16-cat: mediatrice VFS indisponible"); return; }
+    cmd_vfs_read(ctx, vfs_args, 1);
+    stop_transient_vfs(started, worker_pid, server_pid);
 }
 
 void cmd_task_events_budget_status(shell_context_t* ctx, char args[][128], int arg_count) {
