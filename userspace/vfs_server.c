@@ -181,7 +181,6 @@ static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     for (i = 0U; path[i] != '\0'; i++) {
         if (i + 1U >= OS_VFS_PATH_MAX) return -1;
         if (path[i] == '/') {
-            if (slash != OS_VFS_LIST_PAGE_END) return -1;
             slash = i;
         }
     }
@@ -261,7 +260,6 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     for (i = 0U; path[i] != '\0'; i++) {
         if (i + 1U >= OS_VFS_PATH_MAX) return -1;
         if (path[i] == '/') {
-            if (slash != OS_VFS_LIST_PAGE_END) return -1;
             slash = i;
         }
     }
