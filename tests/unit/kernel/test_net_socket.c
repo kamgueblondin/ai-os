@@ -132,6 +132,37 @@ void test_socket_tls_poll_primitives_are_bounded(void) {
     TEST_ASSERT_EQUAL(0, net_socket_close(id));
 }
 
+void test_multisocket_concurrency_and_reuse(void) {
+    int ids[NET_SOCKET_CAPACITY];
+    int extra_id;
+    uint32_t i;
+    uint8_t state = 0U;
+
+    net_socket_reset_all();
+    for (i = 0U; i < NET_SOCKET_CAPACITY; i++) {
+        ids[i] = net_socket_open((uint16_t)(50000U + i), 443U, 1000U + i);
+        TEST_ASSERT_TRUE(ids[i] >= 0);
+        TEST_ASSERT_EQUAL(0, net_socket_get_state(ids[i], &state));
+        TEST_ASSERT_EQUAL(NET_TCP_STATE_SYN_SENT, state);
+    }
+
+    extra_id = net_socket_open(50100U, 443U, 2000U);
+    TEST_ASSERT_EQUAL(NET_SOCKET_NO_SLOT, extra_id);
+
+    TEST_ASSERT_EQUAL(0, net_socket_close(ids[1]));
+    TEST_ASSERT_EQUAL(NET_SOCKET_NOT_OPEN, net_socket_get_state(ids[1], &state));
+
+    extra_id = net_socket_open(50100U, 443U, 2000U);
+    TEST_ASSERT_EQUAL(ids[1], extra_id);
+    TEST_ASSERT_EQUAL(0, net_socket_get_state(extra_id, &state));
+    TEST_ASSERT_EQUAL(NET_TCP_STATE_SYN_SENT, state);
+
+    net_socket_reset_all();
+    for (i = 0U; i < NET_SOCKET_CAPACITY; i++) {
+        TEST_ASSERT_EQUAL(NET_SOCKET_NOT_OPEN, net_socket_get_state((int)i, &state));
+    }
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_socket_lifecycle_send_receive);
@@ -141,6 +172,7 @@ int main(void) {
     RUN_TEST(test_socket_feed_routes_passive_segments);
     RUN_TEST(test_socket_tls_poll_primitives_are_bounded);
     RUN_TEST(test_socket_begin_close_is_bounded);
+    RUN_TEST(test_multisocket_concurrency_and_reuse);
     unity_print_results();
     unity_cleanup();
     return 0;

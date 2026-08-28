@@ -4778,6 +4778,7 @@ static void cmd_net_status(shell_context_t* ctx, char args[][128], int arg_count
     (void)args;
     print_colored("\n=== Reseau bare-metal ===\n", COLOR_CYAN);
     print_string(sys_net_status() & 1U ? "Carte Ethernet : detectee (NE2000 initialise)\n" : "Carte Ethernet : absente (aucun pilote NIC initialise)\n");
+    print_string("Sockets TCP Ring 3: 4 slots disponibles (multisocket, TLS 1.2 / HTTP / SSE)\n");
     print_string("ARP / IPv4 / DHCP : acquisition et renouvellement caller-owned\n");
     print_string("DNS / TCP / TLS   : socket, X.509 et TLS authentifie disponibles par phase\n");
     print_string("OpenAI en ligne   : bearer, POST Chat Completions et SSE disponibles apres acquisition/TLS\n");

@@ -39,6 +39,9 @@ int net_socket_build_syn(int socket_id, uint8_t* segment, uint16_t capacity,
 int net_socket_close(int socket_id) {
     if (!valid_id(socket_id)) return NET_SOCKET_NOT_OPEN;
     sockets[socket_id].used = 0U;
+    sockets[socket_id].receive_length = 0U;
+    sockets[socket_id].receive_offset = 0U;
+    sockets[socket_id].connection.state = NET_TCP_STATE_CLOSED;
     return 0;
 }
 
@@ -231,7 +234,12 @@ int net_socket_accept_tls_x25519_postflight(int socket_id, net_tls_handshake_t* 
 
 void net_socket_reset_all(void) {
     uint32_t i;
-    for (i = 0U; i < NET_SOCKET_CAPACITY; i++) sockets[i].used = 0U;
+    for (i = 0U; i < NET_SOCKET_CAPACITY; i++) {
+        sockets[i].used = 0U;
+        sockets[i].receive_length = 0U;
+        sockets[i].receive_offset = 0U;
+        sockets[i].connection.state = NET_TCP_STATE_CLOSED;
+    }
 }
 
 int net_socket_listen(uint16_t local_port, uint32_t local_sequence) {
