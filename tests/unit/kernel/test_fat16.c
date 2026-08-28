@@ -1380,6 +1380,27 @@ static void test_mutates_multilevel_subdirectory(void) {
     TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "SUB1"));
 }
 
+static void test_creates_lfn_in_subdirectory(void) {
+    fat16_volume_t volume;
+    os_fat16_dirent_t entries[4];
+    uint8_t payload[11] = {'S', 'U', 'B', '-', 'L', 'F', 'N', '-', 'O', 'K', '!'};
+    char readback[12] = {0};
+    uint16_t first = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_directory(&volume, "DIR1"));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "DIR1/long-subdirectory-file.txt", payload,
+                                                sizeof(payload), &first));
+    TEST_ASSERT_TRUE(first >= 2U);
+    TEST_ASSERT_EQUAL(1, fat16_list_path_page(&volume, "DIR1/", 0U, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("long-subdirectory-file.txt", entries[0].name);
+    TEST_ASSERT_EQUAL(11, fat16_read_path(&volume, "DIR1/long-subdirectory-file.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(payload, readback, sizeof(payload));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "DIR1/long-subdirectory-file.txt"));
+    TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "DIR1"));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
@@ -1406,6 +1427,7 @@ int main(void) {
     RUN_TEST(test_unlinks_and_renames_lfn_file);
     RUN_TEST(test_mutates_one_level_subdirectory_without_overwrite);
     RUN_TEST(test_mutates_multilevel_subdirectory);
+    RUN_TEST(test_creates_lfn_in_subdirectory);
     unity_print_results();
     unity_cleanup();
     return 0;

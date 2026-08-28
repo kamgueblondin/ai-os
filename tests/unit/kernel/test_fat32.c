@@ -292,4 +292,30 @@ void test_fat32_mutates_multilevel_subdirectory(void) {
     TEST_ASSERT_EQUAL(0, fat32_remove_directory(&volume, "SUB1"));
 }
 
-int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_lists_root_page_after_first_entry); RUN_TEST(test_fat32_rename_file_root_8_3); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); RUN_TEST(test_fat32_utf8_lfn_non_bmp_roundtrip); RUN_TEST(test_fat32_mutates_one_level_subdirectory_without_overwrite); RUN_TEST(test_fat32_mutates_multilevel_subdirectory); unity_print_results(); unity_cleanup(); return 0; }
+void test_fat32_creates_lfn_in_subdirectory(void) {
+    fat32_volume_t volume;
+    os_fat16_dirent_t entries[4];
+    uint8_t payload[11] = {'S', 'U', 'B', '-', 'L', 'F', 'N', '-', 'O', 'K', '!'};
+    uint8_t readback[12] = {0U};
+    uint32_t first = 0U;
+    for (uint32_t i = 0U; i < sizeof(disk); i++) disk[i] = 0U;
+    disk[13] = 2U; put16(disk + 11U, 512U); put16(disk + 14U, 32U); disk[16] = 2U;
+    put32(disk + 32U, 200000U); put32(disk + 36U, 1000U); put32(disk + 44U, 2U);
+    put16(disk + 510U, 0xaa55U);
+    disk[32U * 512U + 8U] = 0xf8U; disk[32U * 512U + 9U] = 0xffU;
+    disk[32U * 512U + 10U] = 0xffU; disk[32U * 512U + 11U] = 0x0fU;
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat32_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat32_create_directory(&volume, "DIR1"));
+    TEST_ASSERT_EQUAL(0, fat32_create_path_file(&volume, "DIR1/long-subdirectory-file.txt", payload,
+                                                sizeof(payload), &first));
+    TEST_ASSERT_TRUE(first >= 2U);
+    TEST_ASSERT_EQUAL(1, fat32_list_path_page(&volume, "DIR1/", 0U, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("long-subdirectory-file.txt", entries[0].name);
+    TEST_ASSERT_EQUAL(11, fat32_read_path(&volume, "DIR1/long-subdirectory-file.txt", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(payload, readback, sizeof(payload));
+    TEST_ASSERT_EQUAL(0, fat32_unlink_path_file(&volume, "DIR1/long-subdirectory-file.txt"));
+    TEST_ASSERT_EQUAL(0, fat32_remove_directory(&volume, "DIR1"));
+}
+
+int main(void) { unity_init(); RUN_TEST(test_fat32_mount_and_read_cluster); RUN_TEST(test_fat32_lists_root_page_after_first_entry); RUN_TEST(test_fat32_rename_file_root_8_3); RUN_TEST(test_fat32_extend_full_root); RUN_TEST(test_lfn_utf8_bmp_conversion); RUN_TEST(test_fat32_lfn_encoding); RUN_TEST(test_fat32_lfn_file_and_list); RUN_TEST(test_fat32_utf8_lfn_file_roundtrip); RUN_TEST(test_fat32_utf8_lfn_non_bmp_roundtrip); RUN_TEST(test_fat32_mutates_one_level_subdirectory_without_overwrite); RUN_TEST(test_fat32_mutates_multilevel_subdirectory); RUN_TEST(test_fat32_creates_lfn_in_subdirectory); unity_print_results(); unity_cleanup(); return 0; }
