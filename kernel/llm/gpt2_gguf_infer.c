@@ -16,6 +16,7 @@ static gpt2_gguf_generation_t gguf_generation;
 static gpt2_gguf_kv_cache_t gguf_cache;
 static gpt2_gguf_generation_workspace_t gguf_workspace;
 static const fat16_volume_t* gguf_volume;
+static const fat32_volume_t* gguf_volume_fat32;
 static char gguf_filename[GPT2_GGUF_INFER_FILENAME_MAX];
 static char gguf_layer_name[64];
 static uint32_t gguf_cache_tokens[GPT2_GGUF_INFER_MAX_CONTEXT];
@@ -162,8 +163,59 @@ int gpt2_gguf_infer_init_fat16(const fat16_volume_t* volume, const char* filenam
     }
     gpt2_gguf_workspace_bind();
     gguf_volume = volume;
+    gguf_volume_fat32 = 0;
     gguf_ready = 1U;
     gguf_status = "GGUF: profil local FAT16 pret (cache KV actif)";
+    return 0;
+}
+
+int gpt2_gguf_infer_init_fat32(const fat32_volume_t* volume, const char* filename) {
+    int status;
+    gguf_ready = 0U;
+    gguf_last_top_k_ready = 0U;
+    gguf_status = "GGUF: profil local non initialise";
+    if (!volume || gpt2_gguf_copy_filename(filename) != 0) {
+        gguf_status = "GGUF: nom FAT32 invalide";
+        return -1;
+    }
+    status = gpt2_gguf_load_fat32_header(volume, gguf_filename, gguf_header,
+                                         sizeof(gguf_header), &gguf_model);
+    if (status != 0) {
+        gguf_status = "GGUF: catalogue FAT32 indisponible";
+        return status;
+    }
+    status = gpt2_gguf_generation_prepare(&gguf_model, gguf_layer_name,
+                                           sizeof(gguf_layer_name), gguf_layers,
+                                           GPT2_GGUF_INFER_MAX_LAYERS,
+                                           &gguf_generation);
+    if (status != 0) {
+        gguf_status = "GGUF: roles GPT-2 incompatibles";
+        return status;
+    }
+    if (gguf_generation.runtime.layer_count == 0U ||
+        gguf_generation.runtime.layer_count > GPT2_GGUF_INFER_MAX_LAYERS ||
+        gguf_generation.runtime.channels == 0U ||
+        gguf_generation.runtime.channels > GPT2_GGUF_INFER_MAX_CHANNELS ||
+        gguf_generation.runtime.channels % GPT2_GGUF_INFER_HEADS != 0U ||
+        gguf_generation.vocabulary == 0U ||
+        gguf_generation.vocabulary > GPT2_GGUF_INFER_MAX_VOCAB ||
+        gguf_generation.max_positions == 0U) {
+        gguf_status = "GGUF: profil hors bornes statiques";
+        return -6;
+    }
+    status = gpt2_gguf_kv_cache_init(gguf_kv_storage, sizeof(gguf_kv_storage) / sizeof(float),
+                                      gguf_generation.runtime.layer_count,
+                                      GPT2_GGUF_INFER_MAX_CONTEXT,
+                                      gguf_generation.runtime.channels, &gguf_cache);
+    if (status != 0) {
+        gguf_status = "GGUF: cache KV statique insuffisant";
+        return status;
+    }
+    gpt2_gguf_workspace_bind();
+    gguf_volume = 0;
+    gguf_volume_fat32 = volume;
+    gguf_ready = 1U;
+    gguf_status = "GGUF: profil local FAT32 pret (cache KV actif)";
     return 0;
 }
 
@@ -183,7 +235,7 @@ int gpt2_gguf_generate_next_sampled(const uint32_t* tokens, uint32_t token_count
     uint32_t i;
     gpt2_sample_top_k_state_t top_k;
     int status;
-    if (!tokens || !next_token || !gguf_ready || !gguf_volume) {
+    if (!tokens || !next_token || !gguf_ready || (!gguf_volume && !gguf_volume_fat32)) {
         gguf_status = "GGUF: profil local indisponible";
         return -1;
     }

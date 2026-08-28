@@ -60,6 +60,10 @@ int fat32_create_directory(const fat32_volume_t* volume, const char* name);
 int fat32_remove_directory(const fat32_volume_t* volume, const char* name);
 /* Lit un fichier FAT32 8.3 dans un buffer caller-owned, sans allocation dynamique. */
 int fat32_read_file(const fat32_volume_t* volume, const char* name, uint8_t* buffer, uint32_t max);
+/* Lit au plus max octets à partir d’un offset dans un fichier FAT32. */
+int fat32_read_file_range(const fat32_volume_t* volume, const char* name,
+                          uint32_t offset, uint8_t* buffer, uint32_t max,
+                          uint32_t* out_read);
 /* Supprime un alias 8.3 ou une séquence LFN ASCII validée et libère sa chaîne. */
 int fat32_unlink_file(const fat32_volume_t* volume, const char* name);
 /* Renomme un fichier 8.3 classique de la racine sans deplacer sa chaine, sans LFN ni repertoire. */

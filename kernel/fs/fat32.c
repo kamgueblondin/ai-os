@@ -462,6 +462,71 @@ int fat32_rename_lfn_file(const fat32_volume_t* v, const char* old_name,
     return OS_FAT16_NOT_FOUND;
 }
 
+int fat32_read_file_range(const fat32_volume_t* v, const char* name,
+                          uint32_t offset, uint8_t* buffer, uint32_t max,
+                          uint32_t* out_read) {
+    uint8_t entry[32], short_name[11], lfn_sum = 0U, expected = 0U, valid = 0U;
+    uint16_t lfn_units[OS_NAME_MAX];
+    uint32_t i, j, limit, size, cluster_bytes, skip_clusters, intra, copied = 0U, guard = 0U;
+    uint32_t cluster;
+    int short_valid;
+    if (out_read) *out_read = 0U;
+    if (!v || !name || !buffer || max == 0U || !out_read || !fat32_is_mounted(v)) return OS_FAT16_BAD_PATH;
+    short_valid = fat32_short_name(name, short_name) == 0;
+    if (!fat32_lfn_query_valid(name)) return OS_FAT16_BAD_PATH;
+    limit = v->cluster_count * (uint32_t)v->sectors_per_cluster * 16U;
+    for (i = 0U; i < limit; i++) {
+        uint8_t ord;
+        if (fat32_dir_slot(v, i, entry, 0, 0) != 0 || entry[0] == 0U) break;
+        if (entry[0] == 0xe5U) { valid = 0U; continue; }
+        if (entry[11] == 0x0fU) {
+            ord = entry[0] & 0x1fU;
+            if (entry[0] & 0x40U) {
+                if (ord == 0U || ord * 13U >= OS_NAME_MAX) { valid = 0U; continue; }
+                for (j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
+                lfn_sum = entry[13]; expected = ord; valid = 1U;
+            }
+            if (!valid || ord == 0U || ord != expected || entry[13] != lfn_sum) { valid = 0U; continue; }
+            fat32_lfn_get(entry, 1U, (ord - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 14U, (ord - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat32_lfn_get(entry, 28U, (ord - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
+            expected--; continue;
+        }
+        if (entry[11] & 0x18U) { valid = 0U; continue; }
+        { int match = short_valid; for (j = 0U; j < 11U && match; j++) if (entry[j] != short_name[j]) match = 0;
+          if (!match && !(valid && expected == 0U && fat32_lfn_checksum(entry) == lfn_sum && fat32_lfn_name_equal_folded(lfn_units, name))) { valid = 0U; continue; } }
+        size = le32(entry + 28U);
+        if (offset > size) return OS_FAT16_BAD_PATH;
+        cluster = ((uint32_t)entry[20] << 24U) | ((uint32_t)entry[21] << 16U) | le16(entry + 26U);
+        cluster_bytes = (uint32_t)v->sectors_per_cluster * 512U;
+        if (cluster_bytes == 0U || cluster_bytes > sizeof(fat32_file_cluster)) return OS_FAT16_CORRUPT;
+        skip_clusters = offset / cluster_bytes;
+        intra = offset % cluster_bytes;
+        while (skip_clusters-- > 0U) {
+            if (cluster < 2U || cluster > v->cluster_count + 1U || cluster == FAT32_BAD_CLUSTER ||
+                guard++ > v->cluster_count || fat32_read_fat_entry(v, cluster, &cluster) != 0) return OS_FAT16_CORRUPT;
+        }
+        while (copied < max && offset + copied < size) {
+            uint32_t take = cluster_bytes - intra;
+            if (cluster < 2U || cluster > v->cluster_count + 1U || cluster == FAT32_BAD_CLUSTER || guard > v->cluster_count) return OS_FAT16_CORRUPT;
+            if (fat32_read_cluster(v, cluster, fat32_file_cluster) != 0) return OS_FAT16_CORRUPT;
+            if (take > max - copied) take = max - copied;
+            if (take > size - offset - copied) take = size - offset - copied;
+            for (j = 0U; j < take; j++) buffer[copied + j] = fat32_file_cluster[intra + j];
+            copied += take;
+            intra += take;
+            if (intra >= cluster_bytes && copied < max && offset + copied < size) {
+                if (guard++ >= v->cluster_count ||
+                    fat32_read_fat_entry(v, cluster, &cluster) != 0) return OS_FAT16_CORRUPT;
+                intra = 0U;
+            }
+        }
+        *out_read = copied;
+        return 0;
+    }
+    return OS_FAT16_NOT_FOUND;
+}
+
 int fat32_read_file(const fat32_volume_t* v, const char* name, uint8_t* buffer, uint32_t max) {
     uint8_t entry[32], short_name[11], lfn_sum = 0U, expected = 0U, valid = 0U;
     uint16_t lfn_units[OS_NAME_MAX];

@@ -5,6 +5,7 @@
 #include "gpt2_quant.h"
 #include "gpt2_sample.h"
 #include "../fs/fat16.h"
+#include "../fs/fat32.h"
 
 typedef struct {
     gpt2_gguf_index_t index;
@@ -293,8 +294,11 @@ int gpt2_gguf_block_attention_forward_fat16(
 int gpt2_gguf_load_fat16(const fat16_volume_t* volume, const char* filename,
                          uint8_t* buffer, uint32_t capacity,
                          gpt2_gguf_loaded_model_t* out);
+int gpt2_gguf_load_fat32_header(const fat32_volume_t* volume, const char* filename,
+                                uint8_t* header, uint32_t header_capacity,
+                                gpt2_gguf_loaded_model_t* out);
 /* Charge seulement le catalogue GGUF dans un buffer caller-owned. La taille du
- * fichier reste la borne logique des poids, lus ensuite par fenêtres FAT16. */
+ * fichier reste la borne logique des poids, lus ensuite par fenêtres FAT16/FAT32. */
 int gpt2_gguf_load_fat16_header(const fat16_volume_t* volume, const char* filename,
                                 uint8_t* header, uint32_t header_capacity,
                                 gpt2_gguf_loaded_model_t* out);

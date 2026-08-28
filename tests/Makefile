@@ -99,19 +99,19 @@ $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_infer: $(UNIT_DIR)/kernel/test_gpt2_in
 	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/llm/gpt2_infer.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_gguf_infer: $(UNIT_DIR)/kernel/test_gpt2_gguf_infer.c ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_gguf_infer.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_gguf_infer: $(UNIT_DIR)/kernel/test_gpt2_gguf_infer.c ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_gguf_infer.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_gguf_infer.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_gguf_infer.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_gguf: $(UNIT_DIR)/kernel/test_gpt2_gguf.c ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_gpt2_gguf: $(UNIT_DIR)/kernel/test_gpt2_gguf.c ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
-$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_fat16: $(UNIT_DIR)/kernel/test_fat16.c ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
+$(BUILD_DIR)/$(UNIT_DIR)/kernel/test_fat16: $(UNIT_DIR)/kernel/test_fat16.c ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
+	$(CC) $(CFLAGS_KERNEL) -o $@ $< ../kernel/fs/fat16.c ../kernel/fs/fat32.c ../kernel/llm/gpt2_gguf.c ../kernel/llm/gpt2_gguf_loader.c ../kernel/llm/gpt2_quant.c ../kernel/llm/gpt2_sample.c $(FRAMEWORK_SOURCES)
 	@echo "Compiled kernel test: $(notdir $@)"
 
 $(BUILD_DIR)/$(UNIT_DIR)/kernel/test_vga_console: $(UNIT_DIR)/kernel/test_vga_console.c ../kernel/vga_console.c $(FRAMEWORK_SOURCES) $(FRAMEWORK_HEADERS)
