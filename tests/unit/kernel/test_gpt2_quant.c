@@ -51,8 +51,8 @@ static void test_q8_dot_two_blocks_with_signs(void) {
 }
 
 static void test_q8_rejects_invalid_length(void) {
-    float activation[GPT2_Q8_0_BLOCK_SIZE];
-    uint8_t block[GPT2_Q8_0_BLOCK_BYTES];
+    float activation[GPT2_Q8_0_BLOCK_SIZE] = {0.0f};
+    uint8_t block[GPT2_Q8_0_BLOCK_BYTES] = {0U};
     TEST_ASSERT_EQUAL(0, (int)gpt2_q8_0_dot_f32(activation, block, 31U));
     TEST_ASSERT_EQUAL(0, (int)gpt2_q8_0_dot_f32(0, block, GPT2_Q8_0_BLOCK_SIZE));
 }
