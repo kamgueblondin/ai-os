@@ -1242,6 +1242,10 @@ int fat16_list_path_page(const fat16_volume_t* v, const char* path, uint32_t sta
                          os_fat16_dirent_t* out, uint32_t capacity) {
     char directory[OS_NAME_MAX];
     char leaf[OS_NAME_MAX];
+    char lfn[OS_NAME_MAX];
+    uint16_t lfn_units[OS_NAME_MAX];
+    uint32_t lfn_length = 0U;
+    uint8_t lfn_sum = 0U, lfn_expected = 0U, lfn_valid = 0U;
     uint16_t cluster;
     uint32_t index;
     uint32_t seen = 0U;
@@ -1265,15 +1269,40 @@ int fat16_list_path_page(const fat16_volume_t* v, const char* path, uint32_t sta
     if (rc != 0) return rc;
     limit = (uint32_t)v->sectors_per_cluster * 16U;
     for (index = 0U; index < limit; index++) {
+        uint8_t ordinal;
         if (fat16_directory_slot(v, cluster, index, entry, 0) != 0) return OS_FAT16_CORRUPT;
         if (entry[0] == 0U) break;
-        if (entry[0] == 0xE5U || entry[11] == 0x0FU || entry[11] & 0x08U || entry[0] == '.') continue;
-        if (seen++ < start) continue;
+        if (entry[0] == 0xE5U) { lfn_valid = 0U; continue; }
+        if (entry[11] == 0x0FU) {
+            ordinal = entry[0] & 0x1FU;
+            if ((entry[0] & 0x40U) != 0U) {
+                lfn_length = ordinal * 13U;
+                if (lfn_length >= OS_NAME_MAX) { lfn_valid = 0U; continue; }
+                for (uint32_t j = 0U; j < OS_NAME_MAX; j++) lfn_units[j] = 0U;
+                lfn_sum = entry[13]; lfn_expected = ordinal; lfn_valid = 1U;
+            }
+            if (!lfn_valid || ordinal == 0U || ordinal != lfn_expected || entry[13] != lfn_sum) {
+                lfn_valid = 0U; continue;
+            }
+            fat16_lfn_get(entry, 1U, (uint32_t)(ordinal - 1U) * 13U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 14U, (uint32_t)(ordinal - 1U) * 13U + 5U, lfn_units, OS_NAME_MAX);
+            fat16_lfn_get(entry, 28U, (uint32_t)(ordinal - 1U) * 13U + 11U, lfn_units, OS_NAME_MAX);
+            lfn_expected--;
+            continue;
+        }
+        if (entry[11] & 0x08U || entry[0] == '.') { lfn_valid = 0U; continue; }
+        if (seen++ < start) { lfn_valid = 0U; continue; }
         if (count >= capacity) return (int)count;
-        copy_name(out[count].name, entry);
+        if (!(lfn_valid && lfn_expected == 0U && fat16_lfn_checksum(entry) == lfn_sum &&
+              lfn_utf16_bmp_to_utf8(lfn_units, OS_NAME_MAX, lfn, OS_NAME_MAX) >= 0)) {
+            copy_name(out[count].name, entry);
+        } else {
+            for (uint32_t j = 0U; j < OS_NAME_MAX; j++) out[count].name[j] = lfn[j];
+        }
         out[count].size = le32(entry + 28U);
         out[count].flags = (entry[11] & 0x10U) ? OS_DIRENT_DIR : OS_DIRENT_FILE;
         count++;
+        lfn_valid = 0U;
     }
     return (int)count;
 }
@@ -1313,14 +1342,33 @@ int fat16_unlink_path_file(const fat16_volume_t* v, const char* path) {
     uint32_t index;
     uint8_t entry[FAT16_ENTRY_SIZE];
     uint16_t first;
+    uint8_t lfn_sum;
+    int32_t start_index;
     int rc = fat16_split_subpath(path, directory, leaf);
     if (rc == OS_FAT16_NOT_FOUND) return fat16_unlink_file(v, path);
     if (rc != 0 || (rc = fat16_directory_cluster(v, directory, &cluster)) != 0) return rc;
     if ((rc = fat16_directory_find_short(v, cluster, leaf, entry, &index)) != 0) return rc;
     if (entry[11] & 0x10U) return OS_FAT16_BAD_PATH;
     first = le16(entry + 26U);
-    entry[0] = 0xE5U;
-    if ((rc = fat16_directory_slot(v, cluster, index, entry, 1)) != 0) return rc;
+    lfn_sum = fat16_lfn_checksum(entry);
+    start_index = (int32_t)index;
+    while (start_index > 0) {
+        uint8_t prev[FAT16_ENTRY_SIZE];
+        if (fat16_directory_slot(v, cluster, (uint32_t)(start_index - 1), prev, 0) != 0) break;
+        if (prev[11] == 0x0FU && prev[13] == lfn_sum && prev[0] != 0xE5U) {
+            start_index--;
+            if ((prev[0] & 0x40U) != 0U) break;
+        } else {
+            break;
+        }
+    }
+    for (int32_t j = start_index; j <= (int32_t)index; j++) {
+        uint8_t del[FAT16_ENTRY_SIZE];
+        if (fat16_directory_slot(v, cluster, (uint32_t)j, del, 0) == 0) {
+            del[0] = 0xE5U;
+            (void)fat16_directory_slot(v, cluster, (uint32_t)j, del, 1);
+        }
+    }
     return first == 0U ? 0 : fat16_release_chain(v, first);
 }
 
