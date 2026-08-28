@@ -41,13 +41,17 @@ float gpt2_q8_0_dot_f32(const float* input, const uint8_t* q8_blocks, uint32_t c
     for (block = 0U; block < blocks; block++) {
         const uint8_t* raw = q8_blocks + block * GPT2_Q8_0_BLOCK_BYTES;
         float scale = gpt2_f16_to_f32(gpt2_read_u16(raw));
-        float sum = 0.0f;
+        float sum0 = 0.0f, sum1 = 0.0f, sum2 = 0.0f, sum3 = 0.0f;
+        const float* in_ptr = input + block * GPT2_Q8_0_BLOCK_SIZE;
+        const int8_t* q_ptr = (const int8_t*)(raw + 2U);
         uint32_t i;
-        for (i = 0U; i < GPT2_Q8_0_BLOCK_SIZE; i++) {
-            int8_t quant = (int8_t)raw[2U + i];
-            sum += input[block * GPT2_Q8_0_BLOCK_SIZE + i] * (float)quant;
+        for (i = 0U; i < GPT2_Q8_0_BLOCK_SIZE; i += 4U) {
+            sum0 += in_ptr[i + 0U] * (float)q_ptr[i + 0U];
+            sum1 += in_ptr[i + 1U] * (float)q_ptr[i + 1U];
+            sum2 += in_ptr[i + 2U] * (float)q_ptr[i + 2U];
+            sum3 += in_ptr[i + 3U] * (float)q_ptr[i + 3U];
         }
-        result += scale * sum;
+        result += scale * ((sum0 + sum1) + (sum2 + sum3));
     }
     return result;
 }

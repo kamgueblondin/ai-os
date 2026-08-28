@@ -1,3 +1,4 @@
+#include <stdio.h>
 /* test_gpt2_gguf.c - bounded structural parsing for GGUF v3. */
 
 #include "../../framework/unity.h"
@@ -344,6 +345,101 @@ static void test_rejects_bad_magic_and_truncation(void) {
     TEST_ASSERT_TRUE(gpt2_gguf_probe_blob(blob, 3U, &info) != 0);
 }
 
+static int read_sector_fat32_mock(uint32_t lba, void* buffer) {
+    if (!buffer || (lba + 1U) * 512U > BUF_SIZE) return -1;
+    uint32_t i;
+    for (i = 0U; i < 512U; i++) ((uint8_t*)buffer)[i] = blob[lba * 512U + i];
+    return 0;
+}
+
+static void put16_buf(uint8_t* p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8U); }
+static void put32_buf(uint8_t* p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8U); p[2] = (uint8_t)(v >> 16U); p[3] = (uint8_t)(v >> 24U); }
+
+static void test_fat32_gguf_header_and_read(void) {
+    fat32_volume_t volume;
+    gpt2_gguf_loaded_model_t model;
+    uint8_t header[256];
+    uint32_t gguf_len;
+    uint32_t fat_lba = 32U;
+    uint32_t root_lba = 432U;
+    uint32_t data_lba = 432U;
+    uint32_t file_cluster = 3U;
+
+    reset_blob();
+    // Créer une structure BPB FAT32 minimale dans blob
+    blob[13] = 2U; // 2 secteurs par cluster
+    put16_buf(blob + 11U, 512U);
+    put16_buf(blob + 14U, 32U); // reserved
+    blob[16] = 2U; // fats
+    put32_buf(blob + 32U, 140000U); // total sectors
+    put32_buf(blob + 36U, 200U); // fat sectors
+    put32_buf(blob + 44U, 2U); // root cluster
+    put16_buf(blob + 510U, 0xaa55U);
+
+    // Entrée FAT pour le cluster 2 (racine) et cluster 3 (fichier)
+    blob[fat_lba * 512U + 8U] = 0xf8U; blob[fat_lba * 512U + 9U] = 0xffU;
+    blob[fat_lba * 512U + 10U] = 0xffU; blob[fat_lba * 512U + 11U] = 0x0fU;
+    blob[fat_lba * 512U + 12U] = 0xf8U; blob[fat_lba * 512U + 13U] = 0xffU;
+    blob[fat_lba * 512U + 14U] = 0xffU; blob[fat_lba * 512U + 15U] = 0x0fU;
+
+    // Fichier GGUF simulé au cluster 3
+    uint32_t p = (data_lba + (file_cluster - 2U) * 2U) * 512U;
+    uint32_t file_start = p;
+    put32_buf(blob + p, GPT2_GGUF_MAGIC); p += 4U;
+    put32_buf(blob + p, GPT2_GGUF_VERSION); p += 4U;
+    put32_buf(blob + p, 1U); put32_buf(blob + p + 4U, 0U); p += 8U; // 1 tensor
+    put32_buf(blob + p, 2U); put32_buf(blob + p + 4U, 0U); p += 8U; // 2 metadata
+    // Écrire directement dans blob
+    const char* k1 = "general.architecture";
+    uint32_t k1_len = 20U;
+    put32_buf(blob + p, k1_len); put32_buf(blob + p + 4U, 0U); p += 8U;
+    for (uint32_t i = 0U; i < k1_len; i++) blob[p++] = (uint8_t)k1[i];
+    put32_buf(blob + p, GPT2_GGUF_VALUE_STRING); p += 4U;
+    const char* v1 = "gpt2";
+    uint32_t v1_len = 4U;
+    put32_buf(blob + p, v1_len); put32_buf(blob + p + 4U, 0U); p += 8U;
+    for (uint32_t i = 0U; i < v1_len; i++) blob[p++] = (uint8_t)v1[i];
+
+    const char* k2 = "general.alignment";
+    uint32_t k2_len = 17U;
+    put32_buf(blob + p, k2_len); put32_buf(blob + p + 4U, 0U); p += 8U;
+    for (uint32_t i = 0U; i < k2_len; i++) blob[p++] = (uint8_t)k2[i];
+    put32_buf(blob + p, GPT2_GGUF_VALUE_UINT32); p += 4U;
+    put32_buf(blob + p, 32U); p += 4U;
+
+    // Tensor output.weight
+    const char* tname = "output.weight";
+    uint32_t tlen = 13U;
+    put32_buf(blob + p, tlen); put32_buf(blob + p + 4U, 0U); p += 8U;
+    for (uint32_t i = 0U; i < tlen; i++) blob[p++] = (uint8_t)tname[i];
+    put32_buf(blob + p, 2U); p += 4U; // 2D
+    put32_buf(blob + p, GPT2_QK_K); put32_buf(blob + p + 4U, 0U); p += 8U;
+    put32_buf(blob + p, 2U); put32_buf(blob + p + 4U, 0U); p += 8U;
+    put32_buf(blob + p, GPT2_GGUF_TENSOR_Q4_K); p += 4U;
+    put32_buf(blob + p, 0U); put32_buf(blob + p + 4U, 0U); p += 8U;
+
+    gguf_len = p - file_start;
+    if (gguf_len < 512U) gguf_len = 512U;
+
+    // Entrée de répertoire dans le root_cluster (LBA 432)
+    uint8_t* dirent = blob + root_lba * 512U;
+    const char* short_name = "MODEL   GGU";
+    for (uint32_t i = 0U; i < 11U; i++) dirent[i] = (uint8_t)short_name[i];
+    dirent[11] = 0x20U;
+    dirent[20] = (uint8_t)(file_cluster >> 24U); dirent[21] = (uint8_t)(file_cluster >> 16U);
+    dirent[26] = (uint8_t)file_cluster; dirent[27] = (uint8_t)(file_cluster >> 8U);
+    put32_buf(dirent + 28U, gguf_len);
+
+    // Initialiser le reste de l'entrée de répertoire à 0 (notamment les autres slots)
+    for (uint32_t i = 32U; i < 512U; i++) dirent[i] = 0U;
+
+    TEST_ASSERT_EQUAL(0, fat32_mount(&volume, read_sector_fat32_mock, 0U));
+    int res = gpt2_gguf_load_fat32_header(&volume, "MODEL.GGU", header, sizeof(header), &model);
+    TEST_ASSERT_EQUAL(0, res);
+    TEST_ASSERT_EQUAL(1, (int)model.index.tensor_count);
+    TEST_ASSERT_EQUAL(1, (int)model.index.info.is_valid);
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_prepares_generation_context_from_descriptors);
@@ -354,6 +450,7 @@ int main(void) {
     RUN_TEST(test_rejects_non_gpt2_architecture);
     RUN_TEST(test_rejects_unaligned_tensor_offset);
     RUN_TEST(test_rejects_bad_magic_and_truncation);
+    RUN_TEST(test_fat32_gguf_header_and_read);
     unity_print_results();
     unity_cleanup();
     return unity_stats.tests_failed == 0 ? 0 : 1;

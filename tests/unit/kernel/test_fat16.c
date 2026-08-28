@@ -1353,6 +1353,33 @@ static void test_mutates_one_level_subdirectory_without_overwrite(void) {
     TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "DIR"));
 }
 
+static void test_mutates_multilevel_subdirectory(void) {
+    fat16_volume_t volume;
+    os_fat16_dirent_t entries[4];
+    uint8_t payload[7] = {'N', 'E', 'S', 'T', 'E', 'D', '!'};
+    char readback[8] = {0};
+    uint16_t first = 0U;
+    make_volume();
+    TEST_ASSERT_EQUAL(0, fat16_mount(&volume, read_sector, 0U));
+    TEST_ASSERT_EQUAL(0, fat16_attach_writer(&volume, write_sector));
+    TEST_ASSERT_EQUAL(0, fat16_create_directory(&volume, "SUB1"));
+    TEST_ASSERT_EQUAL(0, fat16_create_directory(&volume, "SUB1/SUB2"));
+    TEST_ASSERT_EQUAL(0, fat16_create_path_file(&volume, "SUB1/SUB2/FILE.TXT", payload,
+                                                sizeof(payload), &first));
+    TEST_ASSERT_TRUE(first >= 2U);
+    TEST_ASSERT_EQUAL(1, fat16_list_path_page(&volume, "SUB1/SUB2/", 0U, entries, 4U));
+    TEST_ASSERT_EQUAL_STRING("FILE.TXT", entries[0].name);
+    TEST_ASSERT_EQUAL(7, fat16_read_path(&volume, "SUB1/SUB2/FILE.TXT", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL_MEMORY(payload, readback, sizeof(payload));
+    TEST_ASSERT_EQUAL(0, fat16_rename_path_file(&volume, "SUB1/SUB2/FILE.TXT", "SUB1/SUB2/RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(7, fat16_read_path(&volume, "SUB1/SUB2/RENAMED.TXT", readback, sizeof(readback)));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_remove_directory(&volume, "SUB1/SUB2"));
+    TEST_ASSERT_EQUAL(OS_FAT16_BAD_PATH, fat16_remove_directory(&volume, "SUB1"));
+    TEST_ASSERT_EQUAL(0, fat16_unlink_path_file(&volume, "SUB1/SUB2/RENAMED.TXT"));
+    TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "SUB1/SUB2"));
+    TEST_ASSERT_EQUAL(0, fat16_remove_directory(&volume, "SUB1"));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_mount_list_and_read);
@@ -1378,6 +1405,7 @@ int main(void) {
     RUN_TEST(test_creates_non_bmp_lfn_file);
     RUN_TEST(test_unlinks_and_renames_lfn_file);
     RUN_TEST(test_mutates_one_level_subdirectory_without_overwrite);
+    RUN_TEST(test_mutates_multilevel_subdirectory);
     unity_print_results();
     unity_cleanup();
     return 0;

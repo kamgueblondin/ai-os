@@ -38,6 +38,57 @@ int gpt2_gguf_load_fat16_header(const fat16_volume_t* volume, const char* filena
     return 0;
 }
 
+static int string_equals_loader(const char* s1, const char* s2) {
+    if (!s1 || !s2) return 0;
+    while (*s1 && *s2) {
+        if (*s1 != *s2) return 0;
+        s1++;
+        s2++;
+    }
+    return (*s1 == *s2);
+}
+
+int gpt2_gguf_load_fat32_header(const fat32_volume_t* volume, const char* filename,
+                                uint8_t* header, uint32_t header_capacity,
+                                gpt2_gguf_loaded_model_t* out) {
+    uint32_t read = 0U;
+    uint32_t total_size = 0U;
+    uint32_t requested;
+    uint32_t start = 0U;
+    os_fat16_dirent_t page[8];
+    int status;
+    int found = 0;
+
+    if (!volume || !filename || !header || header_capacity == 0U || !out) return -1;
+    if (!fat32_is_mounted(volume)) return OS_FAT16_NOT_MOUNTED;
+
+    while (1) {
+        int count = fat32_list_root_page(volume, start, page, 8U);
+        if (count <= 0) break;
+        for (int i = 0; i < count; i++) {
+            if (string_equals_loader(page[i].name, filename)) {
+                total_size = page[i].size;
+                found = 1;
+                break;
+            }
+        }
+        if (found) break;
+        start += (uint32_t)count;
+    }
+    if (!found) return OS_FAT16_NOT_FOUND;
+    if (total_size == 0U) return -2;
+
+    requested = total_size < header_capacity ? total_size : header_capacity;
+    status = fat32_read_file_range(volume, filename, 0U, header, requested, &read);
+    if (status != 0) return status;
+    if (read == 0U) return -2;
+
+    status = gpt2_gguf_build_index_header(header, read, total_size, &out->index);
+    if (status != 0) return -100 + status;
+    out->bytes_loaded = read;
+    return 0;
+}
+
 
 int gpt2_gguf_read_tensor_fat16(const fat16_volume_t* volume, const char* filename,
                                 const gpt2_gguf_loaded_model_t* model,
