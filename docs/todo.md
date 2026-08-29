@@ -81,6 +81,7 @@
 - [x] AOS-1505…1512 : reprise applicative HTTP/SSE après réacquisition réseau et TLS complet — [aos1505_1512_application_recovery.md](aos1505_1512_application_recovery.md)
 - [x] AOS-1513…1520 : reprise SSE fine sur `Last-Event-ID` après réacquisition réseau, TLS complet et rollback TCP/TLS — [aos1513_1520_sse_fine_resume.md](aos1513_1520_sse_fine_resume.md)
 - [x] AOS-1521…1528 : activation contrôlée OpenAI depuis le shell, bearer masqué dans l’historique et diagnostics réseau réalignés — [aos1521_1528_openai_shell_activation.md](aos1521_1528_openai_shell_activation.md)
+- [x] Réseau, TLS 1.2, HTTP/SSE et intégration OpenAI complète : support du bootstrap live DHCP, DNS A, TCP, TLS authentifié, POST HTTP JSON, flux SSE et credential OpenAI sécurisé hors boot image
 - [x] AOS-1529…1536 : workspace GPT-2 statique, bornes 124M, suppression de `kmalloc` et test de capacité — [aos1529_1536_static_gpt2_workspace.md](aos1529_1536_static_gpt2_workspace.md)
 - [x] AOS-1537…1544 : lecture GGUF dense F32/F16 et tête de logits Q3_K/Q4_K/Q6_K sur FAT16 caller-owned — [aos1537_1544_gguf_output_path.md](aos1537_1544_gguf_output_path.md)
 - [x] AOS-1545…1552 : forward de bloc transformeur GPT-2 Q4_K sur FAT16, cache KV et workspace caller-owned — [aos1545_1552_gguf_transformer_block.md](aos1545_1552_gguf_transformer_block.md)
