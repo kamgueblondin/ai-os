@@ -271,6 +271,7 @@ static int worker_dynamic_path(const char* path, uint32_t* source_out, const cha
     if (!path || !source_out || !relative_out) return 0;
     for (index = VFS_WORKER_BOOT_MOUNT_COUNT; index < worker_mount_count; index++) {
         if (os_vfs_match_mount(path, worker_mounts[index].prefix, &relative)) {
+            if (!worker_storage_source_is_supported(worker_mounts[index].source)) return 0;
             *source_out = worker_mounts[index].source;
             *relative_out = relative;
             return 1;

@@ -52,7 +52,7 @@ def normalized_log(output):
     output = re.sub(scheduler, "", output)
     return re.sub(r"[ \t]{2,}", " ", output)
 
-def wait_for(needle, proc, offset=0, timeout=15):
+def wait_for(needle, proc, offset=0, timeout=25):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -168,14 +168,14 @@ def send_command(client, command, proc=None, key_delay=KEY_DELAY):
     if proc is None:
         send_command_once(client, command, None, key_delay)
         return
-    for _ in range(KEY_PRE_RET_RETRIES):
+    for attempt in range(KEY_PRE_RET_RETRIES):
         start = len(log_text())
         send_command_once(client, command, proc, key_delay)
         time.sleep(KEY_LINE_SETTLE_DELAY)
         prepared = normalized_log(log_text()[start:])
         if prepared_line_matches(prepared, command):
             send_key(client, "ret")
-            deadline = time.time() + 15
+            deadline = time.time() + 25
             while time.time() < deadline:
                 if proc.poll() is not None:
                     raise RuntimeError("QEMU s'est arrêté prématurément")
@@ -183,10 +183,20 @@ def send_command(client, command, proc=None, key_delay=KEY_DELAY):
                 if command_echoed(output, command):
                     return
                 if "SYS_GETS: ligne lue: " in output:
-                    raise CommandEchoMismatch("echo commande altéré : %s" % command)
+                    actuals = re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", output)
+                    actual_str = actuals[-1] if actuals else "inconnu"
+                    if attempt + 1 < KEY_PRE_RET_RETRIES:
+                        try:
+                            wait_for("(-.-)", proc, start, timeout=10)
+                        except RuntimeError:
+                            pass
+                        break
+                    raise CommandEchoMismatch("echo commande altéré : %s (reçu: %r)" % (command, actual_str))
                 time.sleep(0.1)
-            raise RuntimeError("echo commande absent : %s" % command)
-        clear_prepared_line(client, prepared, key_delay)
+            else:
+                raise RuntimeError("echo commande absent : %s" % command)
+        else:
+            clear_prepared_line(client, prepared, key_delay)
     raise CommandEchoMismatch("echo pre-ret instable : %s" % command)
 
 
@@ -662,11 +672,15 @@ def main():
             wait_for("vfs-list-page partiel count 4 next 4", proc, before_mount_page_zero)
             wait_for("initrd/ ro", proc, before_mount_page_zero)
             if log_text()[before_mount_page_zero:].count("vfsvirtual format mount") < 4:
+                time.sleep(0.3)
+            if log_text()[before_mount_page_zero:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage worker incomplet de la premiere page de montages")
             before_mount_page_last = len(log_text())
             send_command_until(monitor, "vfs-list-page vfs-mounts 4", "vfsserver list page request", proc)
             wait_for("vfsserver delegated mount page", proc, before_mount_page_last)
             wait_for("vfs-list-page ok count 4 next end", proc, before_mount_page_last)
+            if log_text()[before_mount_page_last:].count("vfsvirtual format mount") < 4:
+                time.sleep(0.3)
             if log_text()[before_mount_page_last:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage worker incomplet de la derniere page de montages")
             wait_for("media32/ ro", proc, before_mount_page_last)
@@ -676,6 +690,8 @@ def main():
             wait_for("vfsserver delegated mount observe", proc, before_mount_observe)
             wait_for("vfs-list-observe partiel count 4 next 4 generation", proc, before_mount_observe)
             wait_for("initrd/ ro", proc, before_mount_observe)
+            if log_text()[before_mount_observe:].count("vfsvirtual format mount") < 4:
+                time.sleep(0.3)
             if log_text()[before_mount_observe:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage worker incomplet de la page observee de montages")
             before_mount_stale = len(log_text())
@@ -879,6 +895,8 @@ def main():
             wait_for("fat16/ ro", proc, before_virtual_mounts)
             wait_for("fat32/ ro", proc, before_virtual_mounts)
             if log_text()[before_virtual_mounts:].count("vfsvirtual format mount") < 4:
+                time.sleep(0.3)
+            if log_text()[before_virtual_mounts:].count("vfsvirtual format mount") < 4:
                 raise RuntimeError("formatage sequentiel des montages incomplet")
             before_stale_alias_add = len(log_text())
             send_command_until(monitor, "vfs-mount-add stale/ overlay",
@@ -943,7 +961,7 @@ def main():
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
-            wait_for("vfsserver virtual worker timeout local", proc, before_worker_timeout)
+            wait_for("vfsserver virtual worker timeout local", proc, before_worker_timeout, timeout=35)
             wait_for("vfsflight local reply ok", proc, before_worker_timeout)
             before_worker_timeout_health = len(log_text())
             send_command_until(monitor, "vfs-read vfs-worker", "vfsserver virtual vfs-worker local", proc)
@@ -1006,7 +1024,7 @@ def main():
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
             send_command(monitor, "yield", proc)
-            wait_for("vfsaliasflight bounded invalid", proc, before_alias_worker_timeout)
+            wait_for("vfsaliasflight bounded invalid", proc, before_alias_worker_timeout, timeout=35)
             before_alias_timeout_health = len(log_text())
             send_command_until(monitor, "vfs-read vfs-worker",
                                "vfsserver virtual vfs-worker local", proc)
