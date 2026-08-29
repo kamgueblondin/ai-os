@@ -45,7 +45,7 @@ make run
 | Cible | Rôle |
 |---|---|
 | `make all` | Noyau, initrd et image overlay IDE (AIOV + FAT16 à partir du LBA 64) |
-| `make test-all` | Suite complète Unity/robustesse ; l’état validé courant est de 512 tests exécutés avec succès |
+| `make test-all` | Suite complète Unity/robustesse ; l’état validé courant est de 520 tests exécutés avec succès |
 | `make qemu-smoke` | Scénarios QEMU classiques : overlay, persistance, spawn/yield et exec |
 | `make gguf-disk` | Construit un disque FAT16 de déploiement contenant le modèle sous l’alias `GPT2.GGU` |
 | `make qemu-gguf-smoke` | Démarre le disque GGUF, sélectionne `gpt2.gguf`, valide le premier token local réel puis `ai-continue` et affiche les deux latences |
