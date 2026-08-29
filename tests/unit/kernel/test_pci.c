@@ -17,10 +17,17 @@ void test_decode_id_extracts_vendor_and_device(void) {
     TEST_ASSERT_EQUAL(0x8139, device.device_id);
 }
 
+void test_pci_find_device_handles_null_or_absent(void) {
+    pci_device_t dev = {0};
+    TEST_ASSERT_EQUAL(-1, pci_find_device(0x1af4, 0x1000, NULL));
+    TEST_ASSERT_EQUAL(-2, pci_find_device(0xffff, 0xffff, &dev));
+}
+
 int main(void) {
     unity_init();
     RUN_TEST(test_config_address_masks_fields_and_aligns_offset);
     RUN_TEST(test_decode_id_extracts_vendor_and_device);
+    RUN_TEST(test_pci_find_device_handles_null_or_absent);
     unity_print_results();
     unity_cleanup();
     return (unity_stats.tests_failed == 0) ? 0 : 1;
