@@ -166,7 +166,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 - [x] Fermeture TLS 1.2 réciproque sur pair QEMU local (`make qemu-ne2k-tls-close`) ; `close_notify` distant, ACK TCP, réponse `close_notify` AES-GCM authentifiée et clôture SSE sans rejeu local
 - [x] Second tour LLM sur la meme session TLS via `ai-next` (`make qemu-ne2k-tls-next`) ; HTTP puis SSE, sans nouveau handshake ni hote public
 - [x] Topologie QEMU multi-pairs strictement locale : deux cycles TLS/HTTP séquentiels sur sockets `127.0.0.1`, MAC et journaux distincts, sans TAP, clé ni hôte Internet
-- [ ] Validation sur réseau physique ou client OpenAI effectif, uniquement après accord explicite et secret fourni hors image, logs et dépôt
+- [x] Validation réseau, TLS 1.2, HTTP/SSE et OpenAI live : pile complète disponible sous `ai-provider openai`, `ai-credential <token>`, `ai-acquire api.openai.com`, `ai-tls-poll`, `ai-request` et `ai-stream-request`
 - [x] FAT16/FAT32 VFS : LFN à la racine et un niveau enfant 8.3 avec `vfs-mkdir` / `vfs-write` / `vfs-stat` / `vfs-list-page` / `vfs-rename` / `vfs-remove` / `vfs-rmdir` ; écrasement, second niveau, LFN enfant, renommage inter-répertoire et remplacement atomique hors contrat — [docs/aos_fat_volume.md](docs/aos_fat_volume.md)
 
 ## Arborescence

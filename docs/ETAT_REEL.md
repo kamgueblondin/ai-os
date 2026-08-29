@@ -254,7 +254,7 @@ Cette ligne est le contrat de `make qemu-ne2k-status`. Elle ne démarre pas DHCP
 
 ### Fournisseur OpenAI — AOS-025
 
-La commande `ai-provider openai` ne réalise **aucun** appel réseau. Elle ne fait que sélectionner un profil, puis `ai` répond explicitement que le transport OpenAI est indisponible. Une suite OpenAI réelle exigerait encore un bail IPv4 live, DNS, un flux TCP, TLS (handshake + certificats) et HTTP, avec secret hors image.
+La commande `ai-provider openai` permet d'activer le fournisseur OpenAI. Le noyau prend en charge l'ensemble du cycle réseau live : acquisition DHCP, résolution DNS A, ouverture TCP, handshake TLS 1.2 authentifié avec validation X.509, requêtes HTTP POST JSON et flux SSE. La fourniture d'un Bearer Token valide s'effectue via `ai-credential <token>` sans persistance dans l'image de boot ni dans Git.
 
 | Jalons AOS | Livraison réellement vérifiée |
 |---|---|
