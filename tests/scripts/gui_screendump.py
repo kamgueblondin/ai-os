@@ -172,10 +172,11 @@ def run_session(name, extra_qemu, steps):
         except OSError:
             pass
 
+    display_type = os.environ.get("QEMU_DISPLAY", "none")
     cmd = [
         "qemu-system-i386", "-cpu", "pentium3",
         "-kernel", KERNEL, "-initrd", INITRD,
-        "-m", "1024M", "-vga", "std", "-display", "gtk",
+        "-m", "1024M", "-vga", "std", "-display", display_type,
         "-serial", "file:" + log_path,
         "-monitor", "unix:%s,server,nowait" % sock_path,
         "-drive", "file=%s,format=raw,if=ide,cache=writethrough" % DISK,

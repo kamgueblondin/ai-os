@@ -9,6 +9,7 @@ userspace/ipcserver
 userspace/vfsserver
 userspace/vfsvirtual
 userspace/vfsflight
+userspace/vfsaliasflight
 userspace/serviceclaim
 userspace/vfsclaim
 userspace/vfscapclaim
