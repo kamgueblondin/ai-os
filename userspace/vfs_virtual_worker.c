@@ -61,6 +61,11 @@ static int worker_sender_is_vfs(const os_ipc_message_t* message) {
     return message && vfs_pid > 0 && message->sender_pid == vfs_pid;
 }
 
+static inline int worker_storage_source_is_supported(uint32_t source) {
+    return source == OS_VFS_MOUNT_SOURCE_INITRD || source == OS_VFS_MOUNT_SOURCE_OVERLAY ||
+           source == OS_VFS_MOUNT_SOURCE_FAT16 || source == OS_VFS_MOUNT_SOURCE_FAT32;
+}
+
 static int worker_dynamic_path(const char* path, uint32_t* source_out, const char** relative_out);
 static int worker_dynamic_mutate_write(const char* path, const uint8_t* data, uint32_t size);
 static int worker_dynamic_mutate_remove(const char* path);
@@ -266,6 +271,7 @@ static int worker_dynamic_path(const char* path, uint32_t* source_out, const cha
     if (!path || !source_out || !relative_out) return 0;
     for (index = VFS_WORKER_BOOT_MOUNT_COUNT; index < worker_mount_count; index++) {
         if (os_vfs_match_mount(path, worker_mounts[index].prefix, &relative)) {
+            if (!worker_storage_source_is_supported(worker_mounts[index].source)) return 0;
             *source_out = worker_mounts[index].source;
             *relative_out = relative;
             return 1;
