@@ -170,27 +170,34 @@ static int backend_fat16_listdir_page(const char* path, os_dirent_t* out, uint32
                  "b"(path), "c"(out), "d"(OS_VFS_LIST_ENTRY_MAX + 1U), "S"(start));
     return result;
 }
+static int extract_directory_and_leaf(const char* path, char* directory_out, const char** list_path_out, const char** leaf_out) {
+    uint32_t i, slash = OS_VFS_LIST_PAGE_END;
+    if (!path || path[0] == '\0' || path[0] == '/') return -1;
+    for (i = 0U; path[i] != '\0'; i++) {
+        if (i + 1U >= OS_VFS_PATH_MAX) return -1;
+        if (path[i] == '/') slash = i;
+    }
+    if (slash != OS_VFS_LIST_PAGE_END) {
+        if (slash == 0U || path[slash + 1U] == '\0') return -1;
+        for (i = 0U; i <= slash; i++) directory_out[i] = path[i];
+        directory_out[slash + 1U] = '\0';
+        *list_path_out = directory_out;
+        *leaf_out = path + slash + 1U;
+    } else {
+        *list_path_out = "/";
+        *leaf_out = path;
+    }
+    return 0;
+}
+
 static int backend_fat16_stat(const char* path, os_dirent_t* out) {
     os_dirent_t entries[OS_VFS_LIST_ENTRY_MAX + 1U];
     char directory[OS_VFS_PATH_MAX];
     const char* list_path = "/";
     const char* leaf = path;
-    uint32_t start = 0U, i, slash = OS_VFS_LIST_PAGE_END;
+    uint32_t start = 0U, i;
     int count;
-    if (!path || !out || path[0] == '\0' || path[0] == '/') return -1;
-    for (i = 0U; path[i] != '\0'; i++) {
-        if (i + 1U >= OS_VFS_PATH_MAX) return -1;
-        if (path[i] == '/') {
-            slash = i;
-        }
-    }
-    if (slash != OS_VFS_LIST_PAGE_END) {
-        if (slash == 0U || path[slash + 1U] == '\0') return -1;
-        for (i = 0U; i <= slash; i++) directory[i] = path[i];
-        directory[slash + 1U] = '\0';
-        list_path = directory;
-        leaf = path + slash + 1U;
-    }
+    if (!out || extract_directory_and_leaf(path, directory, &list_path, &leaf) != 0) return -1;
     while ((count = backend_fat16_listdir_page(list_path, entries, start)) > 0) {
         for (i = 0U; i < (uint32_t)count; i++) {
             if (string_equal_ascii_fold(entries[i].name, leaf)) { *out = entries[i]; return 0; }
@@ -254,22 +261,9 @@ static int backend_fat32_stat(const char* path, os_dirent_t* out) {
     char directory[OS_VFS_PATH_MAX];
     const char* list_path = "/";
     const char* leaf = path;
-    uint32_t start = 0U, i, slash = OS_VFS_LIST_PAGE_END;
+    uint32_t start = 0U, i;
     int count;
-    if (!path || !out || path[0] == '\0' || path[0] == '/') return -1;
-    for (i = 0U; path[i] != '\0'; i++) {
-        if (i + 1U >= OS_VFS_PATH_MAX) return -1;
-        if (path[i] == '/') {
-            slash = i;
-        }
-    }
-    if (slash != OS_VFS_LIST_PAGE_END) {
-        if (slash == 0U || path[slash + 1U] == '\0') return -1;
-        for (i = 0U; i <= slash; i++) directory[i] = path[i];
-        directory[slash + 1U] = '\0';
-        list_path = directory;
-        leaf = path + slash + 1U;
-    }
+    if (!out || extract_directory_and_leaf(path, directory, &list_path, &leaf) != 0) return -1;
     while ((count = backend_fat32_listdir_page(list_path, entries, start)) > 0) {
         for (i = 0U; i < (uint32_t)count; i++) {
             if (string_equal_ascii_fold(entries[i].name, leaf)) { *out = entries[i]; return 0; }
