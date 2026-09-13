@@ -136,3 +136,10 @@ Inchanges volontairement :
 - magique overlay `AIOV`
 - commandes IA `ai`, `ai-runtime`, `ai-model`, `ai-continue`, `ai-next`
 - le mot **OpenAI** (fournisseur / stub, pas le nom de l'OS)
+
+## 7. Publication
+
+La branche `cursor/rebrand-mohhdy-6f7a` est poussee sur
+`kamgueblondin/ai-os` (PR #527). Le depot `kamgueblondin/mohhdy`
+existe ; le push depuis cet agent a ete refuse (`cursor[bot]` n'a
+pas le droit d'ecriture sur ce depot).
