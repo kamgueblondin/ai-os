@@ -14,6 +14,7 @@ import sys
 import time
 
 _TIMER_ALIVE = re.compile(r"TIMER_ALIVE: tick=\S+\n?")
+_SCHEDULER = re.compile(r"\[SCHED\] switching to task \d+\s*")
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "mohhdy.bin"))
@@ -43,8 +44,9 @@ def log_text():
 
 
 def without_timer(text):
-    """Drop TIMER_ALIVE insertions that QEMU can splice onto a payload line."""
-    return _TIMER_ALIVE.sub("", text)
+    """Drop async diagnostics that QEMU can splice onto a payload line."""
+    text = _TIMER_ALIVE.sub("", text)
+    return _SCHEDULER.sub("", text)
 
 
 def err_text():
@@ -63,7 +65,7 @@ def wait_needle_from(needle, timeout, proc, start):
                 % (proc.returncode, err_text()[-1500:])
             )
         text = log_text()
-        if needle in text[start:]:
+        if needle in without_timer(text[start:]):
             return len(text)
         time.sleep(0.15)
     raise RuntimeError("timeout waiting for %r in serial log" % needle)
