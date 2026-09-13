@@ -31,9 +31,21 @@ Le dernier commit master ajoute un test FAT16 a trois niveaux de
 sous-repertoires (`sub1/sub2/sub3/FILE.TXT`). C'est une preuve
 supplementaire du parcours FAT multi-niveaux, pas un nouveau sous-systeme.
 
+Rejeu local le 13 septembre 2026, apres le rebrand, sur ce meme
+snapshot :
+
+- `make all` : `build/mohhdy.bin` (606K) + initrd
+- `make test-all` : **523 / 523** en 23 s. Le compteur documente
+  522 etait donc deja en retard d'au moins le test profond #526.
+  Le chiffre vivant a cette date est 523.
+- `make qemu-smoke` : vert au second essai (core, extras, persist,
+  spawn, syscalls, exec). Premier essai : residu PS/2 `hi.txtt`
+  dans le sous-scenario syscall, flake clavier deja connu,
+  independant du nom produit.
+
 Le README contient encore une phrase plus ancienne qui parle de
 "506 tests" plus bas dans le texte. C'est un residu de documentation,
-pas un second compteur vivant. Le chiffre a croire est 522.
+pas un second compteur vivant.
 
 ## 3. Ce qui a ete ajoute sur master depuis le lot TLS d'aout 2026
 
