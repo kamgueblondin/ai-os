@@ -28,6 +28,9 @@ CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "30"))
 QEMU_MEMORY = os.environ.get("QEMU_MEMORY", "1024M")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
+# Wait after the first echo so a late duplicate scancode can be backspaced
+# before `ret`. Matches ci_qemu_core_smoke.KEY_DUPLICATE_SETTLE_DELAY.
+KEY_DUPLICATE_SETTLE_DELAY = float(os.environ.get("KEY_DUPLICATE_SETTLE_DELAY", "0.25"))
 ACTIVE_PROC = None
 
 
@@ -143,6 +146,15 @@ def command_from_keys(keys):
     return None
 
 
+def key_to_char(key):
+    key_text = {"spc": " ", "dot": ".", "equal": "=", "minus": "-"}
+    if key in key_text:
+        return key_text[key]
+    if len(key) == 1:
+        return key
+    return None
+
+
 def sendkeys_once(mon, keys):
     for k in keys:
         mon.sendall(("sendkey %s\n" % k).encode("ascii"))
@@ -150,37 +162,63 @@ def sendkeys_once(mon, keys):
         time.sleep(KEY_DELAY)
 
 
-def sendkeys(mon, keys):
-    """Inject a full command and require its serial echo before continuing.
+def _echoed_char_count(text, char):
+    pattern = r"SYS_GETS: caractère ajouté:\s*'%s'" % re.escape(char)
+    return len(re.findall(pattern, without_timer(text)))
 
-    The hybrid PS/2 driver can occasionally duplicate a scancode under TCG.
-    Retrying before business assertions prevents an altered command from being
-    mistaken for a shell regression while retaining the real Ring 3 path.
+
+def sendkeys(mon, keys):
+    """Type a command, confirm each character, then submit `ret` once.
+
+    Never re-sends `ret` after a mismatched echo: a duplicated scancode
+    (`newwd` instead of `newd`) already mutated the overlay.
     """
     expected = command_from_keys(keys)
     if expected is None or ACTIVE_PROC is None:
         sendkeys_once(mon, keys)
         return
-    echo = "SYS_GETS: ligne lue: " + expected
-    for attempt in range(1, KEY_RETRIES + 1):
-        mark = len(log_text())
-        sendkeys_once(mon, keys)
-        t0 = time.time()
-        while time.time() - t0 < CMD_TIMEOUT:
-            if ACTIVE_PROC.poll() is not None:
-                raise RuntimeError("QEMU exited early with code %s" % ACTIVE_PROC.returncode)
-            text = log_text()[mark:]
-            # L’écho doit se terminer ici : un préfixe accepterait à tort une
-            # touche PS/2 dupliquée (par exemple `alpha` dans `alphaa`).
-            if (echo + "\n") in text:
-                return
-            if "SYS_GETS: ligne lue: " in text:
-                say("retrying command after PS/2 echo mismatch (attempt %d/%d)" % (attempt, KEY_RETRIES))
+    mark = len(log_text())
+    for key in keys:
+        if key == "ret":
+            continue
+        char = key_to_char(key)
+        if char is None:
+            sendkeys_once(mon, keys)
+            return
+        count = 0
+        for _ in range(KEY_RETRIES):
+            start = len(log_text())
+            sendkeys_once(mon, [key])
+            deadline = time.time() + 3
+            while time.time() < deadline:
+                if ACTIVE_PROC.poll() is not None:
+                    raise RuntimeError("QEMU exited early with code %s" % ACTIVE_PROC.returncode)
+                count = _echoed_char_count(log_text()[start:], char)
+                if count:
+                    time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+                    count = _echoed_char_count(log_text()[start:], char)
+                    break
+                time.sleep(0.05)
+            if count:
                 break
-            time.sleep(0.15)
-        else:
-            raise RuntimeError("timeout waiting for command echo %r" % expected)
-    raise RuntimeError("command echo did not stabilize after %d attempts: %r" % (KEY_RETRIES, expected))
+        if count == 0:
+            raise RuntimeError("character not received: %s" % char)
+        for _ in range(count - 1):
+            sendkeys_once(mon, ["backspace"])
+            time.sleep(KEY_DUPLICATE_SETTLE_DELAY)
+    sendkeys_once(mon, ["ret"])
+    deadline = time.time() + CMD_TIMEOUT
+    while time.time() < deadline:
+        if ACTIVE_PROC.poll() is not None:
+            raise RuntimeError("QEMU exited early with code %s" % ACTIVE_PROC.returncode)
+        text = without_timer(log_text()[mark:])
+        received = re.findall(r"SYS_GETS: ligne lue: ([^\r\n]+)", text)
+        if expected in received:
+            return
+        if received:
+            raise RuntimeError("command echo mismatch: expected %r got %r" % (expected, received))
+        time.sleep(0.15)
+    raise RuntimeError("timeout waiting for command echo %r" % expected)
 
 
 def dump_logs():
