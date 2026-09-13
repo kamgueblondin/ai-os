@@ -22,8 +22,8 @@ PAIRS = (
 
 def run_pair(label, mac):
     environment = os.environ.copy()
-    environment["AI_OS_NE2K_RUN_LABEL"] = "multipair-" + label
-    environment["AI_OS_NE2K_GUEST_MAC"] = mac
+    environment["MOHHDY_NE2K_RUN_LABEL"] = "multipair-" + label
+    environment["MOHHDY_NE2K_GUEST_MAC"] = mac
     result = subprocess.run([sys.executable, SCRIPT], cwd=ROOT, env=environment)
     if result.returncode:
         raise RuntimeError("paire locale %s en echec (%d)" % (label, result.returncode))

@@ -1,6 +1,6 @@
 # US-016 : Moteur IA Local TensorFlow Lite
 
-> **AI-OS :** chevauchement GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), **pas** TensorFlow Lite. Voir AOS-010 dans [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** chevauchement GPT-2 124M freestanding (`SYS_GPT2_GENERATE`), **pas** TensorFlow Lite. Voir AOS-010 dans [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,17 +14,17 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un moteur d'IA local performant intégré au niveau système  
 **Afin de** traiter les requêtes utilisateur et optimiser le système sans dépendre du cloud
 
 ## Contexte Technique Détaillé
 
-L'intégration d'un moteur d'IA local est fondamentale pour réaliser la vision MOHHOS d'un système d'exploitation véritablement intelligent. TensorFlow Lite a été choisi pour son équilibre optimal entre performance, consommation de ressources et flexibilité, permettant l'exécution de modèles d'IA sophistiqués directement sur l'appareil.
+L'intégration d'un moteur d'IA local est fondamentale pour réaliser la vision MOHHDY d'un système d'exploitation véritablement intelligent. TensorFlow Lite a été choisi pour son équilibre optimal entre performance, consommation de ressources et flexibilité, permettant l'exécution de modèles d'IA sophistiqués directement sur l'appareil.
 
 ### Pourquoi TensorFlow Lite ?
 
-TensorFlow Lite présente plusieurs avantages critiques pour MOHHOS :
+TensorFlow Lite présente plusieurs avantages critiques pour MOHHDY :
 - **Performance Optimisée** : Exécution rapide sur CPU, GPU et accélérateurs spécialisés
 - **Empreinte Mémoire Réduite** : Modèles compressés et optimisés pour les appareils contraints
 - **Support Multi-Plateforme** : Compatible avec ARM, x86, et architectures spécialisées
@@ -410,7 +410,7 @@ int ai_update_anomaly_baseline(system_state_t* current_state);
 
 ### Phase 4 : Sécurité et Intégration (3 jours)
 1. **Système de Sécurité** : Isolation et contrôle d'accès
-2. **Intégration Système** : Intégration avec les autres services MOHHOS
+2. **Intégration Système** : Intégration avec les autres services MOHHDY
 3. **Modèles Pré-installés** : Installation des modèles de base
 4. **Documentation** : Documentation complète des APIs
 
@@ -472,7 +472,7 @@ void test_inference_latency() {
     int result = ai_load_model("/models/nlp_base.tflite", &model);
     assert(result == 0);
     
-    char input_text[] = "Bonjour MOHHOS";
+    char input_text[] = "Bonjour MOHHDY";
     nlp_output_t output;
     
     uint64_t start_time = get_timestamp_ms();
@@ -558,10 +558,10 @@ void test_cache_efficiency() {
 ### Métriques d'Adoption
 - **Modèles supportés** : > 50 modèles pré-installés
 - **APIs utilisées** : 100% des APIs documentées et testées
-- **Intégrations** : Utilisé par tous les services MOHHOS
+- **Intégrations** : Utilisé par tous les services MOHHDY
 - **Feedback utilisateur** : > 4.5/5 en satisfaction
 
-## Impact sur l'Écosystème MOHHOS
+## Impact sur l'Écosystème MOHHDY
 
 ### Fondation de l'Intelligence
 - **IA Omniprésente** : Capacités IA disponibles partout dans le système
@@ -573,5 +573,5 @@ void test_cache_efficiency() {
 - **Phase 4 - PromptMessage** : Moteur pour interpréter le langage PromptMessage
 - **Phase 5 - P2P Network** : IA pour optimiser le réseau distribué
 
-Cette User Story établit MOHHOS comme le premier système d'exploitation avec IA native intégrée, créant les fondations pour toutes les innovations révolutionnaires qui suivront.
+Cette User Story établit MOHHDY comme le premier système d'exploitation avec IA native intégrée, créant les fondations pour toutes les innovations révolutionnaires qui suivront.
 

@@ -1,5 +1,5 @@
-#ifndef AIOS_NET_NIC_H
-#define AIOS_NET_NIC_H
+#ifndef MOHHDY_NET_NIC_H
+#define MOHHDY_NET_NIC_H
 
 #include <stdint.h>
 

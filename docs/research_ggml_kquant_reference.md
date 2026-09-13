@@ -8,4 +8,4 @@
 
 ## Notes de compatibilité
 
-Le code AI-OS transpose ces formules en fonctions freestanding `gpt2_q3_k_dot_f32`, `gpt2_q4_k_dot_f32` et `gpt2_q6_k_dot_f32`, sans libc ni allocation. Les tests synthétiques utilisent des super-blocs unitaires et vérifient le produit attendu. Le runtime GPT-2 complet reste encore spécialisé dans le checkpoint FP32 historique ; ce lot ajoute les kernels et le comptage structural GGUF, mais ne prétend pas encore charger une table de tenseurs GGUF complète dans `gpt2_infer`.
+Le code MOHHDY transpose ces formules en fonctions freestanding `gpt2_q3_k_dot_f32`, `gpt2_q4_k_dot_f32` et `gpt2_q6_k_dot_f32`, sans libc ni allocation. Les tests synthétiques utilisent des super-blocs unitaires et vérifient le produit attendu. Le runtime GPT-2 complet reste encore spécialisé dans le checkpoint FP32 historique ; ce lot ajoute les kernels et le comptage structural GGUF, mais ne prétend pas encore charger une table de tenseurs GGUF complète dans `gpt2_infer`.

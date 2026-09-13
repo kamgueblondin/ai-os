@@ -33,7 +33,7 @@ Manus AI
 
 ## Références
 
-Aucune source externe n’est nécessaire : ce document décrit les contrats et tests présents dans le dépôt AI-OS.
+Aucune source externe n’est nécessaire : ce document décrit les contrats et tests présents dans le dépôt MOHHDY.
 
 [1]: ../kernel/net_tcp.h
 [2]: ../kernel/net_tcp.c

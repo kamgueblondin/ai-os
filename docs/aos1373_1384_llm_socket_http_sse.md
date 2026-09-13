@@ -29,6 +29,6 @@ Le test `test_llm_socket_opens_http_response` produit un record TLS côté serve
 
 [1]: aos1353_1364_llm_socket_ne2k_bridge.md "Adaptateur LLM/socket et pont NE2000"
 [2]: aos1365_1372_dhcp_live_renewal.md "Renouvellement DHCP live"
-[3]: todo.md "Backlog AI-OS"
+[3]: todo.md "Backlog MOHHDY"
 
 [1] [2] [3]

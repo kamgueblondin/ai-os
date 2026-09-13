@@ -1,5 +1,5 @@
-#ifndef AIOS_GPT2_QUANT_H
-#define AIOS_GPT2_QUANT_H
+#ifndef MOHHDY_GPT2_QUANT_H
+#define MOHHDY_GPT2_QUANT_H
 
 #include <stdint.h>
 

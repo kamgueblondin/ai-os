@@ -1,7 +1,7 @@
 # US-065 : Optimisation Réseau et Latence
 
 ## Description
-En tant qu'ingénieur performance réseau, je veux optimiser la latence et les performances réseau de MOHHOS avec des techniques avancées comme la compression, l'optimisation de protocoles, le CDN intelligent et la gestion de QoS, afin de minimiser les temps de réponse et améliorer l'expérience utilisateur global.
+En tant qu'ingénieur performance réseau, je veux optimiser la latence et les performances réseau de MOHHDY avec des techniques avancées comme la compression, l'optimisation de protocoles, le CDN intelligent et la gestion de QoS, afin de minimiser les temps de réponse et améliorer l'expérience utilisateur global.
 
 ## Critères d'acceptation
 - [ ] L'optimisation automatique des protocoles réseau (HTTP/2, HTTP/3) doit être appliquée

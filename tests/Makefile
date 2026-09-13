@@ -1,4 +1,4 @@
-# Makefile pour les tests AI-OS
+# Makefile pour les tests MOHHDY
 
 # Configuration de base
 CC = gcc
@@ -394,7 +394,7 @@ ci-test: setup clean all test
 
 # Aide
 help:
-	@echo "AI-OS Test Framework - Available targets:"
+	@echo "MOHHDY Test Framework - Available targets:"
 	@echo ""
 	@echo "Building:"
 	@echo "  all              - Compile all test binaries"

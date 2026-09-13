@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Boot AI-OS with real GPT-2 assets and issue one local shell query."""
+"""Boot MOHHDY with real GPT-2 assets and issue one local shell query."""
 import os
 import socket
 import subprocess
@@ -76,7 +76,7 @@ def main():
     try:
         with open(ERR, "wb") as error_handle:
             process = subprocess.Popen([
-                "qemu-system-i386", "-kernel", "build/ai_os.bin", "-initrd", "my_initrd.tar",
+                "qemu-system-i386", "-kernel", "build/mohhdy.bin", "-initrd", "my_initrd.tar",
                 "-m", "1024M", "-display", "none", "-vga", "none", "-serial", "file:" + LOG,
                 "-monitor", "unix:%s,server,nowait" % MON, "-no-reboot", "-no-shutdown",
             ], cwd=ROOT, stdout=error_handle, stderr=error_handle)

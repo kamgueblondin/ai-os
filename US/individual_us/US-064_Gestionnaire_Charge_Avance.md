@@ -1,7 +1,7 @@
 # US-064 : Gestionnaire de Charge Avancé
 
 ## Description
-En tant qu'ingénieur réseau, je veux implémenter un gestionnaire de charge avancé qui distribue intelligemment le trafic de MOHHOS entre les différents nœuds et services, avec des algorithmes adaptatifs, la gestion des pannes et l'optimisation géographique, afin d'assurer une disponibilité maximale et des temps de réponse optimaux.
+En tant qu'ingénieur réseau, je veux implémenter un gestionnaire de charge avancé qui distribue intelligemment le trafic de MOHHDY entre les différents nœuds et services, avec des algorithmes adaptatifs, la gestion des pannes et l'optimisation géographique, afin d'assurer une disponibilité maximale et des temps de réponse optimaux.
 
 ## Critères d'acceptation
 - [ ] Des algorithmes de load balancing adaptatifs doivent optimiser la distribution

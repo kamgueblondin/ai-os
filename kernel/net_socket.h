@@ -1,5 +1,5 @@
-#ifndef AIOS_NET_SOCKET_H
-#define AIOS_NET_SOCKET_H
+#ifndef MOHHDY_NET_SOCKET_H
+#define MOHHDY_NET_SOCKET_H
 
 #include <stdint.h>
 #include "net_tcp.h"

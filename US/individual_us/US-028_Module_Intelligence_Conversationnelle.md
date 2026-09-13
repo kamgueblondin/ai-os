@@ -1,7 +1,7 @@
 # US-028 : Module d'Intelligence Conversationnelle
 
 ## Description
-En tant qu'utilisateur final, je veux intéragir avec le système MOHHOS via une interface conversationnelle naturelle qui comprend mes intentions, maintient le contexte des conversations et peut exécuter des actions complexes via des commandes vocales ou textuelles, afin de simplifier l'utilisation du système.
+En tant qu'utilisateur final, je veux intéragir avec le système MOHHDY via une interface conversationnelle naturelle qui comprend mes intentions, maintient le contexte des conversations et peut exécuter des actions complexes via des commandes vocales ou textuelles, afin de simplifier l'utilisation du système.
 
 ## Critères d'acceptation
 - [ ] Un moteur NLP doit comprendre les intentions utilisateur en langage naturel

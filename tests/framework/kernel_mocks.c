@@ -1,4 +1,4 @@
-/* kernel_mocks.c - Mocks et simulations pour le kernel AI-OS dans l'environnement de test */
+/* kernel_mocks.c - Mocks et simulations pour le kernel MOHHDY dans l'environnement de test */
 
 #include <stdint.h>
 #include <stddef.h>

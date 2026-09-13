@@ -12,13 +12,13 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un système de sécurité adaptatif qui apprend et s'ajuste automatiquement aux menaces  
 **Afin de** protéger efficacement le système et les données utilisateur contre les cyberattaques évolutives
 
 ## Contexte Technique Détaillé
 
-Le système de sécurité adaptatif de MOHHOS représente une révolution dans la cybersécurité des systèmes d'exploitation. Contrairement aux systèmes de sécurité traditionnels qui utilisent des règles statiques, ce système utilise l'intelligence artificielle pour détecter, analyser et répondre automatiquement aux menaces en temps réel.
+Le système de sécurité adaptatif de MOHHDY représente une révolution dans la cybersécurité des systèmes d'exploitation. Contrairement aux systèmes de sécurité traditionnels qui utilisent des règles statiques, ce système utilise l'intelligence artificielle pour détecter, analyser et répondre automatiquement aux menaces en temps réel.
 
 ### Limitations des Systèmes Actuels
 
@@ -28,7 +28,7 @@ Les systèmes de sécurité traditionnels présentent plusieurs faiblesses :
 - **Faux Positifs** : Trop d'alertes non pertinentes
 - **Maintenance Manuelle** : Nécessité de mises à jour constantes
 
-### Vision Adaptative pour MOHHOS
+### Vision Adaptative pour MOHHDY
 
 Le système de sécurité adaptatif introduit :
 - **Détection IA** : Reconnaissance automatique des patterns d'attaque
@@ -552,7 +552,7 @@ void test_automatic_response() {
 - **Amélioration mensuelle** : +5%
 - **Robustesse aux données manquantes** : > 85%
 
-## Impact sur l'Écosystème MOHHOS
+## Impact sur l'Écosystème MOHHDY
 
 ### Sécurité Globale
 - **Protection Proactive** : Prévention plutôt que réaction
@@ -564,5 +564,5 @@ void test_automatic_response() {
 - **Phase 5 - P2P Network** : Sécurité du réseau distribué
 - **Phase 7 - Collaborative** : Protection de l'économie collaborative
 
-Cette User Story établit MOHHOS comme le système d'exploitation le plus sécurisé au monde, capable de s'adapter automatiquement aux menaces émergentes et de protéger efficacement les utilisateurs dans un environnement cyber de plus en plus hostile.
+Cette User Story établit MOHHDY comme le système d'exploitation le plus sécurisé au monde, capable de s'adapter automatiquement aux menaces émergentes et de protéger efficacement les utilisateurs dans un environnement cyber de plus en plus hostile.
 

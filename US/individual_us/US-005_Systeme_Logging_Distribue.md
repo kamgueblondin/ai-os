@@ -3,7 +3,7 @@
 ## Informations Générales
 
 **ID** : US-005  
-**Titre** : Système de logging distribué intelligent pour MOHHOS  
+**Titre** : Système de logging distribué intelligent pour MOHHDY  
 **Phase** : 1 - Foundation  
 **Priorité** : Élevée  
 **Complexité** : Élevée  
@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un système de logging distribué intelligent et performant  
 **Afin de** collecter, analyser et corréler les événements système pour l'optimisation IA et la détection proactive de problèmes
 
 ## Contexte Technique Détaillé
 
-Le système de logging distribué constitue le système nerveux de MOHHOS, collectant et analysant en temps réel tous les événements système. Cette infrastructure est cruciale pour l'apprentissage de l'IA système et l'optimisation proactive des performances.
+Le système de logging distribué constitue le système nerveux de MOHHDY, collectant et analysant en temps réel tous les événements système. Cette infrastructure est cruciale pour l'apprentissage de l'IA système et l'optimisation proactive des performances.
 
-### Besoins Spécifiques MOHHOS
+### Besoins Spécifiques MOHHDY
 
 - **Collecte Multi-Source** : Logs du microkernel, services, plugins, applications
 - **Analyse IA Temps Réel** : Détection de patterns et anomalies par IA
@@ -225,7 +225,7 @@ int query_get_statistics(component_type_t component, log_statistics_t* stats);
 int query_export_logs(const log_query_t* query, export_format_t format, const char* output_path);
 ```
 
-### Intégration avec l'IA MOHHOS
+### Intégration avec l'IA MOHHDY
 
 #### Analyse Prédictive
 ```c

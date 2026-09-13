@@ -4,7 +4,7 @@
 
 ## 🚨 **PROBLÈME PRINCIPAL IDENTIFIÉ**
 
-**Le système AI-OS n'utilise PAS le shell utilisateur réel !**
+**Le système MOHHDY n'utilise PAS le shell utilisateur réel !**
 
 Au lieu d'exécuter le programme `userspace/shell.c` en mode Ring 3, le système simule une interface shell directement dans le kernel (Ring 0).
 
@@ -23,7 +23,7 @@ Au lieu d'exécuter le programme `userspace/shell.c` en mode Ring 3, le système
 char command_buffer[256];
 
 while (1) {
-    print_string("AI-OS> ");
+    print_string("MOHHDY> ");
     // ... simulation du shell au lieu d'exécuter shell.c
 }
 ```
@@ -77,7 +77,7 @@ print_string("Point d'entree: 0x40000000 (simule)\n");
 **Code Actuel :**
 ```c
 if (strstr(query_lower, "bonjour")) {
-    print_string("Bonjour ! Je suis l'IA d'AI-OS...");
+    print_string("Bonjour ! Je suis l'IA de MOHHDY...");
 } else if (strstr(query_lower, "heure")) {
     print_string("Il est l'heure de développer...");
 }

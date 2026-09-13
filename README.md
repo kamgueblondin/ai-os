@@ -1,13 +1,13 @@
-# AI-OS — noyau pédagogique i386
+# MOHHDY — noyau pédagogique i386
 
-[![Version](https://img.shields.io/badge/version-7-blue.svg)](https://github.com/kamgueblondin/ai-os)
-[![Statut](https://img.shields.io/badge/statut-prototype-yellow.svg)](https://github.com/kamgueblondin/ai-os)
-[![CI](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml/badge.svg)](https://github.com/kamgueblondin/ai-os/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-7-blue.svg)](https://github.com/kamgueblondin/mohhdy)
+[![Statut](https://img.shields.io/badge/statut-prototype-yellow.svg)](https://github.com/kamgueblondin/mohhdy)
+[![CI](https://github.com/kamgueblondin/mohhdy/actions/workflows/ci.yml/badge.svg)](https://github.com/kamgueblondin/mohhdy/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-AI-OS est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Ce n’est **pas** une distribution Linux, ni un clone Unix : noyau freestanding, ABI propre, pas de userland GNU. Il démarre sous QEMU, sépare Ring 0 et Ring 3, charge une archive initrd TAR et lance un shell ELF. Le noyau fournit des syscalls, un overlay AIOV persistant via ATA PIO, un volume FAT16 et des primitives FAT32 d’écriture/chaînage ainsi qu’un chemin d’inférence GPT-2 local optionnel. Le volume disque hors overlay est **FAT**, pas ext2.
+MOHHDY est un **prototype de hobby OS i386 32-bit** démarrant par Multiboot. Ce n’est **pas** une distribution Linux, ni un clone Unix : noyau freestanding, ABI propre, pas de userland GNU. Il démarre sous QEMU, sépare Ring 0 et Ring 3, charge une archive initrd TAR et lance un shell ELF. Le noyau fournit des syscalls, un overlay AIOV persistant via ATA PIO, un volume FAT16 et des primitives FAT32 d’écriture/chaînage ainsi qu’un chemin d’inférence GPT-2 local optionnel. Le volume disque hors overlay est **FAT**, pas ext2.
 
-> La source de vérité des fonctions réellement livrées est [docs/ETAT_REEL.md](docs/ETAT_REEL.md). Lexique : [docs/vocabulaire.md](docs/vocabulaire.md). La branche par défaut est `master`.
+> La source de vérité des fonctions réellement livrées est [docs/ETAT_REEL.md](docs/ETAT_REEL.md). Lexique : [docs/vocabulaire.md](docs/vocabulaire.md). Bilan de `master` au 13 septembre 2026 : [docs/BILAN_MASTER.md](docs/BILAN_MASTER.md). La branche par défaut est `master`. Le dépôt GitHub canonique est `kamgueblondin/mohhdy`.
 
 ## Capacités vérifiées
 
@@ -33,8 +33,8 @@ Les commandes du shell comprennent notamment `ls`, `cat`, `mkdir`, `rmdir`, `rm`
 Sur Debian ou Ubuntu, installez les dépendances puis construisez le noyau et l’initrd.
 
 ```bash
-git clone https://github.com/kamgueblondin/ai-os.git
-cd ai-os
+git clone https://github.com/kamgueblondin/mohhdy.git
+cd mohhdy
 make deps
 make all
 make test-all
@@ -75,7 +75,7 @@ make run-iso
 
 ## GPT-2 local, sans réseau au démarrage
 
-Les poids ne sont **pas** dans Git. Les actifs validés sont distribués par la [release `gpt2-124m-assets`](https://github.com/kamgueblondin/ai-os/releases/tag/gpt2-124m-assets).
+Les poids ne sont **pas** dans Git. Les actifs validés sont distribués par la [release `gpt2-124m-assets`](https://github.com/kamgueblondin/mohhdy/releases/tag/gpt2-124m-assets).
 
 ```text
 models/
@@ -86,9 +86,9 @@ models/
 
 ```bash
 mkdir -p models
-curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_124M.bin
-curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
-curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
+curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2_124M.bin
+curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
+curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
 (cd models && sha256sum -c gpt2-124m-assets.sha256)
 make all
 ```
@@ -97,7 +97,7 @@ QEMU nécessite **1 Gio** de RAM quand le checkpoint FP32 est dans l’initrd. D
 
 ## GGUF, OpenAI et réseau : limites assumées
 
-AI-OS valide la structure GGUF v3 et exécute désormais le profil GPT-2 GGUF quantifié depuis FAT16, y compris la projection descendante MLP à largeur `4C` et les lectures profondes de la chaîne FAT16. `make gguf-disk` conserve les poids hors initrd sous `GPT2.GGU`; le boot indexe seulement le catalogue et `ai-model use gpt2.gguf` sélectionne le syscall local dédié. Les lectures de QKV, MLP et logits sont séquentielles sur FAT16, le workspace reste entièrement statique et les transferts ATA PIO utilisent `rep insw`/`rep outsw`. Une fenêtre FAT16 caller-owned inter-clusters de 8 Kio regroupe jusqu’à seize secteurs ATA contigus, tandis qu’un cache FAT isolé évite que les transitions de chaîne n’évincent les poids anticipés. Dans une comparaison QEMU TCG, le premier token réel est passé de 48,89 s à 45,43 s et la continuation de 21,73 s à 20,83 s par rapport à la référence inter-clusters. Une répétition de référence à 49,04 s et 22,48 s confirme toutefois la variabilité de l’émulation ; ces mesures ne préjugent pas de la performance matérielle ni d’un gain reproductible.
+MOHHDY valide la structure GGUF v3 et exécute désormais le profil GPT-2 GGUF quantifié depuis FAT16, y compris la projection descendante MLP à largeur `4C` et les lectures profondes de la chaîne FAT16. `make gguf-disk` conserve les poids hors initrd sous `GPT2.GGU`; le boot indexe seulement le catalogue et `ai-model use gpt2.gguf` sélectionne le syscall local dédié. Les lectures de QKV, MLP et logits sont séquentielles sur FAT16, le workspace reste entièrement statique et les transferts ATA PIO utilisent `rep insw`/`rep outsw`. Une fenêtre FAT16 caller-owned inter-clusters de 8 Kio regroupe jusqu’à seize secteurs ATA contigus, tandis qu’un cache FAT isolé évite que les transitions de chaîne n’évincent les poids anticipés. Dans une comparaison QEMU TCG, le premier token réel est passé de 48,89 s à 45,43 s et la continuation de 21,73 s à 20,83 s par rapport à la référence inter-clusters. Une répétition de référence à 49,04 s et 22,48 s confirme toutefois la variabilité de l’émulation ; ces mesures ne préjugent pas de la performance matérielle ni d’un gain reproductible.
 
 Le profil `ai-provider openai` est activable de façon contrôlée : la session noyau relie DHCP, DNS, socket TCP statique, TLS, HTTP/SSE et extraction de réponse. `net-status` / `net-status json` publient la présence réelle d’une NIC NE2000 ISA ; l’appel externe reste désactivé tant qu’un bearer n’est pas configuré par `ai-credential`. Le contrat `make qemu-ne2k-acquire` prouve sur un pair local le bootstrap DHCP/DNS/ARP/SYN, la réception du SYN-ACK, l’émission du ClientHello, l’acceptation d’un ServerHello minimal et son ACK TCP ; il ne contacte aucun hôte Internet, ne valide pas de certificat, ne termine pas TLS et ne valide donc pas OpenAI. Les secrets OpenAI ne doivent jamais être inclus dans l’image, les logs série ou le dépôt.
 
@@ -109,7 +109,7 @@ Une ISO BIOS/GRUB peut être produite avec l’initrd. Lorsque les poids GPT-2 s
 
 ## Roadmap du prototype
 
-Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est conservée séparément dans [US/README.md](US/README.md).
+Le backlog courant est [US/mohhdy_us.md](US/mohhdy_us.md). La vision MOHHDY est conservée séparément dans [US/README.md](US/README.md).
 
 - [x] GPT-2 local, cache KV, SSE2 et top-k borné
 - [x] Tokenizer BPE UTF-8 avec couverture de lettres Unicode ciblée
@@ -172,7 +172,7 @@ Le backlog courant est [US/ai_os_us.md](US/ai_os_us.md). La vision MOHHOS est co
 ## Arborescence
 
 ```text
-ai-os/
+mohhdy/
 ├── boot/                 # Multiboot et stubs ISR
 ├── kernel/               # mémoire, interruptions, tâches, syscalls et LLM
 ├── fs/                   # archive initrd TAR et overlay AIOV (ATA)
@@ -180,7 +180,7 @@ ai-os/
 ├── tests/                # Unity, robustesse et contrats QEMU
 ├── models/               # actifs locaux ignorés par Git
 ├── docs/                 # état réel et guides
-└── US/                   # backlog prototype et archives MOHHOS
+└── US/                   # backlog prototype et archives MOHHDY
 ```
 
 ## Contribution

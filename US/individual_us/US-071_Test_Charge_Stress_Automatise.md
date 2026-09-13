@@ -1,7 +1,7 @@
 # US-071 : Test de Charge et Stress Automatisé
 
 ## Description
-En tant qu'ingénieur test de performance, je veux un système de test de charge et stress automatisé qui simule différents scenarios de charge sur MOHHOS, identifie les limites de performance, détecte les points de rupture et génère des rapports détaillés, afin de valider la scalabilité et identifier les optimisations nécessaires.
+En tant qu'ingénieur test de performance, je veux un système de test de charge et stress automatisé qui simule différents scenarios de charge sur MOHHDY, identifie les limites de performance, détecte les points de rupture et génère des rapports détaillés, afin de valider la scalabilité et identifier les optimisations nécessaires.
 
 ## Critères d'acceptation
 - [ ] Des scénarios de test de charge réalistes doivent simuler l'utilisation réelle

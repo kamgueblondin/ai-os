@@ -1,11 +1,11 @@
 # US-008 : Framework de Tests Automatisés
 
-> **AI-OS :** chevauchement Unity 144 + `make qemu-smoke` + GitHub Actions. Pas de tests integration/system/performance/robustness, pas de framework « intelligent ». Voir AOS-012 dans [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** chevauchement Unity 144 + `make qemu-smoke` + GitHub Actions. Pas de tests integration/system/performance/robustness, pas de framework « intelligent ». Voir AOS-012 dans [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
 **ID** : US-008  
-**Titre** : Framework de tests automatisés pour MOHHOS  
+**Titre** : Framework de tests automatisés pour MOHHDY  
 **Phase** : 1 - Foundation  
 **Priorité** : Élevée  
 **Complexité** : Élevée  
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** équipe de développement MOHHOS  
+**En tant que** équipe de développement MOHHDY  
 **Je veux** un framework de tests automatisés complet et intelligent  
 **Afin de** garantir la qualité, la stabilité et la fiabilité du système à travers toutes les phases de développement
 
 ## Contexte Technique Détaillé
 
-Le framework de tests automatisés est critique pour MOHHOS en raison de la complexité du système : architecture microkernel, services distribués, intégration IA, et support multi-plateforme. Il doit couvrir tous les niveaux de test (unitaire, intégration, système, performance) avec une approche intelligente basée sur l'IA pour optimiser les stratégies de test.
+Le framework de tests automatisés est critique pour MOHHDY en raison de la complexité du système : architecture microkernel, services distribués, intégration IA, et support multi-plateforme. Il doit couvrir tous les niveaux de test (unitaire, intégration, système, performance) avec une approche intelligente basée sur l'IA pour optimiser les stratégies de test.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Complexité Distribuée** : Tests de services microkernel interdépendants
 - **Charges IA** : Tests spécialisés pour les modèles d'IA et inférences

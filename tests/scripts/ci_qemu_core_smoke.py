@@ -10,7 +10,7 @@ import sys
 import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "ai_os.bin"))
+KERNEL = os.environ.get("KERNEL", os.path.join(ROOT, "build", "mohhdy.bin"))
 INITRD = os.environ.get("INITRD", os.path.join(ROOT, "my_initrd.tar"))
 LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.environ.get("LOG", os.path.join(LOG_DIR, "ci-qemu-serial.log"))
@@ -190,7 +190,7 @@ def main():
         except OSError:
             pass
 
-    if os.environ.get("AIOS_PRESERVE_FAT16") != "1":
+    if os.environ.get("MOHHDY_PRESERVE_FAT16") != "1":
         prepare_test_disk()
     elif not os.path.isfile(TEST_DISK):
         raise RuntimeError("missing preserved FAT16 deployment disk")

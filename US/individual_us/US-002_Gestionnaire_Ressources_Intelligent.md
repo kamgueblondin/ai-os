@@ -1,6 +1,6 @@
 # US-002 : Gestionnaire de Ressources Intelligent
 
-> **AI-OS :** chevauchement PMM / VMM / heap / `SYS_MEMINFO` seulement — pas de gestionnaire IA. Voir [../ai_os_us.md](../ai_os_us.md) AOS-002.
+> **MOHHDY :** chevauchement PMM / VMM / heap / `SYS_MEMINFO` seulement — pas de gestionnaire IA. Voir [../mohhdy_us.md](../mohhdy_us.md) AOS-002.
 
 ## Informations Générales
 
@@ -14,7 +14,7 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un gestionnaire de ressources intelligent qui optimise automatiquement l'allocation des ressources  
 **Afin de** maximiser les performances et l'efficacité énergétique selon les patterns d'usage
 
@@ -30,9 +30,9 @@ Les systèmes d'exploitation traditionnels utilisent des algorithmes statiques p
 - Gestion énergétique réactive plutôt que prédictive
 - Pas d'apprentissage des patterns d'usage utilisateur
 
-### Vision Intelligente pour MOHHOS
+### Vision Intelligente pour MOHHDY
 
-Le gestionnaire de ressources intelligent de MOHHOS introduit :
+Le gestionnaire de ressources intelligent de MOHHDY introduit :
 - **Prédiction IA** : Anticipation des besoins en ressources
 - **Optimisation Automatique** : Ajustement dynamique des allocations
 - **Apprentissage Continu** : Amélioration basée sur l'historique d'usage
@@ -495,7 +495,7 @@ void test_memory_optimization() {
 - **Adaptation aux changements** : < 24h pour nouveaux patterns
 - **Robustesse** : Fonctionnement stable avec 90% des données
 
-## Impact sur l'Écosystème MOHHOS
+## Impact sur l'Écosystème MOHHDY
 
 ### Bénéfices Immédiats
 - **Performance Améliorée** : Système plus réactif et efficace
@@ -507,5 +507,5 @@ void test_memory_optimization() {
 - **Phase 3 - Web Runtime** : Optimisation pour applications web
 - **Phase 5 - P2P Network** : Gestion intelligente des ressources réseau
 
-Cette User Story établit les fondations de l'intelligence de MOHHOS, créant un système qui apprend, s'adapte et optimise automatiquement ses performances pour offrir la meilleure expérience utilisateur possible.
+Cette User Story établit les fondations de l'intelligence de MOHHDY, créant un système qui apprend, s'adapte et optimise automatiquement ses performances pour offrir la meilleure expérience utilisateur possible.
 

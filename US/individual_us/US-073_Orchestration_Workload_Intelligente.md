@@ -1,7 +1,7 @@
-# US-073 : Orchestration Workload Intelligente (MOHHOS Intelligent Workload Orchestrator)
+# US-073 : Orchestration Workload Intelligente (MOHHDY Intelligent Workload Orchestrator)
 
 ## Description
-En tant qu'architecte cloud platform, je veux implémenter un orchestrateur de workload hyper-intelligent qui place, migre et optimise automatiquement les applications et services de MOHHOS à travers des infrastructures multi-cloud et hybrides, en utilisant l'IA prédictive pour optimiser simultanément les performances, coûts, latence, disponibilité et contraintes métier, avec auto-healing et auto-scaling prédictif, afin d'atteindre l'efficacité opérationnelle maximale et la résilience totale.
+En tant qu'architecte cloud platform, je veux implémenter un orchestrateur de workload hyper-intelligent qui place, migre et optimise automatiquement les applications et services de MOHHDY à travers des infrastructures multi-cloud et hybrides, en utilisant l'IA prédictive pour optimiser simultanément les performances, coûts, latence, disponibilité et contraintes métier, avec auto-healing et auto-scaling prédictif, afin d'atteindre l'efficacité opérationnelle maximale et la résilience totale.
 
 ## Valeur Métier
 - **Optimisation coûts infrastructure** : -45% coûts cloud par intelligent placement

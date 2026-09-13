@@ -1,7 +1,7 @@
 # US-068 : Optimisation Algorithmes et Traitements
 
 ## Description
-En tant que data scientist, je veux optimiser les algorithmes et traitements de MOHHOS avec des techniques avancées de parallélisation, vectorisation et optimisation mathématique, incluant l'utilisation d'accélérateurs matériels (GPU, TPU), afin d'accélérer significativement les calculs intensifs et les traitements de données.
+En tant que data scientist, je veux optimiser les algorithmes et traitements de MOHHDY avec des techniques avancées de parallélisation, vectorisation et optimisation mathématique, incluant l'utilisation d'accélérateurs matériels (GPU, TPU), afin d'accélérer significativement les calculs intensifs et les traitements de données.
 
 ## Critères d'acceptation
 - [ ] L'optimisation automatique des algorithmes selon les caractéristiques des données doit être implémentée

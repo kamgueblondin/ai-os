@@ -1,7 +1,7 @@
 # US-041 : Réseau de Partenaires Certifiés
 
 ## Description
-En tant qu'organisation souhaitant adopter MOHHOS, je veux accéder à un réseau de partenaires certifiés (intégrateurs, consultants, formateurs) qui peuvent m'accompagner dans l'implémentation et l'optimisation du système, afin de réduire les risques et accélérer l'adoption.
+En tant qu'organisation souhaitant adopter MOHHDY, je veux accéder à un réseau de partenaires certifiés (intégrateurs, consultants, formateurs) qui peuvent m'accompagner dans l'implémentation et l'optimisation du système, afin de réduire les risques et accélérer l'adoption.
 
 ## Critères d'acceptation
 - [ ] Une plateforme de référencement des partenaires doit être développée

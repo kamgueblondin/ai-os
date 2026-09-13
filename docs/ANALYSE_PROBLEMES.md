@@ -1,4 +1,4 @@
-# Analyse des Problèmes - AI-OS Mode Utilisateur
+# Analyse des Problèmes - MOHHDY Mode Utilisateur
 
 > **État réel (août 2026).** Le kernel n’est plus coincé dans une boucle shell simulée : le programme `userspace/shell.c` s’exécute en Ring 3. Ce fichier reste une analyse utile de l’ancien flux. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
@@ -120,11 +120,11 @@ Tache utilisateur creee
 Tache shell creee ! Passage en mode utilisateur...
 Initialisation de l'interface shell...
 
-=== Shell AI-OS v5.0 Actif ===
-Bienvenue dans AI-OS ! Tapez 'help' pour l'aide.
+=== Shell MOHHDY v5.0 Actif ===
+Bienvenue dans MOHHDY ! Tapez 'help' pour l'aide.
 Shell base sur userspace/shell.c avec IA fake_ai.c
 
-AI-OS> 
+MOHHDY> 
 ```
 
 **Problème confirmé** : Le message "Passage en mode utilisateur..." est trompeur. Le système reste dans le kernel et utilise une simulation de shell au lieu du vrai shell utilisateur.
@@ -132,7 +132,7 @@ AI-OS>
 ### Analyse Détaillée des Problèmes
 
 1. **Pas de vrai passage au mode utilisateur** : Confirmé par les logs
-2. **Shell simulé dans le kernel** : Le prompt "AI-OS>" vient du kernel, pas du userspace
+2. **Shell simulé dans le kernel** : Le prompt "MOHHDY>" vient du kernel, pas du userspace
 3. **Tâche utilisateur créée mais non utilisée** : La tâche est créée mais jamais exécutée
 4. **Pas d'appel au scheduler** : Aucun changement de contexte effectué
 

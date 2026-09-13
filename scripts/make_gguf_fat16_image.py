@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a FAT16 AI-OS deployment disk carrying one GPT-2 GGUF as GPT2.GGU."""
+"""Build a FAT16 MOHHDY deployment disk carrying one GPT-2 GGUF as GPT2.GGU."""
 
 import argparse
 import math
@@ -53,7 +53,7 @@ def main():
         image.truncate(total_disk_sectors * SECTOR)
         boot = bytearray(SECTOR)
         boot[:3] = b"\xeb\x3c\x90"
-        boot[3:11] = b"AIOSGGUF"
+        boot[3:11] = b"MOHHDYG "
         put16(boot, 11, SECTOR)
         boot[13] = SECTORS_PER_CLUSTER
         put16(boot, 14, RESERVED_SECTORS)
@@ -69,7 +69,7 @@ def main():
         boot[36] = 0x80
         boot[38] = 0x29
         put32(boot, 39, 0xA1052026)
-        boot[43:54] = b"AIOS GGUF  "
+        boot[43:54] = b"MOHHDY GGUF"
         boot[54:62] = b"FAT16   "
         boot[510:512] = b"\x55\xaa"
         image.seek(BASE_LBA * SECTOR)

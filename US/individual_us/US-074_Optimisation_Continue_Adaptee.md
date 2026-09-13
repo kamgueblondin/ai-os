@@ -1,7 +1,7 @@
 # US-074 : Optimisation Continue Adaptée
 
 ## Description
-En tant que data engineer, je veux un système d'optimisation continue qui apprend des patterns d'utilisation de MOHHOS, teste automatiquement différentes configurations et optimisations, et applique progressivement les améliorations validées, afin d'améliorer constamment les performances sans intervention manuelle.
+En tant que data engineer, je veux un système d'optimisation continue qui apprend des patterns d'utilisation de MOHHDY, teste automatiquement différentes configurations et optimisations, et applique progressivement les améliorations validées, afin d'améliorer constamment les performances sans intervention manuelle.
 
 ## Critères d'acceptation
 - [ ] Un système d'apprentissage des patterns d'utilisation doit identifier les opportunités

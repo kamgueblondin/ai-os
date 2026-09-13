@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** que le système s'adapte automatiquement à mes préférences et habitudes  
 **Afin de** bénéficier d'une expérience personnalisée et optimisée en permanence
 
 ## Contexte Technique Détaillé
 
-Le système de personnalisation IA de MOHHOS va au-delà des préférences traditionnelles. Il utilise l'intelligence artificielle pour comprendre profondément les patterns comportementaux, prédire les besoins futurs, et adapter dynamiquement l'interface, les fonctionnalités et les workflows. Cette personnalisation se fait de manière transparente tout en respectant la vie privée.
+Le système de personnalisation IA de MOHHDY va au-delà des préférences traditionnelles. Il utilise l'intelligence artificielle pour comprendre profondément les patterns comportementaux, prédire les besoins futurs, et adapter dynamiquement l'interface, les fonctionnalités et les workflows. Cette personnalisation se fait de manière transparente tout en respectant la vie privée.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Apprentissage Implicite** : Comprendre les préférences sans questionnaires explicites
 - **Adaptation Continue** : Évolution avec les changements d'habitudes
@@ -392,4 +392,4 @@ int privacy_export_user_data(user_id_t user_id, export_request_t* request,
 - **Interopérabilité** : Export/import de profils utilisateur
 - **Performance** : Impact minimal sur les performances système
 
-Ce système de personnalisation IA transforme MOHHOS en un système qui apprend et s'adapte continuellement pour offrir une expérience unique et optimisée à chaque utilisateur.
+Ce système de personnalisation IA transforme MOHHDY en un système qui apprend et s'adapte continuellement pour offrir une expérience unique et optimisée à chaque utilisateur.

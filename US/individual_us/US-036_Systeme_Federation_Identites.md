@@ -1,7 +1,7 @@
 # US-036 : Système de Fédération d'Identités
 
 ## Description
-En tant qu'utilisateur travaillant dans un environnement multi-organisationnel, je veux un système de fédération d'identités qui me permette d'utiliser mes identifiants existants pour accéder à MOHHOS et aux services partenaires, afin de simplifier la gestion des accès et améliorer l'interopérabilité.
+En tant qu'utilisateur travaillant dans un environnement multi-organisationnel, je veux un système de fédération d'identités qui me permette d'utiliser mes identifiants existants pour accéder à MOHHDY et aux services partenaires, afin de simplifier la gestion des accès et améliorer l'interopérabilité.
 
 ## Critères d'acceptation
 - [ ] L'intégration avec les principaux fournisseurs d'identité (SAML, OAuth, OpenID) doit être supportée

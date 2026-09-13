@@ -1,7 +1,7 @@
 # US-045 : Initiatives Durabilité et Impact Social
 
 ## Description
-En tant qu'organisation socialement responsable, je veux que MOHHOS intègre des initiatives de durabilité environnementale et d'impact social positif dans son écosystème, afin de contribuer aux objectifs de développement durable et créer une valeur partagée au-delà des bénéfices technologiques.
+En tant qu'organisation socialement responsable, je veux que MOHHDY intègre des initiatives de durabilité environnementale et d'impact social positif dans son écosystème, afin de contribuer aux objectifs de développement durable et créer une valeur partagée au-delà des bénéfices technologiques.
 
 ## Critères d'acceptation
 - [ ] Un système de mesure d'empreinte carbone et optimisation énergétique doit être implémenté

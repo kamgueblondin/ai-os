@@ -1,4 +1,4 @@
-/* unity.c - Implémentation du framework Unity pour AI-OS */
+/* unity.c - Implémentation du framework Unity pour MOHHDY */
 
 #include "unity.h"
 
@@ -22,7 +22,7 @@ void unity_init(void) {
     unity_stats.last_failure_file = NULL;
     unity_stats.last_failure_line = 0;
     
-    unity_print_string("Unity Test Framework for AI-OS\n");
+    unity_print_string("Unity Test Framework for MOHHDY\n");
     unity_print_string("==============================\n\n");
 }
 

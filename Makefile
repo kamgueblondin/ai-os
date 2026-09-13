@@ -12,8 +12,8 @@ CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -Wall -Wextra -O3 -msse2 -mfpmat
 ASFLAGS = -f elf32
 
 # Nom du fichier final de notre OS
-OS_IMAGE = build/ai_os.bin
-ISO_IMAGE = build/ai_os.iso
+OS_IMAGE = build/mohhdy.bin
+ISO_IMAGE = build/mohhdy.iso
 INITRD_IMAGE = my_initrd.tar
 DISK_IMAGE ?= build/overlay.img
 GGUF_DISK_IMAGE ?= build/gpt2_gguf_fat16.img
@@ -45,7 +45,7 @@ $(OBJECTS): include/os_syscalls.h
 
 # Cible par défaut : construire le système complet (noyau + initrd + disque overlay)
 all: $(OS_IMAGE) pack-initrd disk
-	@echo "=== AI-OS v7 - Système avec GPT-2 local construit ==="
+	@echo "=== MOHHDY v7 - Système avec GPT-2 local construit ==="
 	@echo "Noyau: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 	@echo "Initrd: $(INITRD_IMAGE) ($(shell ls -lh $(INITRD_IMAGE) | awk '{print $$5}'))"
 	@echo "Système prêt pour exécution avec: make run"
@@ -82,7 +82,7 @@ $(OS_IMAGE): $(OBJECTS)
 
 # Cible pour compiler seulement le noyau (sans initrd)
 kernel-only: $(OS_IMAGE)
-	@echo "=== Noyau AI-OS Compilé ==="
+	@echo "=== Noyau MOHHDY Compilé ==="
 	@echo "Fichier: $(OS_IMAGE) ($(shell ls -lh $(OS_IMAGE) | awk '{print $$5}'))"
 
 # Règles de compilation pour les fichiers .c du kernel principal
@@ -338,16 +338,16 @@ userspace-all:
 
 # Règle pour empaqueter l'initrd automatiquement
 pack-initrd: userspace-all
-	@echo "[mkinitrd] Création de l'initrd AI-OS v7..."
+	@echo "[mkinitrd] Création de l'initrd MOHHDY v7..."
 	@mkdir -p $(BIN_DEST_DIR) $(INITRD_DIR)/models
 	@echo "Ceci est un fichier de test depuis l'initrd !" > $(INITRD_DIR)/test.txt
 	@echo "Un autre fichier de demonstration." > $(INITRD_DIR)/hello.txt
-	@echo "Configuration du systeme AI-OS v7" > $(INITRD_DIR)/config.cfg
+	@echo "Configuration du systeme MOHHDY v7" > $(INITRD_DIR)/config.cfg
 	@echo "#!/bin/sh" > $(INITRD_DIR)/startup.sh
-	@echo "echo 'Script de demarrage AI-OS v7'" >> $(INITRD_DIR)/startup.sh
+	@echo "echo 'Script de demarrage MOHHDY v7'" >> $(INITRD_DIR)/startup.sh
 	@echo "Donnees de demonstration pour l'intelligence artificielle locale" > $(INITRD_DIR)/ai_data.txt
 	@echo "Base de connaissances statique - pas de base vectorielle" > $(INITRD_DIR)/ai_knowledge.txt
-	@echo "# AI-OS bare-metal LLM manifest" > $(INITRD_DIR)/models/models.manifest
+	@echo "# MOHHDY bare-metal LLM manifest" > $(INITRD_DIR)/models/models.manifest
 	@echo "format=llmc_v3" >> $(INITRD_DIR)/models/models.manifest
 	@echo "default=gpt2_124M.bin" >> $(INITRD_DIR)/models/models.manifest
 	@echo "gpt2_124M.bin|gpt2|124M|FP32|local" >> $(INITRD_DIR)/models/models.manifest
@@ -407,12 +407,12 @@ iso: check-iso-deps $(OS_IMAGE) pack-initrd
 	@echo "=== Construction ISO bootable (GRUB2) ==="
 	@rm -rf build/isodir
 	@mkdir -p build/isodir/boot/grub
-	@cp -f $(OS_IMAGE) build/isodir/boot/ai_os.bin
+	@cp -f $(OS_IMAGE) build/isodir/boot/mohhdy.bin
 	@cp -f $(INITRD_IMAGE) build/isodir/boot/$(INITRD_IMAGE)
 	@echo "set timeout=0" > build/isodir/boot/grub/grub.cfg
 	@echo "set default=0" >> build/isodir/boot/grub/grub.cfg
-	@echo "menuentry 'AI-OS' {" >> build/isodir/boot/grub/grub.cfg
-	@echo "  multiboot /boot/ai_os.bin" >> build/isodir/boot/grub/grub.cfg
+	@echo "menuentry 'MOHHDY' {" >> build/isodir/boot/grub/grub.cfg
+	@echo "  multiboot /boot/mohhdy.bin" >> build/isodir/boot/grub/grub.cfg
 	@echo "  module    /boot/$(INITRD_IMAGE)" >> build/isodir/boot/grub/grub.cfg
 	@echo "  boot" >> build/isodir/boot/grub/grub.cfg
 	@echo "}" >> build/isodir/boot/grub/grub.cfg
@@ -482,7 +482,7 @@ run-kbd-gui-test: $(OS_IMAGE) pack-initrd
 
 # Cible pour test interactif du clavier
 run-interactive: $(OS_IMAGE) pack-initrd
-	@echo "=== Test Interactif du Clavier AI-OS ==="
+	@echo "=== Test Interactif du Clavier MOHHDY ==="
 	@echo "Instructions:"
 	@echo "1. Le système va démarrer avec interface graphique"
 	@echo "2. Tapez des caractères pour tester le clavier"
@@ -641,7 +641,7 @@ ci: all test-all qemu-smoke qemu-ne2k-tls-multipair
 
 # Cible pour afficher l'aide
 help:
-	@echo "=== AI-OS v7 - Cibles de compilation ==="
+	@echo "=== MOHHDY v7 - Cibles de compilation ==="
 	@echo ""
 	@echo "Cibles principales:"
 	@echo "  deps         - Installe les paquets hôte (scripts/bootstrap-dev.sh)"

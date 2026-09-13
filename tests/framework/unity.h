@@ -1,4 +1,4 @@
-/* unity.h - Framework de test Unity adapté pour AI-OS
+/* unity.h - Framework de test Unity adapté pour MOHHDY
  * Version simplifiée et optimisée pour le développement kernel
  */
 

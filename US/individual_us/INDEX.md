@@ -1,18 +1,18 @@
-# Index MOHHOS — fichiers de spécification
+# Index MOHHDY — fichiers de spécification
 
 > **Légende (août 2026)**  
 > - **Spec** = fichier rédigé, **pas** livré dans le noyau.  
-> - **Chevauchement** = le prototype AI-OS a un voisinage technique (souvent une fraction du besoin).  
+> - **Chevauchement** = le prototype MOHHDY a un voisinage technique (souvent une fraction du besoin).  
 > - **Livraison partielle** = mécanisme réellement compilé et testé, sans satisfaire tous les critères de la spec.
-> - Backlog du code réel : [../ai_os_us.md](../ai_os_us.md). Runtime : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
+> - Backlog du code réel : [../mohhdy_us.md](../mohhdy_us.md). Runtime : [../../docs/ETAT_REEL.md](../../docs/ETAT_REEL.md).
 
-Les titres du [document maître](../mohhos_user_stories_master.md) **ne correspondent pas toujours** aux noms de fichiers ci-dessous (ex. maître US-008 = « mise à jour automatique », fichier = tests automatisés). **Le fichier individuel fait foi** pour le texte de la spec. Les IDs **US-023, US-024 et US-025 existent en double**.
+Les titres du [document maître](../mohhdy_user_stories_master.md) **ne correspondent pas toujours** aux noms de fichiers ci-dessous (ex. maître US-008 = « mise à jour automatique », fichier = tests automatisés). **Le fichier individuel fait foi** pour le texte de la spec. Les IDs **US-023, US-024 et US-025 existent en double**.
 
-Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décrites seulement dans les documents `mohhos_*.md`.
+Il n'y a **pas** 120 fichiers : environ 78 specs détaillées + des phases décrites seulement dans les documents `mohhdy_*.md`.
 
-## Chevauchement avec AI-OS
+## Chevauchement avec MOHHDY
 
-| US fichier | Spec MOHHOS | Dans le prototype |
+| US fichier | Spec MOHHDY | Dans le prototype |
 |---|---|---|
 | US-001 | Microkernel + IPC | **Livraison partielle :** IPC avec capacité de deux messages clients et instantané de profondeur pour un propriétaire publié, VFS Ring 3 lecture-écriture-suppression-renommage avec lectures, métadonnées et listage de racine ou sous-répertoire initrd/overlay distincts, statistiques locales, trois alias de montage dynamiques au plus, découverte `vfs`, cycle de vie, corrélation, conservation différée, transfert, révocation et notifications best-effort ; noyau monolithique, backend non externalisé |
 | US-002 | Gestionnaire de ressources IA | PMM / VMM / heap / `SYS_MEMINFO` seulement |

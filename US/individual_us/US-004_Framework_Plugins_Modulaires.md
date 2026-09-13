@@ -3,7 +3,7 @@
 ## Informations Générales
 
 **ID** : US-004  
-**Titre** : Framework de plugins modulaires pour MOHHOS  
+**Titre** : Framework de plugins modulaires pour MOHHDY  
 **Phase** : 1 - Foundation  
 **Priorité** : Élevée  
 **Complexité** : Élevée  
@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** développeur système MOHHOS  
+**En tant que** développeur système MOHHDY  
 **Je veux** un framework de plugins modulaires sécurisé et performant  
 **Afin de** étendre dynamiquement les fonctionnalités du système sans recompilation et préparer l'intégration de modules IA spécialisés
 
 ## Contexte Technique Détaillé
 
-Le framework de plugins constitue une infrastructure fondamentale pour MOHHOS, permettant l'extension dynamique du système et l'intégration de modules IA spécialisés. Cette architecture modulaire est essentielle pour supporter la vision MOHHOS d'un système évolutif et intelligent.
+Le framework de plugins constitue une infrastructure fondamentale pour MOHHDY, permettant l'extension dynamique du système et l'intégration de modules IA spécialisés. Cette architecture modulaire est essentielle pour supporter la vision MOHHDY d'un système évolutif et intelligent.
 
-### Besoins Spécifiques MOHHOS
+### Besoins Spécifiques MOHHDY
 
 - **Modules IA Dynamiques** : Chargement de modèles d'IA spécialisés selon les besoins
 - **Extensions Web Runtime** : Plugins pour le navigateur-OS intégré
@@ -47,7 +47,7 @@ Le framework de plugins constitue une infrastructure fondamentale pour MOHHOS, p
 │  │  Loader │ IPC │ Sandbox │ Monitor │ Updater │ API  │   │
 │  └─────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────┤
-│                    MOHHOS Microkernel                      │
+│                    MOHHDY Microkernel                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -196,7 +196,7 @@ int registry_list_plugins(plugin_type_t type, plugin_metadata_t** plugins, size_
 int registry_check_dependencies(const char* plugin_name, dependency_status_t* status);
 ```
 
-### Intégration avec l'Écosystème MOHHOS
+### Intégration avec l'Écosystème MOHHDY
 
 #### Support pour Modules IA
 ```c

@@ -1,9 +1,9 @@
-# AI-OS - Implémentation des Étapes 5 et 6
+# MOHHDY - Implémentation des Étapes 5 et 6
 ## Multitâche, Ordonnancement et Espace Utilisateur
 
 ### 📋 Vue d'Ensemble
 
-Ce document détaille l'implémentation des étapes 5 et 6 du projet AI-OS, qui transforment le système d'un noyau basique en un véritable système d'exploitation multitâche capable d'exécuter des programmes utilisateur en toute sécurité.
+Ce document détaille l'implémentation des étapes 5 et 6 du projet MOHHDY, qui transforment le système d'un noyau basique en un véritable système d'exploitation multitâche capable d'exécuter des programmes utilisateur en toute sécurité.
 
 **Étape 5 : Multitâche et Ordonnancement**
 - Système de tâches avec changement de contexte
@@ -22,7 +22,7 @@ Ce document détaille l'implémentation des étapes 5 et 6 du projet AI-OS, qui 
 #### Structure des Fichiers
 
 ```
-ai-os/
+mohhdy/
 ├── kernel/
 │   ├── task/                 # Système de tâches
 │   │   ├── task.h           # Interface du gestionnaire de tâches
@@ -205,7 +205,7 @@ void putc(char c) {
 
 **Initialisation Réussie**
 ```
-=== Bienvenue dans AI-OS v4.0 ===
+=== Bienvenue dans MOHHDY v4.0 ===
 Systeme complet avec espace utilisateur
 
 Multiboot detecte correctement.
@@ -305,13 +305,13 @@ Timer configure pour 100 Hz
 
 #### Transformation du Système
 
-**Avant (AI-OS v2.0)**
+**Avant (MOHHDY v2.0)**
 - Noyau monolithique simple
 - Exécution séquentielle
 - Pas de protection mémoire
 - Code kernel uniquement
 
-**Après (AI-OS v4.0)**
+**Après (MOHHDY v4.0)**
 - Système multitâche complet
 - Séparation kernel/user
 - Protection mémoire avancée
@@ -331,7 +331,7 @@ Timer configure pour 100 Hz
 
 ### 🎯 Conclusion
 
-L'implémentation des étapes 5 et 6 représente une évolution majeure d'AI-OS, le transformant d'un noyau de démonstration en un système d'exploitation fonctionnel et sécurisé. 
+L'implémentation des étapes 5 et 6 représente une évolution majeure de MOHHDY, le transformant d'un noyau de démonstration en un système d'exploitation fonctionnel et sécurisé. 
 
 **Réalisations Clés**
 - Architecture multitâche robuste et performante
@@ -347,6 +347,6 @@ Le système dispose maintenant de toutes les fondations nécessaires pour héber
 
 ---
 
-*AI-OS v4.0 - Système d'exploitation multitâche avec espace utilisateur*  
+*MOHHDY v4.0 - Système d'exploitation multitâche avec espace utilisateur*  
 *Développé pour l'hébergement sécurisé d'intelligence artificielle*
 

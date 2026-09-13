@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un orchestrateur intelligent qui répartit optimalement les tâches entre local et cloud  
 **Afin de** maximiser les performances tout en respectant les contraintes de confidentialité et de coût
 
 ## Contexte Technique Détaillé
 
-L'orchestrateur cloud-edge est essentiel pour réaliser la vision hybride de MOHHOS. Il doit prendre des décisions intelligentes en temps réel sur où exécuter chaque tâche IA, en considérant les facteurs de performance, coût, confidentialité, et disponibilité réseau. Cette orchestration adaptative est cruciale pour l'efficacité énergétique et l'expérience utilisateur.
+L'orchestrateur cloud-edge est essentiel pour réaliser la vision hybride de MOHHDY. Il doit prendre des décisions intelligentes en temps réel sur où exécuter chaque tâche IA, en considérant les facteurs de performance, coût, confidentialité, et disponibilité réseau. Cette orchestration adaptative est cruciale pour l'efficacité énergétique et l'expérience utilisateur.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Décision Temps Réel** : Choix optimal en millisecondes
 - **Multi-Objectifs** : Optimisation simultanée performance/coût/sécurité
@@ -374,4 +374,4 @@ int preferences_explain_decision(decision_context_t* context, explanation_t* exp
 - **Interopérabilité** : Compatibilité avec services cloud majeurs
 - **Observabilité** : Logging détaillé pour debugging et optimisation
 
-Cet orchestrateur cloud-edge constitue le cerveau de l'optimisation des ressources IA dans MOHHOS, permettant une utilisation intelligente et efficace de l'écosystème hybride local-cloud.
+Cet orchestrateur cloud-edge constitue le cerveau de l'optimisation des ressources IA dans MOHHDY, permettant une utilisation intelligente et efficace de l'écosystème hybride local-cloud.

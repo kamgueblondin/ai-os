@@ -1,7 +1,7 @@
 # US-052 : Tests de Pénétration et Vulnérabilités
 
 ## Description
-En tant que pentester ou responsable sécurité, je veux des outils automatisés de tests de pénétration et détection de vulnérabilités qui évaluent continuellement la posture de sécurité de MOHHOS, identifient les failles et fournissent des recommandations de remediation, afin de maintenir un niveau de sécurité élevé face aux menaces émergentes.
+En tant que pentester ou responsable sécurité, je veux des outils automatisés de tests de pénétration et détection de vulnérabilités qui évaluent continuellement la posture de sécurité de MOHHDY, identifient les failles et fournissent des recommandations de remediation, afin de maintenir un niveau de sécurité élevé face aux menaces émergentes.
 
 ## Critères d'acceptation
 - [ ] Des scans de vulnérabilités automatisés doivent être exécutés régulièrement

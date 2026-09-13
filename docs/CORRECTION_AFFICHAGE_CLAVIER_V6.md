@@ -1,4 +1,4 @@
-# Correction du Problème d'Affichage Clavier - AI-OS v6.0
+# Correction du Problème d'Affichage Clavier - MOHHDY v6.0
 
 ## 🎯 Problème Identifié
 
@@ -95,7 +95,7 @@ Après ces corrections :
 
 Pour valider les corrections :
 ```bash
-cd ai-os
+cd mohhdy
 make clean && make all
 make run
 # Taper au clavier - les caractères doivent s'afficher
@@ -103,4 +103,4 @@ make run
 ```
 
 ---
-**MiniMax Agent** - Correction Clavier AI-OS v6.0 - Août 2025
+**MiniMax Agent** - Correction Clavier MOHHDY v6.0 - Août 2025

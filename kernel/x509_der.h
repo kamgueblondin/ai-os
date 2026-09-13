@@ -1,5 +1,5 @@
-#ifndef AIOS_X509_DER_H
-#define AIOS_X509_DER_H
+#ifndef MOHHDY_X509_DER_H
+#define MOHHDY_X509_DER_H
 
 #include <stdint.h>
 

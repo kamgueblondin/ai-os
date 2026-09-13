@@ -1,7 +1,7 @@
 # US-069 : Monitoring Performance Temps Réel
 
 ## Description
-En tant qu'ingénieur SRE, je veux un système de monitoring de performance temps réel qui surveille, analyse et alerte sur tous les aspects de performance de MOHHOS, avec des tableaux de bord interactifs, des analyses prédictives et des recommandations automatiques, afin de maintenir une visibilité complète et réagir proactivement aux problèmes.
+En tant qu'ingénieur SRE, je veux un système de monitoring de performance temps réel qui surveille, analyse et alerte sur tous les aspects de performance de MOHHDY, avec des tableaux de bord interactifs, des analyses prédictives et des recommandations automatiques, afin de maintenir une visibilité complète et réagir proactivement aux problèmes.
 
 ## Critères d'acceptation
 - [ ] Un monitoring multi-dimensionnel (CPU, mémoire, I/O, réseau) doit être temps réel

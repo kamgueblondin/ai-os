@@ -1,7 +1,7 @@
 # US-023 : Système d'Apprentissage Machine Adaptatif
 
 ## Description
-En tant qu'utilisateur du système MOHHOS, je veux que le système dispose d'un mécanisme d'apprentissage machine adaptatif qui puisse analyser les patterns d'utilisation et optimiser automatiquement les performances du système, afin d'améliorer continuellement l'expérience utilisateur et l'efficacité opérationnelle.
+En tant qu'utilisateur du système MOHHDY, je veux que le système dispose d'un mécanisme d'apprentissage machine adaptatif qui puisse analyser les patterns d'utilisation et optimiser automatiquement les performances du système, afin d'améliorer continuellement l'expérience utilisateur et l'efficacité opérationnelle.
 
 ## Critères d'acceptation
 - [ ] Le système doit collecter et analyser les données d'utilisation en temps réel

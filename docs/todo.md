@@ -1,4 +1,4 @@
-# TODO - Correction AI-OS Shell Utilisateur
+# TODO - Correction MOHHDY Shell Utilisateur
 
 > **État réel et pilotage (26 août 2026).** Le shell utilisateur Ring 3 **se lance** et le clavier **répond** (correctif EOI IRQ0). Le périmètre courant validé, les limites et les prochaines tranches priorisées sont dans [ETAT_REEL.md](ETAT_REEL.md) ; la suite compte **505/505** tests et les sept contrats QEMU terminent localement en **23 min 30 s**. Les phases et incréments ci-dessous restent un **journal de livraison** : leurs compteurs et limites décrivent l’état de leur date, sauf lorsqu’une note les actualise explicitement.
 

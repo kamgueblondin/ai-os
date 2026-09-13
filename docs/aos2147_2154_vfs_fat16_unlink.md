@@ -31,7 +31,7 @@ L’entrée est marquée supprimée et écrite sur ATA **avant** la restitution 
 |---|---|
 | `make -s -C tests -B '../build/./unit/kernel/test_fat16' && ./build/unit/kernel/test_fat16` | **20/20** ; suppression de `PERSIST.BIN`, marqueur `0xE5`, libération des deux clusters dans les deux FAT, relecture absente et réutilisation de cluster 3 |
 | `make -s -C tests -B '../build/./unit/kernel/test_syscall' && ./build/unit/kernel/test_syscall` | **64/64** ; borne ABI de syscall et harness i386 conservés |
-| `make -s qemu-vfs-service` | `MOHHOS Foundation VFS service contract passed` ; création, relecture, listage de `NEW.TXT`, suppression, lecture négative et retour à deux entrées FAT16 |
+| `make -s qemu-vfs-service` | `MOHHDY Foundation VFS service contract passed` ; création, relecture, listage de `NEW.TXT`, suppression, lecture négative et retour à deux entrées FAT16 |
 | `make -s test-all` | **488/488** ; non-régression complète, aucun échec ni test ignoré |
 
 Le contrat QEMU utilise d’abord `vfs-write fat16/new.txt qemu-fat16`, relit le contenu et exige trois entrées à la racine incluant `NEW.TXT`. Il envoie ensuite `vfs-remove fat16/new.txt`, exige la réponse publique de succès, vérifie que la lecture devient « fichier absent », puis impose un listage de deux entrées où `NEW.TXT` ne figure plus. La régression Unity crée aussi `TRAIL.BIN` après `PERSIST.BIN`, supprime ce dernier, puis rejette un second `TRAIL.BIN` : un emplacement `0xE5` réutilisable n’interrompt donc jamais le parcours anti-doublon de la racine.

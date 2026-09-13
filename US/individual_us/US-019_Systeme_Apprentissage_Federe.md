@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** instance MOHHOS dans la communauté  
+**En tant que** instance MOHHDY dans la communauté  
 **Je veux** participer à l'apprentissage fédéré pour améliorer les modèles IA collectivement  
 **Afin de** bénéficier d'une intelligence collective tout en préservant la confidentialité des données
 
 ## Contexte Technique Détaillé
 
-L'apprentissage fédéré est crucial pour la vision MOHHOS d'une communauté d'instances interconnectées qui s'entraident. Ce système permet aux instances MOHHOS d'améliorer collectivement leurs modèles IA sans partager de données sensibles, créant une intelligence collective distribuée plus puissante que les modèles individuels.
+L'apprentissage fédéré est crucial pour la vision MOHHDY d'une communauté d'instances interconnectées qui s'entraident. Ce système permet aux instances MOHHDY d'améliorer collectivement leurs modèles IA sans partager de données sensibles, créant une intelligence collective distribuée plus puissante que les modèles individuels.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Confidentialité Absolue** : Protection totale des données utilisateur
 - **Hétérogénéité** : Gestion de devices aux capacités variables
@@ -338,4 +338,4 @@ int sparsify_gradients(float* gradients, size_t count,
 - **Interopérabilité** : Compatibilité avec autres systèmes FL
 - **Durabilité** : Optimisation énergétique pour appareils mobiles
 
-Ce système d'apprentissage fédéré constitue l'innovation majeure de MOHHOS pour créer une intelligence collective tout en préservant la confidentialité des utilisateurs.
+Ce système d'apprentissage fédéré constitue l'innovation majeure de MOHHDY pour créer une intelligence collective tout en préservant la confidentialité des utilisateurs.

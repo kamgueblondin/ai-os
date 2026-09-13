@@ -1,5 +1,5 @@
-#ifndef AIOS_AES_GCM_H
-#define AIOS_AES_GCM_H
+#ifndef MOHHDY_AES_GCM_H
+#define MOHHDY_AES_GCM_H
 #include <stdint.h>
 #define AES128_BLOCK_SIZE 16U
 #define AES128_GCM_TAG_SIZE 16U

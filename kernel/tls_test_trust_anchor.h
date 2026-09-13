@@ -1,5 +1,5 @@
-#ifndef AIOS_TLS_TEST_TRUST_ANCHOR_H
-#define AIOS_TLS_TEST_TRUST_ANCHOR_H
+#ifndef MOHHDY_TLS_TEST_TRUST_ANCHOR_H
+#define MOHHDY_TLS_TEST_TRUST_ANCHOR_H
 
 /* Ancre RSA de test uniquement, pour example.com / api.example.test.
  * Elle n'est pas une autorite publique. Le pair QEMU local presente une

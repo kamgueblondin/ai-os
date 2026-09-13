@@ -1,5 +1,5 @@
-#ifndef AIOS_GPT2_GGUF_LOADER_H
-#define AIOS_GPT2_GGUF_LOADER_H
+#ifndef MOHHDY_GPT2_GGUF_LOADER_H
+#define MOHHDY_GPT2_GGUF_LOADER_H
 
 #include "gpt2_gguf.h"
 #include "gpt2_quant.h"

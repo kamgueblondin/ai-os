@@ -1,7 +1,7 @@
 # US-035 : Plateforme d'Intégration Cloud Hybride
 
 ## Description
-En tant qu'architecte IT, je veux une plateforme qui permette à MOHHOS de fonctionner de manière transparente dans des environnements cloud hybrides, intégrant les ressources on-premise et cloud public, afin d'optimiser les coûts et performances tout en respectant les contraintes de souveraineté des données.
+En tant qu'architecte IT, je veux une plateforme qui permette à MOHHDY de fonctionner de manière transparente dans des environnements cloud hybrides, intégrant les ressources on-premise et cloud public, afin d'optimiser les coûts et performances tout en respectant les contraintes de souveraineté des données.
 
 ## Critères d'acceptation
 - [ ] L'orchestration automatique entre ressources on-premise et cloud doit être implémentée

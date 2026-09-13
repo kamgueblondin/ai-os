@@ -1,7 +1,7 @@
 # US-067 : Système de Cache Distribué Intelligent
 
 ## Description
-En tant qu'architecte performance, je veux implémenter un système de cache distribué intelligent qui optimise automatiquement le stockage et la récupération des données fréquemment accédées dans MOHHOS, avec des stratégies adaptatives et une synchronisation efficace, afin de réduire drastiquement les temps d'accès aux données.
+En tant qu'architecte performance, je veux implémenter un système de cache distribué intelligent qui optimise automatiquement le stockage et la récupération des données fréquemment accédées dans MOHHDY, avec des stratégies adaptatives et une synchronisation efficace, afin de réduire drastiquement les temps d'accès aux données.
 
 ## Critères d'acceptation
 - [ ] Un cache multi-niveaux (L1, L2, distribué) doit optimiser les accès

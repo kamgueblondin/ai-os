@@ -1,5 +1,5 @@
-#ifndef AIOS_NE2K_H
-#define AIOS_NE2K_H
+#ifndef MOHHDY_NE2K_H
+#define MOHHDY_NE2K_H
 
 #include <stdint.h>
 #include "net_nic.h"

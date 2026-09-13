@@ -251,11 +251,11 @@ void ramfs_init(void) {
     add_dir("/home/user");
     add_file("/test.txt", "Ceci est un fichier de test depuis l'initrd !\n");
     add_file("/hello.txt", "Un autre fichier de demonstration.\n");
-    add_file("/config.cfg", "Configuration du systeme AI-OS v5.0\n");
-    add_file("/startup.sh", "#!/bin/sh\necho 'Script de demarrage AI-OS v5.0'\n");
+    add_file("/config.cfg", "Configuration du systeme MOHHDY v5.0\n");
+    add_file("/startup.sh", "#!/bin/sh\necho 'Script de demarrage MOHHDY v5.0'\n");
     add_file("/ai_data.txt", "Donnees pour l'intelligence artificielle simulee\n");
     add_file("/ai_knowledge.txt", "Base de connaissances IA - Version simulation\nbonjour\nmemoire\nprocessus\n");
-    add_file("/docs/readme.txt", "Documentation AI-OS (VFS RAM pedagogique).\n");
+    add_file("/docs/readme.txt", "Documentation MOHHDY (VFS RAM pedagogique).\n");
 }
 
 int ramfs_exists(const char *path) {

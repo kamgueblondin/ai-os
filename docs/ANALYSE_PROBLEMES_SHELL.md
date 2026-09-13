@@ -1,4 +1,4 @@
-# Analyse des Problèmes - Shell Utilisateur AI-OS
+# Analyse des Problèmes - Shell Utilisateur MOHHDY
 
 > **État réel (août 2026).** L’interface n’est plus figée au passage userspace ; le shell ELF démarre. Contenu historique conservé. Voir [ETAT_REEL.md](ETAT_REEL.md).
 

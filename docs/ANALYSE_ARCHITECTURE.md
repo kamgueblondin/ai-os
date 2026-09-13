@@ -1,10 +1,10 @@
-# Analyse de l'Architecture AI-OS
+# Analyse de l'Architecture MOHHDY
 
 > **État réel (août 2026).** Le passage au shell Ring 3 fonctionne (`create_task_from_initrd_file` + `jump_to_task`). Les sections « Problèmes identifiés » et « Flux actuel (problématique) » ci-dessous sont un **diagnostic historique** conservé. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
 ## Vue d'ensemble du système
 
-AI-OS est un système d'exploitation expérimental en 32-bit avec les composants suivants :
+MOHHDY est un système d'exploitation expérimental en 32-bit avec les composants suivants :
 
 ### Composants principaux
 

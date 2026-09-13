@@ -1,7 +1,7 @@
 # US-024 : Framework d'Intégration IA Tiers
 
 ## Description
-En tant que développeur utilisant MOHHOS, je veux un framework standardisé qui me permette d'intégrer facilement des services d'IA tiers (OpenAI, Anthropic, Google AI, etc.) dans mes applications, afin de pouvoir exploiter diverses capacités d'IA sans complexité technique excessive.
+En tant que développeur utilisant MOHHDY, je veux un framework standardisé qui me permette d'intégrer facilement des services d'IA tiers (OpenAI, Anthropic, Google AI, etc.) dans mes applications, afin de pouvoir exploiter diverses capacités d'IA sans complexité technique excessive.
 
 ## Critères d'acceptation
 - [ ] Un framework unifié doit permettre l'intégration de multiples providers d'IA

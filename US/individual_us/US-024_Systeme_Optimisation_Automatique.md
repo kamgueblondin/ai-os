@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** que le système optimise automatiquement ses performances et ma productivité  
 **Afin de** bénéficier en permanence des meilleures performances sans intervention manuelle
 
 ## Contexte Technique Détaillé
 
-Le système d'optimisation automatique de MOHHOS utilise l'intelligence artificielle pour améliorer continuellement tous les aspects du système : performances hardware, efficacité énergétique, workflows utilisateur, allocation de ressources, et expérience globale. Il apprend des patterns d'usage et applique des optimisations de manière autonome et sécurisée.
+Le système d'optimisation automatique de MOHHDY utilise l'intelligence artificielle pour améliorer continuellement tous les aspects du système : performances hardware, efficacité énergétique, workflows utilisateur, allocation de ressources, et expérience globale. Il apprend des patterns d'usage et applique des optimisations de manière autonome et sécurisée.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Optimisation Multi-Domaine** : Performance, énergie, productivité, UX
 - **Apprentissage Continu** : Amélioration sans supervision
@@ -409,4 +409,4 @@ int metrics_track_long_term_impact(optimization_id_t optimization_id,
 - **Audit** : Traçabilité complète de toutes les modifications
 - **Performance** : Impact minimal sur les performances pendant l'optimisation
 
-Ce système d'optimisation automatique fait de MOHHOS un système auto-améliorant qui devient plus efficace et performant avec le temps.
+Ce système d'optimisation automatique fait de MOHHDY un système auto-améliorant qui devient plus efficace et performant avec le temps.

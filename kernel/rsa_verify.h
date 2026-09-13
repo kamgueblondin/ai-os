@@ -1,5 +1,5 @@
-#ifndef AIOS_RSA_VERIFY_H
-#define AIOS_RSA_VERIFY_H
+#ifndef MOHHDY_RSA_VERIFY_H
+#define MOHHDY_RSA_VERIFY_H
 #include <stdint.h>
 
 /* Vérifie une signature RSA PKCS#1 v1.5 SHA-256.

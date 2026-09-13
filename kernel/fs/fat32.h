@@ -1,5 +1,5 @@
-#ifndef AIOS_FAT32_H
-#define AIOS_FAT32_H
+#ifndef MOHHDY_FAT32_H
+#define MOHHDY_FAT32_H
 
 #include <stdint.h>
 #include "fat16.h"

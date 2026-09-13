@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur et administrateur MOHHOS  
+**En tant que** utilisateur et administrateur MOHHDY  
 **Je veux** un système de mise à jour intelligent qui applique les updates de manière incrémentale et sécurisée  
 **Afin de** maintenir le système à jour sans interruption de service et avec possibilité de retour en arrière automatique
 
 ## Contexte Technique Détaillé
 
-Le système de mise à jour de MOHHOS doit être révolutionnaire, utilisant l'IA pour optimiser les stratégies de déploiement et garantir une disponibilité maximale. Contrairement aux systèmes traditionnels, il doit supporter les mises à jour de services distribués, des modèles IA, et des composants P2P tout en maintenant la cohérence du système.
+Le système de mise à jour de MOHHDY doit être révolutionnaire, utilisant l'IA pour optimiser les stratégies de déploiement et garantir une disponibilité maximale. Contrairement aux systèmes traditionnels, il doit supporter les mises à jour de services distribués, des modèles IA, et des composants P2P tout en maintenant la cohérence du système.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Architecture Distribuée** : Mise à jour coordonnée de services microkernel
 - **Modèles IA** : Mise à jour de modèles d'IA sans interruption d'inférence
@@ -290,7 +290,7 @@ int health_set_alert_thresholds(const char* component_name,
 1. **Zero Downtime** : Aucune interruption de service pendant les mises à jour
 2. **Rollback Automatique** : Détection et retour arrière en < 30 secondes
 3. **Vérification Intégrité** : 100% des packages vérifiés avant déploiement
-4. **Support Multi-Type** : Gestion de tous types de composants MOHHOS
+4. **Support Multi-Type** : Gestion de tous types de composants MOHHDY
 5. **Coordination Distribuée** : Mise à jour coordonnée des services
 
 ### Critères de Performance

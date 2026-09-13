@@ -1,7 +1,7 @@
 # US-042 : Plateforme d'Innovation Ouverte
 
 ## Description
-En tant qu'innovateur ou chercheur, je veux accéder à une plateforme d'innovation ouverte qui favorise la collaboration entre la communauté, les entreprises et les instituts de recherche pour développer de nouvelles fonctionnalités et applications MOHHOS, afin d'accélérer l'innovation et créer de la valeur partagée.
+En tant qu'innovateur ou chercheur, je veux accéder à une plateforme d'innovation ouverte qui favorise la collaboration entre la communauté, les entreprises et les instituts de recherche pour développer de nouvelles fonctionnalités et applications MOHHDY, afin d'accélérer l'innovation et créer de la valeur partagée.
 
 ## Critères d'acceptation
 - [ ] Un portail de soumission et gestion d'idées innovantes doit être créé

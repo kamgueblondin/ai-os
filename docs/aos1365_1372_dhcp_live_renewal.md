@@ -27,6 +27,6 @@ Le renouvellement envoyé ici est un REQUEST broadcast avec `ciaddr`, ce qui per
 ## Références
 
 [1]: aos1353_1364_llm_socket_ne2k_bridge.md "Adaptateur LLM/socket et pont NE2000"
-[2]: todo.md "Backlog AI-OS"
+[2]: todo.md "Backlog MOHHDY"
 
 [1] [2]

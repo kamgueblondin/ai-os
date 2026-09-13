@@ -1,6 +1,6 @@
 # US-012 : Framework d'APIs Unifiées
 
-> **AI-OS :** `include/os_syscalls.h` (23 appels). Pas d'API unifiée MOHHOS. Voir AOS-006 dans [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** `include/os_syscalls.h` (23 appels). Pas d'API unifiée MOHHDY. Voir AOS-006 dans [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** développeur d'applications MOHHOS  
+**En tant que** développeur d'applications MOHHDY  
 **Je veux** un framework d'APIs unifiées qui offre des interfaces cohérentes pour tous les services système  
 **Afin de** développer efficacement des applications avec une courbe d'apprentissage réduite et une intégration simplifiée
 
 ## Contexte Technique Détaillé
 
-Le framework d'APIs unifiées de MOHHOS est crucial pour créer un écosystème de développement cohérent. Dans l'architecture microkernel distribuée, il doit abstraire la complexité des communications inter-services tout en offrant des interfaces intuitives et performantes. Le framework intègre l'IA pour l'auto-découverte de services et l'optimisation automatique des appels.
+Le framework d'APIs unifiées de MOHHDY est crucial pour créer un écosystème de développement cohérent. Dans l'architecture microkernel distribuée, il doit abstraire la complexité des communications inter-services tout en offrant des interfaces intuitives et performantes. Le framework intègre l'IA pour l'auto-découverte de services et l'optimisation automatique des appels.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Unification Microkernel** : APIs cohérentes malgré l'architecture distribuée
 - **Intégration IA** : APIs natives pour accès aux services d'IA
@@ -250,7 +250,7 @@ typedef enum {
     LANG_PYTHON = 5,
     LANG_GO = 6,
     LANG_JAVA = 7,
-    LANG_PROMPT_MESSAGE = 8  // Langage natif MOHHOS
+    LANG_PROMPT_MESSAGE = 8  // Langage natif MOHHDY
 } language_t;
 
 typedef struct {
@@ -281,57 +281,57 @@ int api_generate_documentation(const char* api_name,
 #### APIs Système
 ```c
 // Gestion des processus
-int mohhos_process_create(process_spec_t* spec, process_handle_t* handle);
-int mohhos_process_terminate(process_handle_t handle);
-int mohhos_process_get_info(process_handle_t handle, process_info_t* info);
+int mohhdy_process_create(process_spec_t* spec, process_handle_t* handle);
+int mohhdy_process_terminate(process_handle_t handle);
+int mohhdy_process_get_info(process_handle_t handle, process_info_t* info);
 
 // Gestion de la mémoire
-int mohhos_memory_allocate(size_t size, memory_flags_t flags, void** ptr);
-int mohhos_memory_deallocate(void* ptr);
-int mohhos_memory_get_stats(memory_stats_t* stats);
+int mohhdy_memory_allocate(size_t size, memory_flags_t flags, void** ptr);
+int mohhdy_memory_deallocate(void* ptr);
+int mohhdy_memory_get_stats(memory_stats_t* stats);
 
 // Système de fichiers
-int mohhos_file_open(const char* path, file_mode_t mode, file_handle_t* handle);
-int mohhos_file_read(file_handle_t handle, void* buffer, size_t size, size_t* bytes_read);
-int mohhos_file_write(file_handle_t handle, const void* data, size_t size);
-int mohhos_file_close(file_handle_t handle);
+int mohhdy_file_open(const char* path, file_mode_t mode, file_handle_t* handle);
+int mohhdy_file_read(file_handle_t handle, void* buffer, size_t size, size_t* bytes_read);
+int mohhdy_file_write(file_handle_t handle, const void* data, size_t size);
+int mohhdy_file_close(file_handle_t handle);
 ```
 
 #### APIs Intelligence Artificielle
 ```c
 // Gestion des modèles
-int mohhos_ai_load_model(const char* model_path, ai_model_handle_t* handle);
-int mohhos_ai_unload_model(ai_model_handle_t handle);
-int mohhos_ai_get_model_info(ai_model_handle_t handle, ai_model_info_t* info);
+int mohhdy_ai_load_model(const char* model_path, ai_model_handle_t* handle);
+int mohhdy_ai_unload_model(ai_model_handle_t handle);
+int mohhdy_ai_get_model_info(ai_model_handle_t handle, ai_model_info_t* info);
 
 // Inférence
-int mohhos_ai_infer(ai_model_handle_t handle, const void* input, 
+int mohhdy_ai_infer(ai_model_handle_t handle, const void* input, 
                    ai_inference_config_t* config, void* output);
-int mohhos_ai_infer_async(ai_model_handle_t handle, const void* input,
+int mohhdy_ai_infer_async(ai_model_handle_t handle, const void* input,
                          ai_inference_config_t* config, 
                          ai_callback_t callback, void* user_data);
-int mohhos_ai_batch_infer(ai_model_handle_t handle, const void** inputs, int count,
+int mohhdy_ai_batch_infer(ai_model_handle_t handle, const void** inputs, int count,
                          ai_inference_config_t* config, void** outputs);
 
 // Traitement du langage naturel
-int mohhos_nlu_process_text(const char* text, nlu_config_t* config, nlu_result_t* result);
-int mohhos_nlu_generate_response(nlu_result_t* nlu_result, response_config_t* config,
+int mohhdy_nlu_process_text(const char* text, nlu_config_t* config, nlu_result_t* result);
+int mohhdy_nlu_generate_response(nlu_result_t* nlu_result, response_config_t* config,
                                 char* response_buffer, size_t buffer_size);
 ```
 
 #### APIs Réseau et Communication
 ```c
 // Communication P2P
-int mohhos_p2p_connect(const char* peer_id, connection_config_t* config,
+int mohhdy_p2p_connect(const char* peer_id, connection_config_t* config,
                       connection_handle_t* handle);
-int mohhos_p2p_send_message(connection_handle_t handle, const void* data, size_t size);
-int mohhos_p2p_receive_message(connection_handle_t handle, void* buffer, 
+int mohhdy_p2p_send_message(connection_handle_t handle, const void* data, size_t size);
+int mohhdy_p2p_receive_message(connection_handle_t handle, void* buffer, 
                               size_t buffer_size, size_t* received_size);
 
 // Services réseau
-int mohhos_network_create_server(server_config_t* config, server_handle_t* handle);
-int mohhos_network_create_client(client_config_t* config, client_handle_t* handle);
-int mohhos_network_send_request(client_handle_t handle, request_t* request, 
+int mohhdy_network_create_server(server_config_t* config, server_handle_t* handle);
+int mohhdy_network_create_client(client_config_t* config, client_handle_t* handle);
+int mohhdy_network_send_request(client_handle_t handle, request_t* request, 
                                response_t* response);
 ```
 

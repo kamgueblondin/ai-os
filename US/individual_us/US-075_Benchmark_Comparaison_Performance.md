@@ -1,7 +1,7 @@
 # US-075 : Benchmark et Comparaison Performance
 
 ## Description
-En tant que responsable technique, je veux un système de benchmark et comparaison de performance qui évalue régulièrement MOHHOS contre des standards de l'industrie, documente les évolutions de performance et identifie les domaines d'amélioration, afin de maintenir une position compétitive et orienter les investissements d'optimisation.
+En tant que responsable technique, je veux un système de benchmark et comparaison de performance qui évalue régulièrement MOHHDY contre des standards de l'industrie, documente les évolutions de performance et identifie les domaines d'amélioration, afin de maintenir une position compétitive et orienter les investissements d'optimisation.
 
 ## Critères d'acceptation
 - [ ] Des benchmarks standardisés de l'industrie doivent être exécutés régulièrement
@@ -30,5 +30,5 @@ En tant que responsable technique, je veux un système de benchmark et comparais
 ## Notes techniques
 - Utilisation de benchmarks comme TPC, SPEC, Geekbench selon les domaines
 - Intégration avec des plateformes de benchmarking cloud comme CloudHarmony
-- Implémentation de custom benchmarks spécifiques au domaine MOHHOS
+- Implémentation de custom benchmarks spécifiques au domaine MOHHDY
 - Support de statistical analysis pour la significativité des résultats

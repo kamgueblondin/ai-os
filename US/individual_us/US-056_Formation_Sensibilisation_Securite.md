@@ -1,7 +1,7 @@
 # US-056 : Formation et Sensibilisation Sécurité
 
 ## Description
-En tant que responsable de la sécurité organisationnelle, je veux mettre en place un programme complet de formation et sensibilisation à la sécurité pour tous les utilisateurs et développeurs de MOHHOS, avec du contenu interactif, des simulations et un suivi des compétences, afin de créer une culture de sécurité et réduire les risques humains.
+En tant que responsable de la sécurité organisationnelle, je veux mettre en place un programme complet de formation et sensibilisation à la sécurité pour tous les utilisateurs et développeurs de MOHHDY, avec du contenu interactif, des simulations et un suivi des compétences, afin de créer une culture de sécurité et réduire les risques humains.
 
 ## Critères d'acceptation
 - [ ] Des modules de formation interactifs sur les bonnes pratiques sécurité doivent être créés

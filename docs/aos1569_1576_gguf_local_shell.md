@@ -67,7 +67,7 @@ make qemu-gguf-smoke
 Le smoke QEMU standard peut aussi démarrer sur ce disque sans le réécrire en définissant explicitement la conservation FAT16 :
 
 ```sh
-AIOS_PRESERVE_FAT16=1 \
+MOHHDY_PRESERVE_FAT16=1 \
 OVERLAY_DISK="$PWD/build/gpt2_gguf_fat16.img" \
 make qemu-smoke DISK_IMAGE=build/gpt2_gguf_fat16.img
 ```

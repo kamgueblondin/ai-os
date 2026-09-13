@@ -1,4 +1,4 @@
-# Correction du Système Clavier AI-OS - Rapport Final
+# Correction du Système Clavier MOHHDY - Rapport Final
 
 ## 🎯 Résumé de la Mission
 
@@ -105,10 +105,10 @@ make run
 
 ## 🎉 Conclusion
 
-Le problème du clavier non-réactif dans AI-OS a été **entièrement résolu**. La correction ciblée de l'ISR permet maintenant au système de distinguer correctement les codes de contrôle PS/2 des vraies frappes de touches, restaurant la fonctionnalité complète du clavier dans le shell utilisateur.
+Le problème du clavier non-réactif dans MOHHDY a été **entièrement résolu**. La correction ciblée de l'ISR permet maintenant au système de distinguer correctement les codes de contrôle PS/2 des vraies frappes de touches, restaurant la fonctionnalité complète du clavier dans le shell utilisateur.
 
-**Le système AI-OS v6.0 est maintenant prêt pour une interaction clavier complète.**
+**Le système MOHHDY v6.0 est maintenant prêt pour une interaction clavier complète.**
 
 ---
 *Correction effectuée le 27 août 2025*  
-*MiniMax Agent - Système AI-OS*
+*MiniMax Agent - Système MOHHDY*

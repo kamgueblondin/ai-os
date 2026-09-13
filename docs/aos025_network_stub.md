@@ -40,7 +40,7 @@ Une expérimentation future pourra démarrer QEMU avec un contrôleur ISA compat
 
 ```bash
 qemu-system-i386 \
-  -kernel build/ai_os.bin -initrd my_initrd.tar -m 1024M \
+  -kernel build/mohhdy.bin -initrd my_initrd.tar -m 1024M \
   -netdev user,id=n0 -device ne2k_isa,netdev=n0
 ```
 

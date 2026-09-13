@@ -1,11 +1,11 @@
-# AI-OS avec GPT-2 local bare-metal
+# MOHHDY avec GPT-2 local bare-metal
 
 **Auteur : Manus AI**  
 **Cible validée : PC i386/BIOS via GRUB Multiboot, CPU seul, 1 Gio de RAM QEMU**
 
 ## Résumé du livrable
 
-Cette version d'AI-OS contient un premier chemin d'inférence **réellement local**. Lorsque les poids GPT-2 124M et le tokenizer binaires sont placés dans `models/` avant la construction, le média de démarrage les inclut et le noyau les valide puis les lit directement depuis l'initrd. Une fois l'ISO construite, aucun OS préinstallé, aucun service tiers (Ollama, Python) et aucun réseau ne sont requis. AI-OS n'est pas une distribution Linux.
+Cette version de MOHHDY contient un premier chemin d'inférence **réellement local**. Lorsque les poids GPT-2 124M et le tokenizer binaires sont placés dans `models/` avant la construction, le média de démarrage les inclut et le noyau les valide puis les lit directement depuis l'initrd. Une fois l'ISO construite, aucun OS préinstallé, aucun service tiers (Ollama, Python) et aucun réseau ne sont requis. MOHHDY n'est pas une distribution Linux.
 
 > L'ISO démarre donc sur une machine sans système d'exploitation préinstallé, à condition que la machine sache démarrer un média BIOS/legacy ou qu'un mode de compatibilité BIOS soit activable. Cette version n'est pas encore une image UEFI native.
 
@@ -23,13 +23,13 @@ GPT-2 est un transformeur causal, c'est-à-dire qu'un jeton ne porte attention q
 
 ## Obtenir et vérifier les artefacts GPT-2
 
-Les poids ne sont pas stockés dans l'historique Git. Téléchargez `gpt2_124M.bin`, `gpt2_tokenizer.bin` et `gpt2-124m-assets.sha256` depuis la [release publique GPT-2 124M](https://github.com/kamgueblondin/ai-os/releases/tag/gpt2-124m-assets), puis placez-les dans `models/`.
+Les poids ne sont pas stockés dans l'historique Git. Téléchargez `gpt2_124M.bin`, `gpt2_tokenizer.bin` et `gpt2-124m-assets.sha256` depuis la [release publique GPT-2 124M](https://github.com/kamgueblondin/mohhdy/releases/tag/gpt2-124m-assets), puis placez-les dans `models/`.
 
 ```bash
 mkdir -p models
-curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_124M.bin
-curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
-curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/ai-os/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
+curl -L -o models/gpt2_124M.bin https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2_124M.bin
+curl -L -o models/gpt2_tokenizer.bin https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2_tokenizer.bin
+curl -L -o models/gpt2-124m-assets.sha256 https://github.com/kamgueblondin/mohhdy/releases/download/gpt2-124m-assets/gpt2-124m-assets.sha256
 (cd models && sha256sum -c gpt2-124m-assets.sha256)
 ```
 
@@ -42,11 +42,11 @@ Les empreintes attendues sont les suivantes :
 
 ## Contenu de l'ISO
 
-L'archive `build/ai_os.iso` contient les éléments suivants :
+L'archive `build/mohhdy.iso` contient les éléments suivants :
 
 | Composant | Emplacement dans l'ISO | Rôle |
 |---|---|---|
-| Noyau AI-OS | `/boot/ai_os.bin` | Noyau i386 Multiboot et gestion mémoire étendue |
+| Noyau MOHHDY | `/boot/mohhdy.bin` | Noyau i386 Multiboot et gestion mémoire étendue |
 | Initrd | `/boot/my_initrd.tar` | Shell, programmes utilisateurs, poids et vocabulaire |
 | Poids GPT-2 | `/models/gpt2_124M.bin` dans l'initrd | Checkpoint binaire de 497 904 640 octets |
 | Tokenizer GPT-2 | `/models/gpt2_tokenizer.bin` dans l'initrd | Vocabulaire de 50 257 jetons |
@@ -58,7 +58,7 @@ Les actifs GPT-2 employés suivent le format de checkpoint CPU version 3 documen
 
 Copiez l'ISO sur une clé USB avec un outil d'écriture d'image, par exemple Balena Etcher, Rufus en mode image DD, ou GNOME Disks. Démarrez ensuite la machine sur cette clé. L'image est une image **BIOS/legacy** ; sur une machine UEFI stricte sans CSM/legacy boot, elle ne démarrera pas encore.
 
-Après le démarrage, le shell AI-OS apparaît. Les commandes suivantes sont disponibles :
+Après le démarrage, le shell MOHHDY apparaît. Les commandes suivantes sont disponibles :
 
 | Commande | Résultat |
 |---|---|
@@ -74,7 +74,7 @@ Les validations suivantes ont été exécutées dans le bac à sable :
 
 | Vérification | Résultat |
 |---|---|
-| Compilation complète d'AI-OS | Réussie |
+| Compilation complète de MOHHDY | Réussie |
 | Suite de non-régression | **299/299 tests C** (chiffre courant : [ETAT_REEL.md](ETAT_REEL.md)) |
 | Chargeur de checkpoint et tokenizer avec actifs structurels | Réussi sous QEMU |
 | Chemin shell -> syscall -> tokenizer -> moteur local | Réussi sous QEMU |
@@ -99,7 +99,7 @@ Les évolutions prioritaires sont l'inférence GGUF bout-en-bout (kernels Q3_K/Q
 L'ISO dépend des artefacts GPT-2 fournis localement et n'a donc pas de somme SHA-256 universelle dans le dépôt. Après construction, calculez et archivez la somme correspondant à vos fichiers de modèle :
 
 ```bash
-sha256sum build/ai_os.iso
+sha256sum build/mohhdy.iso
 ```
 
 ## Références

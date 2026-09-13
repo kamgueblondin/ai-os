@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contrat MOHHOS Foundation : transfert borné d'un nom de service."""
+"""Contrat MOHHDY Foundation : transfert borné d'un nom de service."""
 import os
 import re
 import socket
@@ -12,7 +12,7 @@ LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.path.join(LOG_DIR, "service-grant.log")
 ERR = os.path.join(LOG_DIR, "service-grant.err")
 MON = os.path.join(LOG_DIR, "service-grant-monitor.sock")
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
@@ -244,7 +244,7 @@ def main():
             before_missing = len(log_text())
             send_command(monitor, "service-find demo", proc)
             wait_for("service-find: service indisponible", proc, before_missing)
-            print("MOHHOS Foundation service grant contract passed")
+            print("MOHHDY Foundation service grant contract passed")
             return 0
         finally:
             if monitor is not None:
@@ -265,5 +265,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("MOHHOS Foundation service grant contract failed: %s" % error, file=sys.stderr)
+        print("MOHHDY Foundation service grant contract failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)

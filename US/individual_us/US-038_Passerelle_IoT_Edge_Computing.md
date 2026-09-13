@@ -1,7 +1,7 @@
-# US-038 : Passerelle IoT et Edge Computing (MOHHOS IoT Edge Gateway)
+# US-038 : Passerelle IoT et Edge Computing (MOHHDY IoT Edge Gateway)
 
 ## Description
-En tant qu'architecte IoT d'entreprise, je veux que MOHHOS intègre une passerelle intelligente qui connecte, orchestre et gère massivement des écosystèmes hétérogènes d'appareils IoT et d'infrastructure edge computing, avec traitement temps réel local, synchronisation cloud hybride et intelligence distribuée, afin d'étendre les capacités MOHHOS aux environnements physiques, industriels et décentralisés tout en garantissant latence ultra-faible et résilience déconnectée.
+En tant qu'architecte IoT d'entreprise, je veux que MOHHDY intègre une passerelle intelligente qui connecte, orchestre et gère massivement des écosystèmes hétérogènes d'appareils IoT et d'infrastructure edge computing, avec traitement temps réel local, synchronisation cloud hybride et intelligence distribuée, afin d'étendre les capacités MOHHDY aux environnements physiques, industriels et décentralisés tout en garantissant latence ultra-faible et résilience déconnectée.
 
 ## Valeur Métier
 - **Expansion marché** : +$500M TAM (Industrial IoT, Smart Cities, Industry 4.0)

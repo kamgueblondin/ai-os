@@ -1,7 +1,7 @@
 # US-039 : Écosystème de Plugins Modulaires
 
 ## Description
-En tant que power user de MOHHOS, je veux un système de plugins modulaires qui me permette d'ajouter facilement de nouvelles fonctionnalités, personnaliser l'interface et étendre les capacités du système sans compromettre la stabilité ou la sécurité, afin d'adapter MOHHOS à mes besoins spécifiques.
+En tant que power user de MOHHDY, je veux un système de plugins modulaires qui me permette d'ajouter facilement de nouvelles fonctionnalités, personnaliser l'interface et étendre les capacités du système sans compromettre la stabilité ou la sécurité, afin d'adapter MOHHDY à mes besoins spécifiques.
 
 ## Critères d'acceptation
 - [ ] Une architecture de plugins sécurisée avec sandboxing doit être implémentée

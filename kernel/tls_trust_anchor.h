@@ -1,5 +1,5 @@
-#ifndef AIOS_TLS_TRUST_ANCHOR_H
-#define AIOS_TLS_TRUST_ANCHOR_H
+#ifndef MOHHDY_TLS_TRUST_ANCHOR_H
+#define MOHHDY_TLS_TRUST_ANCHOR_H
 
 static const unsigned char aos_tls_isrg_root_x1_der[] = {
     0x30, 0x82, 0x05, 0x6b, 0x30, 0x82, 0x03, 0x53, 0xa0, 0x03, 0x02, 0x01,

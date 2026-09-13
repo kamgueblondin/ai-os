@@ -1,4 +1,4 @@
-# Corrections du Problème de Clavier AI-OS
+# Corrections du Problème de Clavier MOHHDY
 
 ## Problème Identifié
 Le clavier ne réagissait pas dans l'espace utilisateur (Shell) à cause de plusieurs problèmes dans la gestion des interruptions et la communication entre le kernel et l'userspace.

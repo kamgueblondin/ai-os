@@ -1,4 +1,4 @@
-# Correction Définitive du Clavier AI-OS - Rapport Final
+# Correction Définitive du Clavier MOHHDY - Rapport Final
 
 > **Complément août 2026.** Un second blocage (EOI IRQ0 / PIC) subsistait après ce rapport. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
@@ -159,9 +159,9 @@ make run
 
 ## 🎉 Conclusion
 
-Les corrections apportées ont **définitivement résolu** le problème du clavier non-réactif dans AI-OS. Le système est maintenant **entièrement fonctionnel** et prêt pour une utilisation interactive complète.
+Les corrections apportées ont **définitivement résolu** le problème du clavier non-réactif dans MOHHDY. Le système est maintenant **entièrement fonctionnel** et prêt pour une utilisation interactive complète.
 
-**AI-OS v6.1 - Clavier Définitivement Corrigé** ✅
+**MOHHDY v6.1 - Clavier Définitivement Corrigé** ✅
 
 ---
 *Correction effectuée le 27 août 2025*  

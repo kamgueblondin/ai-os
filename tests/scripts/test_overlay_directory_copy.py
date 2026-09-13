@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise recursive directory copy in the AI-OS overlay through the real shell."""
+"""Exercise recursive directory copy in the MOHHDY overlay through the real shell."""
 import os
 import socket
 import subprocess
@@ -73,7 +73,7 @@ def main():
     try:
         with open(ERR, "wb") as err:
             proc = subprocess.Popen([
-                "qemu-system-i386", "-cpu", "pentium3", "-kernel", "build/ai_os.bin",
+                "qemu-system-i386", "-cpu", "pentium3", "-kernel", "build/mohhdy.bin",
                 "-initrd", "my_initrd.tar", "-m", "1024M", "-display", "none", "-vga", "none",
                 "-serial", "file:" + LOG, "-monitor", "unix:%s,server,nowait" % MON,
                 "-no-reboot", "-no-shutdown",

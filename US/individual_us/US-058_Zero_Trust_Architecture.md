@@ -1,7 +1,7 @@
-# US-058 : Zero Trust Architecture (MOHHOS Zero Trust Security Framework)
+# US-058 : Zero Trust Architecture (MOHHDY Zero Trust Security Framework)
 
 ## Description
-En tant qu'architecte sécurité entreprise, je veux implémenter une architecture Zero Trust holistique pour MOHHOS qui ne fait confiance à aucune entité par défaut, vérifie continuellement l'identité, la santé et l'autorisation de chaque accès (utilisateurs, devices, services, applications), applique le principe du moindre privilège dynamiquement, et isole microscopiquement chaque ressource, afin de minimiser drastiquement la surface d'attaque, contenir l'impact des breaches, et permettre la détection/réponse en temps réel aux menaces internes et externes.
+En tant qu'architecte sécurité entreprise, je veux implémenter une architecture Zero Trust holistique pour MOHHDY qui ne fait confiance à aucune entité par défaut, vérifie continuellement l'identité, la santé et l'autorisation de chaque accès (utilisateurs, devices, services, applications), applique le principe du moindre privilège dynamiquement, et isole microscopiquement chaque ressource, afin de minimiser drastiquement la surface d'attaque, contenir l'impact des breaches, et permettre la détection/réponse en temps réel aux menaces internes et externes.
 
 ## Valeur Métier
 - **Réduction risque breach** : -90% probabilité de lateral movement réussi

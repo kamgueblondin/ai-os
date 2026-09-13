@@ -1,7 +1,7 @@
 # US-063 : Optimisation Base de Données Avancée
 
 ## Description
-En tant qu'administrateur de base de données, je veux des outils d'optimisation avancée qui analysent et améliorent automatiquement les performances des bases de données de MOHHOS, incluant l'optimisation des requêtes, la gestion des index, le partitioning et la réplication, afin de garantir des accès rapides et fiables aux données.
+En tant qu'administrateur de base de données, je veux des outils d'optimisation avancée qui analysent et améliorent automatiquement les performances des bases de données de MOHHDY, incluant l'optimisation des requêtes, la gestion des index, le partitioning et la réplication, afin de garantir des accès rapides et fiables aux données.
 
 ## Critères d'acceptation
 - [ ] L'analyse automatique des requêtes lentes et suggestions d'optimisation doit être fournie

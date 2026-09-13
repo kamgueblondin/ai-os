@@ -1,7 +1,7 @@
 # US-049 : Audit et Compliance Automatiques
 
 ## Description
-En tant qu'auditeur ou responsable compliance, je veux des outils d'audit et compliance automatisés qui vérifient continuellement la conformité de MOHHOS aux standards et réglementations (ISO 27001, SOC 2, PCI DSS), génèrent des rapports d'audit et identifient les non-conformités, afin de maintenir une posture de compliance robuste.
+En tant qu'auditeur ou responsable compliance, je veux des outils d'audit et compliance automatisés qui vérifient continuellement la conformité de MOHHDY aux standards et réglementations (ISO 27001, SOC 2, PCI DSS), génèrent des rapports d'audit et identifient les non-conformités, afin de maintenir une posture de compliance robuste.
 
 ## Critères d'acceptation
 - [ ] Une évaluation continue de conformité aux standards doit être implémentée

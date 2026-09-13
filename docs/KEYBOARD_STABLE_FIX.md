@@ -1,4 +1,4 @@
-# AI-OS Keyboard Fix - Version Stable
+# MOHHDY Keyboard Fix - Version Stable
 
 ## Problème Résolu
 
@@ -80,7 +80,7 @@ Mode: Interruption avec polling contrôlé
 Anti-spam: Activé
 
 [Shell démarre...]
-┌─[AI-OS@v6.0] 🧠
+┌─[MOHHDY@v6.0] 🧠
 └─$ [Curseur stable - pas de caractères fantômes]
 ```
 

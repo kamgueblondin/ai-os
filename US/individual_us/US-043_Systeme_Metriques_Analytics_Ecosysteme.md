@@ -1,7 +1,7 @@
 # US-043 : Système de Métriques et Analytics Écosystème
 
 ## Description
-En tant que gestionnaire d'écosystème, je veux un système complet de métriques et analytics qui me permette de mesurer la santé, l'adoption et la performance de l'écosystème MOHHOS, afin de prendre des décisions éclairées pour son développement et optimisation.
+En tant que gestionnaire d'écosystème, je veux un système complet de métriques et analytics qui me permette de mesurer la santé, l'adoption et la performance de l'écosystème MOHHDY, afin de prendre des décisions éclairées pour son développement et optimisation.
 
 ## Critères d'acceptation
 - [ ] Un tableau de bord exécutif doit présenter les KPIs clés de l'écosystème

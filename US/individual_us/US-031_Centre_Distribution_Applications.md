@@ -1,10 +1,10 @@
-# US-031 : Centre de Distribution d'Applications (MOHHOS App Store)
+# US-031 : Centre de Distribution d'Applications (MOHHDY App Store)
 
 ## Description
-En tant qu'utilisateur de MOHHOS (développeur, administrateur ou utilisateur final), je veux accéder à un centre de distribution d'applications centralisé et sécurisé qui me permette de découvrir, installer, mettre à jour et gérer des applications tierces compatibles avec l'écosystème MOHHOS, avec un système de validation rigoureuse et des métriques de performance, afin d'étendre les fonctionnalités du système selon mes besoins spécifiques tout en maintenant l'intégrité et la sécurité.
+En tant qu'utilisateur de MOHHDY (développeur, administrateur ou utilisateur final), je veux accéder à un centre de distribution d'applications centralisé et sécurisé qui me permette de découvrir, installer, mettre à jour et gérer des applications tierces compatibles avec l'écosystème MOHHDY, avec un système de validation rigoureuse et des métriques de performance, afin d'étendre les fonctionnalités du système selon mes besoins spécifiques tout en maintenant l'intégrité et la sécurité.
 
 ## Valeur Métier
-- **ROI estimé** : +35% d'adoption MOHHOS grâce à l'écosystème d'applications
+- **ROI estimé** : +35% d'adoption MOHHDY grâce à l'écosystème d'applications
 - **Réduction des coûts** : -60% de temps de déploiement d'applications
 - **Monétisation** : Modèle de partage de revenus avec les développeurs (70/30)
 
@@ -14,9 +14,9 @@ En tant qu'utilisateur de MOHHOS (développeur, administrateur ou utilisateur fi
 - [ ] Interface web responsive avec temps de chargement < 2s (P95)
 - [ ] Application mobile native (iOS/Android) avec note App Store > 4.2/5
 - [ ] Interface CLI pour automatisation avec commandes complètes :
-  - `mohhos app search <query> --category <cat> --rating <min>`
-  - `mohhos app install <package> --version <v> --environment <env>`
-  - `mohhos app update --all --schedule <cron>`
+  - `mohhdy app search <query> --category <cat> --rating <min>`
+  - `mohhdy app install <package> --version <v> --environment <env>`
+  - `mohhdy app update --all --schedule <cron>`
 
 ### Catalogue et Recherche
 - [ ] Support minimum 10,000 applications simultanées avec indexation Elasticsearch
@@ -26,7 +26,7 @@ En tant qu'utilisateur de MOHHOS (développeur, administrateur ou utilisateur fi
 - [ ] Support tags et métadonnées extensibles (JSON Schema)
 
 ### Gestion des Packages
-- [ ] Support formats : Docker images, Kubernetes Helm charts, MOHHOS native packages (.mohpkg)
+- [ ] Support formats : Docker images, Kubernetes Helm charts, MOHHDY native packages (.mohpkg)
 - [ ] Signature cryptographique obligatoire (RSA 4096 + SHA-256)
 - [ ] Scan de sécurité automatique (Trivy, Clair) avec score CVE
 - [ ] Validation compatibilité : API version, ressources minimales, dépendances

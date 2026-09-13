@@ -1,7 +1,7 @@
 # US-034 : Connecteurs Systèmes d'Entreprise
 
 ## Description
-En tant qu'administrateur IT d'entreprise, je veux des connecteurs pré-construits qui permettent d'intégrer MOHHOS avec les systèmes d'information d'entreprise existants (ERP, CRM, LDAP, bases de données), afin de faciliter l'adoption en milieu professionnel sans disruption des workflows existants.
+En tant qu'administrateur IT d'entreprise, je veux des connecteurs pré-construits qui permettent d'intégrer MOHHDY avec les systèmes d'information d'entreprise existants (ERP, CRM, LDAP, bases de données), afin de faciliter l'adoption en milieu professionnel sans disruption des workflows existants.
 
 ## Critères d'acceptation
 - [ ] Des connecteurs standardisés doivent être fournis pour les principaux systèmes ERP/CRM

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installe les paquets nécessaires pour compiler AI-OS et lancer QEMU (même
+# Installe les paquets nécessaires pour compiler MOHHDY et lancer QEMU (même
 # ensemble que .github/workflows/ci.yml). Idempotent. À lancer depuis n'importe
 # quel répertoire.
 set -euo pipefail

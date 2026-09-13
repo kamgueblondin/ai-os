@@ -1,5 +1,5 @@
-#ifndef AIOS_BIGINT_H
-#define AIOS_BIGINT_H
+#ifndef MOHHDY_BIGINT_H
+#define MOHHDY_BIGINT_H
 #include <stdint.h>
 typedef struct { uint32_t* limbs; uint16_t capacity; uint16_t length; } bigint_t;
 int bigint_init(bigint_t* value,uint32_t* limbs,uint16_t capacity);

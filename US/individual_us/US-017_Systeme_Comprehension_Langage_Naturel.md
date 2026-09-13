@@ -1,6 +1,6 @@
 # US-017 : Système de Compréhension du Langage Naturel
 
-> **AI-OS :** pas de NLU. Encodeur BPE + complétion 12 jetons. Voir AOS-010 / AOS-011 dans [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** pas de NLU. Encodeur BPE + complétion 12 jetons. Voir AOS-010 / AOS-011 dans [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** communiquer avec le système en langage naturel  
 **Afin de** contrôler le système intuitivement sans apprendre de commandes complexes
 
 ## Contexte Technique Détaillé
 
-Le système de compréhension du langage naturel (NLU) est l'interface principale entre l'utilisateur et MOHHOS. Il doit comprendre les intentions utilisateur, extraire les entités pertinentes, et traduire les demandes en actions système. Ce composant est crucial pour réaliser la vision d'un OS conversationnel où l'interaction se fait naturellement.
+Le système de compréhension du langage naturel (NLU) est l'interface principale entre l'utilisateur et MOHHDY. Il doit comprendre les intentions utilisateur, extraire les entités pertinentes, et traduire les demandes en actions système. Ce composant est crucial pour réaliser la vision d'un OS conversationnel où l'interaction se fait naturellement.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Compréhension Contextuelle** : Maintien du contexte conversationnel multi-tours
 - **Intégration Système** : Traduction directe des intentions en actions OS
@@ -240,4 +240,4 @@ int nlu_suggest_shortcuts(user_id_t user_id, shortcut_suggestion_t* suggestions,
 - **Offline** : Fonctionnement hors ligne pour fonctions de base
 - **Accessibilité** : Support des utilisateurs avec handicaps
 
-Ce système NLU constitue l'interface conversationnelle fondamentale de MOHHOS, permettant une interaction naturelle et intuitive avec le système d'exploitation.
+Ce système NLU constitue l'interface conversationnelle fondamentale de MOHHDY, permettant une interaction naturelle et intuitive avec le système d'exploitation.

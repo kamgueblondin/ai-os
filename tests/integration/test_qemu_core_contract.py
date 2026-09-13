@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AOS-022 integration contract: a built AI-OS image must pass the QEMU core shell scenario."""
+"""AOS-022 integration contract: a built MOHHDY image must pass the QEMU core shell scenario."""
 import os
 import subprocess
 import sys
@@ -9,7 +9,7 @@ SCENARIO = os.path.join(ROOT, "tests", "scripts", "ci_qemu_core_smoke.py")
 
 
 def main():
-    if not os.path.isfile(os.path.join(ROOT, "build", "ai_os.bin")):
+    if not os.path.isfile(os.path.join(ROOT, "build", "mohhdy.bin")):
         raise RuntimeError("missing kernel artefact; run make all first")
     if not os.path.isfile(os.path.join(ROOT, "my_initrd.tar")):
         raise RuntimeError("missing initrd artefact; run make all first")

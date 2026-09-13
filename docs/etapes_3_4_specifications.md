@@ -2,7 +2,7 @@
 
 ## Vue d'Ensemble
 
-Les étapes 3 et 4 représentent une évolution majeure du système AI-OS, ajoutant des capacités essentielles pour la gestion de la mémoire et l'accès aux fichiers. Ces fonctionnalités sont cruciales pour préparer le système à exécuter une intelligence artificielle.
+Les étapes 3 et 4 représentent une évolution majeure du système MOHHDY, ajoutant des capacités essentielles pour la gestion de la mémoire et l'accès aux fichiers. Ces fonctionnalités sont cruciales pour préparer le système à exécuter une intelligence artificielle.
 
 ## Étape 3 : Gestion de la Mémoire (Memory Management)
 
@@ -169,7 +169,7 @@ make run
 Après implémentation complète, le système devrait afficher :
 
 ```
-Bienvenue dans AI-OS !
+Bienvenue dans MOHHDY !
 Entrez du texte :
 Interruptions initialisees. Clavier pret.
 Gestionnaire de memoire initialise.

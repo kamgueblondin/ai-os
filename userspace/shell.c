@@ -1,4 +1,4 @@
-// shell.c - Shell Interactif Avancé pour AI-OS v6.0
+// shell.c - Shell Interactif Avancé pour MOHHDY v6.0
 // Shell utilisateur complet avec IA intégrée et fonctionnalités modernes
 
 #include <stdint.h>
@@ -796,7 +796,7 @@ static void resolve_arg(shell_context_t* ctx, const char* arg, char* out) {
 
 void init_shell_context(shell_context_t* ctx) {
     strcpy(ctx->current_dir, "/");
-    strcpy(ctx->prompt, "AI-OS>");
+    strcpy(ctx->prompt, "MOHHDY>");
     ctx->history.count = 0;
     ctx->history.current = 0;
     ctx->env_count = 0;
@@ -818,7 +818,7 @@ void init_shell_context(shell_context_t* ctx) {
     strcpy(ctx->env_vars[1].value, "/home/user");
     strcpy(ctx->env_vars[2].name, "SHELL");
     strcpy(ctx->env_vars[2].value, "ai-shell");
-    strcpy(ctx->env_vars[3].name, "AI_OS_VERSION");
+    strcpy(ctx->env_vars[3].name, "MOHHDY_VERSION");
     strcpy(ctx->env_vars[3].value, "6.0");
     strcpy(ctx->env_vars[4].name, "USER");
     strcpy(ctx->env_vars[4].value, "root");
@@ -922,7 +922,7 @@ int parse_command(const char* input, char* command, char args[MAX_ARGS][128], in
 // ==============================================================================
 
 void cmd_help(shell_context_t* ctx, char args[][128], int arg_count) {
-    print_colored("\n=== AI-OS Shell v6.0 - Aide Complète ===\n", COLOR_CYAN);
+    print_colored("\n=== MOHHDY Shell v6.0 - Aide Complète ===\n", COLOR_CYAN);
     
     print_colored("COMMANDES SYSTÈME :\n", COLOR_YELLOW);
     print_string("  ls [path]          - Lister initrd + overlay noyau\n");
@@ -2158,10 +2158,10 @@ void cmd_child_results_observe(shell_context_t* ctx, char args[][128], int arg_c
 }
 
 void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
-    print_colored("\n=== Informations Système AI-OS ===\n", COLOR_CYAN);
+    print_colored("\n=== Informations Système MOHHDY ===\n", COLOR_CYAN);
     
     print_colored("Système d'exploitation : ", COLOR_YELLOW);
-    print_string("AI-OS v6.0\n");
+    print_string("MOHHDY v6.0\n");
     
     print_colored("Architecture : ", COLOR_YELLOW);
     print_string("i386 (32-bit)\n");
@@ -2192,7 +2192,7 @@ void cmd_sysinfo(shell_context_t* ctx, char args[][128], int arg_count) {
     }
     
     print_colored("Noyau : ", COLOR_YELLOW);
-    print_string("AI-OS Kernel v6.0 (Multitâche préemptif)\n");
+    print_string("MOHHDY Kernel v6.0 (Multitâche préemptif)\n");
     
     print_colored("Shell : ", COLOR_YELLOW);
     print_string("AI-Shell v6.0 (IA intégrée)\n");
@@ -2509,7 +2509,7 @@ void cmd_clear(shell_context_t* ctx, char args[][128], int arg_count) {
     
     // Banner de bienvenue moderne
     print_colored("===========================================================\n", COLOR_CYAN);
-    print_colored("    [AI-OS] v6.0 - Intelligence artificielle intégrée    \n", COLOR_BRIGHT);
+    print_colored("    [MOHHDY] v6.0 - Intelligence artificielle intégrée    \n", COLOR_BRIGHT);
     print_colored("===========================================================\n", COLOR_CYAN);
     print_colored("[shell] Shell avancé", COLOR_GREEN);
     print_string(" | ");
@@ -4810,7 +4810,7 @@ void cmd_exit(shell_context_t* ctx, char args[][128], int arg_count) {
         exit_code = result;
     }
     
-    print_colored("\n[AI-OS] Merci d'avoir utilisé AI-OS v6.0 !\n", COLOR_CYAN);
+    print_colored("\n[MOHHDY] Merci d'avoir utilisé MOHHDY v6.0 !\n", COLOR_CYAN);
     print_colored("   Au revoir et à bientôt !\n\n", COLOR_YELLOW);
     
     exit_program(exit_code);
@@ -5569,7 +5569,7 @@ void main() {
     print_string(" ");
     print_colored("TERMINÉ !\n\n", COLOR_GREEN);
     
-    print_success("Shell AI-OS v6.0 prêt à l'utilisation");
+    print_success("Shell MOHHDY v6.0 prêt à l'utilisation");
     print_info("Mode IA activé - Intelligence artificielle intégrée");
     print_info("Tapez 'help' pour découvrir toutes les fonctionnalités");
     

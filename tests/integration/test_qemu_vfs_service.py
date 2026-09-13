@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contrat MOHHOS Foundation : lecture VFS par médiateur Ring 3."""
+"""Contrat MOHHDY Foundation : lecture VFS par médiateur Ring 3."""
 import os
 import re
 import socket
@@ -12,7 +12,7 @@ LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.path.join(LOG_DIR, "vfs-service.log")
 ERR = os.path.join(LOG_DIR, "vfs-service.err")
 MON = os.path.join(LOG_DIR, "vfs-service-monitor.sock")
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(LOG_DIR, "vfs-service-overlay.img")
 FAT32_DISK = os.path.join(LOG_DIR, "vfs-service-fat32.img")
@@ -1136,7 +1136,7 @@ def main():
                                "vfs-read: service vfs indisponible", proc)
             before_return = len(log_text())
             send_command_until(monitor, "rc", "rc ok 0", proc)
-            print("MOHHOS Foundation VFS service contract passed")
+            print("MOHHDY Foundation VFS service contract passed")
             return 0
         finally:
             if monitor is not None:
@@ -1158,5 +1158,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("MOHHOS Foundation VFS service contract failed: %s" % error, file=sys.stderr)
+        print("MOHHDY Foundation VFS service contract failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)

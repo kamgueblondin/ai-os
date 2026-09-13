@@ -1,7 +1,7 @@
 # US-055 : Sécurité des Chaînes d'Approvisionnement
 
 ## Description
-En tant que responsable sécurité supply chain, je veux implémenter des mesures de sécurité pour toute la chaîne d'approvisionnement logicielle de MOHHOS, incluant la vérification des composants tiers, la signature de code et l'intégrité des dépendances, afin de prévenir les attaques par chaîne d'approvisionnement et maintenir la confiance dans le système.
+En tant que responsable sécurité supply chain, je veux implémenter des mesures de sécurité pour toute la chaîne d'approvisionnement logicielle de MOHHDY, incluant la vérification des composants tiers, la signature de code et l'intégrité des dépendances, afin de prévenir les attaques par chaîne d'approvisionnement et maintenir la confiance dans le système.
 
 ## Critères d'acceptation
 - [ ] Un inventaire complet de toutes les dépendances logicielles doit être maintenu

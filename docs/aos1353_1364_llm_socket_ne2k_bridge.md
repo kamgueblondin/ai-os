@@ -28,6 +28,6 @@ Ce lot fournit le chemin de données composable, pas encore un orchestrateur uni
 
 [1]: aos1345_1352_socket_tls_adapter.md "Exposition TLS caller-owned par le registre socket"
 [2]: aos1333_1344_tcp_passive_foundation.md "Fondation TCP d’écoute passive"
-[3]: todo.md "Backlog AI-OS"
+[3]: todo.md "Backlog MOHHDY"
 
 [1] [2] [3]

@@ -1,7 +1,7 @@
 # US-059 : Sécurité DevSecOps Intégrée
 
 ## Description
-En tant que DevOps engineer, je veux intégrer la sécurité nativement dans tous les pipelines de développement et déploiement de MOHHOS (DevSecOps), avec des contrôles automatisés, des tests de sécurité continus et des politiques as code, afin de "shift left" la sécurité et livrer du code sécurisé par défaut.
+En tant que DevOps engineer, je veux intégrer la sécurité nativement dans tous les pipelines de développement et déploiement de MOHHDY (DevSecOps), avec des contrôles automatisés, des tests de sécurité continus et des politiques as code, afin de "shift left" la sécurité et livrer du code sécurisé par défaut.
 
 ## Critères d'acceptation
 - [ ] L'intégration de contrôles sécurité dans tous les pipelines CI/CD doit être automatique

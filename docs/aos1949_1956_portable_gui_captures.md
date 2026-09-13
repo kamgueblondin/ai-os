@@ -2,7 +2,7 @@
 
 ## Objet
 
-Le test GUI historique nécessitait une fenêtre QEMU et une intervention manuelle. Le scénario `gui-captures` est désormais reproductible sans privilège : il place ses captures dans `test_logs/gui-captures/` par défaut, avec surcharge possible par `AIOS_GUI_SHOT_DIR`.
+Le test GUI historique nécessitait une fenêtre QEMU et une intervention manuelle. Le scénario `gui-captures` est désormais reproductible sans privilège : il place ses captures dans `test_logs/gui-captures/` par défaut, avec surcharge possible par `MOHHDY_GUI_SHOT_DIR`.
 
 | Propriété | Comportement livré |
 |---|---|
@@ -15,7 +15,7 @@ Le test GUI historique nécessitait une fenêtre QEMU et une intervention manuel
 
 `make gui-captures` a été exécuté avec succès. La session core a produit les captures `01-shell.png` à `19-ai-hello-openai.png`. La session NE2000 a produit `20-ne2k-shell.png` à `22-ne2k-net-status-json.png`.
 
-> Les captures montrent le shell AI-OS prêt à recevoir des commandes, puis `net-status json` avec une carte NE2000 détectée, TCP socket disponible et TLS authentifié.
+> Les captures montrent le shell MOHHDY prêt à recevoir des commandes, puis `net-status json` avec une carte NE2000 détectée, TCP socket disponible et TLS authentifié.
 
 Les artefacts de test restent ignorés par Git sous `test_logs/`, afin de ne pas alourdir le dépôt ; le script et le rapport final documentent la commande de reproduction.
 

@@ -1,4 +1,4 @@
-# Diagnostic Complet - Projet AI-OS
+# Diagnostic Complet - Projet MOHHDY
 
 > **État réel (août 2026).** Le projet boote jusqu’au shell userspace. Ce rapport de campagne reste valable comme chronologie. Synthèse à jour : [ETAT_REEL.md](ETAT_REEL.md).
 
@@ -6,7 +6,7 @@
 
 **Statut Global : ✅ FONCTIONNEL AVEC CORRECTIONS APPLIQUÉES**
 
-Le projet AI-OS est un système d'exploitation spécialement conçu pour héberger des applications d'intelligence artificielle. Après analyse complète, le projet fonctionne correctement avec des mesures de stabilité implémentées pour éviter les problèmes de redémarrage en boucle.
+Le projet MOHHDY est un système d'exploitation spécialement conçu pour héberger des applications d'intelligence artificielle. Après analyse complète, le projet fonctionne correctement avec des mesures de stabilité implémentées pour éviter les problèmes de redémarrage en boucle.
 
 ## 🔍 Analyse Technique Détaillée
 
@@ -20,7 +20,7 @@ Le projet AI-OS est un système d'exploitation spécialement conçu pour héberg
 
 **Composants Principaux :**
 ```
-ai-os/
+mohhdy/
 ├── kernel/           # Noyau principal (17 modules)
 ├── boot/            # Code assembleur de démarrage
 ├── fs/              # Système de fichiers initrd
@@ -69,7 +69,7 @@ Résultats de compilation :
 **✅ Démarrage Réussi**
 Le système démarre correctement et affiche :
 ```
-=== Bienvenue dans AI-OS v4.0 ===
+=== Bienvenue dans MOHHDY v4.0 ===
 Systeme complet avec espace utilisateur
 Multiboot detecte correctement.
 Initialisation des interruptions...
@@ -165,7 +165,7 @@ Appels systeme initialises.
 
 ## 🏆 Conclusion
 
-**Le projet AI-OS est un succès technique remarquable.**
+**Le projet MOHHDY est un succès technique remarquable.**
 
 ### Points Forts
 - **Architecture solide** : Conception modulaire et extensible
@@ -181,11 +181,11 @@ Appels systeme initialises.
 ### Recommandation Finale
 **✅ PROJET APPROUVÉ POUR UTILISATION ET DÉVELOPPEMENT CONTINU**
 
-Le système AI-OS constitue une excellente base pour le développement d'un système d'exploitation spécialisé dans l'intelligence artificielle. Les corrections de stabilité ont été appliquées avec succès, et le projet est prêt pour les phases de développement suivantes.
+Le système MOHHDY constitue une excellente base pour le développement d'un système d'exploitation spécialisé dans l'intelligence artificielle. Les corrections de stabilité ont été appliquées avec succès, et le projet est prêt pour les phases de développement suivantes.
 
 ---
 
 **Diagnostic réalisé le :** 16 août 2025  
-**Version analysée :** AI-OS v4.0  
+**Version analysée :** MOHHDY v4.0  
 **Statut :** ✅ FONCTIONNEL ET STABLE
 

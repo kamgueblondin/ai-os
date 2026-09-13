@@ -1,7 +1,7 @@
 # US-048 : Conformité RGPD et Protection Données
 
 ## Description
-En tant que Data Protection Officer (DPO), je veux m'assurer que MOHHOS respecte strictement le RGPD et autres réglementations sur la protection des données, avec des outils automatiques de gestion du consentement, d'exercice des droits et de gouvernance des données, afin de garantir la conformité légale et maintenir la confiance des utilisateurs.
+En tant que Data Protection Officer (DPO), je veux m'assurer que MOHHDY respecte strictement le RGPD et autres réglementations sur la protection des données, avec des outils automatiques de gestion du consentement, d'exercice des droits et de gouvernance des données, afin de garantir la conformité légale et maintenir la confiance des utilisateurs.
 
 ## Critères d'acceptation
 - [ ] Un système de gestion du consentement granulaire doit être implémenté

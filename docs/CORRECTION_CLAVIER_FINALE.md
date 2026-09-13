@@ -1,4 +1,4 @@
-# Correction du Problème du Clavier - AI-OS v6.0
+# Correction du Problème du Clavier - MOHHDY v6.0
 
 ## ✅ PROBLÈME RÉSOLU
 
@@ -45,7 +45,7 @@ Le problème du clavier qui ne réagissait pas dans l'espace utilisateur a été
 ## 🧪 Test de Validation
 
 ```bash
-cd /workspace/ai-os
+cd /workspace/mohhdy
 bash test_keyboard.sh
 ```
 
@@ -60,7 +60,7 @@ bash test_keyboard.sh
 1. **Initialisation PIC** : `IRQ1 (keyboard): ENABLED`
 2. **Clavier PS/2** : `PS/2 Keyboard initialise et pret`
 3. **Interruptions** : `=== INTERRUPTION CLAVIER RECUE ===`
-4. **Shell Actif** : `Shell AI-OS v6.0 prêt à l'utilisation`
+4. **Shell Actif** : `Shell MOHHDY v6.0 prêt à l'utilisation`
 5. **Attente Entrées** : `keyboard_getc: buffer vide, attente d'une interruption clavier...`
 
 ## 🎯 Fonctionnalités Maintenant Opérationnelles
@@ -92,4 +92,4 @@ bash test_keyboard.sh
 
 ---
 
-**🎉 Conclusion :** Le shell utilisateur d'AI-OS fonctionne maintenant parfaitement avec un clavier complètement opérationnel !
+**🎉 Conclusion :** Le shell utilisateur de MOHHDY fonctionne maintenant parfaitement avec un clavier complètement opérationnel !

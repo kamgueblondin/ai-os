@@ -1,5 +1,5 @@
-#ifndef AIOS_ECDSA_P256_H
-#define AIOS_ECDSA_P256_H
+#ifndef MOHHDY_ECDSA_P256_H
+#define MOHHDY_ECDSA_P256_H
 
 #include <stdint.h>
 

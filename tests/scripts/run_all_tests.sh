@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# run_all_tests.sh - Script principal pour exécuter tous les tests AI-OS
+# run_all_tests.sh - Script principal pour exécuter tous les tests MOHHDY
 # Ce script exécute la suite complète de tests de non-régression
 
 set -e  # Exit on any error
@@ -31,7 +31,7 @@ mkdir -p "$LOG_DIR"
 mkdir -p "$BUILD_DIR"
 
 echo -e "${BLUE}=================================${NC}"
-echo -e "${BLUE} AI-OS Test Suite Runner v1.0   ${NC}"
+echo -e "${BLUE} MOHHDY Test Suite Runner v1.0   ${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
 
@@ -337,7 +337,7 @@ main() {
     echo ""
     
     # Initialiser le fichier de résultats
-    echo "AI-OS Test Suite Results - $(date)" > "$RESULTS_FILE"
+    echo "MOHHDY Test Suite Results - $(date)" > "$RESULTS_FILE"
     echo "=========================================" >> "$RESULTS_FILE"
     echo "" >> "$RESULTS_FILE"
     

@@ -1,4 +1,4 @@
-/* test_shell.c - Tests unitaires pour le Shell AI-OS */
+/* test_shell.c - Tests unitaires pour le Shell MOHHDY */
 
 #include "../../framework/unity.h"
 #include "../../framework/test_kernel.h"
@@ -192,7 +192,7 @@ int parse_command(const char* input, char* command, char args[][64], int* argc) 
 
 // Commandes shell simplifiées pour les tests
 void shell_cmd_help(void) {
-    print_string("AI-OS Shell Commands:\n");
+    print_string("MOHHDY Shell Commands:\n");
     print_string("  help    - Show this help\n");
     print_string("  echo    - Echo arguments\n");
     print_string("  clear   - Clear screen\n");
@@ -334,7 +334,7 @@ void test_shell_help_command(void) {
     
     shell_cmd_help();
     
-    TEST_ASSERT(strstr(mock_output_buffer, "AI-OS Shell Commands") != NULL);
+    TEST_ASSERT(strstr(mock_output_buffer, "MOHHDY Shell Commands") != NULL);
     TEST_ASSERT(strstr(mock_output_buffer, "help") != NULL);
     TEST_ASSERT(strstr(mock_output_buffer, "echo") != NULL);
     TEST_ASSERT(strstr(mock_output_buffer, "clear") != NULL);

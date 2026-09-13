@@ -1,10 +1,10 @@
-# Analyse de la Logique du Projet AI-OS
+# Analyse de la Logique du Projet MOHHDY
 
-> **État réel (août 2026).** Ce fichier décrit la logique des étapes 1–7 d’origine. L’ABI courante, GPT-2 local et l’overlay AIOV sont dans [ETAT_REEL.md](ETAT_REEL.md). AI-OS n’est pas une distribution Linux. Lexique : [vocabulaire.md](vocabulaire.md).
+> **État réel (août 2026).** Ce fichier décrit la logique des étapes 1–7 d’origine. L’ABI courante, GPT-2 local et l’overlay AIOV sont dans [ETAT_REEL.md](ETAT_REEL.md). MOHHDY n’est pas une distribution Linux. Lexique : [vocabulaire.md](vocabulaire.md).
 
 ## Vue d'Ensemble du Projet
 
-AI-OS est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle de manière sécurisée et efficace. Le projet suit une approche progressive par étapes, chaque version ajoutant des fonctionnalités essentielles.
+MOHHDY est un système d'exploitation spécialement conçu pour héberger et exécuter des applications d'intelligence artificielle de manière sécurisée et efficace. Le projet suit une approche progressive par étapes, chaque version ajoutant des fonctionnalités essentielles.
 
 ## Architecture Évolutive
 
@@ -111,7 +111,7 @@ Adresses Virtuelles    Adresses Physiques
 
 ## Conclusion
 
-La logique du projet AI-OS suit une approche méthodique et progressive, construisant couche par couche un système d'exploitation moderne et sécurisé. L'architecture modulaire et les choix techniques (Multiboot, ELF, TAR, Ring 0/3) démontrent une compréhension approfondie des systèmes d'exploitation et préparent efficacement le terrain pour l'intégration future d'intelligence artificielle.
+La logique du projet MOHHDY suit une approche méthodique et progressive, construisant couche par couche un système d'exploitation moderne et sécurisé. L'architecture modulaire et les choix techniques (Multiboot, ELF, TAR, Ring 0/3) démontrent une compréhension approfondie des systèmes d'exploitation et préparent efficacement le terrain pour l'intégration future d'intelligence artificielle.
 
 Le projet atteint actuellement la version 4.0 avec un système multitâche complet et un espace utilisateur sécurisé, constituant une base solide pour les développements futurs.
 

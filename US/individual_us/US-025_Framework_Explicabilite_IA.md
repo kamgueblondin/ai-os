@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** comprendre pourquoi et comment l'IA prend ses décisions  
 **Afin de** faire confiance au système et contrôler son comportement
 
 ## Contexte Technique Détaillé
 
-Le framework d'explicabilité IA de MOHHOS rend transparent le fonctionnement de tous les composants IA du système. Il fournit des explications adaptées à différents niveaux techniques, permet la débogage des décisions IA, et garantit la conformité aux réglementations sur l'IA explicable. L'objectif est de créer une confiance fondée sur la compréhension.
+Le framework d'explicabilité IA de MOHHDY rend transparent le fonctionnement de tous les composants IA du système. Il fournit des explications adaptées à différents niveaux techniques, permet la débogage des décisions IA, et garantit la conformité aux réglementations sur l'IA explicable. L'objectif est de créer une confiance fondée sur la compréhension.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Multi-Niveaux** : Explications adaptées à tous les profils utilisateur
 - **Temps Réel** : Explications immédiates pour décisions interactives
@@ -386,4 +386,4 @@ int validation_user_study(explanation_t* explanations,
 - **Performance** : Optimisation pour explications temps réel
 - **Éthique** : Explications non biaisées et objectives
 
-Ce framework d'explicabilité IA fait de MOHHOS un système transparent et digne de confiance, où les utilisateurs comprennent et contrôlent les décisions de l'intelligence artificielle.
+Ce framework d'explicabilité IA fait de MOHHDY un système transparent et digne de confiance, où les utilisateurs comprennent et contrôlent les décisions de l'intelligence artificielle.

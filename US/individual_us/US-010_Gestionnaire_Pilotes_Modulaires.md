@@ -1,6 +1,6 @@
 # US-010 : Gestionnaire de Pilotes Modulaires
 
-> **AI-OS :** PIC / PIT / PS/2 / ATA PIO seulement, pas de framework de drivers. Voir [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** PIC / PIT / PS/2 / ATA PIO seulement, pas de framework de drivers. Voir [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un gestionnaire de pilotes intelligent qui détecte automatiquement le hardware et charge les pilotes appropriés  
 **Afin de** supporter une large gamme de périphériques de manière transparente et sécurisée
 
 ## Contexte Technique Détaillé
 
-Le gestionnaire de pilotes de MOHHOS doit être révolutionnaire, utilisant l'IA pour optimiser la détection hardware et la sélection de pilotes. Dans l'architecture microkernel, tous les pilotes s'exécutent en espace utilisateur, offrant une isolation et une sécurité maximales. Le système doit supporter le hot-plug, la virtualisation, et l'adaptation multi-plateforme.
+Le gestionnaire de pilotes de MOHHDY doit être révolutionnaire, utilisant l'IA pour optimiser la détection hardware et la sélection de pilotes. Dans l'architecture microkernel, tous les pilotes s'exécutent en espace utilisateur, offrant une isolation et une sécurité maximales. Le système doit supporter le hot-plug, la virtualisation, et l'adaptation multi-plateforme.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Architecture Microkernel** : Pilotes en espace utilisateur avec communication IPC
 - **Multi-Plateforme** : Support x86, ARM, et architectures futures

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Confirm that AI-OS accepts a regular shell command after real GPT-2 inference."""
+"""Confirm that MOHHDY accepts a regular shell command after real GPT-2 inference."""
 import os
 import socket
 import subprocess
@@ -75,7 +75,7 @@ def main():
     try:
         with open(ERR, "wb") as err:
             proc = subprocess.Popen([
-                "qemu-system-i386", "-cpu", "pentium3", "-kernel", "build/ai_os.bin", "-initrd", "my_initrd.tar",
+                "qemu-system-i386", "-cpu", "pentium3", "-kernel", "build/mohhdy.bin", "-initrd", "my_initrd.tar",
                 "-m", "1024M", "-display", "none", "-vga", "none", "-serial", "file:" + LOG,
                 "-monitor", "unix:%s,server,nowait" % MON, "-no-reboot", "-no-shutdown",
             ], cwd=ROOT, stdout=err, stderr=err)

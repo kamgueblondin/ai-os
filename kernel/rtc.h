@@ -1,5 +1,5 @@
-#ifndef AIOS_RTC_H
-#define AIOS_RTC_H
+#ifndef MOHHDY_RTC_H
+#define MOHHDY_RTC_H
 
 #include <stdint.h>
 

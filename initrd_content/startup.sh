@@ -1,2 +1,2 @@
 #!/bin/sh
-echo 'Script de demarrage AI-OS v7'
+echo 'Script de demarrage MOHHDY v7'

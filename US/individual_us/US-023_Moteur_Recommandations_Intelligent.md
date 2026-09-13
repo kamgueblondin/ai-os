@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** recevoir des recommandations intelligentes et contextuelle pour optimiser mon travail  
 **Afin de** découvrir de nouvelles fonctionnalités et améliorer ma productivité
 
 ## Contexte Technique Détaillé
 
-Le moteur de recommandations de MOHHOS va au-delà des suggestions classiques. Il combine l'analyse comportementale, le contexte situationnel, et l'intelligence collaborative pour proposer des recommandations personnalisées en temps réel. Le système apprend des interactions utilisateur et s'améliore continuellement grâce à l'apprentissage fédéré.
+Le moteur de recommandations de MOHHDY va au-delà des suggestions classiques. Il combine l'analyse comportementale, le contexte situationnel, et l'intelligence collaborative pour proposer des recommandations personnalisées en temps réel. Le système apprend des interactions utilisateur et s'améliore continuellement grâce à l'apprentissage fédéré.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Contextualisation Poussée** : Recommandations adaptées au contexte précis
 - **Apprentissage Collaboratif** : Bénéfice de l'intelligence collective
@@ -414,4 +414,4 @@ int collective_apply_social_proof(social_signals_t* signals,
 - **Contrôle** : Possibilité pour l'utilisateur d'ajuster les préférences
 - **Performance** : Optimisation pour réponse temps réel
 
-Ce moteur de recommandations transforme MOHHOS en un système proactif qui aide intelligemment l'utilisateur à découvrir et adopter les meilleures pratiques pour sa productivité.
+Ce moteur de recommandations transforme MOHHDY en un système proactif qui aide intelligemment l'utilisateur à découvrir et adopter les meilleures pratiques pour sa productivité.

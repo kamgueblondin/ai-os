@@ -1,7 +1,7 @@
 # US-030 : Plateforme d'IA Éthique et Explicable
 
 ## Description
-En tant qu'utilisateur et décideur, je veux une plateforme qui assure que toutes les décisions prises par l'IA dans MOHHOS soient transparentes, explicables et conformes aux principes éthiques, afin de maintenir la confiance et respecter les exigences réglementaires en matière d'IA responsable.
+En tant qu'utilisateur et décideur, je veux une plateforme qui assure que toutes les décisions prises par l'IA dans MOHHDY soient transparentes, explicables et conformes aux principes éthiques, afin de maintenir la confiance et respecter les exigences réglementaires en matière d'IA responsable.
 
 ## Critères d'acceptation
 - [ ] Toutes les décisions IA doivent générer des explications compréhensibles

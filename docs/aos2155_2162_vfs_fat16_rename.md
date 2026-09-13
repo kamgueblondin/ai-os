@@ -31,7 +31,7 @@ Après ce parcours, la primitive recharge le secteur de la source et réécrit s
 |---|---|
 | `make -s -C tests -B '../build/./unit/kernel/test_fat16' && ./build/unit/kernel/test_fat16` | **21/21** ; renommage de deux clusters, conservation de la chaîne `3 → 4`, contenu relu sous le nouveau nom, ancien nom absent et collision `TARGET.BIN` refusée |
 | `make -s -C tests -B '../build/./unit/kernel/test_syscall' && ./build/unit/kernel/test_syscall` | **64/64** ; dispatch i386 compatible avec la borne ABI 119 |
-| `make -s qemu-vfs-service` | `MOHHOS Foundation VFS service contract passed` ; `NEW.TXT` devient `RENAMED.TXT`, l’ancien nom devient absent, le contenu est relu, puis le nouveau nom est supprimé |
+| `make -s qemu-vfs-service` | `MOHHDY Foundation VFS service contract passed` ; `NEW.TXT` devient `RENAMED.TXT`, l’ancien nom devient absent, le contenu est relu, puis le nouveau nom est supprimé |
 | `make -s test-all` | **489/489** ; non-régression complète, aucun échec ni test ignoré |
 
 Le contrat QEMU crée d’abord `fat16/new.txt` avec le contenu `qemu-fat16`. Il exige ensuite le succès de `vfs-rename fat16/new.txt fat16/renamed.txt`, l’échec de lecture de l’ancien nom, la relecture du contenu sous `renamed.txt` et la présence de `RENAMED.TXT` dans le listage à trois entrées. Il retire enfin `renamed.txt` et vérifie le retour à deux entrées.

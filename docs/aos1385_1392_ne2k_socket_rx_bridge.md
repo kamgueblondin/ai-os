@@ -26,6 +26,6 @@ Ce macro-lot fournit l’injection de trame. L’orchestrateur LLM doit encore p
 ## Références
 
 [1]: aos1373_1384_llm_socket_http_sse.md "Réception HTTP et SSE LLM sur sockets TLS"
-[2]: todo.md "Backlog AI-OS"
+[2]: todo.md "Backlog MOHHDY"
 
 [1] [2]

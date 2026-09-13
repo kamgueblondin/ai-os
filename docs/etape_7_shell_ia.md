@@ -1,13 +1,13 @@
-# AI-OS Étape 7 : Shell Interactif et Simulateur d'IA
+# MOHHDY Étape 7 : Shell Interactif et Simulateur d'IA
 ## Implémentation Complète de l'Interface Conversationnelle
 
 > **État réel (août 2026).** L’étape 7 est en place (shell ELF + `fake_ai`). Ce n’est pas une « plateforme conversationnelle » au sens ML : simulateur par mots-clés. Liste des commandes réellement branchées : [ETAT_REEL.md](ETAT_REEL.md).
 
 ### 📋 Vue d'Ensemble
 
-L'étape 7 représente l'aboutissement du projet AI-OS avec l'implémentation d'un shell interactif complet intégrant un simulateur d'intelligence artificielle. Cette version transforme AI-OS d'un système d'exploitation expérimental en une plateforme conversationnelle fonctionnelle.
+L'étape 7 représente l'aboutissement du projet MOHHDY avec l'implémentation d'un shell interactif complet intégrant un simulateur d'intelligence artificielle. Cette version transforme MOHHDY d'un système d'exploitation expérimental en une plateforme conversationnelle fonctionnelle.
 
-**Version :** AI-OS v5.0  
+**Version :** MOHHDY v5.0  
 **Date d'implémentation :** Août 2025  
 **Objectif :** Interface utilisateur conversationnelle avec IA simulée
 
@@ -36,7 +36,7 @@ L'étape 7 représente l'aboutissement du projet AI-OS avec l'implémentation d'
 **Commandes internes supportées (liste d’origine du document, v5) :**
 - `exit/quit` : Quitter le shell
 - `clear/cls` : Effacer l'écran
-- `about/version` : Informations sur AI-OS
+- `about/version` : Informations sur MOHHDY
 - `help` : Aide du shell
 
 **Architecture :**
@@ -50,7 +50,7 @@ void main() {
 // Boucle interactive
 void shell_loop() {
     while (1) {
-        print_string("AI-OS> ");
+        print_string("MOHHDY> ");
         gets(input_buffer, 255);
         
         if (handle_internal_command(input_buffer)) {
@@ -76,18 +76,18 @@ void shell_loop() {
 - Informations temporelles
 - Identité et présentation
 - Calculs mathématiques simples
-- Informations système AI-OS
+- Informations système MOHHDY
 - Aide et assistance
 
 **Exemple d'interaction :**
 ```
-AI-OS> bonjour
-[IA] Bonjour ! Je suis l'IA d'AI-OS. Comment puis-je vous aider aujourd'hui ?
+MOHHDY> bonjour
+[IA] Bonjour ! Je suis l'IA de MOHHDY. Comment puis-je vous aider aujourd'hui ?
 
-AI-OS> quelle heure est-il ?
+MOHHDY> quelle heure est-il ?
 [IA] Il est l'heure de developper un systeme d'exploitation revolutionnaire !
 
-AI-OS> aide
+MOHHDY> aide
 [IA] Commandes disponibles :
 - 'bonjour' : Salutation
 - 'heure' : Information sur l'heure
@@ -160,7 +160,7 @@ void keyboard_handler() {
 #### Structure Mise à Jour
 
 ```
-ai-os/
+mohhdy/
 ├── userspace/
 │   ├── shell.c              # NOUVEAU : Shell interactif
 │   ├── fake_ai.c            # NOUVEAU : Simulateur d'IA
@@ -208,7 +208,7 @@ Programmes exécutables :
 
 3. **Lancement du shell**
    ```
-   Lancement du shell interactif AI-OS...
+   Lancement du shell interactif MOHHDY...
    Shell trouve ! Chargement...
    Chargement de l'executable ELF...
    Point d'entree: 0x40000000
@@ -217,13 +217,13 @@ Programmes exécutables :
 4. **Interface utilisateur**
    ```
    ========================================
-       AI-OS Shell v1.0 - Bienvenue !     
+       MOHHDY Shell v1.0 - Bienvenue !     
    ========================================
    Systeme d'exploitation avec IA integree
    Tapez vos questions et l'IA repondra.
    ========================================
    
-   AI-OS> _
+   MOHHDY> _
    ```
 
 ### 📊 Métriques de Performance
@@ -279,7 +279,7 @@ Programmes exécutables :
 - Mode de secours du noyau
 
 **3. Interface utilisateur intuitive**
-- Prompt personnalisé AI-OS>
+- Prompt personnalisé MOHHDY>
 - Aide contextuelle
 - Réponses IA naturelles
 
@@ -339,13 +339,13 @@ Programmes exécutables :
 
 ### 🏆 Conclusion
 
-L'étape 7 d'AI-OS représente un succès technique majeur. Le système dispose maintenant d'une interface utilisateur conversationnelle complète avec un simulateur d'IA fonctionnel. L'infrastructure est en place pour l'intégration future d'une véritable intelligence artificielle.
+L'étape 7 de MOHHDY représente un succès technique majeur. Le système dispose maintenant d'une interface utilisateur conversationnelle complète avec un simulateur d'IA fonctionnel. L'infrastructure est en place pour l'intégration future d'une véritable intelligence artificielle.
 
 **Statut :** ✅ **IMPLÉMENTATION RÉUSSIE**  
 **Prêt pour :** Stabilisation et intégration d'IA véritable
 
 ---
 
-*AI-OS v5.0 - Shell Interactif avec Simulateur d'IA*  
+*MOHHDY v5.0 - Shell Interactif avec Simulateur d'IA*  
 *L'avenir de l'interaction homme-machine* 🤖
 

@@ -1,7 +1,7 @@
 # US-044 : Programme de Gouvernance Écosystème
 
 ## Description
-En tant que partie prenante de l'écosystème MOHHOS, je veux participer à un programme de gouvernance transparent qui définit les règles, standards et processus de décision pour l'évolution de l'écosystème, afin d'assurer une croissance équilibrée et durable qui bénéficie à tous les acteurs.
+En tant que partie prenante de l'écosystème MOHHDY, je veux participer à un programme de gouvernance transparent qui définit les règles, standards et processus de décision pour l'évolution de l'écosystème, afin d'assurer une croissance équilibrée et durable qui bénéficie à tous les acteurs.
 
 ## Critères d'acceptation
 - [ ] Un comité de gouvernance représentatif des différents acteurs doit être constitué

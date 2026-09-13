@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise multiple real GPT-2 prompts through the AI-OS shell in QEMU."""
+"""Exercise multiple real GPT-2 prompts through the MOHHDY shell in QEMU."""
 import os
 import re
 import socket
@@ -90,7 +90,7 @@ def main():
     try:
         with open(ERR, "wb") as error_handle:
             proc = subprocess.Popen([
-                "qemu-system-i386", "-kernel", "build/ai_os.bin", "-initrd", "my_initrd.tar",
+                "qemu-system-i386", "-kernel", "build/mohhdy.bin", "-initrd", "my_initrd.tar",
                 "-m", "1024M", "-display", "none", "-vga", "none", "-serial", "file:" + LOG,
                 "-monitor", "unix:%s,server,nowait" % MON, "-no-reboot", "-no-shutdown",
             ], cwd=ROOT, stdout=error_handle, stderr=error_handle)

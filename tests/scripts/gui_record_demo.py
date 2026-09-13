@@ -9,7 +9,7 @@ import sys
 import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(ROOT, "test_logs", "gui-capture-overlay.img")
 LOG_DIR = os.path.join(ROOT, "test_logs")
@@ -17,7 +17,7 @@ LOG = os.path.join(LOG_DIR, "gui-record-serial.log")
 ERR = os.path.join(LOG_DIR, "gui-record-stderr.log")
 MON_SOCK = os.path.join(LOG_DIR, "gui-record-monitor.sock")
 VIDEO_DIR = "/opt/cursor/artifacts"
-VIDEO = os.path.join(VIDEO_DIR, "ai-os-qemu-demo.mp4")
+VIDEO = os.path.join(VIDEO_DIR, "mohhdy-qemu-demo.mp4")
 KEY_DELAY = 0.55
 BOOT_TIMEOUT = 90.0
 
@@ -127,7 +127,7 @@ def main():
         time.sleep(0.8)
         with open(ERR, "wb") as err:
             qemu = subprocess.Popen([
-                "qemu-system-i386", "-name", "AI-OS",
+                "qemu-system-i386", "-name", "MOHHDY",
                 "-cpu", "pentium3",
                 "-kernel", KERNEL, "-initrd", INITRD,
                 "-m", "1024M", "-vga", "std", "-display", "gtk",

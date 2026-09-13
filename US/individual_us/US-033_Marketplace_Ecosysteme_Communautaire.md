@@ -1,7 +1,7 @@
 # US-033 : Marketplace Écosystème Communautaire
 
 ## Description
-En tant que membre de la communautré MOHHOS, je veux accéder à une marketplace communautaire où je peux partager, vendre ou acheter des extensions, thèmes, plugins et services liés à l'écosystème, afin de favoriser l'innovation collaborative et la monétisation des contributions.
+En tant que membre de la communautré MOHHDY, je veux accéder à une marketplace communautaire où je peux partager, vendre ou acheter des extensions, thèmes, plugins et services liés à l'écosystème, afin de favoriser l'innovation collaborative et la monétisation des contributions.
 
 ## Critères d'acceptation
 - [ ] Une plateforme de vente en ligne doit gérer les transactions sécurisées

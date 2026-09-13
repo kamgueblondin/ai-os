@@ -1,7 +1,7 @@
 # US-062 : Auto-Scaling Intelligent Adapté
 
 ## Description
-En tant que responsable infrastructure, je veux un système d'auto-scaling intelligent qui ajuste automatiquement les ressources de MOHHOS basé sur la charge, les patterns d'utilisation et les prédictions, avec des algorithmes avancés et une optimisation des coûts, afin de maintenir les performances tout en optimisant l'utilisation des ressources.
+En tant que responsable infrastructure, je veux un système d'auto-scaling intelligent qui ajuste automatiquement les ressources de MOHHDY basé sur la charge, les patterns d'utilisation et les prédictions, avec des algorithmes avancés et une optimisation des coûts, afin de maintenir les performances tout en optimisant l'utilisation des ressources.
 
 ## Critères d'acceptation
 - [ ] L'auto-scaling horizontal et vertical doit s'adapter automatiquement à la charge

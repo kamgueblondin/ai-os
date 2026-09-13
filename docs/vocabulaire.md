@@ -1,6 +1,6 @@
-# Vocabulaire AI-OS
+# Vocabulaire MOHHDY
 
-**Rôle :** termes à utiliser dans la documentation vivante. AI-OS est un hobby OS i386 autonome, pas une distribution, pas un clone Unix et pas un noyau Linux.
+**Rôle :** termes à utiliser dans la documentation vivante. MOHHDY est un hobby OS i386 autonome, pas une distribution, pas un clone Unix et pas un noyau Linux. L'ancien nom produit `AI-OS` / `mohhos` n'est plus utilisé.
 
 En cas de doute, [ETAT_REEL.md](ETAT_REEL.md) décrit le comportement réel. Ce lexique ne crée aucune fonction.
 
@@ -10,7 +10,7 @@ En cas de doute, [ETAT_REEL.md](ETAT_REEL.md) décrit le comportement réel. Ce 
 |---|---|
 | Hobby OS i386 32-bit, Multiboot, QEMU | Distribution Linux, « Linux embarqué », GNU/Linux |
 | Noyau freestanding Ring 0, shell ELF Ring 3 | Userland GNU, glibc, systemd, apt |
-| Invité QEMU (guest) / hôte de compilation | « AI-OS tourne sous Linux » (seul l’émulateur tourne sur l’hôte) |
+| Invité QEMU (guest) / hôte de compilation | « MOHHDY tourne sous Linux » (seul l’émulateur tourne sur l’hôte) |
 | Syscalls `int 0x80`, ABI propre | POSIX comme objectif, « compatible Linux » |
 | Tâche, PID local, filiation directe | Processus Unix, `waitpid`, signaux, groupes de processus, zombies |
 | Médiateur de chemins `vfsserver` (nom historique **VFS**) | VFS Linux, inodes, droits Unix, points de montage hiérarchiques |
@@ -40,8 +40,8 @@ Détail de conception : [aos_fat_volume.md](aos_fat_volume.md).
 | Stub OpenAI / `net-status json` | Client HTTP déjà présent, « la NIC QEMU suffit » |
 | Pilote NE2000 ISA + codecs caller-owned | Pile TCP/IP live, DHCP automatique, TLS/HTTPS |
 
-Ollama et les services d’inférence d’un OS hôte ne font pas partie d’AI-OS. La seule voie retenue est un moteur porté dans ce noyau.
+Ollama et les services d’inférence d’un OS hôte ne font pas partie de MOHHDY. La seule voie retenue est un moteur porté dans ce noyau.
 
 ## Hôte de travail
 
-Linux, macOS ou Windows n’apparaissent que comme **machine de compilation et d’émulation** (`make deps`, QEMU). Ils ne définissent ni le modèle de fichiers, ni l’ABI, ni l’identité d’AI-OS.
+Linux, macOS ou Windows n’apparaissent que comme **machine de compilation et d’émulation** (`make deps`, QEMU). Ils ne définissent ni le modèle de fichiers, ni l’ABI, ni l’identité de MOHHDY.

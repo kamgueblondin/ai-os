@@ -1,15 +1,15 @@
-# Rapport Final - AI-OS v2.0
+# Rapport Final - MOHHDY v2.0
 ## Implémentation Complète de la Gestion Mémoire et du Système de Fichiers
 
 ### 🎯 Résumé Exécutif
 
-L'implémentation des étapes 3 et 4 du projet AI-OS a été réalisée avec un succès complet. Le système dispose maintenant d'une architecture avancée avec gestion de la mémoire virtuelle, système de fichiers initrd, et toutes les fonctionnalités nécessaires pour héberger une intelligence artificielle.
+L'implémentation des étapes 3 et 4 du projet MOHHDY a été réalisée avec un succès complet. Le système dispose maintenant d'une architecture avancée avec gestion de la mémoire virtuelle, système de fichiers initrd, et toutes les fonctionnalités nécessaires pour héberger une intelligence artificielle.
 
 ### 📊 Résultats de Tests
 
 **Test d'Exécution Réussi :**
 ```
-=== Bienvenue dans AI-OS v2.0 ===
+=== Bienvenue dans MOHHDY v2.0 ===
 Systeme avance avec gestion memoire et FS
 
 Multiboot detecte correctement.
@@ -189,7 +189,7 @@ Pages totales: 32895
 
 ### 📊 Comparaison Avant/Après
 
-| Fonctionnalité | AI-OS v1.0 | AI-OS v2.0 |
+| Fonctionnalité | MOHHDY v1.0 | MOHHDY v2.0 |
 |----------------|------------|------------|
 | **Gestion Mémoire** | Statique | Dynamique avec paging |
 | **Système de Fichiers** | Aucun | Initrd avec parser TAR |
@@ -200,7 +200,7 @@ Pages totales: 32895
 
 ### ✅ Conclusion
 
-L'implémentation des étapes 3 et 4 transforme AI-OS d'un simple noyau de démonstration en un système d'exploitation fonctionnel capable d'héberger des applications complexes, y compris une intelligence artificielle. 
+L'implémentation des étapes 3 et 4 transforme MOHHDY d'un simple noyau de démonstration en un système d'exploitation fonctionnel capable d'héberger des applications complexes, y compris une intelligence artificielle. 
 
 **Points Forts :**
 - Architecture robuste et extensible
@@ -216,7 +216,7 @@ Le système est maintenant suffisamment mature pour les étapes suivantes du dé
 
 **Statut Final : ✅ SUCCÈS COMPLET**
 
-**Repository GitHub :** https://github.com/kamgueblondin/ai-os.git  
-**Version :** AI-OS v2.0  
+**Repository GitHub :** https://github.com/kamgueblondin/mohhdy.git  
+**Version :** MOHHDY v2.0  
 **Date :** Août 2025
 

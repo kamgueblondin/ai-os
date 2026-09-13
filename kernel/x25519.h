@@ -1,5 +1,5 @@
-#ifndef AIOS_X25519_H
-#define AIOS_X25519_H
+#ifndef MOHHDY_X25519_H
+#define MOHHDY_X25519_H
 #include <stdint.h>
 
 #define X25519_KEY_LENGTH 32U

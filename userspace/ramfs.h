@@ -1,9 +1,9 @@
-/* ramfs.h - VFS RAM pédagogique pour le shell AI-OS
+/* ramfs.h - VFS RAM pédagogique pour le shell MOHHDY
  * Pas un vrai système de fichiers : table en mémoire processus.
  */
 
-#ifndef AIOS_RAMFS_H
-#define AIOS_RAMFS_H
+#ifndef MOHHDY_RAMFS_H
+#define MOHHDY_RAMFS_H
 
 #define RAMFS_MAX_NODES     64
 #define RAMFS_PATH_MAX      128

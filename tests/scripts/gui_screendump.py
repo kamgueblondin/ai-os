@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QEMU GTK screendumps of AI-OS: shell, FAT16, overlay, net-status, NE2000, IA stub."""
+"""QEMU GTK screendumps of MOHHDY: shell, FAT16, overlay, net-status, NE2000, IA stub."""
 from __future__ import print_function
 
 import os
@@ -9,11 +9,11 @@ import sys
 import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 DISK = os.path.join(ROOT, "test_logs", "gui-capture-overlay.img")
 LOG_DIR = os.path.join(ROOT, "test_logs")
-SHOT_DIR = os.environ.get("AIOS_GUI_SHOT_DIR", os.path.join(LOG_DIR, "gui-captures"))
+SHOT_DIR = os.environ.get("MOHHDY_GUI_SHOT_DIR", os.path.join(LOG_DIR, "gui-captures"))
 KEY_DELAY = 0.65
 BOOT_TIMEOUT = 90.0
 

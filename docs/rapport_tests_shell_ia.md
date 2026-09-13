@@ -1,14 +1,14 @@
-# Rapport de Tests - Shell Interactif et IA d'AI-OS v5.0
+# Rapport de Tests - Shell Interactif et IA de MOHHDY v5.0
 
 ## 🎯 **Objectif**
-Tester et valider les fonctionnalités interactives du shell AI-OS et du simulateur d'IA intégré.
+Tester et valider les fonctionnalités interactives du shell MOHHDY et du simulateur d'IA intégré.
 
 ## 📊 **Résultats des Tests**
 
 ### ✅ **SHELL INTERACTIF - VALIDÉ**
 
 #### **Fonctionnalités Core du Shell :**
-- **Prompt interactif** : `AI-OS> `
+- **Prompt interactif** : `MOHHDY> `
 - **Lecture d'entrée** : Syscall `SYS_GETS` (syscall 5)
 - **Affichage** : Syscalls `putc` et `puts`
 - **Boucle interactive** : Fonctionnelle avec gestion propre des commandes
@@ -23,7 +23,7 @@ Tester et valider les fonctionnalités interactives du shell AI-OS et du simulat
 | `sysinfo/info` | Informations système | ✅ OPÉRATIONNEL |
 | `date/time` | Date et heure | ✅ OPÉRATIONNEL |
 | `clear/cls` | Efface l'écran | ✅ OPÉRATIONNEL |
-| `about/version` | À propos d'AI-OS | ✅ OPÉRATIONNEL |
+| `about/version` | À propos de MOHHDY | ✅ OPÉRATIONNEL |
 | `help` | Aide complète | ✅ OPÉRATIONNEL |
 | `exit/quit` | Quitter le shell | ✅ OPÉRATIONNEL |
 
@@ -45,9 +45,9 @@ Tester et valider les fonctionnalités interactives du shell AI-OS et du simulat
 |---------|---------|--------|
 | `bonjour/salut/hello` | Salutation personnalisée | ✅ TESTÉ |
 | `aide/help/?` | Liste des commandes IA | ✅ TESTÉ |
-| `nom/qui es-tu` | Identification AI-OS Assistant | ✅ TESTÉ |
+| `nom/qui es-tu` | Identification MOHHDY Assistant | ✅ TESTÉ |
 | `calcul/2+2` | Calculs mathématiques simples | ✅ TESTÉ |
-| `système/os/ai-os` | Informations sur AI-OS | ✅ TESTÉ |
+| `système/os/mohhdy` | Informations sur MOHHDY | ✅ TESTÉ |
 | `heure/temps` | Réponse créative sur le temps | ✅ TESTÉ |
 | `merci/thank` | Remerciement | ✅ TESTÉ |
 | `au revoir/bye` | Salutation de départ | ✅ TESTÉ |
@@ -112,7 +112,7 @@ Tester et valider les fonctionnalités interactives du shell AI-OS et du simulat
 
 ## 📈 **Conclusion**
 
-**AI-OS v5.0 démontre un shell interactif robuste et un simulateur IA fonctionnel.** 
+**MOHHDY v5.0 démontre un shell interactif robuste et un simulateur IA fonctionnel.** 
 
 L'intégration entre les composants est excellente, les fonctionnalités sont complètes, et l'expérience utilisateur est fluide. Le système répond parfaitement aux spécifications d'un OS expérimental avec IA intégrée.
 
@@ -120,4 +120,4 @@ L'intégration entre les composants est excellente, les fonctionnalités sont co
 
 ---
 *Rapport généré le 2025-08-21 par MiniMax Agent*
-*Test effectué sur AI-OS v5.0 avec initrd 50KB*
+*Test effectué sur MOHHDY v5.0 avec initrd 50KB*

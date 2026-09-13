@@ -1,7 +1,7 @@
 # US-057 : Gestion des Menaces et Threat Intelligence
 
 ## Description
-En tant qu'analyste threat intelligence, je veux un système de gestion des menaces qui collecte, analyse et partage les informations sur les menaces cybersécurité, intègre les feeds de threat intelligence et fournit des insights actionnables, afin d'anticiper et se préparer aux attaques ciblées contre MOHHOS.
+En tant qu'analyste threat intelligence, je veux un système de gestion des menaces qui collecte, analyse et partage les informations sur les menaces cybersécurité, intègre les feeds de threat intelligence et fournit des insights actionnables, afin d'anticiper et se préparer aux attaques ciblées contre MOHHDY.
 
 ## Critères d'acceptation
 - [ ] L'agrégation de feeds de threat intelligence multiples doit être automatisée

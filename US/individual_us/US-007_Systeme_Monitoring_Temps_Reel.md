@@ -1,6 +1,6 @@
 # US-007 : Système de Monitoring Temps Réel
 
-> **AI-OS :** `ps` / `mem` / `uptime` / `SYS_TICKS` seulement. Voir [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** `ps` / `mem` / `uptime` / `SYS_TICKS` seulement. Voir [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** administrateur système MOHHOS  
+**En tant que** administrateur système MOHHDY  
 **Je veux** un système de monitoring temps réel qui surveille toutes les métriques système et services  
 **Afin de** détecter rapidement les problèmes, optimiser les performances et maintenir la stabilité du système
 
 ## Contexte Technique Détaillé
 
-Le système de monitoring temps réel est essentiel pour MOHHOS en raison de sa nature distribuée et de l'intégration de l'IA. Il doit surveiller non seulement les métriques traditionnelles (CPU, mémoire, I/O) mais aussi les métriques spécifiques à l'IA (utilisation des modèles, latence d'inférence, précision) et aux services distribués (latence réseau, état des nœuds P2P).
+Le système de monitoring temps réel est essentiel pour MOHHDY en raison de sa nature distribuée et de l'intégration de l'IA. Il doit surveiller non seulement les métriques traditionnelles (CPU, mémoire, I/O) mais aussi les métriques spécifiques à l'IA (utilisation des modèles, latence d'inférence, précision) et aux services distribués (latence réseau, état des nœuds P2P).
 
-### Enjeux Spécifiques à MOHHOS
+### Enjeux Spécifiques à MOHHDY
 
 - **Complexité Distribuée** : Surveillance de multiples services indépendants
 - **Métriques IA** : Monitoring spécialisé pour les charges d'IA
@@ -245,7 +245,7 @@ int monitoring_get_dashboard_data(const char* dashboard_name, dashboard_data_t* 
 ### Phase 3 : Interface et Intégration (3 jours)
 1. **Dashboard Web** : Interface de visualisation
 2. **Système d'Alertes** : Notifications intelligentes
-3. **Intégration Services** : Connexion avec tous les services MOHHOS
+3. **Intégration Services** : Connexion avec tous les services MOHHDY
 4. **Tests d'Intégration** : Validation du système complet
 
 ## Critères d'Acceptation Détaillés

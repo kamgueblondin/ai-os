@@ -1,4 +1,4 @@
-/* test_kernel.h - Extensions Unity pour les tests kernel AI-OS */
+/* test_kernel.h - Extensions Unity pour les tests kernel MOHHDY */
 
 #ifndef TEST_KERNEL_H
 #define TEST_KERNEL_H

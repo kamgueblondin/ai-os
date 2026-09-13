@@ -1,7 +1,7 @@
 # US-070 : Optimisation Stockage et I/O
 
 ## Description
-En tant qu'administrateur stockage, je veux optimiser les performances de stockage et I/O de MOHHOS avec des techniques avancées comme le tiering intelligent, la compression adaptative, la déduplication et l'optimisation SSD/NVMe, afin de maximiser les débits d'accès aux données tout en optimisant les coûts de stockage.
+En tant qu'administrateur stockage, je veux optimiser les performances de stockage et I/O de MOHHDY avec des techniques avancées comme le tiering intelligent, la compression adaptative, la déduplication et l'optimisation SSD/NVMe, afin de maximiser les débits d'accès aux données tout en optimisant les coûts de stockage.
 
 ## Critères d'acceptation
 - [ ] Un système de tiering automatique doit placer les données selon leur fréquence d'accès

@@ -1,7 +1,7 @@
 # US-072 : Optimisation Énergétique et Green IT
 
 ## Description
-En tant que responsable durabilité IT, je veux optimiser la consommation énergétique de MOHHOS avec des techniques de Green IT, incluant la gestion dynamique de la puissance, l'optimisation des workloads selon l'efficacité énergétique et l'utilisation d'énergies renouvelables, afin de réduire l'empreinte carbone et les coûts opérationnels.
+En tant que responsable durabilité IT, je veux optimiser la consommation énergétique de MOHHDY avec des techniques de Green IT, incluant la gestion dynamique de la puissance, l'optimisation des workloads selon l'efficacité énergétique et l'utilisation d'énergies renouvelables, afin de réduire l'empreinte carbone et les coûts opérationnels.
 
 ## Critères d'acceptation
 - [ ] Un monitoring de consommation énergétique temps réel doit être implémenté

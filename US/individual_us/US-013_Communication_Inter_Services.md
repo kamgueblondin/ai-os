@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** architecte système MOHHOS  
+**En tant que** architecte système MOHHDY  
 **Je veux** un système de communication inter-services (IPC) ultra-performant, sécurisé et intelligent  
 **Afin de** permettre une coordination efficace entre tous les composants du microkernel et supporter la scalabilité future
 
 ## Contexte Technique Détaillé
 
-Le système de communication inter-services est le système nerveux de MOHHOS. Dans l'architecture microkernel distribuée, tous les services doivent communiquer efficacement pour maintenir les performances et la cohérence. Le système intègre l'IA pour l'optimisation des routes de communication, la prédiction des goulots d'étranglement, et l'adaptation dynamique aux patterns de charge.
+Le système de communication inter-services est le système nerveux de MOHHDY. Dans l'architecture microkernel distribuée, tous les services doivent communiquer efficacement pour maintenir les performances et la cohérence. Le système intègre l'IA pour l'optimisation des routes de communication, la prédiction des goulots d'étranglement, et l'adaptation dynamique aux patterns de charge.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Performance Extrême** : Latence sub-microseconde pour appels critiques
 - **Tolérance aux Pannes** : Communication resiliente avec failover automatique
@@ -220,4 +220,4 @@ int ipc_trigger_failover(service_id_t failed_service, service_id_t backup);
 - **Monitoring** : Métriques temps réel pour observabilité
 - **Documentation** : API complètement documentée avec exemples
 
-Cette User Story est fondamentale pour le succès de MOHHOS car elle constitue l'épine dorsale de communication de tout le système microkernel.
+Cette User Story est fondamentale pour le succès de MOHHDY car elle constitue l'épine dorsale de communication de tout le système microkernel.

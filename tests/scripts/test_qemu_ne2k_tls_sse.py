@@ -211,7 +211,7 @@ def main(peer_close=False):
     peer = ControlledEthernetPeer(full_tls=True, peer_close_after_sse=peer_close)
     peer.start()
     command = [
-        "qemu-system-i386", "-kernel", os.path.join(ROOT, "build", "ai_os.bin"),
+        "qemu-system-i386", "-kernel", os.path.join(ROOT, "build", "mohhdy.bin"),
         "-initrd", os.path.join(ROOT, "my_initrd.tar"), "-cpu", "max", "-m", "1024M",
         "-display", "none", "-vga", "none", "-serial", "file:" + LOG,
         "-monitor", "unix:%s,server,nowait" % MON, "-machine", "type=pc,accel=tcg",

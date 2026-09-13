@@ -1,9 +1,9 @@
-# 🔬 RAPPORT D'ANALYSE APPROFONDIE - Problème Clavier AI-OS
+# 🔬 RAPPORT D'ANALYSE APPROFONDIE - Problème Clavier MOHHDY
 
 ## 📊 ÉTAT DU DIAGNOSTIC
 
 **Date**: 27 août 2025 22:22  
-**Version**: AI-OS v7.0 + Mode Debug Complet  
+**Version**: MOHHDY v7.0 + Mode Debug Complet  
 **Statut**: Analyse approfondie en cours
 
 ---
@@ -74,13 +74,13 @@ Nouveau fichier `kernel/keyboard_debug.c` avec :
 
 ### Phase 1: Test Temps Réel 🔬
 ```bash
-cd ai-os
+cd mohhdy
 bash test_debug_temps_reel.sh
 ```
 
 **Actions à effectuer** :
 1. Lancer QEMU GUI mode
-2. Attendre l'affichage du shell AI-OS
+2. Attendre l'affichage du shell MOHHDY
 3. Taper quelques caractères (a, b, c, ENTER)
 4. Observer les messages debug en temps réel
 5. Analyser les logs automatiquement
@@ -122,5 +122,5 @@ Une fois le test effectué, nous aurons les données exactes pour **corriger dé
 
 ---
 **Auteur** : MiniMax Agent  
-**Système** : AI-OS v7.0 Debug Mode  
+**Système** : MOHHDY v7.0 Debug Mode  
 **Objectif** : Résolution définitive problème clavier

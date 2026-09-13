@@ -1,7 +1,7 @@
 # US-061 : Optimisation Performance Multi-Niveaux (APO - Automated Performance Optimization)
 
 ## Description
-En tant qu'architecte performance système, je veux implémenter une plateforme d'optimisation de performance multi-niveaux intelligente qui surveille, analyse et optimise automatiquement les performances de MOHHOS à tous les niveaux architecturaux (application, middleware, base de données, réseau, infrastructure, stockage), avec ML prédictif et auto-tuning adaptatif, afin de garantir des temps de réponse sub-seconde (P95 < 500ms), une throughput optimale et une expérience utilisateur exceptionnelle même sous charge extrême.
+En tant qu'architecte performance système, je veux implémenter une plateforme d'optimisation de performance multi-niveaux intelligente qui surveille, analyse et optimise automatiquement les performances de MOHHDY à tous les niveaux architecturaux (application, middleware, base de données, réseau, infrastructure, stockage), avec ML prédictif et auto-tuning adaptatif, afin de garantir des temps de réponse sub-seconde (P95 < 500ms), une throughput optimale et une expérience utilisateur exceptionnelle même sous charge extrême.
 
 ## Valeur Métier
 - **Amélioration performances** : +300% throughput, -70% latency moyenne

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test for the AI provider/model control plane in AI-OS."""
+"""Smoke test for the AI provider/model control plane in MOHHDY."""
 import os
 import socket
 import subprocess
@@ -11,7 +11,7 @@ LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.path.join(LOG_DIR, "ai-provider-smoke.log")
 ERR = os.path.join(LOG_DIR, "ai-provider-smoke.err")
 MON = os.path.join(LOG_DIR, "ai-provider-monitor.sock")
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 
 

@@ -1,8 +1,8 @@
-# Correction Ultime du Problème Clavier AI-OS
+# Correction Ultime du Problème Clavier MOHHDY
 
 ## Problème Identifié
 
-Le clavier de l'AI-OS ne fonctionnait pas correctement car :
+Le clavier de MOHHDY ne fonctionnait pas correctement car :
 1. Le handler IRQ1 était appelé mais ne recevait que des codes PS/2 ACK (0xFA) au lieu de scancodes
 2. L'initialisation du contrôleur PS/2 était incomplète
 3. Les délais entre les opérations PS/2 étaient insuffisants

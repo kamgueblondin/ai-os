@@ -1,7 +1,7 @@
 /* procsim.h - Table de processus simulée pour ps/kill/jobs/top */
 
-#ifndef AIOS_PROCSIM_H
-#define AIOS_PROCSIM_H
+#ifndef MOHHDY_PROCSIM_H
+#define MOHHDY_PROCSIM_H
 
 #define PROCSIM_MAX 16
 

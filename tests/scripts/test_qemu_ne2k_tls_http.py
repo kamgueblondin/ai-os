@@ -10,11 +10,11 @@ from qemu_ne2k_controlled_peer import ControlledEthernetPeer
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LOG_DIR = os.path.join(ROOT, "test_logs")
-RUN_LABEL = os.environ.get("AI_OS_NE2K_RUN_LABEL", "")
+RUN_LABEL = os.environ.get("MOHHDY_NE2K_RUN_LABEL", "")
 if RUN_LABEL and not RUN_LABEL.replace("-", "").replace("_", "").isalnum():
-    raise RuntimeError("AI_OS_NE2K_RUN_LABEL invalide")
+    raise RuntimeError("MOHHDY_NE2K_RUN_LABEL invalide")
 RUN_SUFFIX = ("-" + RUN_LABEL) if RUN_LABEL else ""
-EXPECTED_GUEST_MAC = os.environ.get("AI_OS_NE2K_GUEST_MAC", "").lower()
+EXPECTED_GUEST_MAC = os.environ.get("MOHHDY_NE2K_GUEST_MAC", "").lower()
 LOG = os.path.join(LOG_DIR, "ne2k-tls-http%s.log" % RUN_SUFFIX)
 ERR = os.path.join(LOG_DIR, "ne2k-tls-http%s.err" % RUN_SUFFIX)
 MON = os.path.join(LOG_DIR, "ne2k-tls-http%s-monitor.sock" % RUN_SUFFIX)
@@ -153,7 +153,7 @@ def main():
     peer = ControlledEthernetPeer(full_tls=True)
     peer.start()
     command = [
-        "qemu-system-i386", "-kernel", os.path.join(ROOT, "build", "ai_os.bin"),
+        "qemu-system-i386", "-kernel", os.path.join(ROOT, "build", "mohhdy.bin"),
         "-initrd", os.path.join(ROOT, "my_initrd.tar"), "-cpu", "max", "-m", "1024M",
         "-display", "none", "-vga", "none", "-serial", "file:" + LOG,
         "-monitor", "unix:%s,server,nowait" % MON, "-machine", "type=pc,accel=tcg",
@@ -246,7 +246,7 @@ def main():
             try:
                 expected_mac = bytes(int(part, 16) for part in EXPECTED_GUEST_MAC.split(":"))
             except ValueError:
-                raise RuntimeError("AI_OS_NE2K_GUEST_MAC invalide")
+                raise RuntimeError("MOHHDY_NE2K_GUEST_MAC invalide")
             if len(expected_mac) != 6 or peer.guest_mac != expected_mac:
                 raise RuntimeError("guest MAC inattendue: %r" % peer.guest_mac)
         print("QEMU NE2000 TLS/HTTP local contract passed.")

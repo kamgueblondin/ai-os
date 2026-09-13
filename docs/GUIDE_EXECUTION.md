@@ -1,4 +1,4 @@
-# Guide d'Exécution AI-OS - Modes Console et GUI
+# Guide d'Exécution MOHHDY - Modes Console et GUI
 
 Prérequis (Debian/Ubuntu, même ensemble que la CI) : `build-essential`, `gcc-multilib`, `libc6-dev-i386`, `nasm`, `qemu-system-x86` (binaire `qemu-system-i386`). Ajouter `qemu-system-gui` pour GTK. Installation : `make deps` ou `bash scripts/bootstrap-dev.sh`. État du système : [ETAT_REEL.md](ETAT_REEL.md).
 
@@ -18,7 +18,7 @@ make run
 ```
 - **Affichage** : Mode texte dans le terminal avec curses
 - **Clavier** : Pleinement fonctionnel avec interruptions PS/2
-- **Hôte de l’émulateur** : Linux, macOS ou Windows avec QEMU (l’invité reste AI-OS, pas une distribution Linux)
+- **Hôte de l’émulateur** : Linux, macOS ou Windows avec QEMU (l’invité reste MOHHDY, pas une distribution Linux)
 - **Avantages** : Pas de fenêtre séparée, performance optimale
 
 ### 2. Mode Interface Graphique
@@ -33,7 +33,7 @@ make run-gui
 Pour tester la sonde NE2000 (optionnel, hors `make run-gui`) :
 
 ```bash
-qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar -m 1024M \
+qemu-system-i386 -kernel build/mohhdy.bin -initrd my_initrd.tar -m 1024M \
   -display gtk -vga std \
   -netdev user,id=n0 -device ne2k_isa,netdev=n0 \
   -no-reboot -no-shutdown
@@ -101,4 +101,4 @@ Phase 4: Finalisation...
 3. **Caractères étranges** : Vérifier la configuration du terminal hôte
 
 ---
-*Guide mis à jour pour AI-OS v6.0 avec corrections clavier complètes*
+*Guide mis à jour pour MOHHDY v6.0 avec corrections clavier complètes*

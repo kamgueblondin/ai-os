@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-KERNEL="${KERNEL:-build/ai_os.bin}"
+KERNEL="${KERNEL:-build/mohhdy.bin}"
 INITRD="${INITRD:-my_initrd.tar}"
 CORE_TIMEOUT="${CORE_TIMEOUT:-180}"
 EXTRAS_TIMEOUT="${EXTRAS_TIMEOUT:-150}"

@@ -41,7 +41,7 @@ def main():
     image = bytearray(TOTAL_DISK_SECTORS * SECTOR)
     boot = BASE_LBA * SECTOR
     image[boot:boot + 3] = b"\xeb\x3c\x90"
-    image[boot + 3:boot + 11] = b"AIOSFAT "
+    image[boot + 3:boot + 11] = b"MOHHDY  "
     put16(image, boot + 11, SECTOR)
     image[boot + 13] = 1
     put16(image, boot + 14, 1)
@@ -57,7 +57,7 @@ def main():
     image[boot + 36] = 0x80
     image[boot + 38] = 0x29
     put32(image, boot + 39, 0x20260816)
-    image[boot + 43:boot + 54] = b"AIOS FAT16 "
+    image[boot + 43:boot + 54] = b"MOHHDY F16 "
     image[boot + 54:boot + 62] = b"FAT16   "
     image[boot + 510:boot + 512] = b"\x55\xaa"
 

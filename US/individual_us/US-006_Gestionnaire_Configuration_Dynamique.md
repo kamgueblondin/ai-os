@@ -3,7 +3,7 @@
 ## Informations Générales
 
 **ID** : US-006  
-**Titre** : Gestionnaire de configuration dynamique intelligent pour MOHHOS  
+**Titre** : Gestionnaire de configuration dynamique intelligent pour MOHHDY  
 **Phase** : 1 - Foundation  
 **Priorité** : Moyenne  
 **Complexité** : Moyenne  
@@ -12,19 +12,19 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** un gestionnaire de configuration centralisé, dynamique et intelligent  
 **Afin de** adapter automatiquement les paramètres système selon les conditions d'usage et permettre l'optimisation continue par l'IA
 
 ## Contexte Technique Détaillé
 
-Le gestionnaire de configuration dynamique constitue le centre de contrôle de MOHHOS, permettant l'adaptation en temps réel des paramètres système. Cette infrastructure est essentielle pour supporter l'intelligence adaptative de MOHHOS et l'optimisation automatique des performances.
+Le gestionnaire de configuration dynamique constitue le centre de contrôle de MOHHDY, permettant l'adaptation en temps réel des paramètres système. Cette infrastructure est essentielle pour supporter l'intelligence adaptative de MOHHDY et l'optimisation automatique des performances.
 
-### Besoins Spécifiques MOHHOS
+### Besoins Spécifiques MOHHDY
 
 - **Configuration Adaptative** : Ajustement automatique selon les patterns d'usage
 - **Optimisation IA** : Paramètres optimisés par apprentissage automatique
-- **Synchronisation P2P** : Configuration partagée entre instances MOHHOS
+- **Synchronisation P2P** : Configuration partagée entre instances MOHHDY
 - **Validation Intelligente** : Vérification automatique de la cohérence
 - **Rollback Automatique** : Retour en arrière en cas de problème
 
@@ -294,7 +294,7 @@ int version_start_rollback(version_id_t target_version, rollback_session_t** ses
 int version_execute_rollback(rollback_session_id_t session, rollback_result_t* result);
 ```
 
-### Intégration avec l'Écosystème MOHHOS
+### Intégration avec l'Écosystème MOHHDY
 
 #### Support pour Modules IA
 ```c
@@ -346,7 +346,7 @@ int config_manage_web_extensions(const extension_config_t* config);
 1. **Configuration Dynamique** : Changements appliqués sans redémarrage
 2. **Validation Automatique** : Vérification de la cohérence en temps réel
 3. **Optimisation IA** : Suggestions d'amélioration automatiques
-4. **Distribution P2P** : Synchronisation entre instances MOHHOS
+4. **Distribution P2P** : Synchronisation entre instances MOHHDY
 5. **Versioning Complet** : Historique et rollback des changements
 6. **Interface Unifiée** : API cohérente pour tous les composants
 7. **Monitoring Temps Réel** : Surveillance des changements et impacts

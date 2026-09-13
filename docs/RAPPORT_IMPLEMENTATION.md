@@ -4,7 +4,7 @@
 
 ## Résumé
 
-L'implémentation de la gestion des interruptions et de l'interaction avec le clavier a été réalisée avec succès selon les spécifications fournies. Le système AI-OS peut maintenant détecter et réagir aux entrées clavier de l'utilisateur.
+L'implémentation de la gestion des interruptions et de l'interaction avec le clavier a été réalisée avec succès selon les spécifications fournies. Le système MOHHDY peut maintenant détecter et réagir aux entrées clavier de l'utilisateur.
 
 ## Fonctionnalités Implémentées
 
@@ -57,7 +57,7 @@ L'implémentation de la gestion des interruptions et de l'interaction avec le cl
 ## Structure Finale du Projet
 
 ```
-ai-os/
+mohhdy/
 ├── kernel/
 │   ├── kernel.c          # Noyau principal modifié
 │   ├── idt.h/idt.c       # Gestion de l'IDT
@@ -81,7 +81,7 @@ ai-os/
 ### 1. Compilation
 - ✅ Compilation sans erreurs avec gcc et nasm
 - ✅ Liaison réussie avec ld
-- ✅ Génération de l'image binaire `build/ai_os.bin`
+- ✅ Génération de l'image binaire `build/mohhdy.bin`
 
 ### 2. Exécution
 - ✅ Démarrage correct dans QEMU
@@ -98,7 +98,7 @@ ai-os/
 
 Le fichier `output.log` montre que le système démarre correctement et affiche :
 ```
-Bienvenue dans AI-OS !
+Bienvenue dans MOHHDY !
 Entrez du texte :
 Interruptions initialisees. Clavier pret.
 ```
@@ -113,10 +113,10 @@ Interruptions initialisees. Clavier pret.
 
 ## Conclusion
 
-L'implémentation a été réalisée avec succès selon les spécifications. Le système AI-OS dispose maintenant d'une infrastructure complète pour la gestion des interruptions et peut interagir avec l'utilisateur via le clavier. Tous les fichiers ont été sauvegardés sur GitHub et le projet est prêt pour les étapes suivantes de développement.
+L'implémentation a été réalisée avec succès selon les spécifications. Le système MOHHDY dispose maintenant d'une infrastructure complète pour la gestion des interruptions et peut interagir avec l'utilisateur via le clavier. Tous les fichiers ont été sauvegardés sur GitHub et le projet est prêt pour les étapes suivantes de développement.
 
 **Statut**: ✅ TERMINÉ AVEC SUCCÈS
 
-**Repository GitHub**: https://github.com/kamgueblondin/ai-os.git
+**Repository GitHub**: https://github.com/kamgueblondin/mohhdy.git
 **Commit**: 6d7819e - "Implémentation de la gestion des interruptions et du clavier"
 

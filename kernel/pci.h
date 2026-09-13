@@ -1,5 +1,5 @@
-#ifndef AIOS_PCI_H
-#define AIOS_PCI_H
+#ifndef MOHHDY_PCI_H
+#define MOHHDY_PCI_H
 
 #include <stdint.h>
 

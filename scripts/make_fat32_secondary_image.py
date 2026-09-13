@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Construit une image FAT32 secondaire minimale pour le smoke multi-disque AI-OS."""
+"""Construit une image FAT32 secondaire minimale pour le smoke multi-disque MOHHDY."""
 import argparse
 from pathlib import Path
 
@@ -33,7 +33,7 @@ def main():
         image.truncate(TOTAL_SECTORS * SECTOR)
         boot = bytearray(SECTOR)
         boot[:3] = b"\xeb\x58\x90"
-        boot[3:11] = b"AIOSF32 "
+        boot[3:11] = b"MOHHDY  "
         put16(boot, 11, SECTOR)
         boot[13] = SECTORS_PER_CLUSTER
         put16(boot, 14, RESERVED)
@@ -51,7 +51,7 @@ def main():
         boot[64] = 0x80
         boot[66] = 0x29
         put32(boot, 67, 0xA105F320)
-        boot[71:82] = b"AIOS FAT32 "
+        boot[71:82] = b"MOHHDY F32 "
         boot[82:90] = b"FAT32   "
         boot[510:512] = b"\x55\xaa"
         image.seek(0)

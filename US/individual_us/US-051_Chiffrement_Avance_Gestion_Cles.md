@@ -1,7 +1,7 @@
 # US-051 : Chiffrement Avancé et Gestion des Clés
 
 ## Description
-En tant qu'expert en cryptographie, je veux implémenter un système de chiffrement avancé avec gestion sécurisée des clés cryptographiques qui protège toutes les données sensibles de MOHHOS au repos et en transit, avec support de chiffrement post-quantique, afin de garantir la confidentialité et l'intégrité à long terme.
+En tant qu'expert en cryptographie, je veux implémenter un système de chiffrement avancé avec gestion sécurisée des clés cryptographiques qui protège toutes les données sensibles de MOHHDY au repos et en transit, avec support de chiffrement post-quantique, afin de garantir la confidentialité et l'intégrité à long terme.
 
 ## Critères d'acceptation
 - [ ] Le chiffrement AES-256 doit protéger toutes les données au repos

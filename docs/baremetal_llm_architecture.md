@@ -1,10 +1,10 @@
-# Architecture LLM bare-metal - AI-OS
+# Architecture LLM bare-metal - MOHHDY
 
 ## Objet
 
-AI-OS est un hobby OS **i386 32-bit** (BIOS/Multiboot, QEMU). Le chemin d'inférence livré est GPT-2 124M depuis l'initrd. Un profil GGUF conversationnel plus tardif (famille Qwen, machine plus large) reste une **cible d'architecture**, pas l'état courant : pas d'UEFI, pas d'inférence Qwen, pas 16 Gio requis. Voir [ETAT_REEL.md](ETAT_REEL.md).
+MOHHDY est un hobby OS **i386 32-bit** (BIOS/Multiboot, QEMU). Le chemin d'inférence livré est GPT-2 124M depuis l'initrd. Un profil GGUF conversationnel plus tardif (famille Qwen, machine plus large) reste une **cible d'architecture**, pas l'état courant : pas d'UEFI, pas d'inférence Qwen, pas 16 Gio requis. Voir [ETAT_REEL.md](ETAT_REEL.md).
 
-Le terme « bare-metal » signifie ici qu'AI-OS démarre depuis son support et fait l'inférence **dans son propre noyau**, sans OS préinstallé, sans service tiers et sans processus hôte. **Ollama n'est pas une voie retenue** : c'est un programme d'un autre système, pas un moteur embarquable dans ce noyau freestanding. L'API compatible OpenAI reste une référence d'interopérabilité pour un futur client réseau, pas une dépendance du chemin local [1] [2].
+Le terme « bare-metal » signifie ici qu'MOHHDY démarre depuis son support et fait l'inférence **dans son propre noyau**, sans OS préinstallé, sans service tiers et sans processus hôte. **Ollama n'est pas une voie retenue** : c'est un programme d'un autre système, pas un moteur embarquable dans ce noyau freestanding. L'API compatible OpenAI reste une référence d'interopérabilité pour un futur client réseau, pas une dépendance du chemin local [1] [2].
 
 Le chemin déjà livré est GPT-2 124M (`llm.c` v3) depuis l'initrd. La sonde GGUF v3 et les primitives Q8_0 existent ; les kernels Q3_K/Q4_K/Q6_K manquent encore. Un GGUF trop gros pour l'initrd pourra plus tard vivre sur le **volume FAT** prévu, pas sur un système à inodes. Voir [aos_fat_volume.md](aos_fat_volume.md) et [ETAT_REEL.md](ETAT_REEL.md).
 
@@ -45,7 +45,7 @@ La prochaine étape technique du moteur est d'implémenter les kernels GGUF Q3_K
 
 ## Références
 
-[1] [Ollama - documentation d'installation (service d'un OS hôte, hors périmètre AI-OS)](https://docs.ollama.com/linux)
+[1] [Ollama - documentation d'installation (service d'un OS hôte, hors périmètre MOHHDY)](https://docs.ollama.com/linux)
 
 [2] [Ollama - Compatibilité avec l'API OpenAI](https://docs.ollama.com/api/openai-compatibility)
 

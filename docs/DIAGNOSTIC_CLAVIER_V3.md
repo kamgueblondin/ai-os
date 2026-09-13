@@ -1,4 +1,4 @@
-# Diagnostic et Correction du Système Clavier AI-OS v6.0
+# Diagnostic et Correction du Système Clavier MOHHDY v6.0
 
 ## Résumé du Problème
 

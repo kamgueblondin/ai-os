@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate GPT-2 checkpoint discovery in the AI-OS initrd and boot log.
+"""Validate GPT-2 checkpoint discovery in the MOHHDY initrd and boot log.
 
 This test uses a structural checkpoint with the official llm.c v3 header and
 zero-valued weights. It verifies loader safety and boot integration only; it
@@ -98,7 +98,7 @@ def main():
             except OSError:
                 pass
         command = [
-            "qemu-system-i386", "-kernel", "build/ai_os.bin", "-initrd", "my_initrd.tar",
+            "qemu-system-i386", "-kernel", "build/mohhdy.bin", "-initrd", "my_initrd.tar",
             "-m", "128M", "-display", "none", "-vga", "none",
             "-serial", "file:" + LOG, "-monitor", "none", "-no-reboot", "-no-shutdown",
         ]

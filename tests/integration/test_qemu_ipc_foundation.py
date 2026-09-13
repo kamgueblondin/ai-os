@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contrat MOHHOS Foundation : transport IPC entre deux tâches Ring 3."""
+"""Contrat MOHHDY Foundation : transport IPC entre deux tâches Ring 3."""
 import os
 import re
 import socket
@@ -12,7 +12,7 @@ LOG_DIR = os.path.join(ROOT, "test_logs")
 LOG = os.path.join(LOG_DIR, "ipc-foundation.log")
 ERR = os.path.join(LOG_DIR, "ipc-foundation.err")
 MON = os.path.join(LOG_DIR, "ipc-foundation-monitor.sock")
-KERNEL = os.path.join(ROOT, "build", "ai_os.bin")
+KERNEL = os.path.join(ROOT, "build", "mohhdy.bin")
 INITRD = os.path.join(ROOT, "my_initrd.tar")
 KEY_HOLD_MS = int(os.environ.get("KEY_HOLD_MS", "10"))
 
@@ -111,7 +111,7 @@ def main():
                                              "ipc-send ok %s 7" % server_pid, proc)
             wait_for("ipc recv from 1 type 0 data bonjour", proc, before_send)
             before_receive = send_command_until(monitor, "ipc-recv", "ipc-recv empty", proc)
-            print("MOHHOS Foundation IPC contract passed")
+            print("MOHHDY Foundation IPC contract passed")
             return 0
         finally:
             if monitor is not None:
@@ -132,5 +132,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as error:
-        print("MOHHOS Foundation IPC contract failed: %s" % error, file=sys.stderr)
+        print("MOHHDY Foundation IPC contract failed: %s" % error, file=sys.stderr)
         raise SystemExit(1)

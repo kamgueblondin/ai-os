@@ -4,13 +4,13 @@
 
 **Date :** 26 août 2026.
 
-**Source de verite runtime :** [ETAT_REEL.md](ETAT_REEL.md). Vocabulaire : [vocabulaire.md](vocabulaire.md). Backlog : [../US/ai_os_us.md](../US/ai_os_us.md) (AOS-026).
+**Source de verite runtime :** [ETAT_REEL.md](ETAT_REEL.md). Vocabulaire : [vocabulaire.md](vocabulaire.md). Backlog : [../US/mohhdy_us.md](../US/mohhdy_us.md) (AOS-026).
 
 ## Decision
 
 Le premier systeme de fichiers **sur disque**, hors overlay AIOV, est un **volume FAT** (FAT16 en premier jalon, FAT12 acceptable pour une image minuscule). **ext2, ext3, ext4 et tout systeme a inodes sont hors perimetre.**
 
-AI-OS n'est pas un clone Unix. Un volume a table d'allocation (clusters, repertoire d'entrees fixes) suffit pour persister des fichiers plus grands que l'overlay, sans importer le modele inode / superbloc / liens physiques.
+MOHHDY n'est pas un clone Unix. Un volume a table d'allocation (clusters, repertoire d'entrees fixes) suffit pour persister des fichiers plus grands que l'overlay, sans importer le modele inode / superbloc / liens physiques.
 
 ## Ce qui existe deja (a ne pas confondre)
 
@@ -70,7 +70,7 @@ Hors contrat actuel : écrasement, remplacement transactionnel, second niveau, L
 | Externaliser le backend du mediateur | FAT16/FAT32 sont des backends VFS ; ils ne retirent pas encore initrd/overlay du noyau. |
 | TLS authentifie / HTTP / OpenAI | Orthogonal. Voir [aos025_network_stub.md](aos025_network_stub.md). |
 
-Ce n'est **pas** le moment d'introduire ext2 "pour faire comme un Unix", ni de pretendre qu'AI-OS a un systeme de fichiers generaliste.
+Ce n'est **pas** le moment d'introduire ext2 "pour faire comme un Unix", ni de pretendre qu'MOHHDY a un systeme de fichiers generaliste.
 
 ## Verification
 

@@ -1,10 +1,10 @@
-# AI-OS Keyboard Fix - Solution Ultimate
+# MOHHDY Keyboard Fix - Solution Ultimate
 
 ## Problème Diagnostiqué
 
 Après analyse approfondie des logs et du code, le problème clavier principal était :
 
-1. **Interruptions clavier jamais déclenchées** - Le système AI-OS reste bloqué en attente d'entrée car aucune interruption IRQ1 n'est jamais reçue
+1. **Interruptions clavier jamais déclenchées** - Le système MOHHDY reste bloqué en attente d'entrée car aucune interruption IRQ1 n'est jamais reçue
 2. **Configuration QEMU inadéquate** - Les paramètres QEMU ne permettaient pas une émulation correcte du contrôleur PS/2
 3. **Pas de mécanisme de secours** - Le système dépendait entièrement des interruptions sans alternative
 
@@ -87,7 +87,7 @@ cp kernel/keyboard_ultimate.c kernel/keyboard.c
 make clean && make
 
 # Lancer avec la configuration optimisée
-qemu-system-i386 -kernel build/ai_os.bin -initrd my_initrd.tar \
+qemu-system-i386 -kernel build/mohhdy.bin -initrd my_initrd.tar \
     -m 128M -machine pc -cpu pentium3 \
     -device i8042 -device ps2-kbd \
     -display gtk,zoom-to-fit=on
@@ -133,4 +133,4 @@ KBD_POLL: 'a' (scan=0x1E)
 GETC: got 'a' from polling  # <- Fallback polling réussi
 ```
 
-Cette solution garantit le fonctionnement du clavier AI-OS dans tous les environnements QEMU.
+Cette solution garantit le fonctionnement du clavier MOHHDY dans tous les environnements QEMU.

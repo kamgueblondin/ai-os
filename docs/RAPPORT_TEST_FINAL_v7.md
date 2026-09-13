@@ -1,4 +1,4 @@
-# Rapport de Test Final - AI-OS v7.0 Système Hybride Clavier
+# Rapport de Test Final - MOHHDY v7.0 Système Hybride Clavier
 
 ## Vue d'ensemble
 - **Date**: $(date)  
@@ -52,7 +52,7 @@ make clean && make
 make gui-captures
 
 # Les captures PNG sont écrites dans test_logs/gui-captures/ par défaut.
-# Le répertoire peut être redéfini avec AIOS_GUI_SHOT_DIR.
+# Le répertoire peut être redéfini avec MOHHDY_GUI_SHOT_DIR.
 ```
 
 ## Statut Final
@@ -67,5 +67,5 @@ make gui-captures
 
 ---
 **Auteur**: MiniMax Agent  
-**Repository**: https://github.com/kamgueblondin/ai-os.git  
+**Repository**: https://github.com/kamgueblondin/mohhdy.git  
 **Version**: v7.0 - Système Hybride Final

@@ -1,4 +1,4 @@
-# AI-OS v6.1 - Solution Clavier Hybride
+# MOHHDY v6.1 - Solution Clavier Hybride
 
 ## Changements de Version
 

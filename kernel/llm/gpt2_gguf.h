@@ -1,5 +1,5 @@
-#ifndef AIOS_GPT2_GGUF_H
-#define AIOS_GPT2_GGUF_H
+#ifndef MOHHDY_GPT2_GGUF_H
+#define MOHHDY_GPT2_GGUF_H
 
 #include <stdint.h>
 

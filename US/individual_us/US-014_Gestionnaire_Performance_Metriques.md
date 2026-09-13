@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** administrateur système et développeur MOHHOS  
+**En tant que** administrateur système et développeur MOHHDY  
 **Je veux** un système de monitoring intelligent qui collecte, analyse et optimise automatiquement les performances  
 **Afin de** maintenir des performances optimales, détecter les problèmes avant qu'ils impactent les utilisateurs, et fournir des insights actionnables
 
 ## Contexte Technique Détaillé
 
-Le gestionnaire de performance de MOHHOS est conçu pour être proactif plutôt que réactif. Il utilise l'IA pour analyser les tendances, prédire les problèmes de performance, et suggérer des optimisations automatiques. Dans l'architecture microkernel distribuée, il doit surveiller de nombreux services indépendants tout en maintenant une vue globale cohérente.
+Le gestionnaire de performance de MOHHDY est conçu pour être proactif plutôt que réactif. Il utilise l'IA pour analyser les tendances, prédire les problèmes de performance, et suggérer des optimisations automatiques. Dans l'architecture microkernel distribuée, il doit surveiller de nombreux services indépendants tout en maintenant une vue globale cohérente.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Monitoring Distribué** : Collecte cohérente de métriques multi-services
 - **Prédiction IA** : Anticipation des problèmes de performance
@@ -308,4 +308,4 @@ int report_generate_performance(time_range_t range, report_config_t* config,
 - **Compliance** : Respect des réglementations sur la collecte de données
 - **Extensibilité** : API publique pour métriques custom des applications
 
-Ce gestionnaire de performance sera crucial pour maintenir MOHHOS performant et diagnostiquer rapidement tout problème dans l'architecture microkernel complexe.
+Ce gestionnaire de performance sera crucial pour maintenir MOHHDY performant et diagnostiquer rapidement tout problème dans l'architecture microkernel complexe.

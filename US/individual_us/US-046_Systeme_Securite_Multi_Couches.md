@@ -1,7 +1,7 @@
 # US-046 : Système de Sécurité Multi-Couches (Defense in Depth)
 
 ## Description
-En tant qu'administrateur sécurité MOHHOS, je veux implémenter un système de sécurité multi-couches complet qui protège l'infrastructure contre les cyberattaques sophistiquées, les intrusions APT (Advanced Persistent Threats), et les vulnérabilités zero-day à tous les niveaux architecturaux (périmètre, réseau, application, données, endpoints), avec détection en temps réel et réponse automatique, afin de garantir la CIA triad (Confidentiality, Integrity, Availability) et maintenir la conformité réglementaire.
+En tant qu'administrateur sécurité MOHHDY, je veux implémenter un système de sécurité multi-couches complet qui protège l'infrastructure contre les cyberattaques sophistiquées, les intrusions APT (Advanced Persistent Threats), et les vulnérabilités zero-day à tous les niveaux architecturaux (périmètre, réseau, application, données, endpoints), avec détection en temps réel et réponse automatique, afin de garantir la CIA triad (Confidentiality, Integrity, Availability) et maintenir la conformité réglementaire.
 
 ## Valeur Métier
 - **Réduction des risques** : -95% de probabilité de breach réussi

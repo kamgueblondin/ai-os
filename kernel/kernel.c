@@ -1130,7 +1130,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     vga_x = 2;
     vga_y = 2;
     vga_console_set_cursor(vga_x, vga_y);
-    print_string("=== Bienvenue dans AI-OS v4.0 ===\n");
+    print_string("=== Bienvenue dans MOHHDY v4.0 ===\n");
     print_string("Systeme complet avec espace utilisateur\n\n");
 
     // Vérification du magic number Multiboot
@@ -1295,7 +1295,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Timer reactive - Interruptions clavier fonctionnelles.\n");
 
     // NOUVEAU: Lancement du shell interactif avec IA
-    print_string("Lancement du shell interactif AI-OS...\n");
+    print_string("Lancement du shell interactif MOHHDY...\n");
 
     if (module_count > 0) {
         // Chercher le shell dans l'initrd
@@ -1324,7 +1324,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_addr) {
     print_string("Tache shell prete. Demarrage du timer...\n");
     timer_init(100);
 
-    print_string("\n=== AI-OS v6.0 - Force le premier changement de contexte ===\n");
+    print_string("\n=== MOHHDY v6.0 - Force le premier changement de contexte ===\n");
     print_string("Declencher immediatement le planificateur...\n");
     
     // Forcer le premier changement de contexte vers le shell utilisateur

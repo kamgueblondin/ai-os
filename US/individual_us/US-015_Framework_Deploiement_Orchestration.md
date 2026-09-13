@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** administrateur système et développeur MOHHOS  
+**En tant que** administrateur système et développeur MOHHDY  
 **Je veux** un framework de déploiement intelligent qui automatise la gestion du cycle de vie des services  
 **Afin de** simplifier les déploiements, garantir la haute disponibilité, et permettre la mise à l'échelle automatique
 
 ## Contexte Technique Détaillé
 
-Le framework de déploiement et d'orchestration de MOHHOS doit gérer la complexité inherente à l'architecture microkernel distribuée. Il utilise l'IA pour optimiser le placement des services, prédire les besoins en ressources, et automatiser les opérations de maintenance. Le système doit supporter le déploiement zero-downtime, la gestion des versions, et l'orchestration intelligente des mises à jour.
+Le framework de déploiement et d'orchestration de MOHHDY doit gérer la complexité inherente à l'architecture microkernel distribuée. Il utilise l'IA pour optimiser le placement des services, prédire les besoins en ressources, et automatiser les opérations de maintenance. Le système doit supporter le déploiement zero-downtime, la gestion des versions, et l'orchestration intelligente des mises à jour.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Orchestration Microkernel** : Gestion coordonnée de centaines de services interdépendants
 - **Déploiement Zero-Downtime** : Mises à jour sans interruption de service
@@ -68,12 +68,12 @@ Le framework de déploiement et d'orchestration de MOHHOS doit gérer la complex
 #### Descripteur de Service
 
 ```yaml
-# mohhos-service.yaml
-apiVersion: mohhos.io/v1
+# mohhdy-service.yaml
+apiVersion: mohhdy.io/v1
 kind: Service
 metadata:
   name: ai-inference-service
-  namespace: mohhos-ai
+  namespace: mohhdy-ai
   version: "2.1.0"
   labels:
     component: ai-core
@@ -82,7 +82,7 @@ metadata:
 
 spec:
   image:
-    repository: mohhos/ai-inference
+    repository: mohhdy/ai-inference
     tag: "2.1.0"
     pullPolicy: IfNotPresent
   
@@ -398,4 +398,4 @@ int config_validate_changes(const char* map_name, config_map_t* new_config,
 - **Backup** : Sauvegarde automatique avant chaque déploiement
 - **Documentation** : Documentation automatique des changements
 
-Ce framework d'orchestration est essentiel pour gérer la complexité opérationnelle de MOHHOS et permettre une évolution fluide du système.
+Ce framework d'orchestration est essentiel pour gérer la complexité opérationnelle de MOHHDY et permettre une évolution fluide du système.

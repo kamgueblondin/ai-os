@@ -1,5 +1,5 @@
-#ifndef AIOS_NET_TLS_RECORD_H
-#define AIOS_NET_TLS_RECORD_H
+#ifndef MOHHDY_NET_TLS_RECORD_H
+#define MOHHDY_NET_TLS_RECORD_H
 #include <stdint.h>
 #include "x509_der.h"
 #define NET_TLS_RECORD_HEADER 5U

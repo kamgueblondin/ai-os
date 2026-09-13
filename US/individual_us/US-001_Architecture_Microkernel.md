@@ -1,6 +1,6 @@
 # US-001 : Migration vers Architecture Microkernel
 
-> **AI-OS :** spec uniquement. Le noyau est monolithique. Backlog réel : [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** spec uniquement. Le noyau est monolithique. Backlog réel : [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** une architecture microkernel modulaire et sécurisée  
 **Afin de** permettre l'évolutivité, la stabilité et l'intégration de l'IA au niveau système
 
 ## Contexte Technique Détaillé
 
-L'architecture microkernel représente un changement fondamental par rapport à l'architecture monolithique actuelle d'AI-OS v5.0. Cette migration est essentielle pour réaliser la vision MOHHOS d'un système d'exploitation intelligent, modulaire et évolutif.
+L'architecture microkernel représente un changement fondamental par rapport à l'architecture monolithique actuelle de MOHHDY v5.0. Cette migration est essentielle pour réaliser la vision MOHHDY d'un système d'exploitation intelligent, modulaire et évolutif.
 
-### État Actuel d'AI-OS v5.0
+### État Actuel de MOHHDY v5.0
 
 Le système actuel utilise une architecture relativement monolithique où :
 - Le noyau contient la gestion mémoire (PMM/VMM)
@@ -30,7 +30,7 @@ Le système actuel utilise une architecture relativement monolithique où :
 - Les pilotes sont compilés dans le noyau
 - L'extension du système nécessite une recompilation complète
 
-### Vision Microkernel pour MOHHOS
+### Vision Microkernel pour MOHHDY
 
 L'architecture microkernel proposée sépare les fonctionnalités en services indépendants :
 - **Noyau minimal** : Gestion des processus, communication inter-processus, gestion mémoire de base
@@ -264,7 +264,7 @@ int ai_service_train_model(training_data_t* data, training_config_t* config);
 1. **Équipe Experte** : Développeurs expérimentés en systèmes d'exploitation
 2. **Outils de Développement** : Compilateur croisé, débogueur, émulateur
 3. **Infrastructure de Tests** : Environnement de tests automatisés
-4. **Documentation Existante** : Compréhension complète d'AI-OS v5.0
+4. **Documentation Existante** : Compréhension complète de MOHHDY v5.0
 
 ## Risques et Mitigation
 
@@ -353,9 +353,9 @@ void test_ipc_communication() {
 3. **Benchmarks** : Outils de mesure de performance
 4. **Stress Tests** : Tests de charge et de stabilité
 
-## Impact sur l'Écosystème MOHHOS
+## Impact sur l'Écosystème MOHHDY
 
-Cette migration vers l'architecture microkernel est fondamentale pour toutes les phases suivantes de MOHHOS :
+Cette migration vers l'architecture microkernel est fondamentale pour toutes les phases suivantes de MOHHDY :
 
 ### Phase 2 - AI Core
 - Permet l'intégration de services IA comme services système
@@ -372,5 +372,5 @@ Cette migration vers l'architecture microkernel est fondamentale pour toutes les
 - Architecture évolutive pour nouvelles fonctionnalités
 - Sécurité et stabilité pour un système de production
 
-Cette User Story représente la pierre angulaire de la transformation d'AI-OS en MOHHOS, établissant les fondations techniques nécessaires pour créer le système d'exploitation intelligent le plus avancé au monde.
+Cette User Story représente la pierre angulaire de la transformation de MOHHDY en MOHHDY, établissant les fondations techniques nécessaires pour créer le système d'exploitation intelligent le plus avancé au monde.
 

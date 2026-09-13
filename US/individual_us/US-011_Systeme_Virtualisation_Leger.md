@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** développeur et utilisateur MOHHOS  
+**En tant que** développeur et utilisateur MOHHDY  
 **Je veux** un système de virtualisation léger qui permet d'exécuter des applications isolées et des environnements sécurisés  
 **Afin de** garantir la sécurité, la portabilité et l'isolation des charges de travail
 
 ## Contexte Technique Détaillé
 
-Le système de virtualisation de MOHHOS doit être révolutionnaire, optimisé pour l'architecture microkernel et les charges d'IA. Contrairement aux solutions traditionnelles lourdes, il utilise des containers légers avec isolation hardware-assistée et orchestration intelligente basée sur l'IA pour optimiser les performances et la sécurité.
+Le système de virtualisation de MOHHDY doit être révolutionnaire, optimisé pour l'architecture microkernel et les charges d'IA. Contrairement aux solutions traditionnelles lourdes, il utilise des containers légers avec isolation hardware-assistée et orchestration intelligente basée sur l'IA pour optimiser les performances et la sécurité.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Légèreté Extrême** : Overhead minimal pour charges IA
 - **Isolation Avancée** : Sécurité hardware-assistée (Intel CET, ARM Pointer Auth)
@@ -236,7 +236,7 @@ typedef struct {
 typedef enum {
     FORMAT_OCI = 0,              // Open Container Initiative
     FORMAT_DOCKER = 1,           // Docker format
-    FORMAT_MOHHOS_NATIVE = 2     // Format natif MOHHOS optimisé
+    FORMAT_MOHHDY_NATIVE = 2     // Format natif MOHHDY optimisé
 } image_format_t;
 
 // API de gestion d'images

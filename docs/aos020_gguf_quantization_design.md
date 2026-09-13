@@ -17,7 +17,7 @@ Le jalon initial doit rester compatible i386 freestanding et observable en QEMU.
 | Exécution | Kernels de dot-product Q8_0, Q3_K, Q4_K et Q6_K × activation FP32 ; chemin FP32 conservé comme référence |
 | Validation | Test de parsing synthétique, test de rejet d’un fichier invalide, benchmark QEMU séparant chargement et génération |
 
-Le format GGUF est auto-descriptif : il fournit le magic `GGUF`, la version, le nombre de tenseurs, les métadonnées et les offsets de données alignés. Sa métadonnée `general.architecture` connaît notamment la valeur `gpt2`. Le type `Q8_0` est un schéma historique par blocs de 32 poids dont la formule est `w = q × block_scale`. Ces propriétés permettent un lecteur réduit et sûr ; les kernels AI-OS couvrent maintenant Q8_0, Q3_K, Q4_K et Q6_K sans prétendre supporter toutes les familles de modèles ni tous les types GGUF.[1] [2]
+Le format GGUF est auto-descriptif : il fournit le magic `GGUF`, la version, le nombre de tenseurs, les métadonnées et les offsets de données alignés. Sa métadonnée `general.architecture` connaît notamment la valeur `gpt2`. Le type `Q8_0` est un schéma historique par blocs de 32 poids dont la formule est `w = q × block_scale`. Ces propriétés permettent un lecteur réduit et sûr ; les kernels MOHHDY couvrent maintenant Q8_0, Q3_K, Q4_K et Q6_K sans prétendre supporter toutes les familles de modèles ni tous les types GGUF.[1] [2]
 
 ## Validation contre un GPT-2 GGUF réel
 

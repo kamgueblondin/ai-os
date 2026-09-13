@@ -1,16 +1,16 @@
-# Correction du Shell AI-OS v5.0 - Rapport de Correction
+# Correction du Shell MOHHDY v5.0 - Rapport de Correction
 
 ## 🎯 Objectif de la Correction
 
-Résoudre le problème du shell AI-OS qui se chargeait correctement mais ne répondait pas aux entrées utilisateur après l'affichage des messages de succès.
+Résoudre le problème du shell MOHHDY qui se chargeait correctement mais ne répondait pas aux entrées utilisateur après l'affichage des messages de succès.
 
 ## 🔍 Diagnostic du Problème
 
 ### Symptômes Observés
 - ✅ Chargement réussi du shell : "Shell charge avec succes !"
 - ✅ Création de tâche : "Tache shell creee ! Demarrage de l'interface..."
-- ✅ Affichage du banner AI-OS v5.0
-- ❌ Absence du prompt `AI-OS>`
+- ✅ Affichage du banner MOHHDY v5.0
+- ❌ Absence du prompt `MOHHDY>`
 - ❌ Aucune réponse aux entrées clavier
 
 ### Cause Racine Identifiée
@@ -200,11 +200,11 @@ void sys_gets(char* buffer, uint32_t size) {
 ### Long Terme
 1. **Optimisation** : Améliorer les performances globales
 2. **Fonctionnalités** : Ajouter réseau, stockage persistant
-3. **Écosystème** : Développer des applications pour AI-OS
+3. **Écosystème** : Développer des applications pour MOHHDY
 
 ---
 
-**Conclusion :** La correction a permis d'identifier et de résoudre le problème principal du shell AI-OS. Bien que des défis de stabilité subsistent, les fondations sont solides pour les développements futurs. Le système est maintenant prêt pour les phases d'optimisation et d'extension.
+**Conclusion :** La correction a permis d'identifier et de résoudre le problème principal du shell MOHHDY. Bien que des défis de stabilité subsistent, les fondations sont solides pour les développements futurs. Le système est maintenant prêt pour les phases d'optimisation et d'extension.
 
 **Statut :** ✅ CORRECTION APPLIQUÉE - PROBLÈME IDENTIFIÉ ET RÉSOLU
 

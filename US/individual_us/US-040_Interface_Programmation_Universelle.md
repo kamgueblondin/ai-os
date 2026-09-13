@@ -1,7 +1,7 @@
 # US-040 : Interface de Programmation Universelle
 
 ## Description
-En tant que développeur intégrateur, je veux une interface de programmation universelle qui me permette d'intéragir avec MOHHOS via différents paradigmes (REST, GraphQL, gRPC, WebSocket), afin de faciliter l'intégration avec des systèmes existants indépendamment de leurs technologies.
+En tant que développeur intégrateur, je veux une interface de programmation universelle qui me permette d'intéragir avec MOHHDY via différents paradigmes (REST, GraphQL, gRPC, WebSocket), afin de faciliter l'intégration avec des systèmes existants indépendamment de leurs technologies.
 
 ## Critères d'acceptation
 - [ ] Une API REST complète avec documentation OpenAPI doit être fournie

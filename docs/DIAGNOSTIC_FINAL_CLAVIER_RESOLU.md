@@ -1,4 +1,4 @@
-# 🎯 DIAGNOSTIC FINAL - PROBLÈME CLAVIER AI-OS RÉSOLU
+# 🎯 DIAGNOSTIC FINAL - PROBLÈME CLAVIER MOHHDY RÉSOLU
 
 > **Complément août 2026.** Les correctifs PS/2 de ce diagnostic restent dans le code. Un blocage PIC (EOI IRQ0 après `schedule()`) a encore dû être traité ensuite. Voir [ETAT_REEL.md](ETAT_REEL.md) et [CHANGELOG_v6.1.md](CHANGELOG_v6.1.md).
 
@@ -55,7 +55,7 @@ schedule(); // <- Décommenté
 Le système fonctionne parfaitement. Pour le tester :
 
 ```bash
-cd ai-os
+cd mohhdy
 bash test_clavier_gui_final.sh
 ```
 
@@ -98,7 +98,7 @@ IRQ1_SKIP: key release or control
 
 ### Commande de Commit
 ```bash
-cd ai-os
+cd mohhdy
 git add .
 git commit -m "FIX: Correction clavier - Scheduler réactivé + diagnostics complets
 
@@ -116,7 +116,7 @@ git push origin main
 
 **STATUS : MISSION ACCOMPLIE ✅**
 
-Le système AI-OS fonctionne parfaitement :
+Le système MOHHDY fonctionne parfaitement :
 - ✅ Mode utilisateur opérationnel  
 - ✅ Interruptions clavier fonctionnelles
 - ✅ Shell utilisateur réactif

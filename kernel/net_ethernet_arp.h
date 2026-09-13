@@ -1,5 +1,5 @@
-#ifndef AIOS_NET_ETHERNET_ARP_H
-#define AIOS_NET_ETHERNET_ARP_H
+#ifndef MOHHDY_NET_ETHERNET_ARP_H
+#define MOHHDY_NET_ETHERNET_ARP_H
 
 #include <stdint.h>
 

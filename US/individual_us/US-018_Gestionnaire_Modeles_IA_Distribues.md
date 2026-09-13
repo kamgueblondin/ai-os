@@ -12,15 +12,15 @@
 
 ## Description Utilisateur
 
-**En tant que** système MOHHOS  
+**En tant que** système MOHHDY  
 **Je veux** gérer intelligemment une collection de modèles IA locaux et distants  
 **Afin de** optimiser les performances et la disponibilité des services IA
 
 ## Contexte Technique Détaillé
 
-MOHHOS doit gérer efficacement une variété de modèles IA : modèles locaux pour les opérations critiques et hors ligne, modèles cloud pour les tâches complexes, et modèles partagés avec d'autres instances MOHHOS. Le gestionnaire doit optimiser automatiquement le choix du modèle selon les contraintes de performance, de confidentialité et de disponibilité.
+MOHHDY doit gérer efficacement une variété de modèles IA : modèles locaux pour les opérations critiques et hors ligne, modèles cloud pour les tâches complexes, et modèles partagés avec d'autres instances MOHHDY. Le gestionnaire doit optimiser automatiquement le choix du modèle selon les contraintes de performance, de confidentialité et de disponibilité.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Hétérogénéité** : Gestion de modèles de formats et sources diverses
 - **Sélection Dynamique** : Choix optimal en temps réel selon le contexte
@@ -326,4 +326,4 @@ int model_optimize_ensemble_weights(ensemble_id_t ensemble_id, optimization_data
 - **Interopérabilité** : Support des formats standards (ONNX, TensorFlow, PyTorch)
 - **Extensibilité** : Architecture pluggable pour nouveaux types de modèles
 
-Ce gestionnaire de modèles constitue l'infrastructure centrale pour l'écosystème IA de MOHHOS, permettant une utilisation optimale et intelligente des ressources d'IA disponibles.
+Ce gestionnaire de modèles constitue l'infrastructure centrale pour l'écosystème IA de MOHHDY, permettant une utilisation optimale et intelligente des ressources d'IA disponibles.

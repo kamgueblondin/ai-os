@@ -1,6 +1,6 @@
 # US-021 : Assistant IA Intégré au Système
 
-> **AI-OS :** builtin shell `ai <texte>` synchrone et borné, pas un assistant proactif système. Voir AOS-010 dans [../ai_os_us.md](../ai_os_us.md).
+> **MOHHDY :** builtin shell `ai <texte>` synchrone et borné, pas un assistant proactif système. Voir AOS-010 dans [../mohhdy_us.md](../mohhdy_us.md).
 
 ## Informations Générales
 
@@ -14,15 +14,15 @@
 
 ## Description Utilisateur
 
-**En tant que** utilisateur MOHHOS  
+**En tant que** utilisateur MOHHDY  
 **Je veux** un assistant IA intelligent qui m'aide proactivement dans mes tâches quotidiennes  
 **Afin de** maximiser ma productivité et simplifier l'utilisation du système
 
 ## Contexte Technique Détaillé
 
-L'assistant IA intégré de MOHHOS n'est pas simplement un chatbot, mais un compagnon intelligent qui comprend le contexte utilisateur, anticipe les besoins, et agit de manière proactive. Il est intégré à tous les niveaux du système et peut exécuter des actions complexes, gérer des workflows, et apprendre des préférences utilisateur.
+L'assistant IA intégré de MOHHDY n'est pas simplement un chatbot, mais un compagnon intelligent qui comprend le contexte utilisateur, anticipe les besoins, et agit de manière proactive. Il est intégré à tous les niveaux du système et peut exécuter des actions complexes, gérer des workflows, et apprendre des préférences utilisateur.
 
-### Défis Spécifiques à MOHHOS
+### Défis Spécifiques à MOHHDY
 
 - **Intégration Système** : Accès natif à toutes les fonctions OS
 - **Conscience Contextuelle** : Compréhension du contexte utilisateur complet
@@ -365,4 +365,4 @@ int personality_adjust_communication_style(user_profile_t* profile, response_con
 - **Personnalisation** : Adaptation au style de communication
 - **Éthique** : Transparence sur les capacités et limitations
 
-Cet assistant IA intégré transforme MOHHOS en un compagnon intelligent qui comprend, apprend et aide proactivement l'utilisateur dans ses tâches quotidiennes.
+Cet assistant IA intégré transforme MOHHDY en un compagnon intelligent qui comprend, apprend et aide proactivement l'utilisateur dans ses tâches quotidiennes.

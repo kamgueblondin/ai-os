@@ -1,7 +1,7 @@
 # US-032 : SDK Développeur Multi-Plateforme
 
 ## Description
-En tant que développeur externe, je veux un SDK complet et bien documenté qui me permette de créer des applications natives pour MOHHOS sur différentes plateformes (desktop, mobile, web), afin de contribuer à l'écosystème et tirer parti des capacités uniques du système.
+En tant que développeur externe, je veux un SDK complet et bien documenté qui me permette de créer des applications natives pour MOHHDY sur différentes plateformes (desktop, mobile, web), afin de contribuer à l'écosystème et tirer parti des capacités uniques du système.
 
 ## Critères d'acceptation
 - [ ] Des SDKs natifs doivent être fournis pour les principales plateformes
@@ -25,7 +25,7 @@ En tant que développeur externe, je veux un SDK complet et bien documenté qui 
 ## Dépendances
 - US-021 (API Gateway Intelligent)
 - US-031 (Centre Distribution Applications)
-- Architecture de base du système MOHHOS
+- Architecture de base du système MOHHDY
 
 ## Notes techniques
 - Support des langages populaires (Python, JavaScript, Go, Rust, etc.)

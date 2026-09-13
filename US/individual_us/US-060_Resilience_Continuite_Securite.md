@@ -1,7 +1,7 @@
 # US-060 : Résilience et Continuité Sécurité
 
 ## Description
-En tant que responsable de la résilience, je veux établir un programme complet de résilience et continuité sécurité pour MOHHOS qui assure la capacité du système à maintenir ses fonctions essentielles face aux attaques, incidents et crises, avec des plans de continuité, des exercices de simulation et des mécanismes de recovery rapide.
+En tant que responsable de la résilience, je veux établir un programme complet de résilience et continuité sécurité pour MOHHDY qui assure la capacité du système à maintenir ses fonctions essentielles face aux attaques, incidents et crises, avec des plans de continuité, des exercices de simulation et des mécanismes de recovery rapide.
 
 ## Critères d'acceptation
 - [ ] Des plans de continuité d'activité (BCP) spécifiques à la sécurité doivent être élaborés

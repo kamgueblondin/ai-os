@@ -1,4 +1,4 @@
-# Correction Définitive du Clavier AI-OS - SUCCÈS
+# Correction Définitive du Clavier MOHHDY - SUCCÈS
 
 ## 🎯 Objectif
 Résoudre le problème de clavier non-responsif dans l'interface QEMU où le shell utilisateur restait figé.
@@ -31,7 +31,7 @@ if (g_reschedule_needed || (current_task && task_queue && timer_ticks > 2)) {
 ### Modifications dans `kernel/kernel.c`
 ```c
 // AJOUT: Force le premier changement de contexte
-print_string("\n=== AI-OS v6.0 - Force le premier changement de contexte ===\n");
+print_string("\n=== MOHHDY v6.0 - Force le premier changement de contexte ===\n");
 print_string("Declencher immediatement le planificateur...\n");
 
 // Forcer le premier changement de contexte vers le shell utilisateur
@@ -49,16 +49,16 @@ asm volatile("sti");
 - ✅ **Initialisation complète du système**
 - ✅ **Chargement réussi du shell ELF**
 - ✅ **Transition vers l'espace utilisateur Ring 3**
-- ✅ **Shell AI-OS démarré et fonctionnel**
+- ✅ **Shell MOHHDY démarré et fonctionnel**
 - ✅ **Interface utilisateur colorée affichée**
 - ✅ **Prompt interactif actif**
 
 ### Logs de Succès
 ```
-=== AI-OS v6.0 - Force le premier changement de contexte ===
+=== MOHHDY v6.0 - Force le premier changement de contexte ===
 Declencher immediatement le planificateur...
 ═══════════════════════════════════════════════════════════
-    🤖 AI-OS v6.0 - Intelligence Artificielle Intégrée    
+    🤖 MOHHDY v6.0 - Intelligence Artificielle Intégrée    
 ═══════════════════════════════════════════════════════════
 💻 Shell Avancé | 🧠 IA Intelligente | ⚡ Haute Performance
 
@@ -67,11 +67,11 @@ Declencher immediatement le planificateur...
 
 🚀 Initialisation du Shell IA... TERMINÉ !
 
-[OK] Shell AI-OS v6.0 prêt à l'utilisation
+[OK] Shell MOHHDY v6.0 prêt à l'utilisation
 [INFO] Mode IA activé - Intelligence artificielle intégrée
 [INFO] Tapez 'help' pour découvrir toutes les fonctionnalités
 
-┌─[AI-OS@v6.0] 🧠
+┌─[MOHHDY@v6.0] 🧠
 └─$ GETC_START #1 int_count=1
 ```
 
@@ -108,5 +108,5 @@ Declencher immediatement le planificateur...
 ---
 **Auteur** : MiniMax Agent  
 **Date** : $(date)  
-**Version** : AI-OS v6.0 - Correction Définitive  
+**Version** : MOHHDY v6.0 - Correction Définitive  
 **Statut** : ✅ **PROBLÈME RÉSOLU AVEC SUCCÈS**
