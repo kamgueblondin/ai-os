@@ -223,10 +223,12 @@ def wait_for_mount_add_worker(proc, alias, source, offset=0, timeout=15, termina
     raise RuntimeError("montage worker manquant : %s" % alias)
 
 
-def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
+def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15,
+                         list_needle="vfsserver list request",
+                         page_needle="vfsserver list page request"):
     """Parcourt les pages VFS de 4 noms jusqu'a trouver `name`."""
     start = len(log_text())
-    send_command_until(client, "vfs-list %s" % directory, "vfsserver list request", proc)
+    send_command_until(client, "vfs-list %s" % directory, list_needle, proc)
     wait_for("vfs-list ", proc, start, timeout=first_page_timeout)
     if name in normalized_log(log_text()[start:]):
         return
@@ -235,7 +237,7 @@ def wait_for_listed_name(client, proc, directory, name, first_page_timeout=15):
         page += 4
         before = len(log_text())
         send_command_until(client, "vfs-list-page %s %d" % (directory, page),
-                           "vfsserver list page request", proc)
+                           page_needle, proc)
         wait_for("vfs-list-page ", proc, before)
         chunk = normalized_log(log_text()[before:])
         if name in chunk:
@@ -581,7 +583,7 @@ def main():
             before_initrd_list = len(log_text())
             send_command_until(monitor, "vfs-list initrd/", "vfsserver list request", proc)
             wait_for("vfs-list partiel count 4", proc, before_initrd_list)
-            wait_for("hello.txt", proc, before_initrd_list)
+            wait_for_listed_name(monitor, proc, "initrd/", "hello.txt")
             before_page_zero = len(log_text())
             send_command_until(monitor, "vfs-list-page initrd/ 0", "vfsserver list page request", proc)
             wait_for("vfs-list-page partiel count 4 next 4", proc, before_page_zero)
@@ -711,7 +713,11 @@ def main():
             send_command_until(monitor, "vfs-list assets/", "vfsserver delegated alias list", proc)
             wait_for("vfsvirtual alias list assets/", proc, before_alias_list)
             wait_for("vfs-list partiel count 4", proc, before_alias_list)
-            wait_for("hello.txt", proc, before_alias_list)
+            wait_for_listed_name(
+                monitor, proc, "assets/", "hello.txt",
+                list_needle="vfsserver delegated alias list",
+                page_needle="vfsserver delegated alias list page",
+            )
             before_alias_page = len(log_text())
             send_command_until(monitor, "vfs-list-page assets/ 0",
                                "vfsserver delegated alias list page", proc)
@@ -879,7 +885,7 @@ def main():
             before_deferred_list = len(log_text())
             send_command_until(monitor, "vfs-list initrd/", "vfs-list partiel count", proc)
             wait_for("vfs-list partiel count 4", proc, before_deferred_list)
-            wait_for("hello.txt", proc, before_deferred_list)
+            wait_for_listed_name(monitor, proc, "initrd/", "hello.txt")
             before_receive = len(log_text())
             send_command_until(monitor, "ipc-recv", "ipc-recv from 1", proc, attempts=6)
             wait_for("type 0", proc, before_receive)
