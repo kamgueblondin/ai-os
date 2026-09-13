@@ -26,7 +26,9 @@ MON_SOCK = os.environ.get("QEMU_MON_SOCK", os.path.join(LOG_DIR, "qemu-monitor.s
 BOOT_TIMEOUT = float(os.environ.get("BOOT_TIMEOUT", "18"))
 CMD_TIMEOUT = float(os.environ.get("CMD_TIMEOUT", "30"))
 QEMU_MEMORY = os.environ.get("QEMU_MEMORY", "1024M")
-KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.24"))
+# Echo-confirmed keys do not need the old 0.24s blind gap; keep a short
+# pause so HMP sendkey does not pile up under TCG.
+KEY_DELAY = float(os.environ.get("KEY_DELAY", "0.08"))
 KEY_RETRIES = int(os.environ.get("KEY_RETRIES", "3"))
 # Wait after the first echo so a late duplicate scancode can be backspaced
 # before `ret`. Matches ci_qemu_core_smoke.KEY_DUPLICATE_SETTLE_DELAY.
