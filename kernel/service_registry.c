@@ -313,14 +313,17 @@ int service_registry_backend_grant_scoped_source_prefix(const char* name, int32_
     if (service_registry_lookup(name) != owner_pid) return OS_SERVICE_NOT_OWNER;
     for (i = 0U; i < SERVICE_REGISTRY_BACKEND_CAPACITY; i++) {
         if (service_backend_caps[i].owner_pid == owner_pid && service_backend_caps[i].grantee_pid == grantee_pid && name_equal(service_backend_caps[i].name, name)) {
+            /* Les droits et sources peuvent se cumuler, mais une capability
+             * ne doit jamais changer de préfixe : sinon un second grant sur
+             * un autre répertoire élargirait silencieusement la capability. */
+            if (!service_registry_backend_prefix_equal(service_backend_caps[i].prefix, prefix))
+                return OS_SERVICE_BAD_NAME;
             uint32_t combined_rights = service_backend_caps[i].rights | rights;
             uint32_t combined_sources = service_backend_caps[i].sources | sources;
             if (service_backend_caps[i].rights != combined_rights ||
-                service_backend_caps[i].sources != combined_sources ||
-                !service_registry_backend_prefix_equal(service_backend_caps[i].prefix, prefix)) {
+                service_backend_caps[i].sources != combined_sources) {
                 service_backend_caps[i].rights = combined_rights;
                 service_backend_caps[i].sources = combined_sources;
-                service_registry_backend_copy_prefix(service_backend_caps[i].prefix, prefix);
                 service_registry_backend_generation_bump(name);
             }
             return 0;
@@ -360,6 +363,8 @@ int service_registry_backend_release(const char* name, int32_t grantee_pid) {
             service_backend_caps[i].owner_pid = 0;
             service_backend_caps[i].grantee_pid = 0;
             service_backend_caps[i].rights = 0U;
+            service_backend_caps[i].sources = 0U;
+            service_backend_caps[i].prefix[0] = '\0';
             service_backend_caps[i].name[0] = '\0';
             service_registry_backend_generation_bump(name);
             return 0;
