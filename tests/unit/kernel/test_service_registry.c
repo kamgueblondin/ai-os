@@ -263,11 +263,11 @@ static void test_backend_capability_prefix_scope_blocks_siblings_and_pathless_ca
         "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps//bin/"));
     TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
         "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/../other/"));
-    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped_source_prefix(
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
         "vfs", 3, 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/"));
-    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
         "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/demo.txt"));
-    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
         "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/demo.txt"));
 }
 
@@ -300,6 +300,28 @@ static void test_backend_capability_rights_are_owner_scoped_and_revocable(void) 
     TEST_ASSERT_EQUAL(OS_SERVICE_NOT_OWNER, service_registry_backend_rights("vfs", 9, 7, &rights));
     TEST_ASSERT_EQUAL(0, service_registry_backend_revoke("vfs", 3, 7));
     TEST_ASSERT_EQUAL(OS_SERVICE_NOT_FOUND, service_registry_backend_rights("vfs", 3, 7, &rights));
+}
+
+static void test_backend_capability_prefix_cannot_be_widened_by_cumulative_grant(void) {
+    service_registry_init();
+    TEST_ASSERT_EQUAL(0, service_registry_register("vfs", 3));
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/"));
+    TEST_ASSERT_EQUAL(OS_SERVICE_BAD_NAME, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/file.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/file.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_READ, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/file.txt"));
+    TEST_ASSERT_FALSE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "other/file.txt"));
+    /* Le cumul reste permis lorsque le périmètre est strictement identique. */
+    TEST_ASSERT_EQUAL(0, service_registry_backend_grant_scoped_source_prefix(
+        "vfs", 3, 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/"));
+    TEST_ASSERT_TRUE(service_registry_backend_allowed_for_source_path(
+        "vfs", 7, SERVICE_BACKEND_RIGHT_MUTATE, OS_SERVICE_BACKEND_SOURCE_FAT16, "apps/file.txt"));
 }
 
 static void test_backend_capability_list_is_owner_scoped_and_tracks_revocation(void) {
@@ -383,6 +405,7 @@ int main(void) {
     RUN_TEST(test_backend_capability_prefix_scope_blocks_siblings_and_pathless_calls);
     RUN_TEST(test_backend_capability_cumulative_grants);
     RUN_TEST(test_backend_capability_rights_are_owner_scoped_and_revocable);
+    RUN_TEST(test_backend_capability_prefix_cannot_be_widened_by_cumulative_grant);
     RUN_TEST(test_backend_capability_list_is_owner_scoped_and_tracks_revocation);
     RUN_TEST(test_backend_capability_can_be_released_by_its_grantee);
     RUN_TEST(test_backend_observe_detects_stale_generations_without_disclosure);
